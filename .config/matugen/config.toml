@@ -45,4 +45,9 @@ post_hook     = 'sh -c "touch ~/.config/nvim/lua/matugen_colors.lua"'
 input_path    = '~/.config/matugen/templates/colors.rasi'
 output_path   = '~/.config/matugen/generated/colors-glass.rasi'
 
+[templates.swaync]
+input_path    = '~/.config/matugen/templates/colors-swaync.css'
+output_path   = '~/.config/matugen/generated/colors-swaync.css'
+post_hook     = 'swaync-client -R && swaync-client -rs'
+
 

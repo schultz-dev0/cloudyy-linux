@@ -1,0 +1,55 @@
+{
+  "$schema": "/etc/xdg/swaync/configSchema.json",
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-margin-top": 10,
+  "control-center-margin-right": 10,
+  "control-center-width": 380,
+  "notification-icon-size": 64,
+  "notification-body-image-height": 100,
+  "notification-body-image-width": 200,
+  "timeout": 10,
+  "widgets": [
+    "title",
+    "buttons-grid",
+    "dnd",
+    "notifications"
+  ],
+  "widget-config": {
+    "title": {
+      "text": "Control Center",
+      "clear-all-button": true,
+      "button-text": "󰎟"
+    },
+    "buttons-grid": {
+      "actions": [
+        {
+          "label": "󰖩",
+          "type": "toggle",
+          "command": "nmcli radio wifi $([[ $SWAYNC_TOGGLE_STATE == true ]] && echo on || echo off)",
+          "update-command": "sh -c '[[ $(nmcli radio wifi) == \"enabled\" ]] && echo true || echo false'"
+        },
+        {
+          "label": "󰂯",
+          "type": "toggle",
+          "command": "bluetoothctl power $([[ $SWAYNC_TOGGLE_STATE == true ]] && echo on || echo off)",
+          "update-command": "sh -c '[[ $(bluetoothctl show | grep \"Powered: yes\") ]] && echo true || echo false'"
+        },
+        {
+          "label": "󰕾",
+          "command": "uwsm-app -- pavucontrol"
+        },
+        {
+          "label": "󰄬",
+          "command": "hyprpicker -a"
+        },
+        {
+          "label": "󰃠",
+          "type": "toggle",
+          "command": "uwsm-app $HOME/cloudyy_scripts/night_light.sh"
+        }
+      ]
+    }
+  }
+}
