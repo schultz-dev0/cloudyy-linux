@@ -1,0 +1,108 @@
+
+ /* MATUGEN GENERATED COLORS - LIQUID GLASS EFFECT */
+  
+
+* {
+    /* =====================================================================
+       PRIMARY COLORS - WITH TRANSPARENCY
+       ===================================================================== */
+    
+    /* Solid reference colors (for borders, accents) */
+    primary: #ffb4ab;
+    primary-fixed: #ffdad6;
+    primary-fixed-dim: #ffb4ab;
+    on-primary: #561e19;
+    on-primary-fixed: #3b0907;
+    on-primary-fixed-variant: #73332d;
+    primary-container: #73332d;
+    on-primary-container: #ffdad6;
+    
+    /* =====================================================================
+       SECONDARY COLORS
+       ===================================================================== */
+    
+    secondary: #e7bdb8;
+    secondary-fixed: #ffdad6;
+    secondary-fixed-dim: #e7bdb8;
+    on-secondary: #442926;
+    on-secondary-fixed: #2c1512;
+    on-secondary-fixed-variant: #5d3f3c;
+    secondary-container: #5d3f3c;
+    on-secondary-container: #ffdad6;
+    
+    /* =====================================================================
+       TERTIARY COLORS
+       ===================================================================== */
+    
+    tertiary: #e0c38c;
+    tertiary-fixed: #fddfa6;
+    tertiary-fixed-dim: #e0c38c;
+    on-tertiary: #3f2e04;
+    on-tertiary-fixed: #261900;
+    on-tertiary-fixed-variant: #574419;
+    tertiary-container: #574419;
+    on-tertiary-container: #fddfa6;
+    
+    /* =====================================================================
+       ERROR COLORS
+       ===================================================================== */
+    
+    error: #ffb4ab;
+    on-error: #690005;
+    error-container: #93000a;
+    on-error-container: #ffdad6;
+    
+    /* =====================================================================
+       SURFACE COLORS - SOLID (for reference)
+       ===================================================================== */
+    
+    surface: #1a1110;
+    on-surface: #f1dedc;
+    on-surface-variant: #d8c2bf;
+    outline: #a08c8a;
+    outline-variant: #534341;
+    shadow: #000000;
+    scrim: #000000;
+    inverse-surface: #f1dedc;
+    inverse-on-surface: #392e2d;
+    inverse-primary: #904a43;
+    surface-dim: #1a1110;
+    surface-bright: #423735;
+    surface-container-lowest: #140c0b;
+    surface-container-low: #231918;
+    surface-container: #271d1c;
+    surface-container-high: #322826;
+    surface-container-highest: #3d3231;
+    
+    /* =====================================================================
+       LIQUID GLASS VARIANTS - WITH ALPHA TRANSPARENCY
+       75% = CC (204), 80% = CC, 85% = D9, 90% = E6, 95% = F2
+       ===================================================================== */
+    
+    /* Main window background - Very transparent for glass effect */
+    glass-surface: #1a1110B3;  /* 70% opacity */
+    
+    /* Input/search bar - Slightly more opaque for readability */
+    glass-input: #322826CC;  /* 80% opacity */
+    
+    /* Selected items - Medium opacity */
+    glass-selected: #73332dD9;  /* 85% opacity */
+    
+    /* Hover state - Light opacity */
+    glass-hover: #271d1c99;  /* 60% opacity */
+    
+    /* Message boxes */
+    glass-message: #271d1cCC;  /* 80% opacity */
+    
+    /* Alternative for even more transparency */
+    glass-surface-light: #1a111080;  /* 50% opacity - ultra transparent */
+    glass-surface-medium: #1a111099;  /* 60% opacity */
+    glass-surface-heavy: #1a1110E6;  /* 90% opacity - barely transparent */
+    
+    /* Container variations with transparency */
+    glass-container-low: #231918B3;  /* 70% */
+    glass-container: #271d1cCC;  /* 80% */
+    glass-container-high: #322826D9;  /* 85% */
+    glass-container-highest: #3d3231E6;  /* 90% */
+}
+

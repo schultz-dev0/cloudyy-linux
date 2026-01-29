@@ -1,4 +1,268 @@
+/*
+ * ROFI THEME - LIQUID GLASS EFFECT
+ * Uses matugen generated transparent colors for a frosted glass look
+ */
 
-//@theme "/usr/share/rofi/themes/solarized_alternate.rasi"
+configuration {
+    /* --- General Settings --- */
+    show-icons:                 true;
+    icon-theme:                 "Papirus-Dark";
+    font:                       "Monocraft 11";
 
-@theme "/home/schultz/.local/share/rofi/themes/rounded-nord-dark.rasi"
+    /* --- Mode Names --- */
+    display-drun:               " Apps";
+    display-run:                " Run";
+    display-clipboard:          "󰅌 Clip";
+    
+    /* --- Keybindings --- */
+    kb-cancel:                  "Escape";
+    kb-remove-char-back:        "BackSpace,Shift+BackSpace";
+    kb-accept-entry:            "Return,KP_Enter";
+    
+    /* Custom Actions */
+    kb-custom-1:                "Alt+u";
+    kb-custom-2:                "Alt+y";
+    
+    /* --- Behavior --- */
+    scroll-method:              0;
+    click-to-exit:              true;
+}
+
+/* --- Import Glass Colors --- */
+@import "../../.config/matugen/generated/colors-glass.rasi"
+
+* {
+    /* =====================================================================
+       1. COLOR MAPPINGS - LIQUID GLASS STYLE
+       ===================================================================== */
+    
+    /* Glass backgrounds with transparency */
+    s-win-bg:       @glass-surface;              /* 70% transparent main window */
+    s-input-bg:     @glass-input;                /* 80% transparent input bar */
+    s-urg-bg:       @error-container;            /* Keep error solid for visibility */
+    s-act-bg:       @glass-selected;             /* 85% transparent selection */
+    s-msg-bg:       @glass-message;              /* 80% transparent messages */
+    s-hover-bg:     @glass-hover;                /* 60% transparent hover */
+    
+    /* Text Colors - Keep solid for readability */
+    s-text-def:     @on-surface;
+    s-text-dim:     @on-surface-variant;
+    s-text-urg:     @on-error-container;
+    s-text-act:     @on-primary;
+    
+    /* Borders - Keep solid for definition */
+    s-border:       @outline;
+    s-border-accent: @primary;
+
+    /* =====================================================================
+       2. GLOBAL PROPERTIES
+       ===================================================================== */
+    background-color:           @s-win-bg;
+    text-color:                 @s-text-def;
+    border-color:               @s-border;
+
+    /* =====================================================================
+       3. ELEMENT STATES
+       ===================================================================== */
+    
+    /* Normal */
+    normal-background:           transparent; 
+    normal-foreground:           @s-text-def;
+    alternate-normal-background: @s-hover-bg;        /* Subtle alternating rows */
+    alternate-normal-foreground: @s-text-def;
+
+    /* Selected (Active Item) */
+    selected-normal-background:  @s-act-bg;          /* Glass selection */
+    selected-normal-foreground:  @s-text-act;
+    active-background:           @s-act-bg;
+    active-foreground:           @s-text-act;
+
+    /* Urgent */
+    urgent-background:           @s-urg-bg;
+    urgent-foreground:           @s-text-urg;
+    selected-urgent-background:  @s-urg-bg;
+    selected-urgent-foreground:  @s-text-urg;
+}
+
+/* =====================================================================
+   WINDOW STRUCTURE - LIQUID GLASS
+   ===================================================================== */
+
+window {
+    /* CRITICAL: Enable real transparency for glass effect */
+    transparency:       "real";
+    
+    location:           center;
+    anchor:             center;
+    width:              40%;
+    
+    /* Transparent background - compositor will blur behind it */
+    background-color:   @s-win-bg;
+    
+    border:             2px;
+    border-color:       @s-border-accent;  /* Use primary color for glass edge */
+    border-radius:      16px;              /* More rounded for modern glass look */
+    padding:            20px;
+}
+
+mainbox {
+    children:           [ inputbar, message, listview ];
+    spacing:            15px;
+    background-color:   transparent;
+    padding:            0;
+    border:             0;
+}
+
+/* =====================================================================
+   INPUT BAR - FROSTED GLASS PILL
+   ===================================================================== */
+
+inputbar {
+    children:           [ prompt, entry ];
+    spacing:            10px;
+    padding:            14px 16px;
+    border-radius:      12px;                /* Pill shape */
+    background-color:   @s-input-bg;         /* Frosted glass effect */
+    text-color:         @s-text-def;
+    border:             1px;
+    border-color:       @outline-variant;
+}
+
+prompt {
+    enabled:            true;
+    background-color:   transparent;
+    text-color:         @primary;            /* Accent color for prompt */
+    font:               "Monocraft Bold 12";
+}
+
+entry {
+    placeholder:        "Search...";
+    placeholder-color:  @s-text-dim;
+    background-color:   transparent;
+    text-color:         @s-text-def;
+    cursor:             text;
+}
+
+/* =====================================================================
+   MESSAGE BAR
+   ===================================================================== */
+
+message {
+    background-color:   transparent;
+    border:             0;
+    padding:            0;
+}
+
+textbox {
+    background-color:   @s-msg-bg;           /* Glass message box */
+    text-color:         @s-text-dim;
+    padding:            10px 14px;
+    border-radius:      8px;
+    border:             1px;
+    border-color:       @outline-variant;
+    markup:             true;
+    font:               "Monocraft 9";
+    horizontal-align:   0.5;
+}
+
+/* =====================================================================
+   LIST VIEW - GLASS ITEMS
+   ===================================================================== */
+
+listview {
+    columns:            1;
+    lines:              8;
+    cycle:              true;
+    scrollbar:          false;
+    spacing:            6px;
+    fixed-height:       false;
+    background-color:   transparent;
+    padding:            0;
+    border:             0;
+}
+
+element {
+    padding:            10px 14px;
+    border-radius:      10px;
+    cursor:             pointer;
+    spacing:            8px;
+    border:             1px;
+    border-color:       transparent;
+    background-color:   transparent;
+}
+
+/* Hover effect - subtle glass highlight */
+element.normal.normal {
+    background-color:   @normal-background;
+    text-color:         @normal-foreground;
+    border-color:       transparent;
+}
+
+element.alternate.normal {
+    background-color:   @alternate-normal-background;  /* Very subtle */
+    text-color:         @alternate-normal-foreground;
+    border-color:       transparent;
+}
+
+/* Selected - frosted glass with accent border */
+element.selected.normal {
+    background-color:   @selected-normal-background;
+    text-color:         @selected-normal-foreground;
+    border-color:       @s-border-accent;              /* Primary color glow */
+}
+
+element.selected.active {
+    background-color:   @selected-normal-background;
+    text-color:         @selected-normal-foreground;
+    border-color:       @s-border-accent;
+}
+
+element-icon {
+    size:               1.3em;
+    vertical-align:     0.5;
+    background-color:   transparent;
+    text-color:         inherit;
+    cursor:             inherit;
+}
+
+element-text {
+    vertical-align:     0.5;
+    horizontal-align:   0;
+    background-color:   transparent;
+    text-color:         inherit;
+    highlight:          bold;
+    cursor:             inherit;
+}
+
+/* =====================================================================
+   STATE STYLING - COMPLETE MAPPINGS
+   ===================================================================== */
+
+element.normal.active {
+    background-color:   @active-background;
+    text-color:         @active-foreground;
+    border-color:       @s-border-accent;
+}
+
+element.alternate.active {
+    background-color:   @active-background;
+    text-color:         @active-foreground;
+    border-color:       @s-border-accent;
+}
+
+element.selected.urgent {
+    background-color:   @selected-urgent-background;
+    text-color:         @selected-urgent-foreground;
+    border-color:       @error;
+}
+
+element.normal.urgent {
+    background-color:   @urgent-background;
+    text-color:         @urgent-foreground;
+}
+
+element.alternate.urgent {
+    background-color:   @urgent-background;
+    text-color:         @urgent-foreground;
+}
+

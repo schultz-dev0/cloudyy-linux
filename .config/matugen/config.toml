@@ -1,7 +1,9 @@
 # wallpaper
 
+[config]
+
 [config.wallpaper]
-command       = "swww"
+command       = "/usr/bin/swww"
 arguments     = ["img", "--transition-type", "center", "--transition-step", "15", "--transition-fps", "60"]
 set           = true
 
@@ -17,27 +19,30 @@ post_hook     = 'hyprctl reload'
 [templates.waybar]
 input_path    = '~/.config/matugen/templates/colors.css' 
 output_path   = '~/.config/matugen/generated/waybar-colors.css'
-post_hook     = '~/.local/share/cloudyy/bin/cloudyy-waybar-refresh.sh'
+post_hook     = "~/cloudyy_scripts/cloudyy-waybar-refresh.sh"
 
 # --- 
 
-#[templates.gtk3]
-#input_path   = '~/.config/matugen/templates/gtk-colors.css'
-#output_path  = '~/.config/gtk-3.0/.0/colors.css'
+[templates.gtk3]
+input_path    =  '~/.config/matugen/templates/gtk-colors.css'
+output_path   = '~/.config/gtk-3.0/gtk.css'
 
-#[templates.gtk4]                                                                                                
-#input_path   = '~/.config/matugen/templates/gtk-colors.css'                                                       
-#output_path  = '~/.config/gtk-4.0/colors.css'
+[templates.gtk4]                                                                                                
+input_path    = '~/.config/matugen/templates/gtk-colors.css'                                                       
+output_path   = '~/.config/gtk-4.0/gtk.css'
 
 [templates.kitty]
 input_path    = '~/.config/matugen/templates/kitty-colors.conf'
 output_path   = '~/.config/matugen/generated/kitty-colors.conf'
-post_hook     = '''
-ln -nfs $HOME/.config/matugen/generated/kitty-colors.conf $HOME/.config/kitty/kitty-colors.conf;
-pkill -SIGUSR1 kitty || true
-'''
+post_hook     = '~/dots/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
-input_path  = '~/.config/matugen/templates/colors.lua'
-output_path = '~/.config/matugen/generated/matugen_colors.lua'
-post_hook   = 'touch ~/.config/nvim/lua/matugen_colors.lua'
+input_path    = '~/.config/matugen/templates/colors.lua'
+output_path   = '~/.config/matugen/generated/matugen_colors.lua'
+post_hook     = 'sh -c "touch ~/.config/nvim/lua/matugen_colors.lua"'
+
+[templates.rofi]
+input_path    = '~/.config/matugen/templates/colors.rasi'
+output_path   = '~/.config/matugen/generated/colors-glass.rasi'
+
+

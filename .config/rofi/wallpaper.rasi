@@ -1,0 +1,134 @@
+/* 🖼️ ROFI WALLPAPER GRID THEME - APPLE LIQUID GLASS STYLE */
+
+@import "~/.config/rofi/config.rasi"
+
+/* ---- Configuration ---- */
+configuration {
+    modi: "drun";
+    show-icons: true;
+    drun-display-format: "{name}";
+}
+
+/* ---- Window ---- */
+window {
+    /* Enable transparency (Glass Effect) */
+    transparency: "real";
+    
+    width: 60%;
+    height: 70%;
+    
+    /* Heavy rounding for the main container */
+    border-radius: 24px;
+    
+    /* Use the Surface color but let compositor handle opacity if possible */
+    background-color: @surface; 
+    
+    /* Subtle border matching the outline color */
+    border: 2px;
+    border-color: @outline;
+    
+    /* Remove default padding to let mainbox handle spacing */
+    padding: 0px;
+}
+
+/* ---- Mainbox ---- */
+mainbox {
+    children: ["inputbar", "listview"];
+    spacing: 20px;
+    padding: 30px;
+    background-color: transparent;
+}
+
+/* ---- Inputbar (Floating Pill Style) ---- */
+inputbar {
+    enabled: true;
+    padding: 14px 20px;
+    margin: 0px 0px 10px 0px;
+    
+    /* Pill shape */
+    border-radius: 50px;
+    
+    /* Lighter/Distinct background for the search area */
+    background-color: @surface-container-high;
+    border-color: @outline;
+    border: 0px;
+    
+    children: ["prompt", "entry"];
+}
+
+prompt {
+    enabled: true;
+    padding: 0px 15px 0px 0px;
+    background-color: transparent;
+    text-color: @primary; /* Highlight the prompt icon/text */
+    font: "JetBrainsMono Nerd Font Bold 11"; /* Optional bolding */
+}
+
+entry {
+    placeholder: "Search Wallpapers...";
+    placeholder-color: @on-surface-variant;
+    background-color: transparent;
+    text-color: @on-surface;
+    cursor: text;
+    vertical-align: 0.5;
+}
+
+/* ---- Listview ---- */
+listview {
+    /* Grid Layout: 4 columns x 2 rows */
+    columns: 4;
+    lines: 2;
+    
+    fixed-height: false;
+    scrollbar: false; /* Hidden scrollbar for cleaner look */
+    spacing: 20px;
+    padding: 0px;
+    cycle: false;
+    dynamic: true;
+    layout: vertical;
+    
+    background-color: transparent;
+}
+
+/* ---- Elements ---- */
+element {
+    orientation: vertical;
+    padding: 15px;
+    spacing: 10px;
+    
+    /* Smooth rounding for items */
+    border-radius: 16px;
+    cursor: pointer;
+    background-color: transparent;
+}
+
+element normal.normal {
+    background-color: transparent;
+    text-color: @on-surface;
+}
+
+element selected.normal {
+    /* Soft highlight for selection */
+    background-color: @surface-container-highest;
+    text-color: @primary;
+    
+    /* Optional: Apple-style focus ring */
+    border: 2px;
+    border-color: @primary;
+}
+
+element-icon {
+    /* Large Thumbnail Size */
+    size: 7em;
+    horizontal-align: 0.5;
+    background-color: transparent;
+    cursor: inherit;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+    background-color: transparent;
+    text-color: inherit;
+    cursor: inherit;
+}
