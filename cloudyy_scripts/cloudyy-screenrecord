@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Start and stop a screenrecording, which will be saved to ~/Videos by default.
-# Alternative location can be set via OMARCHY_SCREENRECORD_DIR or XDG_VIDEOS_DIR ENVs.
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"
@@ -19,11 +18,11 @@ STOP_RECORDING="false"
 
 for arg in "$@"; do
   case "$arg" in
-    --with-desktop-audio) DESKTOP_AUDIO="true" ;;
-    --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
-    --with-webcam) WEBCAM="true" ;;
-    --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
-    --stop-recording) STOP_RECORDING="true"
+  --with-desktop-audio) DESKTOP_AUDIO="true" ;;
+  --with-microphone-audio) MICROPHONE_AUDIO="true" ;;
+  --with-webcam) WEBCAM="true" ;;
+  --webcam-device=*) WEBCAM_DEVICE="${arg#*=}" ;;
+  --stop-recording) STOP_RECORDING="true" ;;
   esac
 done
 
@@ -91,7 +90,7 @@ start_screenrecording() {
 }
 
 stop_screenrecording() {
-  pkill -SIGINT -f "^gpu-screen-recorder"  # SIGINT required to save video properly
+  pkill -SIGINT -f "^gpu-screen-recorder" # SIGINT required to save video properly
 
   # Wait a maximum of 5 seconds to finish before hard killing
   local count=0

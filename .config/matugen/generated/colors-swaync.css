@@ -1,0 +1,94 @@
+/*
+ * MATUGEN GENERATED COLORS - SWAYNC LIQUID GLASS
+ * Template for transparent notification center styling
+
+/* =====================================================================
+   SOLID COLOR REFERENCES (for text, icons, borders)
+   ===================================================================== */
+@define-color primary #ffb4ab;
+@define-color primary-container #73332d;
+@define-color on-primary #561e19;
+@define-color on-primary-container #ffdad6;
+
+@define-color secondary #e7bdb8;
+@define-color secondary-container #5d3f3c;
+@define-color on-secondary #442926;
+@define-color on-secondary-container #ffdad6;
+
+@define-color error #ffb4ab;
+@define-color on-error #690005;
+@define-color error-container #93000a;
+@define-color on-error-container #ffdad6;
+
+@define-color surface #1a1110;
+@define-color surface-dim #1a1110;
+@define-color surface-bright #423735;
+@define-color surface-container #271d1c;
+@define-color surface-container-low #231918;
+@define-color surface-container-high #322826;
+@define-color surface-container-highest #3d3231;
+
+@define-color on-surface #f1dedc;
+@define-color on-surface-variant #d8c2bf;
+@define-color outline #a08c8a;
+@define-color outline-variant #534341;
+
+/* =====================================================================
+   LIQUID GLASS TRANSPARENT VARIANTS
+   Opacity levels: 50%=80, 60%=99, 70%=B3, 75%=BF, 80%=CC, 85%=D9, 90%=E6
+   ===================================================================== */
+
+/* Main control center background - Ultra transparent for glass effect */
+@define-color cc-bg #1a1110B3;  /* 70% */
+
+/* Widget backgrounds - Slightly more opaque */
+@define-color widget-bg #271d1cCC;  /* 80% */
+
+/* Notification cards - Medium opacity for readability */
+@define-color noti-bg #322826D9;  /* 85% */
+
+/* Hover states - Light glass effect */
+@define-color hover-bg #271d1c99;  /* 60% */
+
+/* Button backgrounds - More opaque for tactile feel */
+@define-color button-bg #322826F2;  /* 90% */
+
+/* Active/Selected state - Primary with transparency */
+@define-color active-bg #73332dD9;  /* 85% */
+
+/* Input/text box background */
+@define-color input-bg #231918CC;  /* 80% */
+
+/* =====================================================================
+   ADDITIONAL GLASS VARIANTS (for fine-tuning)
+   ===================================================================== */
+
+/* Ultra light glass (for subtle overlays) */
+@define-color glass-ultra-light #271d1c66;  /* 40% */
+
+/* Medium glass (balanced visibility) */
+@define-color glass-medium #271d1cB3;  /* 70% */
+
+/* Heavy glass (almost opaque, subtle transparency) */
+@define-color glass-heavy #271d1cF2;  /* 95% */
+
+/* Colored glass variants for accents */
+@define-color primary-glass #ffb4ab99;  /* 60% primary */
+@define-color error-glass #ffb4ab99;  /* 60% error */
+
+/* =====================================================================
+   TEXT COLORS (solid for readability on glass)
+   ===================================================================== */
+
+@define-color text-primary @on-surface;
+@define-color text-secondary @on-surface-variant;
+@define-color text-on-primary @on-primary;
+@define-color text-on-error @on-error;
+
+/* =====================================================================
+   BORDER COLORS
+   ===================================================================== */
+
+@define-color border-default @outline-variant;
+@define-color border-focus @primary;
+@define-color border-subtle #53434180;  /* 50% subtle border */

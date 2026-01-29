@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 
 # =============================================================================
-# HYPRLAND ROFI MENU (FIXED)
+# HYPRLAND ROFI MENU (UNIVERSAL + BACKEND INTEGRATION)
 # =============================================================================
 
 # --- CONFIGURATION ---
+# Backend Controller
+THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
+
+# Directories
 WALL_DIR="${HOME}/Wallpapers"
-CACHE_DIR="${HOME}/.cache/matugen_thumbs"
-STATE_FILE="${HOME}/.cache/rofi_wallpaper_current"
+CACHE_DIR="${HOME}/.cache/rofi_thumbs"
 ROFI_THEME="${HOME}/.config/rofi/wallpaper.rasi"
+
+# Settings
 THUMB_SIZE=250
 MAX_PARALLEL_JOBS=$(nproc)
 TEMP_ROFI_INPUT="/tmp/rofi_wallpaper_input_$$"
@@ -17,149 +22,104 @@ LOG_FILE="/tmp/rofi_wallpaper_debug.log"
 # Cleanup temp file on exit
 trap 'rm -f "$TEMP_ROFI_INPUT"' EXIT
 
+# --- CHECK BACKEND ---
+if [[ ! -x "$THEME_CTL" ]]; then
+  notify-send "Error" "theme_controller.sh not found or not executable!"
+  exit 1
+fi
+
 # --- LOGGING HELPER ---
-log() {
-  echo "[$(date '+%H:%M:%S')] $1" >>"$LOG_FILE"
-}
+log() { echo "[$(date '+%H:%M:%S')] $1" >>"$LOG_FILE"; }
 
 # --- INITIALIZATION ---
-init_dirs() {
-  mkdir -p "$CACHE_DIR" "$WALL_DIR"
-}
+init_dirs() { mkdir -p "$CACHE_DIR" "$WALL_DIR"; }
 
 # --- FIND WALLPAPERS ---
 find_wallpapers() {
+
   shopt -s nullglob nocaseglob
+
   local files=()
 
   files+=("$WALL_DIR"/*.jpg)
+
   files+=("$WALL_DIR"/*.jpeg)
+
   files+=("$WALL_DIR"/*.png)
+
   files+=("$WALL_DIR"/*.webp)
+
   files+=("$WALL_DIR"/*.gif)
 
   files+=("$WALL_DIR"/*/*.jpg)
+
   files+=("$WALL_DIR"/*/*.jpeg)
+
   files+=("$WALL_DIR"/*/*.png)
+
   files+=("$WALL_DIR"/*/*.webp)
+
   files+=("$WALL_DIR"/*/*.gif)
 
   shopt -u nullglob nocaseglob
 
   for file in "${files[@]}"; do
+
     [[ -f "$file" ]] && echo "$file"
+
   done | sort -u
+
 }
 
-count_wallpapers() {
-  find_wallpapers | wc -l
-}
-
-get_random_wallpaper() {
-  find_wallpapers | shuf -n 1
-}
-
-# --- DEPENDENCY CHECKS ---
-check_dependencies() {
-  local missing=()
-  local deps=(rofi swww matugen hyprctl notify-send)
-
-  for cmd in "${deps[@]}"; do
-    if ! command -v "$cmd" &>/dev/null; then
-      missing+=("$cmd")
-    fi
-  done
-
-  if ! command -v magick &>/dev/null && ! command -v convert &>/dev/null; then
-    missing+=("imagemagick")
-  fi
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    notify-send "Missing Dependencies" "Required: ${missing[*]}"
-    exit 1
-  fi
-}
+count_wallpapers() { find_wallpapers | wc -l; }
 
 # --- THUMBNAIL GENERATION ---
 gen_thumb() {
   local img="$1"
   local filename=$(basename "$img")
   local thumb="$CACHE_DIR/${filename}.png"
+  [[ -f "$thumb" && "$thumb" -nt "$img" ]] && return 0
 
-  if [[ -f "$thumb" && "$thumb" -nt "$img" ]]; then
-    return 0
-  fi
-
+  # Try magick first, fallback to convert
   if command -v magick &>/dev/null; then
-    magick "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" \
-      -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
-      -quality 85 "$thumb" 2>/dev/null || return 1
+    magick "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
   else
-    convert "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" \
-      -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
-      -quality 85 "$thumb" 2>/dev/null || return 1
+    convert "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
   fi
 }
-
 export -f gen_thumb
 export CACHE_DIR THUMB_SIZE
 
 generate_all_thumbs() {
-  local image_count=$(count_wallpapers)
-
-  if [[ $image_count -eq 0 ]]; then
-    notify-send "No Wallpapers Found" "Add images to $WALL_DIR"
+  local count=$(count_wallpapers)
+  [[ $count -eq 0 ]] && {
+    notify-send "No Wallpapers" "Check $WALL_DIR"
     return 1
-  fi
+  }
+  [[ $count -gt 50 ]] && notify-send "Generating Thumbnails" "Processing $count images..."
 
-  if [[ $image_count -gt 50 ]]; then
-    notify-send "Generating Thumbnails" "Processing $image_count wallpapers..."
-  fi
-
-  # Added -d '\n' to handle filenames with spaces correctly
   find_wallpapers | xargs -d '\n' -P "$MAX_PARALLEL_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
 }
 
-# --- THEME APPLICATION ---
+# --- THEME APPLICATION (Delegates to Backend) ---
 apply_theme() {
   local img="$1"
+  log "Delegating to backend: $img"
 
-  log "Applying theme for: $img"
+  # DIRECT EXECUTION (No uwsm-app needed here)
+  "$THEME_CTL" set-image "$img"
 
-  if [[ ! -f "$img" ]]; then
-    log "Error: File does not exist: $img"
-    notify-send "Error" "Wallpaper file not found"
-    return 1
-  fi
-
-  echo "$img" >"$STATE_FILE"
-
-  # Run these sequentially first to debug, then background if slow
-  matugen image "$img"
-  swww img "$img" --transition-type grow --transition-pos "0.5,0.5" --transition-fps 60 &
-
-  hyprctl reload &
   notify-send "Theme Synced" "Applied $(basename "$img")"
 }
 
-get_current_wallpaper() {
-  [[ -f "$STATE_FILE" ]] && cat "$STATE_FILE"
+apply_random() {
+  "$THEME_CTL" random
 }
 
-# --- CYCLE WALLPAPERS ---
 cycle_wallpapers() {
-  local interval="${1:-300}"
-
-  notify-send "Wallpaper Cycle Started" "Changing every ${interval} seconds"
-
-  local pid_file="/tmp/wallpaper_cycle.pid"
-  echo $$ >"$pid_file"
-
+  # ...
   while true; do
-    local random_wall=$(get_random_wallpaper)
-    if [[ -n "$random_wall" ]]; then
-      apply_theme "$random_wall"
-    fi
+    "$THEME_CTL" random
     sleep "$interval"
   done
 }
@@ -171,85 +131,48 @@ stop_cycle() {
     if kill -0 "$pid" 2>/dev/null; then
       kill "$pid"
       rm -f "$pid_file"
-      notify-send "Wallpaper Cycle Stopped"
+      notify-send "Cycle Stopped"
     else
       rm -f "$pid_file"
     fi
   else
-    notify-send "No Active Cycle" "Wallpaper cycle is not running"
+    notify-send "No Active Cycle"
   fi
 }
 
 # --- MENU FUNCTIONS ---
-appearance_menu() {
-  local current_wall=$(get_current_wallpaper)
-  local current_name=""
-  [[ -n "$current_wall" ]] && current_name="Current: $(basename "$current_wall")"
 
+appearance_menu() {
   local cycle_status=""
-  if [[ -f "/tmp/wallpaper_cycle.pid" ]]; then
-    local pid=$(cat "/tmp/wallpaper_cycle.pid")
-    if kill -0 "$pid" 2>/dev/null; then
-      cycle_status="(Cycle Active)"
-    fi
-  fi
+  [[ -f "/tmp/wallpaper_cycle.pid" ]] && kill -0 $(cat "/tmp/wallpaper_cycle.pid") 2>/dev/null && cycle_status="(Cycle Active)"
 
   local sub_options="󰔎 Random Wallpaper\n󰸉 Select Wallpaper\n󰞘 Start Cycle (5min)\n󰓛 Stop Cycle\n󰆊 Clean Cache\n󰏘 Back"
-  local sub_chosen=$(echo -e "$sub_options" | rofi -dmenu -i -p "Appearance $cycle_status" -mesg "$current_name")
+  local sub_chosen=$(echo -e "$sub_options" | rofi -dmenu -i -p "Appearance $cycle_status")
 
   case $sub_chosen in
-  "󰔎 Random Wallpaper")
-    local random_wall=$(get_random_wallpaper)
-    if [[ -n "$random_wall" ]]; then
-      apply_theme "$random_wall"
-    else
-      notify-send "No Wallpapers" "Add images to $WALL_DIR"
-    fi
-    ;;
-
-  "󰸉 Select Wallpaper")
-    select_wallpaper
-    ;;
-
+  "󰔎 Random Wallpaper") apply_random ;;
+  "󰸉 Select Wallpaper") select_wallpaper ;;
   "󰞘 Start Cycle (5min)")
-    local interval=$(echo -e "300\n600\n900\n1800\n3600" | rofi -dmenu -i -p "Cycle interval (seconds)")
-    if [[ -n "$interval" ]]; then
-      cycle_wallpapers "$interval" &
-      disown
-    fi
+    cycle_wallpapers 300 &
+    disown
     ;;
-
-  "󰓛 Stop Cycle")
-    stop_cycle
-    ;;
-
+  "󰓛 Stop Cycle") stop_cycle ;;
   "󰆊 Clean Cache")
     rm -rf "$CACHE_DIR"/*
-    mkdir -p "$CACHE_DIR"
-    notify-send "Cache Cleared" "Thumbnails will regenerate"
+    notify-send "Cache Cleared"
     ;;
-
-  "󰏘 Back")
-    main_menu
-    ;;
+  "󰏘 Back") main_menu ;;
   esac
 }
 
 select_wallpaper() {
-  local wall_count=$(count_wallpapers)
-
-  if [[ $wall_count -eq 0 ]]; then
-    notify-send "No Wallpapers Found" "Add images to $WALL_DIR"
-    return 1
-  fi
-
   echo "Generating thumbnails..."
   generate_all_thumbs || return 1
 
   declare -A wallpaper_map
   >"$TEMP_ROFI_INPUT"
 
-  log "Building wallpaper list..."
+  log "Building list..."
   while IFS= read -r img; do
     local name=$(basename "$img")
     local thumb="$CACHE_DIR/$name.png"
@@ -258,41 +181,17 @@ select_wallpaper() {
     printf '%s\0icon\x1f%s\n' "$name" "$thumb" >>"$TEMP_ROFI_INPUT"
   done < <(find_wallpapers)
 
-  if [[ ! -s "$TEMP_ROFI_INPUT" ]]; then
-    notify-send "Error" "Failed to build wallpaper list"
-    return 1
-  fi
-
-  local map_file="/tmp/wallpaper_map_$$"
-  # Save map to file
-  for name in "${!wallpaper_map[@]}"; do
-    echo "$name|${wallpaper_map[$name]}" >>"$map_file"
-  done
-
-  log "Launching Rofi..."
   local selected_name
   if [[ -f "$ROFI_THEME" ]]; then
-    selected_name=$(rofi -dmenu -i -p "󰸉 Wallpapers ($wall_count)" -show-icons -theme "$ROFI_THEME" <"$TEMP_ROFI_INPUT")
+    selected_name=$(rofi -dmenu -i -p "󰸉 Select" -show-icons -theme "$ROFI_THEME" <"$TEMP_ROFI_INPUT")
   else
-    selected_name=$(rofi -dmenu -i -p "󰸉 Wallpapers ($wall_count)" -show-icons <"$TEMP_ROFI_INPUT")
+    selected_name=$(rofi -dmenu -i -p "󰸉 Select" -show-icons <"$TEMP_ROFI_INPUT")
   fi
-
-  log "Rofi returned: '$selected_name'"
 
   if [[ -n "$selected_name" ]]; then
-    # Fix: Limit grep to 1 result (-m 1) to prevent multiline errors
-    local full_path=$(grep -F -m 1 "$selected_name|" "$map_file" | cut -d'|' -f2)
-
-    if [[ -n "$full_path" && -f "$full_path" ]]; then
-      log "Applying path: $full_path"
-      apply_theme "$full_path"
-    else
-      log "Error: Could not find path for $selected_name"
-      notify-send "Error" "Could not find: $selected_name"
-    fi
+    local full_path="${wallpaper_map[$selected_name]}"
+    [[ -f "$full_path" ]] && apply_theme "$full_path"
   fi
-
-  rm -f "$map_file"
 }
 
 power_menu() {
@@ -303,13 +202,7 @@ power_menu() {
   "󰐥 Shutdown") confirm_action "Shutdown" && systemctl poweroff ;;
   "󰜉 Reboot") confirm_action "Reboot" && systemctl reboot ;;
   "󰒲 Suspend") systemctl suspend ;;
-  "󰤄 Lock")
-    if command -v hyprlock &>/dev/null; then
-      hyprlock
-    elif command -v swaylock &>/dev/null; then
-      swaylock
-    else notify-send "Error" "No lock screen available"; fi
-    ;;
+  "󰤄 Lock") loginctl lock-session ;;
   "󰗼 Logout") confirm_action "Logout" && hyprctl dispatch exit ;;
   "󰏘 Back") main_menu ;;
   esac
@@ -322,20 +215,16 @@ confirm_action() {
 }
 
 system_menu() {
-  local uptime=$(uptime -p 2>/dev/null | sed 's/up //' || echo "unknown")
+  local uptime=$(uptime -p | sed 's/up //')
   local kernel=$(uname -r)
-  local cpu_usage=$(top -bn1 2>/dev/null | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1 || echo "?")
-  local mem_usage=$(free -h 2>/dev/null | awk '/^Mem:/ {print $3 "/" $2}' || echo "unknown")
-
-  local info="Uptime: $uptime\nKernel: $kernel\nCPU: ${cpu_usage}%\nMemory: $mem_usage"
+  local info="Uptime: $uptime\nKernel: $kernel"
 
   local s_options="󰌢 System Info\n󰑓 Refresh\n󰏘 Back"
   local s_chosen=$(echo -e "$s_options" | rofi -dmenu -i -p "System" -mesg "$info")
 
   case $s_chosen in
   "󰌢 System Info")
-    command -v kitty &>/dev/null &&
-      kitty -e sh -c "fastfetch 2>/dev/null || echo 'fastfetch not installed'; read -p 'Press enter...'" &
+    command -v kitty &>/dev/null && kitty -e sh -c "fastfetch; read -p 'Enter...'" &
     ;;
   "󰑓 Refresh") system_menu ;;
   "󰏘 Back") main_menu ;;
@@ -344,7 +233,7 @@ system_menu() {
 
 main_menu() {
   local options="󱔗 Appearance\n󰀻 Applications\n󰍉 System\n󰐥 Power"
-  local chosen=$(echo -e "$options" | rofi -dmenu -i -p "󱓞 Launch Menu")
+  local chosen=$(echo -e "$options" | rofi -dmenu -i -p "Menu")
 
   case $chosen in
   "󱔗 Appearance") appearance_menu ;;
@@ -354,38 +243,25 @@ main_menu() {
   esac
 }
 
-# --- MAIN EXECUTION ---
-main() {
-  check_dependencies
+# --- MAIN ---
+if [[ $# -eq 0 ]]; then
+  # No arguments? Open the Main Menu
   init_dirs
   main_menu
-}
-
-case "${1:-}" in
---random)
-  init_dirs
-  random_wall=$(get_random_wallpaper)
-  [[ -n "$random_wall" ]] && apply_theme "$random_wall"
-  ;;
---cycle)
-  init_dirs
-  cycle_wallpapers "${2:-300}"
-  ;;
---stop-cycle) stop_cycle ;;
---generate-thumbs)
-  init_dirs
-  generate_all_thumbs
-  ;;
---test)
-  init_dirs
-  echo "=== Wallpaper Detection Test ==="
-  echo "Directory: $WALL_DIR"
-  echo "Wallpapers found: $(count_wallpapers)"
-  find_wallpapers | head -10
-  ;;
---list)
-  init_dirs
-  find_wallpapers
-  ;;
-*) main ;;
-esac
+else
+  # Handle specific arguments for keybinds
+  case "$1" in
+  --random)
+    init_dirs
+    apply_random
+    ;;
+  --select)
+    init_dirs
+    select_wallpaper
+    ;;
+  *)
+    init_dirs
+    main_menu
+    ;;
+  esac
+fi
