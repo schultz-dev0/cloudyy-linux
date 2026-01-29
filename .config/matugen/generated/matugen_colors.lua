@@ -1,8 +1,8 @@
 return {
-	bg = "#1a1110",
-	fg = "#f1dedc",
-	primary = "#ffb4ab",
-	secondary = "#e7bdb8",
-	accent = "#e0c38c",
-	selection = "#423735",
+	bg = "#101417",
+	fg = "#e0e3e8",
+	primary = "#95cdf7",
+	secondary = "#b7c9d9",
+	accent = "#cfc0e8",
+	selection = "#363a3e",
 }

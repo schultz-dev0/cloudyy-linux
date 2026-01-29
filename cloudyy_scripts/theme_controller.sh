@@ -63,7 +63,11 @@ generate_colors() {
   [[ "$MATUGEN_CONTRAST" != "disable" ]] && cmd+=(--contrast "$MATUGEN_CONTRAST")
 
   "${cmd[@]}" || die "Matugen failed"
-  hyprctl reload >/dev/null
+
+  # Reload only what's necessary instead of full Hyprland reload
+  pkill -SIGUSR2 waybar # Reload Waybar (much lighter than killing it)
+  hyprctl keyword general:col.active_border "$(grep 'col.active_border' ~/.config/hypr/hyprland.conf | cut -d'=' -f2 | xargs)" || true
+  hyprctl keyword general:col.inactive_border "$(grep 'col.inactive_border' ~/.config/hypr/hyprland.conf | cut -d'=' -f2 | xargs)" || true
 }
 
 apply_wallpaper() {
@@ -71,8 +75,17 @@ apply_wallpaper() {
   [[ -f "$img" ]] || die "File not found: $img"
 
   ensure_services
-  swww img "$img" --transition-type grow --transition-duration 2 --transition-fps 60
+
+  # 1. Generate colors FIRST (before animation starts)
   generate_colors "$img"
+
+  # 2. Then apply wallpaper with smooth animation
+  # Now nothing else is running during the transition
+  swww img "$img" \
+    --transition-type grow \
+    --transition-pos 0.5,0.5 \
+    --transition-duration 1.5 \
+    --transition-fps 60
 }
 
 # --- COMMANDS ---

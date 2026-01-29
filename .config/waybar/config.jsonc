@@ -222,12 +222,8 @@
 
   "backlight": {
     "format": "{icon}",
-    "tooltip-format": "Brightness: {percent}%\n\n LMB  Brightness\n RMB  Night Light\n MMB  Shaders",
-    "on-click": "uwsm-app -- ~/user_scripts/sliders/brightness_slider.sh",
-    "on-click-right": "uwsm-app -- ~/user_scripts/sliders/hyprsunset_slider.sh",
-    "on-click-middle": "uwsm-app -- ~/user_scripts/rofi/shader_menu.sh",
-    "on-scroll-up": "swayosd-client --brightness raise",
-    "on-scroll-down": "swayosd-client --brightness lower",
+    "tooltip-format":[],
+    "on-click": "uwsm-app -- ~/cloudyy_scripts/night_light.sh",
     "format-icons": ["󰃞", "󰃟", "󰃠"]
   },
 
@@ -269,7 +265,7 @@
 
   "custom/power": {
     "format": "⏻",
-    "on-click": "uwsm-app -- ~/user_scripts/wlogout/wlogout_scale.sh",
+    "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power Menu"
   }
 }
