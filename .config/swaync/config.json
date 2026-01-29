@@ -20,7 +20,7 @@
     "title": {
       "text": "Control Center",
       "clear-all-button": true,
-      "button-text": "󰎟"
+      "button-text": "Clear"
     },
     "buttons-grid": {
       "actions": [
@@ -41,13 +41,18 @@
           "command": "uwsm-app -- pavucontrol"
         },
         {
-          "label": "󰄬",
-          "command": "hyprpicker -a"
-        },
-        {
           "label": "󰃠",
           "type": "toggle",
           "command": "uwsm-app $HOME/cloudyy_scripts/night_light.sh"
+        },
+        {
+          "label": "󰸉",
+          "command": "uwsm-app $HOME/cloudyy_scripts/rofi-menu.sh --select"
+        },
+        {
+          "label": "󰄬",
+          "type": "toggle",
+          "command": "hyprpicker"
         }
       ]
     }
