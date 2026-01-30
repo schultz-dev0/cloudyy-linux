@@ -17,16 +17,16 @@
     "custom/launcher",
     "clock",
     "custom/weather",
-    "custom/inhibit-suspend",
     "custom/updates",
-    "custom/notification"
+    "custom/notification",
+    "custom/pycharm",
+    "custom/theme-toggle"
   //  "tray"
   ],
 
   "modules-center": [
     "hyprland/workspaces",
-    "custom/timer",
-    "custom/pycharm"
+    "custom/timer"
   ],
 
   "modules-right": [
@@ -50,8 +50,8 @@
   },
 
   "clock": {
-    "format": "󰥔 {:%I:%M}",
-    //"format": "󰥔 {:%I:%M}", //24 hour format for teh clock.
+    //"format": "󰥔 {:%I:%M}",
+    "format": "󰥔 {:%I:%M}", //24 hour format for teh clock.
     "format-alt": "󰃭 {:%A, %B %d}",
     "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
     "on-click-right": "uwsm-app -- gnome-clocks",
@@ -70,6 +70,11 @@
       }
     }
   },
+  "custom/pycharm": {
+    "format": "󱜙 ",
+    "on-click": "pycharm &",
+    "tooltip-format": "Launch PyCharm"
+  },
   "custom/timer": {
     "exec": "~/.config/waybar/scripts/timer.sh",
     "format": "{}",
@@ -86,16 +91,6 @@
     "exec": "curl -s 'wttr.in/?format=%c%t' | head -c 15",
     "interval": 1800,
     "tooltip-format": "Weather Conditions"
-  },
-
-  "custom/inhibit-suspend": {
-    "format": "{}",
-    "exec": "if pgrep -x 'hypridle' > /dev/null; then echo '{\"text\": \"󰾪\", \"tooltip\": \"Idle enabled. Click to disable.\", \"class\": \"enabled\"}'; else echo '{\"text\": \"󰅶\", \"tooltip\": \"Idle disabled. Click to enable.\", \"class\": \"disabled\"}'; fi",
-    "return-type": "json",
-    "interval": 5,
-    "signal": 9,
-    "on-click": "uwsm-app -- ~/user_scripts/waybar/toggle_hypridle.sh",
-    "escape": true
   },
 
   "custom/updates": {
@@ -130,9 +125,7 @@
   "custom/theme-toggle": {
     "format": "󰔎",
     "tooltip-format": "Theme Controls\n\n LMB  Dark Mode\n RMB  Light Mode\n MMB  Wallpaper",
-    "on-click": "uwsm-app -- ~/user_scripts/theme_matugen/theme_ctl.sh set --mode dark",
-    "on-click-right": "uwsm-app -- ~/user_scripts/theme_matugen/theme_ctl.sh set --mode light",
-    "on-click-middle": "uwsm-app -- waypaper"
+    "on-click-middle": "uwsm-app  ~/cloudyy_scripts/theme_controller.sh -- select",
   },
 
   "tray": {
@@ -172,7 +165,7 @@
       "default": "󰎆",
       "mpv": "󰎇",
       "spotify": "󰓇",
-      "firefox": "󰈹"
+      "brave": "󰈹"
     },
     "status-icons": {
       "paused": "󰏤"
@@ -223,7 +216,7 @@
   "backlight": {
     "format": "{icon}",
     "tooltip-format":[],
-    "on-click": "uwsm-app -- ~/cloudyy_scripts/night_light.sh",
+    "on-click": "~/cloudyy_scripts/night_light.sh",
     "format-icons": ["󰃞", "󰃟", "󰃠"]
   },
 

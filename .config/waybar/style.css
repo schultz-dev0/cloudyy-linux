@@ -10,7 +10,7 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", sans-serif;
+  font-family: "Monocraft", "Symbols Nerd Font", sans-serif;
   font-weight: 600;
   font-size: 13px;
 }
@@ -24,7 +24,7 @@ window#waybar {
    ───────────────────────────────────────────────────────────────────────────── */
 
 window#waybar > box {
-  background-color: alpha(@primary, 0.65);
+  background-color: alpha(@primary, 0.85);
   border-radius: 14px;
   border: 1px solid alpha(@outline_variant, 0.15);
   box-shadow: 0 4px 0px alpha(@shadow, 0.35), 0 1px 3px alpha(@shadow, 0.2);
@@ -74,6 +74,38 @@ window#waybar > box {
 /* ─────────────────────────────────────────────────────────────────────────────
    TIMER
    ───────────────────────────────────────────────────────────────────────────── */
+
+#custom-timer {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-time:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PYCHARM
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#custom-pycharm {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-pycharm:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    WEATHER

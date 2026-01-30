@@ -1,0 +1,87 @@
+# Matugen btop template
+# Theme: #ffb59c
+
+# Main background, empty for terminal default, need to be empty if you want transparent background
+theme[main_bg]="#1a110f"
+
+# Main text color
+theme[main_fg]="#f1dfd9"
+
+# Title color for boxes
+theme[title]="#ffb59c"
+
+# Highlight color for listview items
+theme[hi_fg]="#55200c"
+
+# Background color of selected item in processes box
+theme[selected_bg]="#ffb59c"
+
+# Foreground color of selected item in processes box
+theme[selected_fg]="#55200c"
+
+# Color of inactive/disabled text
+theme[inactive_fg]="#a08d87"
+
+# Color of text appearing on top of graphs, i.e uptime and current network graph scaling
+theme[graph_text]="#d8c2bb"
+
+# Background color of the percentage meters
+theme[meter_bg]="#3d322f"
+
+# Misc colors for processes box including mini cpu graphs, details memory graph and details status text
+theme[proc_misc]="#e7bdb0"
+
+# Cpu box outline color
+theme[cpu_box]="#53433f"
+
+# Memory box outline color
+theme[mem_box]="#53433f"
+
+# Net box outline color
+theme[net_box]="#53433f"
+
+# Processes box outline color
+theme[proc_box]="#53433f"
+
+# Box divider line and small boxes line color
+theme[div_line]="#53433f"
+
+# Temperature graph colors
+theme[temp_start]="#ffb59c"
+theme[temp_mid]="#e7bdb0"
+theme[temp_end]="#d6c68d"
+
+# CPU graph colors
+theme[cpu_start]="#ffb59c"
+theme[cpu_mid]="#e7bdb0"
+theme[cpu_end]="#d6c68d"
+
+# Mem/Disk free meter
+theme[free_start]="#e7bdb0"
+theme[free_mid]="#e7bdb0"
+theme[free_end]="#d6c68d"
+
+# Mem/Disk cached meter
+theme[cached_start]="#e7bdb0"
+theme[cached_mid]="#e7bdb0"
+theme[cached_end]="#d6c68d"
+
+# Mem/Disk available meter
+theme[available_start]="#d6c68d"
+theme[available_mid]="#d6c68d"
+theme[available_end]="#ffb59c"
+
+# Mem/Disk used meter
+theme[used_start]="#ffb59c"
+theme[used_mid]="#ffb59c"
+theme[used_end]="#e7bdb0"
+
+# Download graph colors
+theme[download_start]="#ffb59c"
+theme[download_mid]="#e7bdb0"
+theme[download_end]="#d6c68d"
+
+# Upload graph colors
+theme[upload_start]="#d6c68d"
+theme[upload_mid]="#e7bdb0"
+theme[upload_end]="#ffb59c"
