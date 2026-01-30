@@ -82,9 +82,9 @@ gen_thumb() {
 
   # Try magick first, fallback to convert
   if command -v magick &>/dev/null; then
-    magick "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
+    magick "$img[0]" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
   else
-    convert "$img" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
+    convert "$img[0]" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
   fi
 }
 export -f gen_thumb
@@ -107,7 +107,7 @@ apply_theme() {
   log "Delegating to backend: $img"
 
   # DIRECT EXECUTION (No uwsm-app needed here)
-  "$THEME_CTL" set-image "$img"
+  nohup uwsm-app -- "$THEME_CTL" set-image "$img" >/dev/null 2>&1 &
 
   notify-send "Theme Synced" "Applied $(basename "$img")"
 }

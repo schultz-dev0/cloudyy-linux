@@ -1,173 +1,187 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# THEME CONTROLLER (Fixed Randomizer)
-# ==============================================================================
-
 set -euo pipefail
 
-# --- CONFIGURATION ---
+# --- CONFIG ---
 readonly WALLPAPER_DIR="${HOME}/Wallpapers"
-readonly STATE_DIR="${HOME}/.config/hypr/theme_state"
-readonly STATE_FILE="${STATE_DIR}/state.conf"
-
-# DEFAULTS
-readonly DEFAULT_TYPE="scheme-tonal-spot"
-readonly DEFAULT_CONTRAST="0"
-
-# --- STATE VARIABLES ---
-MATUGEN_TYPE="$DEFAULT_TYPE"
-MATUGEN_CONTRAST="$DEFAULT_CONTRAST"
+readonly STATE_FILE="${HOME}/.config/hypr/theme_state/state.conf"
+readonly TEMP_DIR="${XDG_RUNTIME_DIR:-/tmp}/wallpaper_tmp"
+readonly CACHE_IMAGE="${TEMP_DIR}/current_wallpaper.png"
 
 # --- UTILS ---
 die() {
-  printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2
+  notify-send "Wallpaper Error" "$*" >&2
   exit 1
 }
 
-# --- STATE MANAGEMENT ---
-read_state() {
-  [[ -f "$STATE_FILE" ]] || return 0
-  local key value
-  while IFS='=' read -r key value || [[ -n "$key" ]]; do
-    [[ -z "$key" || "${key:0:1}" == "#" ]] && continue
-    value="${value#[\"\']}"
-    value="${value%[\"\']}"
-    case "$key" in
-    MATUGEN_TYPE) MATUGEN_TYPE="$value" ;;
-    MATUGEN_CONTRAST) MATUGEN_CONTRAST="$value" ;;
-    esac
-  done <"$STATE_FILE"
-}
-
-save_state() {
-  [[ -d "$STATE_DIR" ]] || mkdir -p "$STATE_DIR"
-  printf 'MATUGEN_TYPE=%s\nMATUGEN_CONTRAST=%s\n' \
-    "$MATUGEN_TYPE" "$MATUGEN_CONTRAST" >"$STATE_FILE"
-}
-
 # --- CORE LOGIC ---
-ensure_services() {
-  if ! pgrep -x swww-daemon >/dev/null; then
-    uwsm-app -- swww-daemon --format xrgb &
+ensure_swww() {
+  if ! pgrep -x swww-daemon >/dev/null 2>&1; then
+    swww-daemon --format xrgb &
     disown
     sleep 0.5
   fi
 }
 
+extract_first_frame() {
+  local input="$1"
+  local output="$2"
+
+  # Create temp directory if it doesn't exist
+  mkdir -p "$(dirname "$output")"
+
+  # Extract first frame based on file type
+  local mime=$(file --mime-type -b "$input")
+
+  if [[ "$mime" == *"image/gif"* ]]; then
+    # Extract first frame from GIF
+    magick "${input}[0]" "$output" 2>/dev/null ||
+      ffmpeg -i "$input" -vframes 1 "$output" -y 2>/dev/null ||
+      return 1
+  elif [[ "$mime" == *"video/"* ]]; then
+    # Extract first frame from video
+    ffmpeg -i "$input" -vframes 1 "$output" -y 2>/dev/null || return 1
+  else
+    return 1
+  fi
+
+  return 0
+}
+
 generate_colors() {
   local img="$1"
-  read_state
+  local mime=$(file --mime-type -b "$img")
+  local ext="${img##*.}"
+  ext="${ext,,}"
 
-  local cmd=(matugen image "$img")
-  [[ "$MATUGEN_TYPE" != "disable" ]] && cmd+=(--type "$MATUGEN_TYPE")
-  [[ "$MATUGEN_CONTRAST" != "disable" ]] && cmd+=(--contrast "$MATUGEN_CONTRAST")
+  # For animated content, extract first frame and generate colors from it
+  if [[ "$ext" == "gif" || "$ext" == "mp4" || "$mime" == *"video"* || "$mime" == *"image/gif"* ]]; then
+    mkdir -p "$TEMP_DIR"
+    local temp_frame="${TEMP_DIR}/first_frame.png"
 
-  "${cmd[@]}" || die "Matugen failed"
+    if extract_first_frame "$img" "$temp_frame"; then
+      matugen image "$temp_frame" >/dev/null 2>&1 || true
+      rm -f "$temp_frame"
+    else
+      # Fallback to matugen's built-in frame extraction
+      matugen image "${img}[0]" >/dev/null 2>&1 || true
+    fi
+  else
+    matugen image "$img" >/dev/null 2>&1 || true
+  fi
 
-  # Reload only what's necessary instead of full Hyprland reload
-  pkill -SIGUSR2 waybar # Reload Waybar (much lighter than killing it)
-  hyprctl keyword general:col.active_border "$(grep 'col.active_border' ~/.config/hypr/hyprland.conf | cut -d'=' -f2 | xargs)" || true
-  hyprctl keyword general:col.inactive_border "$(grep 'col.inactive_border' ~/.config/hypr/hyprland.conf | cut -d'=' -f2 | xargs)" || true
+  # Reload Waybar to apply new colors
+  pkill -SIGUSR2 waybar 2>/dev/null || true
+}
+
+cache_current_wallpaper() {
+  # Cache the current wallpaper to prevent flash to default background
+  mkdir -p "$TEMP_DIR"
+
+  # Try to get current swww image
+  if pgrep -x swww-daemon >/dev/null 2>&1; then
+    # Query swww for current image
+    local current_img=$(swww query 2>/dev/null | grep -oP 'image: \K.*' | head -n1)
+
+    if [[ -n "$current_img" && -f "$current_img" ]]; then
+      cp "$current_img" "$CACHE_IMAGE" 2>/dev/null || true
+    fi
+  fi
 }
 
 apply_wallpaper() {
   local img="$1"
+
   [[ -f "$img" ]] || die "File not found: $img"
 
-  ensure_services
+  # Detect file type
+  local mime=$(file --mime-type -b "$img")
+  local ext="${img##*.}"
+  ext="${ext,,}"
 
-  # 1. Generate colors FIRST (before animation starts)
+  # Generate color scheme
   generate_colors "$img"
 
-  # 2. Then apply wallpaper with smooth animation
-  # Now nothing else is running during the transition
-  swww img "$img" \
-    --transition-type grow \
-    --transition-pos 0.5,0.5 \
-    --transition-duration 1.5 \
-    --transition-fps 60
+  # Determine if animated
+  if [[ "$mime" == *"image/gif"* || "$mime" == *"video/"* || "$ext" == "gif" || "$ext" == "mp4" ]]; then
+    # === ANIMATION MODE ===
+
+    # Cache current wallpaper before killing swww
+    cache_current_wallpaper
+
+    # Set a static first frame with swww before switching to mpvpaper
+    mkdir -p "$TEMP_DIR"
+    local transition_frame="${TEMP_DIR}/transition_frame.png"
+
+    if extract_first_frame "$img" "$transition_frame"; then
+      ensure_swww
+      swww img "$transition_frame" --transition-type none --transition-duration 0 2>/dev/null || true
+      sleep 0.1
+    elif [[ -f "$CACHE_IMAGE" ]]; then
+      # Use cached image if frame extraction fails
+      ensure_swww
+      swww img "$CACHE_IMAGE" --transition-type none --transition-duration 0 2>/dev/null || true
+      sleep 0.1
+    fi
+
+    # Now kill swww and mpvpaper
+    pkill -9 mpvpaper 2>/dev/null || true
+    swww clear 2>/dev/null || true
+    pkill -9 swww-daemon 2>/dev/null || true
+    sleep 0.2
+
+    # Launch mpvpaper with proper scaling and performance settings
+    mpvpaper -o "no-audio loop-playlist hwdec=auto video-sync=display-resample interpolation scale=ewa_lanczossharp cscale=ewa_lanczossharp panscan=1.0" '*' "$img" >/dev/null 2>&1 &
+    disown
+
+    # Clean up transition frame
+    rm -f "$transition_frame"
+  else
+    # === STATIC MODE ===
+
+    pkill -9 mpvpaper 2>/dev/null || true
+    ensure_swww
+
+    # Random transition effect
+    local trans_types=("grow" "outer" "wipe" "wave" "random")
+    local rand_type="${trans_types[RANDOM % ${#trans_types[@]}]}"
+
+    swww img "$img" \
+      --transition-type "$rand_type" \
+      --transition-pos "0.5,0.5" \
+      --transition-duration 1.5 \
+      --transition-fps 60
+  fi
 }
 
-# --- COMMANDS ---
-
-cmd_random() {
-  # 1. Enable case-insensitive matching (Fixes .JPG/.PNG issues)
-  shopt -s nullglob nocaseglob
-
-  # 2. Build the array using YOUR explicit logic
-  local walls=()
-
-  # Root folder
-  walls+=("$WALLPAPER_DIR"/*.jpg)
-  walls+=("$WALLPAPER_DIR"/*.jpeg)
-  walls+=("$WALLPAPER_DIR"/*.png)
-  walls+=("$WALLPAPER_DIR"/*.webp)
-  walls+=("$WALLPAPER_DIR"/*.gif)
-
-  # Subfolders (1 level deep)
-  walls+=("$WALLPAPER_DIR"/*/*.jpg)
-  walls+=("$WALLPAPER_DIR"/*/*.jpeg)
-  walls+=("$WALLPAPER_DIR"/*/*.png)
-  walls+=("$WALLPAPER_DIR"/*/*.webp)
-  walls+=("$WALLPAPER_DIR"/*/*.gif)
-
-  # Disable options to return to normal behavior
-  shopt -u nullglob nocaseglob
-
-  # 3. Check if we found anything
-  ((${#walls[@]} > 0)) || die "No wallpapers found in $WALLPAPER_DIR"
-
-  # 4. Pick Random
-  local random_wall="${walls[RANDOM % ${#walls[@]}]}"
-  apply_wallpaper "$random_wall"
-}
-
+# --- HANDLERS ---
 cmd_set_image() {
   local img="$1"
-  [[ "$img" != /* ]] && img="$(pwd)/$img"
+  [[ "$img" != /* ]] && img="$(realpath "$img")"
   apply_wallpaper "$img"
 }
 
-cmd_config() {
-  read_state
-  local do_refresh=0
-  while (($# > 0)); do
-    case "$1" in
-    --type)
-      MATUGEN_TYPE="$2"
-      do_refresh=1
-      shift 2
-      ;;
-    --contrast)
-      MATUGEN_CONTRAST="$2"
-      do_refresh=1
-      shift 2
-      ;;
-    *) die "Unknown option: $1" ;;
-    esac
-  done
-  save_state
-  if ((do_refresh)); then
-    local current
-    current=$(swww query | grep -oP 'image: \K.*' | head -n1) || true
-    [[ -f "$current" ]] && generate_colors "$current"
-  fi
+cmd_random() {
+  shopt -s nullglob nocaseglob globstar
+  local walls=("$WALLPAPER_DIR"/**/*.{jpg,jpeg,png,gif,mp4,webp})
+  shopt -u nullglob nocaseglob globstar
+
+  [[ ${#walls[@]} -eq 0 ]] && die "No wallpapers found in $WALLPAPER_DIR"
+
+  local rand_wall="${walls[RANDOM % ${#walls[@]}]}"
+  cmd_set_image "$rand_wall"
 }
 
 # --- MAIN ---
 case "${1:-}" in
 set-image)
-  shift
-  cmd_set_image "${1:-}"
+  [[ -z "${2:-}" ]] && die "Usage: $0 set-image <path>"
+  cmd_set_image "$2"
   ;;
-random) cmd_random ;;
-config)
-  shift
-  cmd_config "$@"
+random)
+  cmd_random
   ;;
-get)
-  read_state
-  echo "Type: $MATUGEN_TYPE | Contrast: $MATUGEN_CONTRAST"
+*)
+  echo "Usage: $0 {set-image <path>|random}"
+  exit 1
   ;;
-*) die "Usage: $0 {set-image <path>|random|config|get}" ;;
 esac
