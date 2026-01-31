@@ -1,0 +1,81 @@
+.home, .Home {
+
+  --dark: var(--dark);
+  color: var(--highlight);
+  background-color: var(--dark);
+  --text-normal: var(--highlight);
+  --text-muted: var(--highlight);
+  --text-faint: var(--highlight);
+  --checklist-done-color: var(--highlight);
+  --metadata-label-text-color: var(--highlight);
+  --metadata-input-text-color: var(--highlight);
+  --tag-color: var(--dark);
+  --tag-background: var(--primary);
+  --hr-color: var(--primary);
+  --blockquote-border-color: var(--primary);
+  --interactive-accent: var(--primary);
+  --collapse-icon-color-collapsed: var(--primary);
+  --checkbox-color: var(--primary);
+  --checkbox-marker-color: var(--dark);
+  --checkbox-color-hover: var(--highlight);
+  --checkbox-border-color: var(--highlight);
+  --list-marker-color: var(--highlight);
+  --code-background: #191a1f;
+  --code-normal: var(--primary);
+  --text-align: center;
+
+  --background-modifier-border-focus: var(--primary);
+  --background-modifier-border: color-mix(in srgb, var(--highlight) 60%, transparent);
+  --background-modifier-hover: color-mix(in srgb, var(--highlight) 60%, transparent);
+  --pill-cover-hover: color-mix(in srgb, var(--highlight) 60%, transparent);
+  
+}
+
+.home, .Home {
+  --highlight: #b020f3;
+  --primary: #001d85;
+  --dark: #080510;
+}
+
+.home :is(h1, .HyperMD-header.HyperMD-header-1) {
+  color: var(--primary);
+  text-align: center;
+  font-size: 60px;
+  font-family: "Courier New";
+  padding: 0 !important;
+}
+.home :is(h2, .HyperMD-header.HyperMD-header-2) {
+  color: var(--highlight);
+  text-align: center;
+  font-size: 30px;
+  font-family: "Courier New";
+  font-style: italic;
+  padding: 0 !important;
+}
+.home :is(h3, .HyperMD-header.HyperMD-header-3) {
+  color: var(--primary);
+  text-align: center;
+
+  font-size: 32px;
+  font-family: "Courier New";
+  padding-top: 0;
+}
+.home :is(h4, .HyperMD-header.HyperMD-header-4) {
+  background-color: var(--primary);
+  color: var(--dark);
+  /* border-color: var(--primary); */
+  /* font-family: "Courier New", monospace; */
+  font-weight: 900;
+  margin-bottom: 0;
+  padding-top: 0;
+  font-size: 20px;
+  width: fit-content;
+  padding-left: 6px;
+  padding-right: 6px;
+  /* border: solid; */
+  border-radius: 8px;
+  /* border-width: 2px; */
+  word-wrap: normal;
+}
+
+

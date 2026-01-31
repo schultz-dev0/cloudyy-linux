@@ -63,4 +63,11 @@ post_hook = 'pkill -USR2 btop || true'
 input_path = "~/.config/matugen/templates/yad-volume.css"
 output_path = "~/.config/yad/volume.css"
 
+[templates.Obsidian]
+input_path  = '~/.config/matugen/templates/obsidian-theme.css'
+output_path = '~/.config/matugen/generated/obsidian-theme.css'
+post_hook   = '''
+mkdir -p $HOME/Documents/pensive/.obsidian/snippets;
+ln -nfs $HOME/.config/matugen/generated/obsidian-theme.css ~/MyLife/.obsidian/snippets/matugen-theme.css
+'''
 
