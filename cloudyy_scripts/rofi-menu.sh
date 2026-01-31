@@ -231,6 +231,16 @@ system_menu() {
   esac
 }
 
+config_menu() {
+  local sub_options="Hyprland main\n Keybinds\n Input\n Monitor\n Waybar\n Look and Fell"
+  local sub_chosen=$(echo -e "$sub_options" | rofi -dmenu -i -p "Edit")
+
+  case $sub_chosen in
+  "Hyprland main") nvim ~/.config/hypr/hyprland.conf ;;
+  "Keybinds") nvim ~/.config/hypr/user-configs/userbinds.conf ;;
+  esac
+}
+
 main_menu() {
   local options="󱔗 Appearance\n󰀻 Applications\n󰍉 System\n󰐥 Power"
   local chosen=$(echo -e "$options" | rofi -dmenu -i -p "Menu")
@@ -240,6 +250,7 @@ main_menu() {
   "󰀻 Applications") rofi -show drun ;;
   "󰍉 System") system_menu ;;
   "󰐥 Power") power_menu ;;
+  " Configs") config ;;
   esac
 }
 

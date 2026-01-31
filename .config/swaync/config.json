@@ -27,14 +27,12 @@
         {
           "label": "󰖩",
           "type": "toggle",
-          "command": "nmcli radio wifi $([[ $SWAYNC_TOGGLE_STATE == true ]] && echo on || echo off)",
-          "update-command": "sh -c '[[ $(nmcli radio wifi) == \"enabled\" ]] && echo true || echo false'"
+          "command": "uwsm-app -- nm-connection-editor"
         },
         {
           "label": "󰂯",
           "type": "toggle",
-          "command": "bluetoothctl power $([[ $SWAYNC_TOGGLE_STATE == true ]] && echo on || echo off)",
-          "update-command": "sh -c '[[ $(bluetoothctl show | grep \"Powered: yes\") ]] && echo true || echo false'"
+          "command": "uwsm-app -- blueman-manager"
         },
         {
           "label": "󰕾",
@@ -58,3 +56,5 @@
     }
   }
 }
+
+

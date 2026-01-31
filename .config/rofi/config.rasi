@@ -12,7 +12,7 @@ configuration {
     /* --- Mode Names --- */
     display-drun:               " Apps";
     display-run:                " Run";
-    display-clipboard:          "󰅌 Clip";
+    display-dmenu:              "󰅌 Clip";
     
     /* --- Keybindings --- */
     kb-cancel:                  "Escape";

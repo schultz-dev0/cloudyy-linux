@@ -10,8 +10,8 @@ if [[ ! -d "$OUTPUT_DIR" ]]; then
   exit 1
 fi
 
-DESKTOP_AUDIO="false"
-MICROPHONE_AUDIO="false"
+DESKTOP_AUDIO="true"
+MICROPHONE_AUDIO="true"
 WEBCAM="false"
 WEBCAM_DEVICE=""
 STOP_RECORDING="false"

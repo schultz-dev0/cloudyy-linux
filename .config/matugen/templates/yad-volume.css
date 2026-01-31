@@ -1,0 +1,33 @@
+/* ~/.config/matugen/templates/yad-volume.css */
+
+/* Use Matugen keywords to grab colors */
+window {
+    background-color: {{colors.surface.default.hex}};
+    border: 2px solid {{colors.primary.default.hex}};
+    border-radius: 12px;
+}
+
+scale trough {
+    margin: 10px 0;
+    background-color: {{colors.surface_variant.default.hex}};
+    border-radius: 10px;
+    min-height: 10px;
+}
+
+scale highlight {
+    background-color: {{colors.primary.default.hex}};
+    border-radius: 10px;
+    min-height: 10px;
+}
+
+label {
+    color: {{colors.on_surface.default.hex}};
+    font-weight: bold;
+    font-size: 16px;
+}
+
+button {
+    background: none;
+    box-shadow: none;
+    color: {{colors.primary.default.hex}};
+}

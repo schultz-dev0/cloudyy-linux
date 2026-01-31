@@ -19,9 +19,7 @@
     "custom/weather",
     "custom/updates",
     "custom/notification",
-    "custom/pycharm",
-    "custom/theme-toggle"
-  //  "tray"
+    "custom/pycharm"
   ],
 
   "modules-center": [
@@ -34,7 +32,6 @@
     "network",
     "bluetooth",
     "pulseaudio#output",
-    "backlight",
     "cpu",
     "memory",
     "battery",
@@ -44,7 +41,7 @@
   // --- MODULE CONFIGURATION ---
 
   "custom/launcher": {
-    "format": "󰣇",
+    "format": "☁️",
     "on-click": "rofi -show drun",
     "tooltip-format": "Application Launcher"
   },
@@ -122,12 +119,6 @@
     "tooltip-format": "Notifications\n\n LMB  Toggle Panel\n RMB  Do Not Disturb"
   },
 
-  "custom/theme-toggle": {
-    "format": "󰔎",
-    "tooltip-format": "Theme Controls\n\n LMB  Dark Mode\n RMB  Light Mode\n MMB  Wallpaper",
-    "on-click-middle": "uwsm-app  ~/cloudyy_scripts/theme_controller.sh -- select",
-  },
-
   "tray": {
     "icon-size": 15,
     "spacing": 6,
@@ -139,16 +130,6 @@
     "format": "{icon}",
     "format-window-separator": " ",
     "window-rewrite-default": "",
-    "window-rewrite": {
-      "class<firefox>": "",
-      "class<kitty>": "",
-      "class<discord>": "",
-      "class<vlc>": "󰕼",
-      "class<Code>": "󰨞",
-      "class<thunar>": "󰝰",
-      "class<spotify>": "",
-      "class<obsidian>": "󰎞"
-    },
     "persistent-workspaces": {
       "*": 5
     },
@@ -161,12 +142,6 @@
     "format-paused": "{status_icon} <i>{title}</i>",
     "format-stopped": "",
     "max-length": 25,
-    "player-icons": {
-      "default": "󰎆",
-      "mpv": "󰎇",
-      "spotify": "󰓇",
-      "brave": "󰈹"
-    },
     "status-icons": {
       "paused": "󰏤"
     },
@@ -176,14 +151,14 @@
     "on-scroll-down": "playerctl previous"
   },
   "network": {
-    "format-wifi": "󰤨",
+    "format-wifi": "{signalStrength}%",
     "format-ethernet": "󰈀",
-    "format-disconnected": "󰤭",
-    "format-linked": "󰈁",
+    "format-disconnected": "󰖪  Disconnected",
     "tooltip-format-wifi": "󰤨 {essid}\n󱑽 {signalStrength}%\n󰩟 {ipaddr}",
     "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
-    "tooltip-format-disconnected": "󰤭 Disconnected",
-    "on-click": "nm-connection-editor"
+    "tooltip-format-disconnected": "Disconnected",
+    "on-click": "uwsm-app nm-connection-editor",
+    "interval": 5
   },
 
   "bluetooth": {
@@ -211,13 +186,6 @@
     "on-scroll-up": "swayosd-client --output-volume raise",
     "on-scroll-down": "swayosd-client --output-volume lower",
     "tooltip-format": "Volume: {volume}%\n\n LMB  Pavucontrol\n MMB  Mute\n RMB  Visualizer"
-  },
-
-  "backlight": {
-    "format": "{icon}",
-    "tooltip-format":[],
-    "on-click": "~/cloudyy_scripts/night_light.sh",
-    "format-icons": ["󰃞", "󰃟", "󰃠"]
   },
 
   "cpu": {

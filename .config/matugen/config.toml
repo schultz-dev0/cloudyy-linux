@@ -59,4 +59,8 @@ input_path = '~/.config/matugen/templates/btop.theme'
 output_path = '~/.config/btop/themes/matugen.theme'
 post_hook = 'pkill -USR2 btop || true'
 
+[templates.yad_volume]
+input_path = "~/.config/matugen/templates/yad-volume.css"
+output_path = "~/.config/yad/volume.css"
+
 

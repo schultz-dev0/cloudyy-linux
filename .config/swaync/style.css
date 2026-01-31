@@ -22,7 +22,7 @@
    3. CONTROL CENTER SHELL (The "Liquid Glass" Container)
    ===================================================================== */
 .control-center {
-  background: alpha(@cc-bg, 0.75); /* Slightly more opaque for readability */
+  background: alpha(@cc-bg, 0.85); /* Slightly more opaque for readability */
   border-radius: 24px;
   border: 1px solid @rim-light;
   padding: 18px;
