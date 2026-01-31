@@ -1,94 +1,19 @@
-/*
- * MATUGEN GENERATED COLORS - SWAYNC LIQUID GLASS
- * Template for transparent notification center styling
+/* Matugen SwayNC Colors */
+@define-color cc-bg {{colors.surface.default.hex}};
+@define-color surface {{colors.surface_container.default.hex}};
 
-/* =====================================================================
-   SOLID COLOR REFERENCES (for text, icons, borders)
-   ===================================================================== */
-@define-color primary {{ colors.primary.default.hex }};
-@define-color primary-container {{ colors.primary_container.default.hex }};
-@define-color on-primary {{ colors.on_primary.default.hex }};
-@define-color on-primary-container {{ colors.on_primary_container.default.hex }};
+@define-color text-primary {{colors.on_surface.default.hex}};
+@define-color text-secondary {{colors.on_surface_variant.default.hex}};
 
-@define-color secondary {{ colors.secondary.default.hex }};
-@define-color secondary-container {{ colors.secondary_container.default.hex }};
-@define-color on-secondary {{ colors.on_secondary.default.hex }};
-@define-color on-secondary-container {{ colors.on_secondary_container.default.hex }};
+@define-color primary {{colors.primary.default.hex}};
+@define-color on-primary {{colors.on_primary.default.hex}};
 
-@define-color error {{ colors.error.default.hex }};
-@define-color on-error {{ colors.on_error.default.hex }};
-@define-color error-container {{ colors.error_container.default.hex }};
-@define-color on-error-container {{ colors.on_error_container.default.hex }};
+@define-color button-bg {{colors.surface_container_high.default.hex}};
+@define-color error {{colors.error.default.hex}};
 
-@define-color surface {{ colors.surface.default.hex }};
-@define-color surface-dim {{ colors.surface_dim.default.hex }};
-@define-color surface-bright {{ colors.surface_bright.default.hex }};
-@define-color surface-container {{ colors.surface_container.default.hex }};
-@define-color surface-container-low {{ colors.surface_container_low.default.hex }};
-@define-color surface-container-high {{ colors.surface_container_high.default.hex }};
-@define-color surface-container-highest {{ colors.surface_container_highest.default.hex }};
+/* Dynamic Shadows & Borders */
+@define-color shadow {{colors.shadow.default.hex}};
 
-@define-color on-surface {{ colors.on_surface.default.hex }};
-@define-color on-surface-variant {{ colors.on_surface_variant.default.hex }};
-@define-color outline {{ colors.outline.default.hex }};
-@define-color outline-variant {{ colors.outline_variant.default.hex }};
-
-/* =====================================================================
-   LIQUID GLASS TRANSPARENT VARIANTS
-   Opacity levels: 50%=80, 60%=99, 70%=B3, 75%=BF, 80%=CC, 85%=D9, 90%=E6
-   ===================================================================== */
-
-/* Main control center background - Ultra transparent for glass effect */
-@define-color cc-bg {{ colors.surface.default.hex }}B3;  /* 70% */
-
-/* Widget backgrounds - Slightly more opaque */
-@define-color widget-bg {{ colors.surface_container.default.hex }}CC;  /* 80% */
-
-/* Notification cards - Medium opacity for readability */
-@define-color noti-bg {{ colors.surface_container_high.default.hex }}D9;  /* 85% */
-
-/* Hover states - Light glass effect */
-@define-color hover-bg {{ colors.surface_container.default.hex }}99;  /* 60% */
-
-/* Button backgrounds - More opaque for tactile feel */
-@define-color button-bg {{ colors.surface_container_high.default.hex }}F2;  /* 90% */
-
-/* Active/Selected state - Primary with transparency */
-@define-color active-bg {{ colors.primary_container.default.hex }}D9;  /* 85% */
-
-/* Input/text box background */
-@define-color input-bg {{ colors.surface_container_low.default.hex }}CC;  /* 80% */
-
-/* =====================================================================
-   ADDITIONAL GLASS VARIANTS (for fine-tuning)
-   ===================================================================== */
-
-/* Ultra light glass (for subtle overlays) */
-@define-color glass-ultra-light {{ colors.surface_container.default.hex }}66;  /* 40% */
-
-/* Medium glass (balanced visibility) */
-@define-color glass-medium {{ colors.surface_container.default.hex }}B3;  /* 70% */
-
-/* Heavy glass (almost opaque, subtle transparency) */
-@define-color glass-heavy {{ colors.surface_container.default.hex }}F2;  /* 95% */
-
-/* Colored glass variants for accents */
-@define-color primary-glass {{ colors.primary.default.hex }}99;  /* 60% primary */
-@define-color error-glass {{ colors.error.default.hex }}99;  /* 60% error */
-
-/* =====================================================================
-   TEXT COLORS (solid for readability on glass)
-   ===================================================================== */
-
-@define-color text-primary @on-surface;
-@define-color text-secondary @on-surface-variant;
-@define-color text-on-primary @on-primary;
-@define-color text-on-error @on-error;
-
-/* =====================================================================
-   BORDER COLORS
-   ===================================================================== */
-
-@define-color border-default @outline-variant;
-@define-color border-focus @primary;
-@define-color border-subtle {{ colors.outline_variant.default.hex }}80;  /* 50% subtle border */
+/* CRITICAL: This flips from "White" (Dark Mode) to "Grey" (Light Mode) 
+   so your borders are always visible */
+@define-color rim-light {{colors.outline_variant.default.hex}};

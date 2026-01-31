@@ -67,9 +67,7 @@ configuration {
     
     /* Normal */
     normal-background:           transparent; 
-    normal-foreground:           @s-text-def;
-    alternate-normal-background: @s-hover-bg;        /* Subtle alternating rows */
-    alternate-normal-foreground: @s-text-def;
+    normal-foreground:           @s-text-def; 
 
     /* Selected (Active Item) */
     selected-normal-background:  @s-act-bg;          /* Glass selection */
@@ -199,8 +197,8 @@ element.normal.normal {
 }
 
 element.alternate.normal {
-    background-color:   @alternate-normal-background;  /* Very subtle */
-    text-color:         @alternate-normal-foreground;
+    background-color:   @normal-background;
+    text-color:         @normal-foreground;
     border-color:       transparent;
 }
 

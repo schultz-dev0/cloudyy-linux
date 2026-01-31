@@ -1,278 +1,253 @@
 #!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+# HYPRLAND DASHBOARD (ROFI FRONTEND)
+# Optimized for Bash 5+ | Dependencies: rofi, uwsm, kitty, ImageMagick/magick
+# -----------------------------------------------------------------------------
 
-# =============================================================================
-# HYPRLAND ROFI MENU (UNIVERSAL + BACKEND INTEGRATION)
-# =============================================================================
+set -uo pipefail
 
 # --- CONFIGURATION ---
-# Backend Controller
-THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
+readonly THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
+readonly BASE_WALL_DIR="${HOME}/Wallpapers"
+readonly CACHE_DIR="${HOME}/.cache/rofi_thumbs"
+readonly TEMP_INPUT="/tmp/rofi_input_$$"
 
-# Directories
-WALL_DIR="${HOME}/Wallpapers"
-CACHE_DIR="${HOME}/.cache/rofi_thumbs"
-ROFI_THEME="${HOME}/.config/rofi/wallpaper.rasi"
+readonly THUMB_SIZE=250
+readonly MAX_JOBS=$(nproc)
 
-# Settings
-THUMB_SIZE=250
-MAX_PARALLEL_JOBS=$(nproc)
-TEMP_ROFI_INPUT="/tmp/rofi_wallpaper_input_$$"
-LOG_FILE="/tmp/rofi_wallpaper_debug.log"
+readonly ROFI_CMD=(
+  rofi
+  -dmenu
+  -i
+)
 
-# Cleanup temp file on exit
-trap 'rm -f "$TEMP_ROFI_INPUT"' EXIT
+readonly SUPPORTED_FORMATS=("*.jpg" "*.jpeg" "*.png" "*.gif" "*.mp4" "*.webp" "*.mkv")
 
-# --- CHECK BACKEND ---
-if [[ ! -x "$THEME_CTL" ]]; then
-  notify-send "Error" "theme_controller.sh not found or not executable!"
-  exit 1
-fi
+trap 'rm -f "$TEMP_INPUT"' EXIT INT TERM
 
-# --- LOGGING HELPER ---
-log() { echo "[$(date '+%H:%M:%S')] $1" >>"$LOG_FILE"; }
+# --- MODE DETECTION ---
+get_current_mode() {
+  local raw_mode
+  raw_mode=$("$THEME_CTL" get-mode 2>/dev/null || echo "dark")
+  raw_mode=$(echo "$raw_mode" | tr -d '[:space:]')
 
-# --- INITIALIZATION ---
-init_dirs() { mkdir -p "$CACHE_DIR" "$WALL_DIR"; }
-
-# --- FIND WALLPAPERS ---
-find_wallpapers() {
-
-  shopt -s nullglob nocaseglob
-
-  local files=()
-
-  files+=("$WALL_DIR"/*.jpg)
-
-  files+=("$WALL_DIR"/*.jpeg)
-
-  files+=("$WALL_DIR"/*.png)
-
-  files+=("$WALL_DIR"/*.webp)
-
-  files+=("$WALL_DIR"/*.gif)
-
-  files+=("$WALL_DIR"/*/*.jpg)
-
-  files+=("$WALL_DIR"/*/*.jpeg)
-
-  files+=("$WALL_DIR"/*/*.png)
-
-  files+=("$WALL_DIR"/*/*.webp)
-
-  files+=("$WALL_DIR"/*/*.gif)
-
-  shopt -u nullglob nocaseglob
-
-  for file in "${files[@]}"; do
-
-    [[ -f "$file" ]] && echo "$file"
-
-  done | sort -u
-
+  [[ "$raw_mode" != "light" && "$raw_mode" != "dark" ]] && raw_mode="dark"
+  echo "$raw_mode"
 }
 
-count_wallpapers() { find_wallpapers | wc -l; }
+CURRENT_MODE=$(get_current_mode)
+DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<${CURRENT_MODE:0:1})${CURRENT_MODE:1}"
+WALL_DIR="$BASE_WALL_DIR/$DISPLAY_MODE"
+[[ ! -d "$WALL_DIR" ]] && WALL_DIR="$BASE_WALL_DIR"
 
-# --- THUMBNAIL GENERATION ---
+# --- CORE FUNCTIONS ---
+
+init_dirs() {
+  mkdir -p "$CACHE_DIR" "$WALL_DIR"
+}
+
+menu() {
+  local prompt="$1"
+  local options="$2"
+  local extra_args=("${@:3}")
+
+  printf "%b" "$options" | "${ROFI_CMD[@]}" -p "$prompt" "${extra_args[@]}"
+}
+
+run_app() {
+  nohup uwsm-app -- "$@" >/dev/null 2>&1 &
+  disown
+}
+
 gen_thumb() {
   local img="$1"
-  local filename=$(basename "$img")
-  local thumb="$CACHE_DIR/${filename}.png"
-  [[ -f "$thumb" && "$thumb" -nt "$img" ]] && return 0
+  local thumb="$CACHE_DIR/$(basename "$img").png"
+  [[ -f "$thumb" ]] && return 0
 
-  # Try magick first, fallback to convert
-  if command -v magick &>/dev/null; then
-    magick "$img[0]" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
-  else
-    convert "$img[0]" -strip -thumbnail "${THUMB_SIZE}x${THUMB_SIZE}^" -gravity center -extent "${THUMB_SIZE}x${THUMB_SIZE}" -quality 85 "$thumb" 2>/dev/null
-  fi
+  local converter="convert"
+  command -v magick &>/dev/null && converter="magick"
+
+  "$converter" "${img}[0]" -strip \
+    -resize "${THUMB_SIZE}x${THUMB_SIZE}^" \
+    -gravity center \
+    -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
+    -quality 85 "$thumb" 2>/dev/null || return 1
 }
 export -f gen_thumb
 export CACHE_DIR THUMB_SIZE
 
-generate_all_thumbs() {
-  local count=$(count_wallpapers)
-  [[ $count -eq 0 ]] && {
-    notify-send "No Wallpapers" "Check $WALL_DIR"
-    return 1
-  }
-  [[ $count -gt 50 ]] && notify-send "Generating Thumbnails" "Processing $count images..."
+build_find_cmd() {
+  local dir="$1"
+  local cmd="find \"$dir\" -type f \\("
 
-  find_wallpapers | xargs -d '\n' -P "$MAX_PARALLEL_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
-}
-
-# --- THEME APPLICATION (Delegates to Backend) ---
-apply_theme() {
-  local img="$1"
-  log "Delegating to backend: $img"
-
-  # DIRECT EXECUTION (No uwsm-app needed here)
-  nohup uwsm-app -- "$THEME_CTL" set-image "$img" >/dev/null 2>&1 &
-
-  notify-send "Theme Synced" "Applied $(basename "$img")"
-}
-
-apply_random() {
-  "$THEME_CTL" random
-}
-
-cycle_wallpapers() {
-  # ...
-  while true; do
-    "$THEME_CTL" random
-    sleep "$interval"
+  for i in "${!SUPPORTED_FORMATS[@]}"; do
+    [[ $i -gt 0 ]] && cmd+=" -o"
+    cmd+=" -iname \"${SUPPORTED_FORMATS[$i]}\""
   done
+
+  cmd+=" \\)"
+  echo "$cmd"
 }
 
-stop_cycle() {
-  local pid_file="/tmp/wallpaper_cycle.pid"
-  if [[ -f "$pid_file" ]]; then
-    local pid=$(cat "$pid_file")
-    if kill -0 "$pid" 2>/dev/null; then
-      kill "$pid"
-      rm -f "$pid_file"
-      notify-send "Cycle Stopped"
-    else
-      rm -f "$pid_file"
-    fi
-  else
-    notify-send "No Active Cycle"
-  fi
-}
+# --- APPEARANCE MENU ---
 
-# --- MENU FUNCTIONS ---
+show_appearance_menu() {
+  local icon=""
+  [[ "$CURRENT_MODE" == "light" ]] && icon=""
 
-appearance_menu() {
-  local cycle_status=""
-  [[ -f "/tmp/wallpaper_cycle.pid" ]] && kill -0 $(cat "/tmp/wallpaper_cycle.pid") 2>/dev/null && cycle_status="(Cycle Active)"
+  local choice
+  choice=$(menu "Theme: $DISPLAY_MODE" \
+    "$icon Toggle Mode ($DISPLAY_MODE)\n󰔎 Random ($DISPLAY_MODE)\n󰸉 Select Wallpaper\n󰆊 Clean Cache\n󰏘 Back")
 
-  local sub_options="󰔎 Random Wallpaper\n󰸉 Select Wallpaper\n󰞘 Start Cycle (5min)\n󰓛 Stop Cycle\n󰆊 Clean Cache\n󰏘 Back"
-  local sub_chosen=$(echo -e "$sub_options" | rofi -dmenu -i -p "Appearance $cycle_status")
-
-  case $sub_chosen in
-  "󰔎 Random Wallpaper") apply_random ;;
-  "󰸉 Select Wallpaper") select_wallpaper ;;
-  "󰞘 Start Cycle (5min)")
-    cycle_wallpapers 300 &
-    disown
+  case "${choice,,}" in
+  *toggle*) run_app "$THEME_CTL" toggle ;;
+  *random*) run_app "$THEME_CTL" random ;;
+  *select*) select_wallpaper ;;
+  *clean*)
+    rm -rf "${CACHE_DIR:?}"/*
+    notify-send "Cache Cleared" "Thumbnail cache emptied"
+    show_appearance_menu
     ;;
-  "󰓛 Stop Cycle") stop_cycle ;;
-  "󰆊 Clean Cache")
-    rm -rf "$CACHE_DIR"/*
-    notify-send "Cache Cleared"
-    ;;
-  "󰏘 Back") main_menu ;;
+  *back*) show_main_menu ;;
+  *) exit 0 ;;
   esac
 }
 
 select_wallpaper() {
-  echo "Generating thumbnails..."
-  generate_all_thumbs || return 1
+  [[ ! -d "$WALL_DIR" ]] || [[ ! -r "$WALL_DIR" ]] && {
+    notify-send "Error" "Cannot access: $WALL_DIR"
+    return 1
+  }
 
-  declare -A wallpaper_map
-  >"$TEMP_ROFI_INPUT"
+  # Generate thumbnails
+  local find_cmd
+  find_cmd=$(build_find_cmd "$WALL_DIR")
+  eval "$find_cmd" | xargs -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
 
-  log "Building list..."
+  # Build selection list
+  >"$TEMP_INPUT"
   while IFS= read -r img; do
-    local name=$(basename "$img")
-    local thumb="$CACHE_DIR/$name.png"
-    wallpaper_map["$name"]="$img"
-    [[ ! -f "$thumb" ]] && thumb="$img"
-    printf '%s\0icon\x1f%s\n' "$name" "$thumb" >>"$TEMP_ROFI_INPUT"
-  done < <(find_wallpapers)
+    local thumb="$CACHE_DIR/$(basename "$img").png"
+    [[ -f "$thumb" ]] && echo -en "$(basename "$img")\0icon\x1f$thumb\n" >>"$TEMP_INPUT"
+  done < <(eval "$find_cmd")
 
-  local selected_name
-  if [[ -f "$ROFI_THEME" ]]; then
-    selected_name=$(rofi -dmenu -i -p "󰸉 Select" -show-icons -theme "$ROFI_THEME" <"$TEMP_ROFI_INPUT")
-  else
-    selected_name=$(rofi -dmenu -i -p "󰸉 Select" -show-icons <"$TEMP_ROFI_INPUT")
-  fi
+  [[ ! -s "$TEMP_INPUT" ]] && {
+    notify-send "No Wallpapers" "No images found in $WALL_DIR"
+    return 1
+  }
 
-  if [[ -n "$selected_name" ]]; then
-    local full_path="${wallpaper_map[$selected_name]}"
-    [[ -f "$full_path" ]] && apply_theme "$full_path"
-  fi
+  # Show selection
+  local selection
+  selection=$(rofi -dmenu -i -p "Select Wallpaper" -show-icons <"$TEMP_INPUT")
+
+  [[ -n "$selection" ]] && [[ -f "$WALL_DIR/$selection" ]] &&
+    run_app "$THEME_CTL" set-image "$WALL_DIR/$selection"
 }
 
-power_menu() {
-  local p_options="󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰏘 Back"
-  local p_chosen=$(echo -e "$p_options" | rofi -dmenu -i -p "Power")
+# --- SYSTEM MENU ---
 
-  case $p_chosen in
-  "󰐥 Shutdown") confirm_action "Shutdown" && systemctl poweroff ;;
-  "󰜉 Reboot") confirm_action "Reboot" && systemctl reboot ;;
+show_system_menu() {
+  local uptime kernel
+  uptime=$(uptime -p | sed 's/up //' || echo "Unknown")
+  kernel=$(uname -r || echo "Unknown")
+
+  local choice
+  choice=$(menu "System" \
+    "󰌢 System Info\n󰑓 Refresh\n󰿅 Process Killer\n󰏘 Back" \
+    -mesg "Uptime: $uptime | Kernel: $kernel")
+
+  case "${choice,,}" in
+  *info*)
+    command -v kitty &>/dev/null &&
+      kitty -e sh -c "fastfetch 2>/dev/null || neofetch 2>/dev/null || echo 'No system info tool'; read -p 'Press Enter...'" &
+    ;;
+  *refresh*) show_system_menu ;;
+  *killer*)
+    command -v kitty &>/dev/null &&
+      kitty -e sh -c "hyprctl kill; read -p 'Click on window to close'" &
+    ;;
+  *back*) show_main_menu ;;
+  *) exit 0 ;;
+  esac
+}
+
+# --- POWER MENU ---
+
+show_power_menu() {
+  local choice
+  choice=$(menu "Power" "󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰏘 Back")
+
+  case "$choice" in
+  "󰐥 Shutdown") systemctl poweroff ;;
+  "󰜉 Reboot") systemctl reboot ;;
   "󰒲 Suspend") systemctl suspend ;;
   "󰤄 Lock") loginctl lock-session ;;
-  "󰗼 Logout") confirm_action "Logout" && hyprctl dispatch exit ;;
-  "󰏘 Back") main_menu ;;
+  "󰗼 Logout") hyprctl dispatch exit ;;
+  "󰏘 Back") show_main_menu ;;
+  *) exit 0 ;;
   esac
 }
 
-confirm_action() {
-  local action="$1"
-  local confirm=$(echo -e "Yes\nNo" | rofi -dmenu -i -p "Confirm $action?")
-  [[ "$confirm" == "Yes" ]]
-}
+# --- CONFIG MENU ---
 
-system_menu() {
-  local uptime=$(uptime -p | sed 's/up //')
-  local kernel=$(uname -r)
-  local info="Uptime: $uptime\nKernel: $kernel"
+show_config_menu() {
+  local choice
+  choice=$(menu "Configuration" " Hyprland Config\n󰸉 Look & Feel\n󰆊 Keybinds\n󰏘 Back\n Waybar\n Animations")
 
-  local s_options="󰌢 System Info\n󰑓 Refresh\n󰏘 Back"
-  local s_chosen=$(echo -e "$s_options" | rofi -dmenu -i -p "System" -mesg "$info")
-
-  case $s_chosen in
-  "󰌢 System Info")
-    command -v kitty &>/dev/null && kitty -e sh -c "fastfetch; read -p 'Enter...'" &
+  case "${choice,,}" in
+  *hyprland*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/hyprland.conf & ;;
+  *look*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/user-configs/looknfeel.conf & ;;
+  *binds*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/user-configs/userbinds.conf & ;;
+  *waybar*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/waybar/config.jsonc & ;;
+  *animations*)
+    command -v kitty &>/dev/null &
+    kitty -e nvim ~/.config/hypr/user-configs/animations &
     ;;
-  "󰑓 Refresh") system_menu ;;
-  "󰏘 Back") main_menu ;;
+  *back*) show_main_menu ;;
+  *) exit 0 ;;
   esac
 }
 
-config_menu() {
-  local sub_options="Hyprland main\n Keybinds\n Input\n Monitor\n Waybar\n Look and Fell"
-  local sub_chosen=$(echo -e "$sub_options" | rofi -dmenu -i -p "Edit")
+# --- MAIN MENU ---
 
-  case $sub_chosen in
-  "Hyprland main") nvim ~/.config/hypr/hyprland.conf ;;
-  "Keybinds") nvim ~/.config/hypr/user-configs/userbinds.conf ;;
-  esac
-}
+show_main_menu() {
+  local choice
+  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󰍉 System\n Configuration\n󰐥 Power")
 
-main_menu() {
-  local options="󱔗 Appearance\n󰀻 Applications\n󰍉 System\n󰐥 Power"
-  local chosen=$(echo -e "$options" | rofi -dmenu -i -p "Menu")
-
-  case $chosen in
-  "󱔗 Appearance") appearance_menu ;;
+  case "$choice" in
+  "󱔗 Appearance") show_appearance_menu ;;
   "󰀻 Applications") rofi -show drun ;;
-  "󰍉 System") system_menu ;;
-  "󰐥 Power") power_menu ;;
-  " Configs") config ;;
+  "󰍉 System") show_system_menu ;;
+  " Configuration") show_config_menu ;;
+  "󰐥 Power") show_power_menu ;;
+  *) exit 0 ;;
   esac
 }
 
-# --- MAIN ---
-if [[ $# -eq 0 ]]; then
-  # No arguments? Open the Main Menu
+# --- ENTRY POINT ---
+
+main() {
+  command -v rofi &>/dev/null || {
+    notify-send "Error" "rofi is not installed"
+    exit 1
+  }
+
+  [[ ! -x "$THEME_CTL" ]] && {
+    notify-send "Error" "Theme controller not found: $THEME_CTL"
+    exit 1
+  }
+
   init_dirs
-  main_menu
-else
-  # Handle specific arguments for keybinds
-  case "$1" in
-  --random)
-    init_dirs
-    apply_random
-    ;;
-  --select)
-    init_dirs
-    select_wallpaper
-    ;;
-  *)
-    init_dirs
-    main_menu
-    ;;
-  esac
-fi
+
+  if [[ -n "${1:-}" ]]; then
+    case "$1" in
+    --random) run_app "$THEME_CTL" random ;;
+    --select) select_wallpaper ;;
+    *) show_main_menu ;;
+    esac
+  else
+    show_main_menu
+  fi
+}
+
+main "$@"
