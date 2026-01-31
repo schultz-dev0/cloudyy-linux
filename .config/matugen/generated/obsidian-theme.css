@@ -1,0 +1,153 @@
+
+.theme-dark {
+	--accent-h:calc(205.71428571428572/255*360);
+	--accent-s:calc(77.64706015586853/255*100%);
+	--accent-l:calc(85.96491228070175/255*100%);
+
+  --text-normal:#e0e3e8;
+  --text-muted:#c1c7ce;
+  --text-faint:#8b9198;
+
+  --background-primary:#101417; /* editor and right ribbon */
+  --background-secondary:#101417; /* left ribbon */ 
+  --background-modifier-hover:#384956;
+  --background-modifier-active-hover:#b7c9d9;
+  --background-modifier-message:#101417;
+  --background-modifier-form-field:#004b6f;
+
+  --ribbon-background:#101417;
+  --divider-color:#384956;
+  --scrollbar-thumb-bg:#d3e5f5;
+  --status-bar-border-color:#384956;
+  --status-bar-background:#101417;
+  --titlebar-background:#101417;
+  --titlebar-text-color:#e0e3e8;
+
+  --nav-item-color:#c1c7ce;
+  --nav-item-color-active:#c9e6ff;
+  --nav-item-background-active:#004b6f;
+  --nav-item-color-hover:#d3e5f5;
+  --nav-item-background-hover:#384956;
+
+  --tab-background-active:#004b6f;
+  --tab-text-color-active:#c9e6ff;
+  --tab-text-color:#c1c7ce;
+
+  --icon-color:#e0e3e8;
+
+  --h1-color:#95cdf7;
+  --h2-color: color-mix(in srgb, #95cdf7, #cec0e8);
+  --h3-color:#cec0e8;
+  --h4-color: color-mix(in srgb, #95cdf7, #b7c9d9);
+  --h5-color:#b7c9d9;
+  --h6-color: color-mix(in srgb, #cec0e8, #b7c9d9);
+}
+
+/* add parts not accessible without specific selector?*/
+.theme-dark .sidebar-toggle-button.mod-left {
+  color:#e0e3e8;
+  background:#101417;
+}
+.theme-dark .sidebar-toggle-button.mod-right {
+  color:#e0e3e8;
+  background:#101417;
+}
+
+.theme-dark .workspace-tab-header-container{
+  background:#101417;
+}
+
+.home, .Home {
+	--accent-h:calc(205.71428571428572/255*360);
+	--accent-s:calc(77.64706015586853/255*100%);
+	--accent-l:calc(85.96491228070175/255*100%);
+
+  --text-normal:#e0e3e8;
+  --text-muted:#c1c7ce;
+  --text-faint:#8b9198;
+
+  --background-primary:#101417; /* editor and right ribbon */
+  --background-secondary:#101417; /* left ribbon */ 
+  --background-modifier-hover:#384956;
+  --background-modifier-active-hover:#b7c9d9;
+  --background-modifier-message:#101417;
+  --background-modifier-form-field:#004b6f;
+
+  --ribbon-background:#101417;
+  --divider-color:#384956;
+  --scrollbar-thumb-bg:#d3e5f5;
+  --status-bar-border-color:#384956;
+  --status-bar-background:#101417;
+  --titlebar-background:#101417;
+  --titlebar-text-color:#e0e3e8;
+
+  --nav-item-color:#c1c7ce;
+  --nav-item-color-active:#c9e6ff;
+  --nav-item-background-active:#004b6f;
+  --nav-item-color-hover:#d3e5f5;
+  --nav-item-background-hover:#384956;
+
+  --tab-background-active:#004b6f;
+  --tab-text-color-active:#c9e6ff;
+  --tab-text-color:#c1c7ce;
+
+  --icon-color:#e0e3e8;
+
+  --h1-color:#95cdf7;
+  --h2-color: color-mix(in srgb, #95cdf7, #cec0e8);
+  --h3-color:#cec0e8;
+  --h4-color: color-mix(in srgb, #95cdf7, #b7c9d9);
+  --h5-color:#b7c9d9;
+  --h6-color: color-mix(in srgb, #cec0e8, #b7c9d9);
+    
+    
+  }
+  
+.home, .Home {
+  --highlight: #95cdf7;
+  --primary: #cec0e8;
+  --dark: #cec0e8;
+}
+
+.home :is(h1, .HyperMD-header.HyperMD-header-1) {
+  color: var(--primary);
+  text-align: center;
+  font-size: 60px;
+  font-family: "Courier New";
+  padding: 0 !important;
+}
+.home :is(h2, .HyperMD-header.HyperMD-header-2) {
+  color: var(--highlight);
+  text-align: center;
+  font-size: 30px;
+  font-family: "Courier New";
+  font-style: italic;
+  padding: 0 !important;
+}
+.home :is(h3, .HyperMD-header.HyperMD-header-3) {
+  color: var(--primary);
+  text-align: center;
+
+  font-size: 32px;
+  font-family: "Courier New";
+  padding-top: 0;
+}
+.home :is(h4, .HyperMD-header.HyperMD-header-4) {
+  background-color: var(--primary);
+  color: var(--dark);
+  /* border-color: var(--primary); */
+  /* font-family: "Courier New", monospace; */
+  font-weight: 900;
+  margin-bottom: 0;
+  padding-top: 0;
+  font-size: 20px;
+  width: fit-content;
+  padding-left: 6px;
+  padding-right: 6px;
+  /* border: solid; */
+  border-radius: 8px;
+  /* border-width: 2px; */
+  word-wrap: normal;
+}
+
+
