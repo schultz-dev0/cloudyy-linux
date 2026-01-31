@@ -19,7 +19,7 @@ post_hook     = 'hyprctl reload'
 [templates.waybar]
 input_path    = '~/.config/matugen/templates/colors.css' 
 output_path   = '~/.config/matugen/generated/waybar-colors.css'
-post_hook     = "~/cloudyy_scripts/cloudyy-waybar-refresh.sh"
+post_hook     = "~/cloudyy_scripts/launch_waybar.sh"
 
 # --- 
 
@@ -37,9 +37,9 @@ output_path   = '~/.config/matugen/generated/kitty-colors.conf'
 post_hook     = '~/dots/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
-input_path    = '~/.config/matugen/templates/colors.lua'
-output_path   = '~/.config/matugen/generated/matugen_colors.lua'
-post_hook     = 'sh -c "touch ~/.config/nvim/lua/matugen_colors.lua"'
+input_path    = '~/.config/matugen/templates/nvimmode.lua'
+output_path   = '~/~/.config/nvim/lua/current_mode.lua'
+post_hook     = 'sh -c "touch ~/.config/nvim/lua/current_mode.lua"'
 
 [templates.rofi]
 input_path    = '~/.config/matugen/templates/colors.rasi'

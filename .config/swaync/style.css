@@ -176,3 +176,11 @@
   background: @on-primary;
   border-radius: 12px;
 }
+
+/* Prevent SwayNC from capturing volume slider */
+notification[app-name="Volume"],
+notification[app-name="volume-slider"] {
+  opacity: 0;
+  visibility: hidden;
+  display: none;
+}

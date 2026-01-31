@@ -24,9 +24,9 @@ window#waybar {
    ───────────────────────────────────────────────────────────────────────────── */
 
 window#waybar > box {
-  background-color: alpha(@primary, 0.85);
+  background-color: alpha(@surface, 0.75);
   border-radius: 14px;
-  border: 1px solid alpha(@outline_variant, 0.15);
+  border: 2px solid alpha(@outline_variant, 0.15);
   box-shadow: 0 3px 0px alpha(@shadow, 0.35), 0 1px 3px alpha(@shadow, 0.2);
   margin: 2px 0px;
 }
@@ -95,6 +95,24 @@ window#waybar > box {
 
 #custom-pycharm {
   padding: 0px 12px 0px 9px;
+  margin: 4px 2px;
+  border-radius: 8px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-pycharm:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MODE SWITCHER
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#custom-themeswitcher {
+  padding: 0px 12px 0px 9px;
   margin: 5px 2px;
   border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
@@ -103,7 +121,7 @@ window#waybar > box {
   transition: all 0.2s ease-in-out;
 }
 
-#custom-pycharm:hover {
+#custom-time:hover {
   background-color: alpha(@surface_container_high, 0.9);
 }
 

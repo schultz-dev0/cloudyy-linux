@@ -19,7 +19,8 @@
     "custom/weather",
     "custom/updates",
     "custom/notification",
-    "custom/pycharm"
+    "custom/pycharm",
+    "custom/themeswitcher"
   ],
 
   "modules-center": [
@@ -66,6 +67,13 @@
         "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
       }
     }
+  },
+  "custom/themeswitcher": {
+    "format": "󰔎",
+    "exec": "cat ~/.config/hypr/theme_state/state | sed 's/0/🌙/;s/1/☀️/'",
+    "interval": 1,
+    "on-click": "~/cloudyy_scripts/theme_controller.sh toggle",
+    "tooltip-format": "Switch theme"
   },
   "custom/pycharm": {
     "format": "󱜙 ",

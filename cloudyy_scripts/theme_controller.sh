@@ -1,187 +1,158 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- CONFIG ---
-readonly WALLPAPER_DIR="${HOME}/Wallpapers"
-readonly STATE_FILE="${HOME}/.config/hypr/theme_state/state.conf"
-readonly TEMP_DIR="${XDG_RUNTIME_DIR:-/tmp}/wallpaper_tmp"
-readonly CACHE_IMAGE="${TEMP_DIR}/current_wallpaper.png"
+# --- CONFIGURATION ---
+readonly STATE_DIR="${HOME}/.config/hypr/theme_state"
+readonly STATE_FILE="${STATE_DIR}/state.conf"
+readonly PUBLIC_STATE="${STATE_DIR}/state" # 0 for dark, 1 for light
+readonly LOCK_FILE="/tmp/theme_ctl.lock"
+readonly BASE_WALL_DIR="${HOME}/Wallpapers"
+readonly TEMP_FRAME="/tmp/current_theme_frame.png"
+readonly OBSIDIAN_CONF="$HOME/MyLife/.obsidian/appearance.json"
 
-# --- UTILS ---
-die() {
-  notify-send "Wallpaper Error" "$*" >&2
-  exit 1
+# --- ATOMIC LOCKING ---
+# Prevents script from running over itself if you spam the keybind.
+exec 200>"$LOCK_FILE"
+flock -n 200 || {
+  echo "Theme switch already in progress. Ignoring."
+  exit 0
+}
+
+# --- STATE MANAGEMENT ---
+read_state() {
+  THEME_MODE="dark"
+  CURRENT_WALL=""
+  [[ -f "$STATE_FILE" ]] && source "$STATE_FILE" 2>/dev/null || true
+}
+
+save_state() {
+  mkdir -p "$STATE_DIR"
+  # Internal State
+  cat <<EOF >"$STATE_FILE"
+THEME_MODE="$THEME_MODE"
+CURRENT_WALL="$CURRENT_WALL"
+EOF
+  # Public State (0/1) for other scripts to read easily
+  [[ "$THEME_MODE" == "light" ]] && echo 1 >"$PUBLIC_STATE" || echo 0 >"$PUBLIC_STATE"
+}
+
+# --- PROCESS UTILS ---
+wait_for_process() {
+  local proc="$1"
+  local timeout=20
+  while ! pgrep -x "$proc" &>/dev/null && [ $timeout -gt 0 ]; do
+    sleep 0.1
+    ((timeout--))
+  done
+}
+
+# --- APPLICATION UPDATES ---
+update_apps() {
+  # 1. GTK / System Mode
+  local scheme='prefer-dark'
+  [[ "$THEME_MODE" == "light" ]] && scheme='prefer-light'
+  gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
+
+  # 2. Obsidian Sync
+  if [[ -f "$OBSIDIAN_CONF" ]]; then
+    sed -i 's/"baseTheme": *"[^"]*"/"baseTheme": "'"$THEME_MODE"'"/' "$OBSIDIAN_CONF"
+    touch "$OBSIDIAN_CONF"
+  fi
+}
+
+reload_ui() {
+  # Restart Waybar using your robust restart script
+  "$HOME/cloudyy_scripts/restart_waybar.sh" >/dev/null 2>&1 &
+
+  # Reload SwayNC
+  swaync-client -rs >/dev/null 2>&1 &
 }
 
 # --- CORE LOGIC ---
-ensure_swww() {
-  if ! pgrep -x swww-daemon >/dev/null 2>&1; then
-    swww-daemon --format xrgb &
-    disown
-    sleep 0.5
-  fi
-}
-
-extract_first_frame() {
-  local input="$1"
-  local output="$2"
-
-  # Create temp directory if it doesn't exist
-  mkdir -p "$(dirname "$output")"
-
-  # Extract first frame based on file type
-  local mime=$(file --mime-type -b "$input")
-
-  if [[ "$mime" == *"image/gif"* ]]; then
-    # Extract first frame from GIF
-    magick "${input}[0]" "$output" 2>/dev/null ||
-      ffmpeg -i "$input" -vframes 1 "$output" -y 2>/dev/null ||
-      return 1
-  elif [[ "$mime" == *"video/"* ]]; then
-    # Extract first frame from video
-    ffmpeg -i "$input" -vframes 1 "$output" -y 2>/dev/null || return 1
-  else
-    return 1
-  fi
-
-  return 0
+extract_frame() {
+  ffmpeg -i "$1" -vframes 1 -y -loglevel error "$TEMP_FRAME" 2>/dev/null ||
+    magick "${1}[0]" "$TEMP_FRAME" 2>/dev/null
 }
 
 generate_colors() {
   local img="$1"
+  local mat_in="$img"
   local mime=$(file --mime-type -b "$img")
-  local ext="${img##*.}"
-  ext="${ext,,}"
 
-  # For animated content, extract first frame and generate colors from it
-  if [[ "$ext" == "gif" || "$ext" == "mp4" || "$mime" == *"video"* || "$mime" == *"image/gif"* ]]; then
-    mkdir -p "$TEMP_DIR"
-    local temp_frame="${TEMP_DIR}/first_frame.png"
+  [[ "$mime" == *"video/"* || "$mime" == *"image/gif"* ]] && extract_frame "$img" && mat_in="$TEMP_FRAME"
 
-    if extract_first_frame "$img" "$temp_frame"; then
-      matugen image "$temp_frame" >/dev/null 2>&1 || true
-      rm -f "$temp_frame"
-    else
-      # Fallback to matugen's built-in frame extraction
-      matugen image "${img}[0]" >/dev/null 2>&1 || true
-    fi
+  if matugen image "$mat_in" -m "$THEME_MODE" >/dev/null 2>&1; then
+    update_apps
+    reload_ui
   else
-    matugen image "$img" >/dev/null 2>&1 || true
-  fi
-
-  # Reload Waybar to apply new colors
-  pkill -SIGUSR2 waybar 2>/dev/null || true
-}
-
-cache_current_wallpaper() {
-  # Cache the current wallpaper to prevent flash to default background
-  mkdir -p "$TEMP_DIR"
-
-  # Try to get current swww image
-  if pgrep -x swww-daemon >/dev/null 2>&1; then
-    # Query swww for current image
-    local current_img=$(swww query 2>/dev/null | grep -oP 'image: \K.*' | head -n1)
-
-    if [[ -n "$current_img" && -f "$current_img" ]]; then
-      cp "$current_img" "$CACHE_IMAGE" 2>/dev/null || true
-    fi
+    notify-send "Matugen Failed" "Could not generate colors."
   fi
 }
 
 apply_wallpaper() {
   local img="$1"
+  [[ -f "$img" ]] || return 1
 
-  [[ -f "$img" ]] || die "File not found: $img"
-
-  # Detect file type
-  local mime=$(file --mime-type -b "$img")
-  local ext="${img##*.}"
-  ext="${ext,,}"
-
-  # Generate color scheme
+  CURRENT_WALL="$img"
+  save_state
   generate_colors "$img"
 
-  # Determine if animated
-  if [[ "$mime" == *"image/gif"* || "$mime" == *"video/"* || "$ext" == "gif" || "$ext" == "mp4" ]]; then
-    # === ANIMATION MODE ===
-
-    # Cache current wallpaper before killing swww
-    cache_current_wallpaper
-
-    # Set a static first frame with swww before switching to mpvpaper
-    mkdir -p "$TEMP_DIR"
-    local transition_frame="${TEMP_DIR}/transition_frame.png"
-
-    if extract_first_frame "$img" "$transition_frame"; then
-      ensure_swww
-      swww img "$transition_frame" --transition-type none --transition-duration 0 2>/dev/null || true
-      sleep 0.1
-    elif [[ -f "$CACHE_IMAGE" ]]; then
-      # Use cached image if frame extraction fails
-      ensure_swww
-      swww img "$CACHE_IMAGE" --transition-type none --transition-duration 0 2>/dev/null || true
-      sleep 0.1
-    fi
-
-    # Now kill swww and mpvpaper
+  local mime=$(file --mime-type -b "$img")
+  if [[ "$mime" == *"video/"* || "$mime" == *"image/gif"* ]]; then
     pkill -9 mpvpaper 2>/dev/null || true
-    swww clear 2>/dev/null || true
     pkill -9 swww-daemon 2>/dev/null || true
     sleep 0.2
-
-    # Launch mpvpaper with proper scaling and performance settings
-    mpvpaper -o "no-audio loop-playlist hwdec=auto video-sync=display-resample interpolation scale=ewa_lanczossharp cscale=ewa_lanczossharp panscan=1.0" '*' "$img" >/dev/null 2>&1 &
+    mpvpaper -o "no-audio loop-playlist hwdec=auto panscan=1.0" '*' "$img" >/dev/null 2>&1 &
     disown
-
-    # Clean up transition frame
-    rm -f "$transition_frame"
   else
-    # === STATIC MODE ===
-
     pkill -9 mpvpaper 2>/dev/null || true
-    ensure_swww
-
-    # Random transition effect
-    local trans_types=("grow" "outer" "wipe" "wave" "random")
-    local rand_type="${trans_types[RANDOM % ${#trans_types[@]}]}"
-
-    swww img "$img" \
-      --transition-type "$rand_type" \
-      --transition-pos "0.5,0.5" \
-      --transition-duration 1.5 \
-      --transition-fps 60
+    # Ensure swww is alive
+    pgrep -x swww-daemon >/dev/null || {
+      swww-daemon --format xrgb &
+      disown
+      sleep 0.5
+    }
+    swww img "$img" --transition-type random --transition-duration 1.5 --transition-fps 60
   fi
 }
 
-# --- HANDLERS ---
-cmd_set_image() {
-  local img="$1"
-  [[ "$img" != /* ]] && img="$(realpath "$img")"
-  apply_wallpaper "$img"
+# --- COMMANDS ---
+
+cmd_toggle() {
+  read_state
+  [[ "$THEME_MODE" == "dark" ]] && THEME_MODE="light" || THEME_MODE="dark"
+
+  # Self-Healing: If we don't know the wall, ask swww
+  if [[ -z "$CURRENT_WALL" || ! -f "$CURRENT_WALL" ]]; then
+    CURRENT_WALL=$(swww query 2>/dev/null | grep -oP 'image: \K.*' | head -n1)
+  fi
+
+  save_state
+  notify-send "Theme" "Switching to ${THEME_MODE}..." -h string:x-canonical-private-synchronous:theme
+
+  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+    generate_colors "$CURRENT_WALL"
+  else
+    update_apps
+    reload_ui
+  fi
 }
 
-cmd_random() {
-  shopt -s nullglob nocaseglob globstar
-  local walls=("$WALLPAPER_DIR"/**/*.{jpg,jpeg,png,gif,mp4,webp})
-  shopt -u nullglob nocaseglob globstar
-
-  [[ ${#walls[@]} -eq 0 ]] && die "No wallpapers found in $WALLPAPER_DIR"
-
-  local rand_wall="${walls[RANDOM % ${#walls[@]}]}"
-  cmd_set_image "$rand_wall"
-}
-
-# --- MAIN ---
+# --- DISPATCH ---
+read_state
 case "${1:-}" in
-set-image)
-  [[ -z "${2:-}" ]] && die "Usage: $0 set-image <path>"
-  cmd_set_image "$2"
-  ;;
+set-image) apply_wallpaper "$(realpath "$2")" ;;
+toggle) cmd_toggle ;;
 random)
-  cmd_random
+  folder_mode="$(tr '[:lower:]' '[:upper:]' <<<${THEME_MODE:0:1})${THEME_MODE:1}"
+  target="$BASE_WALL_DIR/$folder_mode"
+  shopt -s nullglob globstar
+  walls=("$target"/**/*.{jpg,jpeg,png,gif,webp,mp4,mkv})
+  [[ ${#walls[@]} -gt 0 ]] && apply_wallpaper "${walls[RANDOM % ${#walls[@]}]}"
   ;;
+get-mode) echo "$THEME_MODE" ;;
 *)
-  echo "Usage: $0 {set-image <path>|random}"
+  echo "Usage: $0 {set-image|toggle|random|get-mode}"
   exit 1
   ;;
 esac
