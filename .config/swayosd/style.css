@@ -1,0 +1,53 @@
+/* 1. Import your Matugen colors */
+/* ADJUST THIS PATH to match where Matugen exports your colors.css */
+@import '~/.config/matugen/generated/colors.css'; 
+
+/* 2. Main Window - Position it at the bottom */
+window {
+    background: transparent;
+    /* This pushes the UI to the bottom of the screen */
+    margin-bottom: 30px; 
+}
+
+/* 3. The Bubble Container */
+#container {
+    /* Use Matugen variable names (check your colors.css if these differ) */
+    background-color: @surface;
+    color: @on_surface;
+    border-radius: 24px;
+    border: 2px solid @outline;
+    padding: 10px 20px;
+    
+    /* Ensure it looks like a "layer" */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* 4. Progress Bar / Slider */
+progressbar {
+    background-color: @surface_variant; 
+    border-radius: 99px;
+}
+
+trough {
+    background-color: transparent;
+    border: none;
+    min-height: 8px;
+}
+
+progress {
+    background-color: @primary;
+    border-radius: 99px;
+    min-height: 8px;
+}
+
+/* 5. Icons & Text */
+image {
+    color: @primary;
+    margin-right: 12px;
+}
+
+label {
+    color: @on_surface;
+    font-weight: bold;
+    margin-left: 12px;
+}

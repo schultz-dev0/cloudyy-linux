@@ -27,7 +27,7 @@ window#waybar > box {
   background-color: alpha(@primary, 0.85);
   border-radius: 14px;
   border: 1px solid alpha(@outline_variant, 0.15);
-  box-shadow: 0 4px 0px alpha(@shadow, 0.35), 0 1px 3px alpha(@shadow, 0.2);
+  box-shadow: 0 3px 0px alpha(@shadow, 0.35), 0 1px 3px alpha(@shadow, 0.2);
   margin: 2px 0px;
 }
 
@@ -90,7 +90,7 @@ window#waybar > box {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PYCHARM
+   PYCHARM # remove if not neded!! #
    ───────────────────────────────────────────────────────────────────────────── */
 
 #custom-pycharm {
@@ -123,36 +123,6 @@ window#waybar > box {
 
 #custom-weather:hover {
   background-color: alpha(@surface_container_high, 0.9);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   IDLE INHIBITOR
-   ───────────────────────────────────────────────────────────────────────────── */
-
-#custom-inhibit-suspend {
-  padding: 0px 12px 0px 9px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface;
-  font-size: 14px;
-  transition: all 0.2s ease-in-out;
-}
-
-#custom-inhibit-suspend:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-}
-
-#custom-inhibit-suspend.disabled {
-  color: @tertiary;
-  padding: 0px 12px 0px 9px;
-  background-color: alpha(@tertiary_container, 0.3);
-  border: 1px solid alpha(@tertiary, 0.2);
-}
-
-#custom-inhibit-suspend.enabled {
-  color: @on_surface_variant;
-  background-color: alpha(@surface_container, 0.6);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -436,24 +406,6 @@ window#waybar > box {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   BACKLIGHT
-   ───────────────────────────────────────────────────────────────────────────── */
-
-#backlight {
-  padding: 0px 13px 0px 8px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @tertiary;
-  font-size: 14px;
-  transition: all 0.2s ease-in-out;
-}
-
-#backlight:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
    CPU
    ───────────────────────────────────────────────────────────────────────────── */
 
@@ -589,7 +541,7 @@ tooltip {
   background-color: alpha(@surface_container_high, 0.95);
   border: 1px solid alpha(@outline_variant, 0.3);
   border-radius: 12px;
-  box-shadow: 0 8px 24px alpha(@shadow, 0.4);
+  box-shadow: 3px 3px 3px alpha(@shadow, 0.4);
 }
 
 tooltip label {

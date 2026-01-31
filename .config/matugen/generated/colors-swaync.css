@@ -5,33 +5,33 @@
 /* =====================================================================
    SOLID COLOR REFERENCES (for text, icons, borders)
    ===================================================================== */
-@define-color primary #ffb59c;
-@define-color primary-container #723520;
-@define-color on-primary #55200c;
-@define-color on-primary-container #ffdbcf;
+@define-color primary #bfc1ff;
+@define-color primary-container #3e4178;
+@define-color on-primary #282b60;
+@define-color on-primary-container #e1e0ff;
 
-@define-color secondary #e7bdb0;
-@define-color secondary-container #5d4036;
-@define-color on-secondary #442a21;
-@define-color on-secondary-container #ffdbcf;
+@define-color secondary #c5c4dd;
+@define-color secondary-container #454559;
+@define-color on-secondary #2e2f42;
+@define-color on-secondary-container #e1e0f9;
 
 @define-color error #ffb4ab;
 @define-color on-error #690005;
 @define-color error-container #93000a;
 @define-color on-error-container #ffdad6;
 
-@define-color surface #1a110f;
-@define-color surface-dim #1a110f;
-@define-color surface-bright #423733;
-@define-color surface-container #271d1a;
-@define-color surface-container-low #231917;
-@define-color surface-container-high #322825;
-@define-color surface-container-highest #3d322f;
+@define-color surface #131318;
+@define-color surface-dim #131318;
+@define-color surface-bright #39383f;
+@define-color surface-container #1f1f25;
+@define-color surface-container-low #1b1b21;
+@define-color surface-container-high #2a292f;
+@define-color surface-container-highest #35343a;
 
-@define-color on-surface #f1dfd9;
-@define-color on-surface-variant #d8c2bb;
-@define-color outline #a08d87;
-@define-color outline-variant #53433f;
+@define-color on-surface #e4e1e9;
+@define-color on-surface-variant #c7c5d0;
+@define-color outline #918f9a;
+@define-color outline-variant #46464f;
 
 /* =====================================================================
    LIQUID GLASS TRANSPARENT VARIANTS
@@ -39,41 +39,41 @@
    ===================================================================== */
 
 /* Main control center background - Ultra transparent for glass effect */
-@define-color cc-bg #1a110fB3;  /* 70% */
+@define-color cc-bg #131318B3;  /* 70% */
 
 /* Widget backgrounds - Slightly more opaque */
-@define-color widget-bg #271d1aCC;  /* 80% */
+@define-color widget-bg #1f1f25CC;  /* 80% */
 
 /* Notification cards - Medium opacity for readability */
-@define-color noti-bg #322825D9;  /* 85% */
+@define-color noti-bg #2a292fD9;  /* 85% */
 
 /* Hover states - Light glass effect */
-@define-color hover-bg #271d1a99;  /* 60% */
+@define-color hover-bg #1f1f2599;  /* 60% */
 
 /* Button backgrounds - More opaque for tactile feel */
-@define-color button-bg #322825F2;  /* 90% */
+@define-color button-bg #2a292fF2;  /* 90% */
 
 /* Active/Selected state - Primary with transparency */
-@define-color active-bg #723520D9;  /* 85% */
+@define-color active-bg #3e4178D9;  /* 85% */
 
 /* Input/text box background */
-@define-color input-bg #231917CC;  /* 80% */
+@define-color input-bg #1b1b21CC;  /* 80% */
 
 /* =====================================================================
    ADDITIONAL GLASS VARIANTS (for fine-tuning)
    ===================================================================== */
 
 /* Ultra light glass (for subtle overlays) */
-@define-color glass-ultra-light #271d1a66;  /* 40% */
+@define-color glass-ultra-light #1f1f2566;  /* 40% */
 
 /* Medium glass (balanced visibility) */
-@define-color glass-medium #271d1aB3;  /* 70% */
+@define-color glass-medium #1f1f25B3;  /* 70% */
 
 /* Heavy glass (almost opaque, subtle transparency) */
-@define-color glass-heavy #271d1aF2;  /* 95% */
+@define-color glass-heavy #1f1f25F2;  /* 95% */
 
 /* Colored glass variants for accents */
-@define-color primary-glass #ffb59c99;  /* 60% primary */
+@define-color primary-glass #bfc1ff99;  /* 60% primary */
 @define-color error-glass #ffb4ab99;  /* 60% error */
 
 /* =====================================================================
@@ -91,4 +91,4 @@
 
 @define-color border-default @outline-variant;
 @define-color border-focus @primary;
-@define-color border-subtle #53433f80;  /* 50% subtle border */
+@define-color border-subtle #46464f80;  /* 50% subtle border */

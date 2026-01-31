@@ -4,7 +4,7 @@
 
 /* ---- Configuration ---- */
 configuration {
-    modi: "drun";
+    modi: "drun,combi,window";
     show-icons: true;
     drun-display-format: "{name}";
 }
