@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# HYPRLAND DASHBOARD (ROFI FRONTEND)
+# HYPRLAND DASHBOARD (ROFI FRONTEND) - Updated with Theme Toggle Menu
 # Optimized for Bash 5+ | Dependencies: rofi, uwsm, kitty, ImageMagick/magick
 # -----------------------------------------------------------------------------
 
@@ -54,6 +54,17 @@ menu() {
   printf "%b" "$options" | "${ROFI_CMD[@]}" -p "$prompt" "${extra_args[@]}"
 }
 
+centered_menu() {
+  local prompt="$1"
+  local options="$2"
+
+  printf "%b" "$options" | rofi -dmenu -i -p "$prompt" \
+    -theme-str 'window { location: center; anchor: center; width: 400px; }' \
+    -theme-str 'listview { lines: 4; }' \
+    -theme-str 'element { padding: 12px; }' \
+    -theme-str 'element-text { font: "JetBrainsMono Nerd Font 12"; }'
+}
+
 run_app() {
   nohup uwsm-app -- "$@" >/dev/null 2>&1 &
   disown
@@ -89,27 +100,75 @@ build_find_cmd() {
   echo "$cmd"
 }
 
+# --- THEME TOGGLE MENU ---
+
+show_theme_toggle_menu() {
+  # Refresh current mode
+  CURRENT_MODE=$(get_current_mode)
+  DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<${CURRENT_MODE:0:1})${CURRENT_MODE:1}"
+
+  local light_indicator=""
+  local dark_indicator=""
+
+  [[ "$CURRENT_MODE" == "light" ]] && light_indicator=" ✓" || dark_indicator=" ✓"
+
+  local choice
+  choice=$(centered_menu "Current: $DISPLAY_MODE" \
+    "󰖨 Light Mode$light_indicator\n󰖔 Dark Mode$dark_indicator\n󰆥 Toggle\n󰸉 Back")
+
+  case "${choice}" in
+  *"Light Mode"*)
+    if [[ "$CURRENT_MODE" != "light" ]]; then
+      run_app "$THEME_CTL" set --mode light
+      notify-send "Theme" "Switching to Light mode..." -t 2000
+    fi
+    ;;
+  *"Dark Mode"*)
+    if [[ "$CURRENT_MODE" != "dark" ]]; then
+      run_app "$THEME_CTL" set --mode dark
+      notify-send "Theme" "Switching to Dark mode..." -t 2000
+    fi
+    ;;
+  *"Toggle"*)
+    run_app "$THEME_CTL" toggle
+    ;;
+  *"Back"*)
+    show_appearance_menu
+    ;;
+  *)
+    exit 0
+    ;;
+  esac
+}
+
 # --- APPEARANCE MENU ---
 
 show_appearance_menu() {
-  local icon=""
-  [[ "$CURRENT_MODE" == "light" ]] && icon=""
-
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "$icon Toggle Mode ($DISPLAY_MODE)\n󰔎 Random ($DISPLAY_MODE)\n󰸉 Select Wallpaper\n󰆊 Clean Cache\n󰏘 Back")
+    "󰔎 Theme Mode\n󰗆 Random ($DISPLAY_MODE)\n󰸉 Select Wallpaper\n󰘁 Refresh Colors\n󰸉 Back")
 
-  case "${choice,,}" in
-  *toggle*) run_app "$THEME_CTL" toggle ;;
-  *random*) run_app "$THEME_CTL" random ;;
-  *select*) select_wallpaper ;;
-  *clean*)
-    rm -rf "${CACHE_DIR:?}"/*
-    notify-send "Cache Cleared" "Thumbnail cache emptied"
-    show_appearance_menu
+  case "${choice}" in
+  *"Theme Mode"*)
+    show_theme_toggle_menu
     ;;
-  *back*) show_main_menu ;;
-  *) exit 0 ;;
+  *"Random"*)
+    run_app "$THEME_CTL" random
+    notify-send "Theme" "Applying random wallpaper..." -t 2000
+    ;;
+  *"Select Wallpaper"*)
+    select_wallpaper
+    ;;
+  *"Refresh"*)
+    run_app "$THEME_CTL" refresh
+    notify-send "Theme" "Refreshing colors..." -t 2000
+    ;;
+  *"Back"*)
+    show_main_menu
+    ;;
+  *)
+    exit 0
+    ;;
   esac
 }
 
@@ -138,7 +197,14 @@ select_wallpaper() {
 
   # Show selection
   local selection
-  selection=$(rofi -dmenu -i -p "Select Wallpaper" -show-icons <"$TEMP_INPUT")
+  # Grid Layout Overrides
+  selection=$(rofi -dmenu -i -p "Select Wallpaper" \
+    -theme-str 'window { width: 60%; }' \
+    -theme-str 'listview { columns: 4; lines: 3; flow: horizontal; }' \
+    -theme-str 'element { orientation: vertical; padding: 20px; spacing: 10px; }' \
+    -theme-str 'element-icon { size: 150px; horizontal-align: 0.5; }' \
+    -theme-str 'element-text { horizontal-align: 0.5; }' \
+    -show-icons <"$TEMP_INPUT")
 
   [[ -n "$selection" ]] && [[ -f "$WALL_DIR/$selection" ]] &&
     run_app "$THEME_CTL" set-image "$WALL_DIR/$selection"
@@ -153,7 +219,7 @@ show_system_menu() {
 
   local choice
   choice=$(menu "System" \
-    "󰌢 System Info\n󰑓 Refresh\n󰿅 Process Killer\n󰏘 Back" \
+    "󰢮 System Info\n󰑐 Refresh\n󰿅 Process Killer\n󰸉 Back" \
     -mesg "Uptime: $uptime | Kernel: $kernel")
 
   case "${choice,,}" in
@@ -175,7 +241,7 @@ show_system_menu() {
 
 show_power_menu() {
   local choice
-  choice=$(menu "Power" "󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰏘 Back")
+  choice=$(menu "Power" "󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰸉 Back")
 
   case "$choice" in
   "󰐥 Shutdown") systemctl poweroff ;;
@@ -183,7 +249,7 @@ show_power_menu() {
   "󰒲 Suspend") systemctl suspend ;;
   "󰤄 Lock") loginctl lock-session ;;
   "󰗼 Logout") hyprctl dispatch exit ;;
-  "󰏘 Back") show_main_menu ;;
+  "󰸉 Back") show_main_menu ;;
   *) exit 0 ;;
   esac
 }
@@ -192,7 +258,7 @@ show_power_menu() {
 
 show_config_menu() {
   local choice
-  choice=$(menu "Configuration" " Hyprland Config\n󰸉 Look & Feel\n󰆊 Keybinds\n󰏘 Back\n Waybar\n Animations")
+  choice=$(menu "Configuration" "󱁉 Hyprland Config\n󰸉 Look & Feel\n󰆍 Keybinds\n󰸉 Back\n Waybar\n Animations")
 
   case "${choice,,}" in
   *hyprland*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/hyprland.conf & ;;
@@ -212,13 +278,18 @@ show_config_menu() {
 
 show_main_menu() {
   local choice
-  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󰍉 System\n Configuration\n󰐥 Power")
+  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󰉋 System\n󰫮 Configuration\n󰐥 Power")
 
   case "$choice" in
   "󱔗 Appearance") show_appearance_menu ;;
-  "󰀻 Applications") rofi -show drun ;;
-  "󰍉 System") show_system_menu ;;
-  " Configuration") show_config_menu ;;
+  "󰀻 Applications") rofi -show drun \
+    -theme-str 'listview { columns: 4; lines: 6; }' \
+    -theme-str 'element { orientation: vertical; children: [ element-icon, element-text ]; padding: 10px; }' \
+    -theme-str 'element-icon { size: 64px; horizontal-align: 0.5; }' \
+    -theme-str 'element-text { horizontal-align: 0.5; }' \
+    -show-icons ;;
+  "󰉋 System") show_system_menu ;;
+  "󰫮 Configuration") show_config_menu ;;
   "󰐥 Power") show_power_menu ;;
   *) exit 0 ;;
   esac
@@ -243,6 +314,7 @@ main() {
     case "$1" in
     --random) run_app "$THEME_CTL" random ;;
     --select) select_wallpaper ;;
+    --theme-toggle) show_theme_toggle_menu ;;
     *) show_main_menu ;;
     esac
   else
