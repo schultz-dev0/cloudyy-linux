@@ -70,8 +70,6 @@
   },
   "custom/themeswitcher": {
     "format": "󰔎",
-    "exec": "cat ~/.config/hypr/theme_state/state | sed 's/0/🌙/;s/1/☀️/'",
-    "interval": 1,
     "on-click": "~/cloudyy_scripts/theme_controller.sh toggle",
     "tooltip-format": "Switch theme"
   },
