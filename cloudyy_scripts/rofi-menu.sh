@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# HYPRLAND DASHBOARD (ROFI FRONTEND) - Updated with Theme Toggle Menu
+# HYPRLAND DASHBOARD (ROFI FRONTEND) - Updated with Full Theme Integration
 # Optimized for Bash 5+ | Dependencies: rofi, uwsm, kitty, ImageMagick/magick
 # -----------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ readonly ROFI_CMD=(
   -i
 )
 
-readonly SUPPORTED_FORMATS=("*.jpg" "*.jpeg" "*.png" "*.gif" "*.mp4" "*.webp" "*.mkv")
+readonly SUPPORTED_FORMATS=("*.jpg" "*.jpeg" "*.png" "*.webp")
 
 trap 'rm -f "$TEMP_INPUT"' EXIT INT TERM
 
@@ -59,8 +59,8 @@ centered_menu() {
   local options="$2"
 
   printf "%b" "$options" | rofi -dmenu -i -p "$prompt" \
-    -theme-str 'window { location: center; anchor: center; width: 400px; }' \
-    -theme-str 'listview { lines: 4; }' \
+    -theme-str 'window { location: center; anchor: center; width: 450px; }' \
+    -theme-str 'listview { lines: 8; }' \
     -theme-str 'element { padding: 12px; }' \
     -theme-str 'element-text { font: "JetBrainsMono Nerd Font 12"; }'
 }
@@ -100,7 +100,7 @@ build_find_cmd() {
   echo "$cmd"
 }
 
-# --- THEME TOGGLE MENU ---
+# --- THEME TOGGLE MENU (EXPANDED) ---
 
 show_theme_toggle_menu() {
   # Refresh current mode
@@ -113,24 +113,57 @@ show_theme_toggle_menu() {
   [[ "$CURRENT_MODE" == "light" ]] && light_indicator=" ✓" || dark_indicator=" ✓"
 
   local choice
-  choice=$(centered_menu "Current: $DISPLAY_MODE" \
-    "󰖨 Light Mode$light_indicator\n󰖔 Dark Mode$dark_indicator\n󰆥 Toggle\n󰸉 Back")
+  choice=$(centered_menu "Theme: $DISPLAY_MODE" \
+    "󰖨 Light Mode$light_indicator\n󰖔 Dark Mode$dark_indicator\n󰆥 Toggle Mode\n \n󰑐 Next Wallpaper\n󰗆 Random Wallpaper\n󰘁 Refresh Colors\n󰁯 Reset Theme\n󰸉 Back")
 
   case "${choice}" in
   *"Light Mode"*)
     if [[ "$CURRENT_MODE" != "light" ]]; then
-      run_app "$THEME_CTL" set --mode light
+      run_app "$THEME_CTL" --force set --mode light
       notify-send "Theme" "Switching to Light mode..." -t 2000
     fi
     ;;
   *"Dark Mode"*)
     if [[ "$CURRENT_MODE" != "dark" ]]; then
-      run_app "$THEME_CTL" set --mode dark
+      run_app "$THEME_CTL" --force set --mode dark
       notify-send "Theme" "Switching to Dark mode..." -t 2000
     fi
     ;;
-  *"Toggle"*)
-    run_app "$THEME_CTL" toggle
+  *"Toggle Mode"*)
+    run_app "$THEME_CTL" --force toggle
+    notify-send "Theme" "Toggling theme..." -t 2000
+    ;;
+  *"Next Wallpaper"*)
+    run_app "$THEME_CTL" next
+    notify-send "Theme" "Loading next wallpaper..." -t 2000
+    ;;
+  *"Random Wallpaper"*)
+    run_app "$THEME_CTL" random
+    notify-send "Theme" "Applying random wallpaper..." -t 2000
+    ;;
+  *"Refresh Colors"*)
+    run_app "$THEME_CTL" refresh
+    notify-send "Theme" "Refreshing colors..." -t 2000
+    ;;
+  *"Reset Theme"*)
+    # Confirmation submenu
+    local confirm
+    confirm=$(centered_menu "Reset Theme?" \
+      "󰁯 Reset & Apply Wallpaper\n󰁯 Reset Only (No Wallpaper)\n󰸉 Cancel")
+
+    case "${confirm}" in
+    *"Reset & Apply"*)
+      run_app "$THEME_CTL" --force reset --apply
+      notify-send "Theme" "Theme reset, applying wallpaper..." -t 3000
+      ;;
+    *"Reset Only"*)
+      run_app "$THEME_CTL" --force reset
+      notify-send "Theme" "Theme state reset to dark mode" -t 3000
+      ;;
+    *)
+      show_theme_toggle_menu
+      ;;
+    esac
     ;;
   *"Back"*)
     show_appearance_menu
@@ -146,25 +179,55 @@ show_theme_toggle_menu() {
 show_appearance_menu() {
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Theme Mode\n󰗆 Random ($DISPLAY_MODE)\n󰸉 Select Wallpaper\n󰘁 Refresh Colors\n󰸉 Back")
+    "󰔎 Theme Mode\n󰸉 Select Wallpaper\n󰘁 Diagnostics\n󰸉 Back")
 
   case "${choice}" in
   *"Theme Mode"*)
     show_theme_toggle_menu
     ;;
-  *"Random"*)
-    run_app "$THEME_CTL" random
-    notify-send "Theme" "Applying random wallpaper..." -t 2000
-    ;;
   *"Select Wallpaper"*)
     select_wallpaper
     ;;
-  *"Refresh"*)
-    run_app "$THEME_CTL" refresh
-    notify-send "Theme" "Refreshing colors..." -t 2000
+  *"Diagnostics"*)
+    show_diagnostics_menu
     ;;
   *"Back"*)
     show_main_menu
+    ;;
+  *)
+    exit 0
+    ;;
+  esac
+}
+
+show_diagnostics_menu() {
+  # Get state info
+  local state_output
+  state_output=$("$THEME_CTL" get-state 2>&1 || echo "Failed to get state")
+
+  local choice
+  choice=$(menu "Theme Diagnostics" \
+    "󰋼 View State\n󰁯 Unlock Script\n󰋲 Clear Cache\n󰸉 Back" \
+    -mesg "Current: $DISPLAY_MODE")
+
+  case "${choice}" in
+  *"View State"*)
+    notify-send "Theme State" "$state_output" -t 5000
+    show_diagnostics_menu
+    ;;
+  *"Unlock"*)
+    "$THEME_CTL" unlock
+    notify-send "Theme" "Lock file removed" -t 2000
+    show_diagnostics_menu
+    ;;
+  *"Clear Cache"*)
+    rm -rf "$CACHE_DIR"
+    mkdir -p "$CACHE_DIR"
+    notify-send "Theme" "Thumbnail cache cleared" -t 2000
+    show_diagnostics_menu
+    ;;
+  *"Back"*)
+    show_appearance_menu
     ;;
   *)
     exit 0
@@ -313,8 +376,11 @@ main() {
   if [[ -n "${1:-}" ]]; then
     case "$1" in
     --random) run_app "$THEME_CTL" random ;;
+    --next) run_app "$THEME_CTL" next ;;
+    --toggle) run_app "$THEME_CTL" toggle ;;
     --select) select_wallpaper ;;
     --theme-toggle) show_theme_toggle_menu ;;
+    --diagnostics) show_diagnostics_menu ;;
     *) show_main_menu ;;
     esac
   else
