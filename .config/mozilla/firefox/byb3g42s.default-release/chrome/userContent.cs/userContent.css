@@ -1,0 +1,17 @@
+/*
+##@import "matugen.css";
+#
+#
+#@-moz-document url-prefix("about:"), url-prefix("chrome://") {
+#    body, html, .system-page {
+#        background-color: var(--m-bg) !important;
+#        color: var(--m-text) !important;
+#    }
+#}
+#
+#/* OPTIONAL: Global brute force (Use with caution) */
+#/* body {
+#    background-color: var(--m-bg) !important;
+#    color: var(--m-text) !important;
+#} 
+#*/

@@ -1,46 +1,28 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# REBOOT TO WINDOWS (UEFI/Limine Safe Mode)
+# SAFE SWITCH TO WINDOWS (MSI Z690 FIX)
 # ==============================================================================
 
 set -euo pipefail
 
-# --- CHECKS ---
+# Your Windows ID (Double check this with: awk -F"'" '/menuentry / {print $2}' /boot/grub/grub.cfg)
+readonly WINDOWS_ENTRY="Windows Boot Manager (on /dev/nvme0n1p1)"
 
-# 1. Check for Root
 if [[ $EUID -ne 0 ]]; then
   exec sudo "$0" "$@"
 fi
 
-# 2. Check for efibootmgr
-if ! command -v efibootmgr >/dev/null 2>&1; then
-  echo "Error: 'efibootmgr' is required."
-  echo "Install it with: sudo pacman -S efibootmgr"
+# 1. Tell GRUB to boot Windows *next time only*
+if grep -Fq "$WINDOWS_ENTRY" /boot/grub/grub.cfg; then
+  grub-reboot "$WINDOWS_ENTRY"
+  echo ">> Target set: Windows"
+else
+  echo "Error: Windows entry not found!"
   exit 1
 fi
 
-# --- LOGIC ---
-
-echo ">> Searching for Windows Boot Manager..."
-
-# Find the Boot ID for Windows (e.g., "0001")
-# We grep for 'Windows Boot Manager', grab the first column (BootXXXX*),
-# and strip 'Boot' and the '*' to get just the hex code.
-WINDOWS_ID=$(efibootmgr | grep -i "Windows Boot Manager" | head -n1 | awk '{print $1}' | sed 's/Boot//;s/\*//')
-
-if [[ -z "$WINDOWS_ID" ]]; then
-  echo "Error: Could not find 'Windows Boot Manager' in UEFI entries."
-  echo "Current entries:"
-  efibootmgr
-  exit 1
-fi
-
-echo ">> Found Windows at Boot ID: $WINDOWS_ID"
-echo ">> Setting EFI BootNext..."
-
-# Set the "BootNext" variable
-efibootmgr --bootnext "$WINDOWS_ID"
-
-echo ">> Success. Rebooting into Windows now..."
+# 2. FULL POWER CUT (Required for MSI Z690 USB Controller reset)
+echo ">> SHUTTING DOWN to clear USB controller state..."
+echo ">> Wait 5 seconds after lights out, then power on manually."
 sleep 2
-reboot
+poweroff

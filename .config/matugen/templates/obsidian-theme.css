@@ -14,14 +14,6 @@ body {
     --text-faint: {{colors.outline.default.hex}};
     --text-on-accent: {{colors.on_primary.default.hex}};
 
-    /* --- BACKGROUNDS --- */
-    --background-primary: {{colors.surface.default.hex}};
-    --background-secondary: {{colors.surface_container.default.hex}};
-    --background-secondary-alt: {{colors.surface_container_high.default.hex}};
-    
-    --background-modifier-hover: {{colors.surface_container_highest.default.hex}};
-    --background-modifier-active-hover: {{colors.surface_container_high.default.hex}};
-    --background-modifier-border: {{colors.outline_variant.default.hex}};
 
     /* --- UI ELEMENTS --- */
     --ribbon-background: {{colors.surface_container_low.default.hex}};
@@ -46,6 +38,16 @@ body {
     --h6-color: {{colors.tertiary.default.hex}};
 }
 
+body {
+    /* Define base RGB variables first for safety */
+    --m-surface-rgb: {{colors.surface.default.red}}, {{colors.surface.default.green}}, {{colors.surface.default.blue}};
+    --m-primary-rgb: {{colors.primary.default.red}}, {{colors.primary.default.green}}, {{colors.primary.default.blue}};
+
+    /* Mix using rgb() syntax */
+    --background-primary: color-mix(in srgb, rgb(var(--m-surface-rgb)), rgb(var(--m-primary-rgb)) 15%) !important;
+    --background-secondary: color-mix(in srgb, rgb(var(--m-surface-rgb)), rgb(var(--m-primary-rgb)) 10%) !important;
+}
+
 /* =================================================================
    HOME PAGE INTEGRATION 
    Overrides the variables in your Home.css with wallpaper colors
@@ -65,6 +67,24 @@ body {
     --code-background: {{colors.surface_container_highest.default.hex}};
 }
 
+/* --- GLASSMOPHISM BASE --- */
+body {
+    /* Make the app background slightly see-through */
+    background-color: transparent !important;
+}
+
+.app-container {
+    /* Tint the glass with your Matugen background color (70% opacity) */
+    background-color: rgba(var(--m-surface-rgb), 0.55) !important;
+    backdrop-filter: blur(20px); /* The blur strength */
+}
+
+/* Make the sidebar slightly darker/more opaque for contrast */
+.workspace-split.mod-left-split {
+    background-color: rgba(var(--m-surface-rgb), 0.75) !important;
+    border-right: 1px solid {{colors.outline_variant.default.hex}};
+}
+
 /* Force specific elements in Home to respect the new palette */
 .home :is(h1, .HyperMD-header.HyperMD-header-1),
 .home :is(h2, .HyperMD-header.HyperMD-header-2),
@@ -78,13 +98,101 @@ body {
     color: {{colors.on_tertiary.default.hex}} !important;
 }
 
-/* =================================================================
+/* ==================================================================
+   Other stuff and QOL 
+   MATUGEN INTEGRATION
+   ==================================================================*/ 
+
+/* --- HEADERS --- */
+body {
+    /* Map headers to your Matugen colors */
+    --h1-color: {{colors.primary.default.hex}};
+    --h2-color: {{colors.secondary.default.hex}};
+    --h3-color: {{colors.tertiary.default.hex}};
+    --h4-color: {{colors.primary.default.hex}};
+    --h5-color: {{colors.secondary.default.hex}};
+    --h6-color: {{colors.tertiary.default.hex}};
+}
+
+/* Optional: Add a subtle underline to H1 and H2 for structure */
+.HyperMD-header-1, h1, 
+.HyperMD-header-2, h2 {
+    border-bottom: 1px solid {{colors.outline_variant.default.hex}};
+    padding-bottom: 5px !important;
+}
+
+/* --- QOL IMPROVEMENTS --- */
+
+/* 1. Theme the Text Selection (Highlight) */
+::selection {
+    background-color: {{colors.primary.default.hex}};
+    color: {{colors.on_primary.default.hex}};
+}
+
+/* 2. Better Blockquotes (Glowy Border) */
+blockquote {
+    border-left: 3px solid {{colors.primary.default.hex}} !important;
+    background-color: {{colors.surface_container_low.default.hex}};
+    color: {{colors.on_surface_variant.default.hex}};
+    border-radius: 0 8px 8px 0;
+}
+
+/* 3. Bold & Italic accents */
+strong { color: {{colors.primary.default.hex}}; font-weight: 700; }
+em { color: {{colors.secondary.default.hex}}; }
+
+/* 4. Minimalist Scrollbars (Hidden unless hovering) */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: {{colors.outline.default.hex}};
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: {{colors.primary.default.hex}};
+}
+
+/* 5. Clean Checkboxes */
+input[type="checkbox"]:checked {
+    background-color: {{colors.primary.default.hex}} !important;
+    border-color: {{colors.primary.default.hex}} !important;
+}
+
+/* --- CODE & TAGS --- */
+
+/* Inline code `like this` */
+code {
+    color: {{colors.secondary.default.hex}} !important;
+    background-color: {{colors.surface_container_highest.default.hex}} !important;
+    border-radius: 4px;
+    padding: 2px 5px;
+}
+
+/* HashTags #example */
+a.tag {
+    background-color: {{colors.secondary_container.default.hex}};
+    color: {{colors.on_secondary_container.default.hex}};
+    font-weight: 600;
+    text-decoration: none !important;
+    border-radius: 12px;
+}
+a.tag:hover {
+    background-color: {{colors.primary.default.hex}};
+    color: {{colors.on_primary.default.hex}};
+}
+
+/* ==================================================================
    SLEEP COUNTER (Abstract Callout)
    Integrated with Matugen colors for dynamic glowing effects
-   ================================================================= */
+   ================================================================== */
 .callout[data-callout="abstract"] {
     /* Obsidian internal variable (RGB format) -> Mapped to Primary */
-    --callout-color: {{colors.primary.default.r}}, {{colors.primary.default.g}}, {{colors.primary.default.b}};
+    --callout-color: {{colors.primary.default.red}}, {{colors.primary.default.green}}, {{colors.primary.default.blue}};
 
     /* Background: Primary Container (Pastel in Light, Muted in Dark) */
     background-color: {{colors.primary_container.default.hex}} !important;
