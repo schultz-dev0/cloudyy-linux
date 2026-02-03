@@ -70,7 +70,7 @@
 
 /* The individual toggle buttons */
 .widget-buttons-grid > flowbox > flowboxchild > button {
-  background: alpha(@surface, 0.3);
+  background: alpha(@surface, 0.45);
   border-radius: 16px;
   margin: 4px;
   min-width: 70px;

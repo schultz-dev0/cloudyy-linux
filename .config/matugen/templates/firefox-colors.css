@@ -1,0 +1,18 @@
+:root {
+    /* --- Backgrounds --- */
+    --m-bg: {{colors.surface.default.hex}};
+    --m-bg-alt: {{colors.surface_container.default.hex}};
+    --m-bg-lighter: {{colors.surface_container_high.default.hex}};
+    
+    /* --- Primary Accents --- */
+    --m-primary: {{colors.primary.default.hex}};
+    --m-on-primary: {{colors.on_primary.default.hex}};
+    --m-primary-container: {{colors.primary_container.default.hex}};
+    
+    /* --- Text --- */
+    --m-text: {{colors.on_surface.default.hex}};
+    --m-text-dim: {{colors.on_surface_variant.default.hex}};
+    
+    /* --- Outlines/Borders --- */
+    --m-border: {{colors.outline.default.hex}};
+}

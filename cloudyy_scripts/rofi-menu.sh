@@ -321,7 +321,7 @@ show_power_menu() {
 
 show_config_menu() {
   local choice
-  choice=$(menu "Configuration" "󱁉 Hyprland Config\n󰸉 Look & Feel\n󰆍 Keybinds\n󰸉 Back\n Waybar\n Animations")
+  choice=$(menu "Configuration" "󱁉 Hyprland Config\n󰸉 Look & Feel\n󰆍 Keybinds\n󰸉 Back\n󱣱 Waybar\n󰪐 Animations")
 
   case "${choice,,}" in
   *hyprland*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/hyprland.conf & ;;
@@ -330,7 +330,7 @@ show_config_menu() {
   *waybar*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/waybar/config.jsonc & ;;
   *animations*)
     command -v kitty &>/dev/null &
-    kitty -e nvim ~/.config/hypr/user-configs/animations &
+    kitty -e nvim ~/.config/hypr/user-configs/animations.conf &
     ;;
   *back*) show_main_menu ;;
   *) exit 0 ;;
@@ -341,7 +341,7 @@ show_config_menu() {
 
 show_main_menu() {
   local choice
-  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󰉋 System\n󰫮 Configuration\n󰐥 Power")
+  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n System\n Configuration\n󰐥 Power")
 
   case "$choice" in
   "󱔗 Appearance") show_appearance_menu ;;
@@ -351,8 +351,8 @@ show_main_menu() {
     -theme-str 'element-icon { size: 64px; horizontal-align: 0.5; }' \
     -theme-str 'element-text { horizontal-align: 0.5; }' \
     -show-icons ;;
-  "󰉋 System") show_system_menu ;;
-  "󰫮 Configuration") show_config_menu ;;
+  " System") show_system_menu ;;
+  " Configuration") show_config_menu ;;
   "󰐥 Power") show_power_menu ;;
   *) exit 0 ;;
   esac
