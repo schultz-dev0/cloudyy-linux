@@ -90,7 +90,7 @@
   background: @primary;
   color: @on-primary;
   border: 1px solid @primary;
-  box-shadow: 0 0 15px alpha(@primary, 0.4);
+  box-shadow: 0 0 15px alpha(@primary, 0.7);
 }
 
 /* =====================================================================
@@ -102,7 +102,7 @@
 }
 
 .notification {
-  background: alpha(@surface, 0.4);
+  background: alpha(@surface, 0.9);
   border-radius: 18px;
   padding: 14px;
   border: 1px solid @rim-light;
@@ -184,3 +184,4 @@ notification[app-name="volume-slider"] {
   visibility: hidden;
   display: none;
 }
+
