@@ -14,7 +14,7 @@ to do list:
 
 ![Preview three](/home/schultz/dots/extras/Preview pics/2026-02-03-021928_hyprcap.png)
 
-![Preview four](/home/schultz/dots/extras/Preview pics/2026-02-03-021944_hyprcap.png)
+![Preview four](dots/extras/Preview pics/2026-02-03-021944_hyprcap.png)
 
-![Preview five](/home/schultz/dots/extras/Preview pics/2026-02-03-022001_hyprcap.png)
+![Preview five](dots/extras/Preview pics/2026-02-03-022001_hyprcap.png)
 
