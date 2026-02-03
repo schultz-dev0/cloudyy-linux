@@ -337,6 +337,17 @@ show_config_menu() {
   esac
 }
 
+# --- APPLICATIONS MENU ---
+
+show_applications_menu() {
+  rofi -show drun \
+    -theme-str 'listview { columns: 4; lines: 6; }' \
+    -theme-str 'element { orientation: vertical; children: [ element-icon, element-text ]; padding: 10px; }' \
+    -theme-str 'element-icon { size: 64px; horizontal-align: 0.5; }' \
+    -theme-str 'element-text { horizontal-align: 0.5; }' \
+    -show-icons
+}
+
 # --- MAIN MENU ---
 
 show_main_menu() {
@@ -345,12 +356,7 @@ show_main_menu() {
 
   case "$choice" in
   "󱔗 Appearance") show_appearance_menu ;;
-  "󰀻 Applications") rofi -show drun \
-    -theme-str 'listview { columns: 4; lines: 6; }' \
-    -theme-str 'element { orientation: vertical; children: [ element-icon, element-text ]; padding: 10px; }' \
-    -theme-str 'element-icon { size: 64px; horizontal-align: 0.5; }' \
-    -theme-str 'element-text { horizontal-align: 0.5; }' \
-    -show-icons ;;
+  "󰀻 Applications") show_applications_menu ;;
   " System") show_system_menu ;;
   " Configuration") show_config_menu ;;
   "󰐥 Power") show_power_menu ;;
@@ -381,6 +387,7 @@ main() {
     --select) select_wallpaper ;;
     --theme-toggle) show_theme_toggle_menu ;;
     --diagnostics) show_diagnostics_menu ;;
+    --applications) show_applications_menu ;;
     *) show_main_menu ;;
     esac
   else
