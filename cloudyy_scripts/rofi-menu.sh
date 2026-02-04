@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# HYPRLAND DASHBOARD (ROFI FRONTEND) - Updated with Full Theme Integration
-# Optimized for Bash 5+ | Dependencies: rofi, uwsm, kitty, ImageMagick/magick
+# HYPRLAND DASHBOARD (ROFI FRONTEND) - Dependencies: rofi, uwsm, kitty, ImageMagick/magick
 # -----------------------------------------------------------------------------
 
 set -uo pipefail

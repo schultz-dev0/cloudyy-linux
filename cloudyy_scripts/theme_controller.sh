@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# THEME CONTROLLER (Hybrid - Best of Both Worlds)
+# THEME CONTROLLER
 # ==============================================================================
 
 set -euo pipefail
