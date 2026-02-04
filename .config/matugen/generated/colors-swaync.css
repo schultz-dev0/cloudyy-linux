@@ -1,14 +1,14 @@
 /* Matugen SwayNC Colors */
-@define-color cc-bg #121318;
-@define-color surface #1e1f25;
+@define-color cc-bg #101418;
+@define-color surface #1c2024;
 
-@define-color text-primary #e2e2e9;
-@define-color text-secondary #c5c6d0;
+@define-color text-primary #e0e2e8;
+@define-color text-secondary #c2c7ce;
 
-@define-color primary #afc6ff;
-@define-color on-primary #142f60;
+@define-color primary #98ccf9;
+@define-color on-primary #003351;
 
-@define-color button-bg #282a2f;
+@define-color button-bg #272a2e;
 @define-color error #ffb4ab;
 
 /* Dynamic Shadows & Borders */
@@ -16,4 +16,4 @@
 
 /* CRITICAL: This flips from "White" (Dark Mode) to "Grey" (Light Mode) 
    so your borders are always visible */
-@define-color rim-light #44464f;
+@define-color rim-light #42474e;

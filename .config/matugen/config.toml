@@ -72,11 +72,11 @@ input_path = '~/.config/matugen/templates/pywal.json'
 output_path = '~/.cache/wal/colors.json'
 post_hook = 'pywalfox update'
 
-[templates.vesktop]
-input_path = '~/.config/matugen/templates/vesktop.theme.css'
-output_path = '~/.config/vesktop/themes/matugen.theme.css'
+#[templates.vesktop]
+#input_path = '~/.config/matugen/templates/vesktop.theme.css'
+#output_path = '~/.config/vesktop/themes/matugen.theme.css'
 # Vesktop usually hot-reloads themes, but this ensures it updates
-post_hook = 'touch ~/.config/vesktop/themes/matugen.theme.css'
+#post_hook = 'touch ~/.config/vesktop/themes/matugen.theme.css'
 
 [templates.vscode]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
