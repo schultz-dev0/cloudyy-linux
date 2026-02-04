@@ -1,60 +1,62 @@
 #!/bin/bash
-# Hyprland Setup Script for Arch Linux - Part 2: Dotfiles Deployment
 set -e
 
-# Colors for output
-RED='\033[0;31m'
+# Colors
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print_status() { echo -e "${BLUE}[*]${NC} $1"; }
-print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
-print_error() { echo -e "${RED}[✗]${NC} $1"; }
+# Configuration
+REPO_URL="https://github.com/schultz-dev0/cloudyy-linux"
+TARGET_DIR="$HOME/cloudyy-linux"
 
-# ============================================================================
-# CONFIGURATION - YOUR REPO HARDCODED
-# ============================================================================
-DOTFILES_REPO="https://github.com/schultz-dev0/cloudyy-linux"
-DOTFILES_DIR="$HOME/cloudyy-linux"
-CONFIG_DIR="$HOME/.config"
-BACKUP_DIR="$HOME/.config_backup_$(date +%Y%m%d_%H%M%S)"
+echo -e "${BLUE}[*] Starting deployment from $REPO_URL...${NC}"
 
-clear
-echo -e "${GREEN}Deploying cloudyy-linux configurations...${NC}"
-
-# Clone the repository
-if [ -d "$DOTFILES_DIR" ]; then
-  print_status "Local repository found. Pulling latest changes..."
-  cd "$DOTFILES_DIR" && git pull
+# 1. Clone or Update the repo in home
+if [ -d "$TARGET_DIR" ]; then
+  echo -e "${BLUE}[*] Updating existing repository...${NC}"
+  cd "$TARGET_DIR" && git pull
 else
-  print_status "Cloning from $DOTFILES_REPO..."
-  git clone "$DOTFILES_REPO" "$DOTFILES_DIR"
+  echo -e "${BLUE}[*] Cloning repository to $HOME...${NC}"
+  git clone "$REPO_URL" "$TARGET_DIR"
 fi
 
-# Backup existing configs
-print_status "Creating backup at $BACKUP_DIR..."
-mkdir -p "$BACKUP_DIR"
-for config in hypr waybar kitty mako wofi swaync; do
-  if [ -d "$CONFIG_DIR/$config" ]; then
-    mv "$CONFIG_DIR/$config" "$BACKUP_DIR/"
-  fi
-done
+# 2. Prepare Directories
+mkdir -p "$HOME/.config"
+mkdir -p "$HOME/.local/bin"
 
-# Deployment Logic (Using Symlinks as default for easier editing)
-print_status "Linking configurations..."
-mkdir -p "$CONFIG_DIR"
+# 3. Create Symlinks
+echo -e "${BLUE}[*] Creating symlinks...${NC}"
 
-# List of folders in your repo to link to ~/.config/
-# Adjust this list based on exactly what folders are in your cloudyy-linux repo
-CONFIG_FOLDERS=("hypr" "waybar" "kitty" "mako" "swaync")
+# Link .config contents (hypr, waybar, kitty, etc.)
+# This links every folder inside the repo's .config to your system's .config
+if [ -d "$TARGET_DIR/.config" ]; then
+  for dir in "$TARGET_DIR/.config"/*; do
+    if [ -d "$dir" ]; then
+      target="$HOME/.config/$(basename "$dir")"
+      rm -rf "$target" # Remove existing to prevent nested links
+      ln -sf "$dir" "$target"
+      echo -e "${GREEN}[✓] Linked .config/$(basename "$dir")${NC}"
+    fi
+  done
+fi
 
-for folder in "${CONFIG_FOLDERS[@]}"; do
-  if [ -d "$DOTFILES_DIR/$folder" ]; then
-    ln -sf "$DOTFILES_DIR/$folder" "$CONFIG_DIR/$folder"
-    print_success "Linked $folder"
-  fi
-done
+# Link Wallpapers directly to ~/wallpapers
+if [ -d "$TARGET_DIR/wallpapers" ]; then
+  rm -rf "$HOME/wallpapers"
+  ln -sf "$TARGET_DIR/wallpapers" "$HOME/wallpapers"
+  echo -e "${GREEN}[✓] Linked ~/wallpapers${NC}"
+fi
 
-print_success "Dotfiles deployed successfully from cloudyy-linux!"
+# Link Scripts to ~/.local/bin
+if [ -d "$TARGET_DIR/scripts" ]; then
+  for script in "$TARGET_DIR/scripts"/*; do
+    if [ -f "$script" ]; then
+      chmod +x "$script"
+      ln -sf "$script" "$HOME/.local/bin/$(basename "$script")"
+    fi
+  done
+  echo -e "${GREEN}[✓] Linked scripts to ~/.local/bin${NC}"
+fi
+
+echo -e "${GREEN}SUCCESS: Dotfiles deployed and symlinked!${NC}"
