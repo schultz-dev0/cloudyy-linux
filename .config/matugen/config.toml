@@ -77,3 +77,8 @@ input_path = '~/.config/matugen/templates/vesktop.theme.css'
 output_path = '~/.config/vesktop/themes/matugen.theme.css'
 # Vesktop usually hot-reloads themes, but this ensures it updates
 post_hook = 'touch ~/.config/vesktop/themes/matugen.theme.css'
+
+[templates.vscode]
+input_path = '~/.config/matugen/templates/vscode-theme.json'
+output_path = '~/.vscode-oss/extensions/matugen-theme/themes/matugen-theme.json'
+post_hook = 'touch ~/.vscode/extensions/matugen-theme/package.json && touch ~/.vscode/extensions/matugen-theme/themes/matugen-theme.json'

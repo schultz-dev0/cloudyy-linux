@@ -1,6 +1,9 @@
 {
   "extras": [
-
+    "lazyvim.plugins.extras.ai.claudecode",
+    "lazyvim.plugins.extras.coding.yanky",
+    "lazyvim.plugins.extras.test.core",
+    "lazyvim.plugins.extras.util.dot"
   ],
   "install_version": 8,
   "news": {

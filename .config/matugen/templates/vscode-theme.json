@@ -1,0 +1,64 @@
+{
+  "name": "Matugen",
+  "type": "dark",
+  "colors": {
+    /* --- BASE UI --- */
+    "editor.background": "{{colors.surface.default.hex}}",
+    "editor.foreground": "{{colors.on_surface.default.hex}}",
+    "activityBar.background": "{{colors.surface_container_low.default.hex}}",
+    "sideBar.background": "{{colors.surface_container.default.hex}}",
+    "sideBar.border": "{{colors.outline_variant.default.hex}}",
+    "titleBar.activeBackground": "{{colors.surface.default.hex}}",
+    "statusBar.background": "{{colors.surface_container.default.hex}}",
+    "statusBar.foreground": "{{colors.on_surface.default.hex}}",
+    
+    /* --- ACCENTS --- */
+    "activityBar.activeBorder": "{{colors.primary.default.hex}}",
+    "activityBar.foreground": "{{colors.primary.default.hex}}",
+    "textLink.foreground": "{{colors.primary.default.hex}}",
+    "button.background": "{{colors.primary.default.hex}}",
+    "button.foreground": "{{colors.on_primary.default.hex}}",
+    "inputOption.activeBorder": "{{colors.primary.default.hex}}",
+    
+    /* --- LISTS & TREES --- */
+    "list.activeSelectionBackground": "{{colors.primary.default.hex}}40",
+    "list.hoverBackground": "{{colors.on_surface.default.hex}}10",
+    "list.activeSelectionForeground": "{{colors.primary.default.hex}}",
+    
+    /* --- TABS --- */
+    "editorGroupHeader.tabsBackground": "{{colors.surface.default.hex}}",
+    "tab.activeBackground": "{{colors.surface_container_high.default.hex}}",
+    "tab.inactiveBackground": "{{colors.surface.default.hex}}",
+    "tab.activeBorderTop": "{{colors.primary.default.hex}}"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "punctuation.definition.comment"],
+      "settings": { "foreground": "{{colors.on_surface_variant.default.hex}}" }
+    },
+    {
+      "scope": ["variable", "string.constant.other.placeholder"],
+      "settings": { "foreground": "{{colors.on_surface.default.hex}}" }
+    },
+    {
+      "scope": ["constant.other.color"],
+      "settings": { "foreground": "{{colors.tertiary.default.hex}}" }
+    },
+    {
+      "scope": ["invalid", "invalid.illegal"],
+      "settings": { "foreground": "{{colors.error.default.hex}}" }
+    },
+    {
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": { "foreground": "{{colors.primary.default.hex}}" }
+    },
+    {
+      "scope": ["entity.name.function", "support.function"],
+      "settings": { "foreground": "{{colors.secondary.default.hex}}" }
+    },
+    {
+      "scope": ["string"],
+      "settings": { "foreground": "{{colors.tertiary.default.hex}}" }
+    }
+  ]
+}
