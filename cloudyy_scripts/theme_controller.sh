@@ -540,7 +540,6 @@ cmd_next() {
   apply_wallpaper "$next_wall"
   sleep 0.5
   reload_ui
-
 }
 
 cmd_random() {
