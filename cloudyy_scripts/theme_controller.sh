@@ -13,6 +13,7 @@ readonly DARK_DIR="${BASE_WALL_DIR}/Dark"
 readonly STATE_DIR="${HOME}/.config/hypr/theme_state"
 readonly STATE_FILE="${STATE_DIR}/state.conf"
 readonly PUBLIC_STATE="${STATE_DIR}/state"
+readonly CURRENT_WALLPAPER_DIR="${STATE_DIR}/current_wallpaper"
 readonly LOCK_FILE="/tmp/theme_ctl.lock"
 readonly TRACK_LIGHT="${STATE_DIR}/light_last"
 readonly TRACK_DARK="${STATE_DIR}/dark_last"
@@ -175,6 +176,16 @@ EOF
     echo 1 >"$PUBLIC_STATE"
   else
     echo 0 >"$PUBLIC_STATE"
+  fi
+
+  # Copy current wallpaper to dedicated folder as current.jpg
+  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+    mkdir -p "$CURRENT_WALLPAPER_DIR"
+    # Clear the folder first (remove any old wallpapers)
+    rm -f "$CURRENT_WALLPAPER_DIR"/*
+    # Copy the current wallpaper as current.jpg (regardless of original extension)
+    cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_DIR/current.jpg"
+    log "Wallpaper copied to: $CURRENT_WALLPAPER_DIR/current.jpg"
   fi
 
   log "State saved: $THEME_MODE -> ${CURRENT_WALL##*/}"
@@ -623,6 +634,7 @@ cmd_reset() {
   log "Clearing state files..."
   rm -f "$STATE_FILE" 2>/dev/null || true
   rm -f "$PUBLIC_STATE" 2>/dev/null || true
+  rm -rf "$CURRENT_WALLPAPER_DIR" 2>/dev/null || true
   rm -f "$TRACK_LIGHT" 2>/dev/null || true
   rm -f "$TRACK_DARK" 2>/dev/null || true
   rm -f /tmp/theme_ctl_last_toggle 2>/dev/null || true
@@ -748,6 +760,12 @@ get-state)
   echo "=== Files ==="
   echo "State File: $STATE_FILE"
   echo "Public State: $(cat "$PUBLIC_STATE" 2>/dev/null || echo "N/A")"
+  echo "Current Wallpaper Folder: $CURRENT_WALLPAPER_DIR"
+  if [[ -d "$CURRENT_WALLPAPER_DIR" ]]; then
+    echo "  Contents: $(ls -1 "$CURRENT_WALLPAPER_DIR" 2>/dev/null | tr '\n' ' ' || echo "empty")"
+  else
+    echo "  Contents: folder does not exist"
+  fi
   echo "Light Track: $(cat "$TRACK_LIGHT" 2>/dev/null || echo "none")"
   echo "Dark Track: $(cat "$TRACK_DARK" 2>/dev/null || echo "none")"
   echo ""
@@ -799,5 +817,3 @@ EOF
   exit 1
   ;;
 esac
-
-log "Done!"
