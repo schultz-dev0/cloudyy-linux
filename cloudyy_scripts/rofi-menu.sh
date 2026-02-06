@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# HYPRLAND DASHBOARD (ROFI FRONTEND) - Dependencies: rofi, uwsm, kitty, ImageMagick/magick
+# HYPRLAND DASHBOARD (ROFI FRONTEND)
+# Dependencies: rofi, uwsm, kitty, ImageMagick/magick
 # -----------------------------------------------------------------------------
 
 set -uo pipefail
 
 # --- CONFIGURATION ---
 readonly THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
+readonly HKBM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hkbm"
 readonly BASE_WALL_DIR="${HOME}/Wallpapers"
 readonly CACHE_DIR="${HOME}/.cache/rofi_thumbs"
 readonly TEMP_INPUT="/tmp/rofi_input_$$"
@@ -25,6 +27,7 @@ readonly SUPPORTED_FORMATS=("*.jpg" "*.jpeg" "*.png" "*.webp")
 trap 'rm -f "$TEMP_INPUT"' EXIT INT TERM
 
 # --- MODE DETECTION ---
+
 get_current_mode() {
   local raw_mode
   raw_mode=$("$THEME_CTL" get-mode 2>/dev/null || echo "dark")
@@ -99,10 +102,23 @@ build_find_cmd() {
   echo "$cmd"
 }
 
-# --- THEME TOGGLE MENU (EXPANDED) ---
+# --- KEYBIND MENU ---
+
+show_keybinds_menu() {
+  # Verify the binary exists first
+  if [[ ! -x "$HKBM_CMD" ]]; then
+    notify-send "Error" "hkbm not found at: $HKBM_CMD"
+    return
+  fi
+
+  # Launch hkbm in a floating terminal window
+  # We use 'nohup' to detach it so closing the terminal doesn't kill the script
+  nohup kitty --class hkbm_floating --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
+}
+
+# --- THEME TOGGLE MENU ---
 
 show_theme_toggle_menu() {
-  # Refresh current mode
   CURRENT_MODE=$(get_current_mode)
   DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<${CURRENT_MODE:0:1})${CURRENT_MODE:1}"
 
@@ -145,7 +161,6 @@ show_theme_toggle_menu() {
     notify-send "Theme" "Refreshing colors..." -t 2000
     ;;
   *"Reset Theme"*)
-    # Confirmation submenu
     local confirm
     confirm=$(centered_menu "Reset Theme?" \
       "󰁯 Reset & Apply Wallpaper\n󰁯 Reset Only (No Wallpaper)\n󰸉 Cancel")
@@ -200,7 +215,6 @@ show_appearance_menu() {
 }
 
 show_diagnostics_menu() {
-  # Get state info
   local state_output
   state_output=$("$THEME_CTL" get-state 2>&1 || echo "Failed to get state")
 
@@ -240,12 +254,10 @@ select_wallpaper() {
     return 1
   }
 
-  # Generate thumbnails
   local find_cmd
   find_cmd=$(build_find_cmd "$WALL_DIR")
   eval "$find_cmd" | xargs -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
 
-  # Build selection list
   >"$TEMP_INPUT"
   while IFS= read -r img; do
     local thumb="$CACHE_DIR/$(basename "$img").png"
@@ -257,9 +269,7 @@ select_wallpaper() {
     return 1
   }
 
-  # Show selection
   local selection
-  # Grid Layout Overrides
   selection=$(rofi -dmenu -i -p "Select Wallpaper" \
     -theme-str 'window { width: 60%; }' \
     -theme-str 'listview { columns: 4; lines: 3; flow: horizontal; }' \
@@ -270,6 +280,178 @@ select_wallpaper() {
 
   [[ -n "$selection" ]] && [[ -f "$WALL_DIR/$selection" ]] &&
     run_app "$THEME_CTL" set-image "$WALL_DIR/$selection"
+}
+
+# --- PACKAGE MANAGER MENU ---
+
+show_package_menu() {
+  local choice
+  choice=$(menu "Package Manager" \
+    "󰆴 Remove Package\n󰈙 List Installed\n󰋼 Package Info\n󰸉 Back")
+
+  case "${choice}" in
+  *"Remove Package"*)
+    remove_package
+    ;;
+  *"List Installed"*)
+    list_packages
+    ;;
+  *"Package Info"*)
+    package_info
+    ;;
+  *"Back"*)
+    show_main_menu
+    ;;
+  *)
+    exit 0
+    ;;
+  esac
+}
+
+remove_package() {
+  # core packages that should never be removed
+  local -a protected_packages=(
+    "base"
+    "base-devel"
+    "linux"
+    "linux-headers"
+    "linux-firmware"
+    "systemd"
+    "bash"
+    "glibc"
+    "pacman"
+    "sudo"
+    "hyprland"
+    "rofi"
+    "kitty"
+    "networkmanager"
+    "grub"
+    "efibootmgr"
+    "mesa"
+    "xorg-server"
+    "wayland"
+  )
+
+  # detect package manager
+  local pkg_manager=""
+  if command -v yay &>/dev/null; then
+    pkg_manager="yay"
+  elif command -v paru &>/dev/null; then
+    pkg_manager="paru"
+  elif command -v pacman &>/dev/null; then
+    pkg_manager="pacman"
+  else
+    notify-send "Error" "No supported package manager found"
+    return 1
+  fi
+
+  # get list of explicitly installed packages (both official and AUR)
+  local pkg_list
+  if [[ "$pkg_manager" == "pacman" ]]; then
+    pkg_list=$(pacman -Qe | awk '{print $1}')
+  else
+    # yay/paru will show both official and AUR packages
+    pkg_list=$($pkg_manager -Qe | awk '{print $1}')
+  fi
+
+  # filter out protected packages
+  local filtered_list=""
+  while IFS= read -r pkg; do
+    local is_protected=0
+    for protected in "${protected_packages[@]}"; do
+      [[ "$pkg" == "$protected" ]] && is_protected=1 && break
+    done
+    [[ $is_protected -eq 0 ]] && filtered_list+="$pkg\n"
+  done <<<"$pkg_list"
+
+  # show package selection
+  local selected_pkg
+  selected_pkg=$(echo -e "$filtered_list" | rofi -dmenu -i -p "Select package to remove" \
+    -theme-str 'window { width: 50%; }' \
+    -theme-str 'listview { lines: 15; }' \
+    -mesg "$(echo "$pkg_list" | wc -l) packages installed | Protected: ${#protected_packages[@]}")
+
+  [[ -z "$selected_pkg" ]] && return 0
+
+  # confirmation
+  local confirm
+  confirm=$(centered_menu "Remove $selected_pkg?" \
+    "󰆴 Confirm Removal\n󰸉 Cancel")
+
+  case "${confirm}" in
+  *"Confirm"*)
+    if [[ "$pkg_manager" == "pacman" ]]; then
+      kitty -e sh -c "sudo pacman -Rns $selected_pkg; read -p 'Press Enter to close'" &
+    else
+      # yay/paru can remove both official and AUR packages
+      kitty -e sh -c "$pkg_manager -Rns $selected_pkg; read -p 'Press Enter to close'" &
+    fi
+    ;;
+  *)
+    show_package_menu
+    ;;
+  esac
+}
+
+list_packages() {
+  local pkg_manager=""
+  if command -v yay &>/dev/null; then
+    pkg_manager="yay"
+  elif command -v paru &>/dev/null; then
+    pkg_manager="paru"
+  elif command -v pacman &>/dev/null; then
+    pkg_manager="pacman"
+  else
+    notify-send "Error" "No supported package manager found"
+    return 1
+  fi
+
+  if command -v kitty &>/dev/null; then
+    if [[ "$pkg_manager" == "pacman" ]]; then
+      kitty -e sh -c "pacman -Q | less; read -p 'Press Enter to close'" &
+    else
+      # yay/paru will show both official and AUR packages
+      kitty -e sh -c "$pkg_manager -Q | less; read -p 'Press Enter to close'" &
+    fi
+  fi
+}
+
+package_info() {
+  local pkg_manager=""
+  if command -v yay &>/dev/null; then
+    pkg_manager="yay"
+  elif command -v paru &>/dev/null; then
+    pkg_manager="paru"
+  elif command -v pacman &>/dev/null; then
+    pkg_manager="pacman"
+  else
+    notify-send "Error" "No supported package manager found"
+    return 1
+  fi
+
+  local pkg_list
+  if [[ "$pkg_manager" == "pacman" ]]; then
+    pkg_list=$(pacman -Q | awk '{print $1}')
+  else
+    # yay/paru will show both official and AUR packages
+    pkg_list=$($pkg_manager -Q | awk '{print $1}')
+  fi
+
+  local selected_pkg
+  selected_pkg=$(echo "$pkg_list" | rofi -dmenu -i -p "Select package for info" \
+    -theme-str 'window { width: 50%; }' \
+    -theme-str 'listview { lines: 15; }')
+
+  [[ -z "$selected_pkg" ]] && return 0
+
+  if command -v kitty &>/dev/null; then
+    if [[ "$pkg_manager" == "pacman" ]]; then
+      kitty -e sh -c "pacman -Qi $selected_pkg; read -p 'Press Enter to close'" &
+    else
+      # yay/paru can show info for both official and AUR packages
+      kitty -e sh -c "$pkg_manager -Qi $selected_pkg; read -p 'Press Enter to close'" &
+    fi
+  fi
 }
 
 # --- SYSTEM MENU ---
@@ -303,9 +485,12 @@ show_system_menu() {
 
 show_power_menu() {
   local choice
-  choice=$(menu "Power" "󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰸉 Back")
+  choice=$(menu "Power" " Power Options\n󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰸉 Back")
 
   case "$choice" in
+  " Power Options")
+    kitty --class floating -e sudo ~/cloudyy_scripts/powermenu.sh
+    ;;
   "󰐥 Shutdown") systemctl poweroff ;;
   "󰜉 Reboot") systemctl reboot ;;
   "󰒲 Suspend") systemctl suspend ;;
@@ -320,7 +505,7 @@ show_power_menu() {
 
 show_config_menu() {
   local choice
-  choice=$(menu "Configuration" "󱁉 Hyprland Config\n󰸉 Look & Feel\n󰆍 Keybinds\n󰸉 Back\n󱣱 Waybar\n󰪐 Animations")
+  choice=$(menu "Configuration" " Hyprland Config\n󰸉 Look & Feel\n󱣱 Waybar\n󰪐 Animations\n󰸉 Back")
 
   case "${choice,,}" in
   *hyprland*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/hyprland.conf & ;;
@@ -328,8 +513,8 @@ show_config_menu() {
   *binds*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/user-configs/userbinds.conf & ;;
   *waybar*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/waybar/config.jsonc & ;;
   *animations*)
-    command -v kitty &>/dev/null &
-    kitty -e nvim ~/.config/hypr/user-configs/animations.conf &
+    command -v kitty &>/dev/null &&
+      kitty -e nvim ~/.config/hypr/user-configs/animations.conf &
     ;;
   *back*) show_main_menu ;;
   *) exit 0 ;;
@@ -351,13 +536,15 @@ show_applications_menu() {
 
 show_main_menu() {
   local choice
-  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n System\n Configuration\n󰐥 Power")
+  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰍹 System\n Configuration\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
   "󱔗 Appearance") show_appearance_menu ;;
   "󰀻 Applications") show_applications_menu ;;
-  " System") show_system_menu ;;
-  " Configuration") show_config_menu ;;
+  "󱊨 Keybinds") show_keybinds_menu ;;
+  "󰍹 System") show_system_menu ;;
+  " Configuration") show_config_menu ;;
+  "󰏖 Packages") show_package_menu ;;
   "󰐥 Power") show_power_menu ;;
   *) exit 0 ;;
   esac
@@ -387,6 +574,7 @@ main() {
     --theme-toggle) show_theme_toggle_menu ;;
     --diagnostics) show_diagnostics_menu ;;
     --applications) show_applications_menu ;;
+    --packages) show_package_menu ;;
     *) show_main_menu ;;
     esac
   else
