@@ -1,0 +1,6 @@
+Wallpapers/rain-background.gif
+
+# Ignore the entire user-configs folder
+hypr/user-configs/*
+!hypr/user-configs/.gitkeep
+

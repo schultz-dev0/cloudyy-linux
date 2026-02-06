@@ -1,1 +1,8 @@
-Wallpapers/rain-background.gif
+*.swap
+
+# Ignore user configs
+hypr/user-configs/*
+!hypr/user-configs/.gitkeep
+
+# Ignore OMZ --- PUT IT IN INSTALL SCRIPT YA LAZY BUM!!!! ---
+.config/zsh/oh-my-zsh
