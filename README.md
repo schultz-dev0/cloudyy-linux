@@ -1,3 +1,11 @@
+As of FEB 6 2026 the install script is extremely rough, use it ONLY if you know what to do in case anything breaks or there is a missing dependency... Just don't use it if you want a working system lol
+
+Install instructions: 
+1. Clone the git repo with `https://github.com/schultz-dev0/cloudyy-linux ~/cloudyyOS` 
+2. `cd ~/cloudyyOS/install` `./install.sh Follow` the prompts, when prompted with "deploy configs?" say yes. *It is likely you will need to do a FULL install instead of the other options since I have not properly configured those yet* 
+
+3. Profit?
+
 Dotfiles...
 
 Install script soon tm...

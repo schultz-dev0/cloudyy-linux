@@ -1,0 +1,219 @@
+/* Matugen Obsidian Theme
+   Dynamically generates colors based on your wallpaper (Light/Dark)
+*/
+
+body {
+    /* --- ACCENT COLORS (HSL calculations for internal Obsidian use) --- */
+    --accent-h: 213.91304347826087;
+    --accent-s: 81.17647171020508%;
+    --accent-l: 95.83333333333334%;
+
+    /* --- TEXT --- */
+    --text-normal: #e1e2e8;
+    --text-muted: #c3c6cf;
+    --text-faint: #8d9199;
+    --text-on-accent: #00325a;
+
+
+    /* --- UI ELEMENTS --- */
+    --ribbon-background: #191c20;
+    --divider-color: #43474e;
+    
+    --nav-item-color: #c3c6cf;
+    --nav-item-color-active: #a1c9fd;
+    --nav-item-background-active: #1b4975;
+
+    --tab-text-color-focused-active: #a1c9fd;
+    --tab-text-color-active: #e1e2e8;
+    
+    --interactive-accent: #a1c9fd;
+    --interactive-accent-hover: #d2e4ff;
+    
+    /* --- HEADERS --- */
+    --h1-color: #a1c9fd;
+    --h2-color: #bbc7db;
+    --h3-color: #d7bde4;
+    --h4-color: #a1c9fd;
+    --h5-color: #bbc7db;
+    --h6-color: #d7bde4;
+}
+
+body {
+    /* Define base RGB variables first for safety */
+    --m-surface-rgb: 17, 20, 24;
+    --m-primary-rgb: 161, 201, 253;
+
+    /* Mix using rgb() syntax */
+    --background-primary: color-mix(in srgb, rgb(var(--m-surface-rgb)), rgb(var(--m-primary-rgb)) 15%) !important;
+    --background-secondary: color-mix(in srgb, rgb(var(--m-surface-rgb)), rgb(var(--m-primary-rgb)) 10%) !important;
+}
+
+/* =================================================================
+   HOME PAGE INTEGRATION 
+   Overrides the variables in your Home.css with wallpaper colors
+   ================================================================= */
+.home, .Home {
+    /* "Highlight" -> Primary Accent */
+    --highlight: #a1c9fd;
+    
+    /* "Primary" -> Secondary/Tertiary (for contrast) */
+    --primary: #d7bde4;
+    
+    /* "Dark" -> The background color (White in light mode, Black in dark mode) */
+    --dark: #111418;
+    
+    /* Ensure text readability on the new background */
+    --text-normal: #e1e2e8;
+    --code-background: #32353a;
+}
+
+/* --- GLASSMOPHISM BASE --- */
+body {
+    /* Make the app background slightly see-through */
+    background-color: transparent !important;
+}
+
+.app-container {
+    /* Tint the glass with your Matugen background color (70% opacity) */
+    background-color: rgba(var(--m-surface-rgb), 0.55) !important;
+    backdrop-filter: blur(20px); /* The blur strength */
+}
+
+/* Make the sidebar slightly darker/more opaque for contrast */
+.workspace-split.mod-left-split {
+    background-color: rgba(var(--m-surface-rgb), 0.75) !important;
+    border-right: 1px solid #43474e;
+}
+
+/* Force specific elements in Home to respect the new palette */
+.home :is(h1, .HyperMD-header.HyperMD-header-1),
+.home :is(h2, .HyperMD-header.HyperMD-header-2),
+.home :is(h3, .HyperMD-header.HyperMD-header-3) {
+   /* Allow the variables above to take effect */
+   color: var(--highlight) !important;
+}
+
+.home :is(h4, .HyperMD-header.HyperMD-header-4) {
+    background-color: var(--primary) !important;
+    color: #3b2947 !important;
+}
+
+/* ==================================================================
+   Other stuff and QOL 
+   MATUGEN INTEGRATION
+   ==================================================================*/ 
+
+/* --- HEADERS --- */
+body {
+    /* Map headers to your Matugen colors */
+    --h1-color: #a1c9fd;
+    --h2-color: #bbc7db;
+    --h3-color: #d7bde4;
+    --h4-color: #a1c9fd;
+    --h5-color: #bbc7db;
+    --h6-color: #d7bde4;
+}
+
+/* Optional: Add a subtle underline to H1 and H2 for structure */
+.HyperMD-header-1, h1, 
+.HyperMD-header-2, h2 {
+    border-bottom: 1px solid #43474e;
+    padding-bottom: 5px !important;
+}
+
+/* --- QOL IMPROVEMENTS --- */
+
+/* 1. Theme the Text Selection (Highlight) */
+::selection {
+    background-color: #a1c9fd;
+    color: #00325a;
+}
+
+/* 2. Better Blockquotes (Glowy Border) */
+blockquote {
+    border-left: 3px solid #a1c9fd !important;
+    background-color: #191c20;
+    color: #c3c6cf;
+    border-radius: 0 8px 8px 0;
+}
+
+/* 3. Bold & Italic accents */
+strong { color: #a1c9fd; font-weight: 700; }
+em { color: #bbc7db; }
+
+/* 4. Minimalist Scrollbars (Hidden unless hovering) */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #8d9199;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background-color: #a1c9fd;
+}
+
+/* 5. Clean Checkboxes */
+input[type="checkbox"]:checked {
+    background-color: #a1c9fd !important;
+    border-color: #a1c9fd !important;
+}
+
+/* --- CODE & TAGS --- */
+
+/* Inline code `like this` */
+code {
+    color: #bbc7db !important;
+    background-color: #32353a !important;
+    border-radius: 4px;
+    padding: 2px 5px;
+}
+
+/* HashTags #example */
+a.tag {
+    background-color: #3c4858;
+    color: #d7e3f8;
+    font-weight: 600;
+    text-decoration: none !important;
+    border-radius: 12px;
+}
+a.tag:hover {
+    background-color: #a1c9fd;
+    color: #00325a;
+}
+
+/* ==================================================================
+   SLEEP COUNTER (Abstract Callout)
+   Integrated with Matugen colors for dynamic glowing effects
+   ================================================================== */
+.callout[data-callout="abstract"] {
+    /* Obsidian internal variable (RGB format) -> Mapped to Primary */
+    --callout-color: 161, 201, 253;
+
+    /* Background: Primary Container (Pastel in Light, Muted in Dark) */
+    background-color: #1b4975 !important;
+    
+    /* Border: Strong Primary Color */
+    border: 1.5px solid #a1c9fd !important;
+    border-radius: 12px;
+    
+    /* THE GLOW EFFECT */
+    /* We use 'shadow' mixed with 'primary' to ensure it looks good in both modes.
+       In Dark Mode, this creates a nice colored bloom. */
+    box-shadow: 0 0 20px color-mix(in srgb, #a1c9fd 30%, #000000);
+    
+    margin-bottom: 20px;
+}
+
+/* Icon Styling */
+.callout[data-callout="abstract"] .callout-icon {
+    /* Icon color matches the border */
+    color: #a1c9fd;
+    
+    /* Subtle glow matching the accent color */
+    filter: drop-shadow(0 0 5px #a1c9fd);
+}
