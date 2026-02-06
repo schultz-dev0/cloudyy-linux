@@ -12,9 +12,16 @@ Install script soon tm...
 
 to do list:
 
-    everything
-    install script
-    quality of life things
+    `FIX INSTALL SCRIP!!!!`
+    `Fix a few other bits and pieces`
+    `Provide real install instructions`
+    `Organise files more`
+    `Provide documentation`
+    `Create a demo video`
+
+  *Notes* 
+
+    1. So the "ObsidianVaultName" folder is actually the place you should designate as your obsidian vault, you will need to go into the matugen config and change the name of your obsidian vault in there
 
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021844_hyprcap.png)
 
