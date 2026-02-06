@@ -23,9 +23,18 @@ to do list:
 
     1. So the "ObsidianVaultName" folder is actually the place you should designate as your obsidian vault, you will need to go into the matugen config and change the name of your obsidian vault in there
 
+
+Keybind menu preview:
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-06-234046_hyprcap.png)
+
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-06-234104_hyprcap.png)
+
+General previews:
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021844_hyprcap.png)
 
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021914_hyprcap.png)
+
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-04-014028_hyprcap.png)
 
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021928_hyprcap.png)
 
