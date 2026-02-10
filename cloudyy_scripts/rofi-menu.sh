@@ -9,6 +9,7 @@ set -uo pipefail
 # --- CONFIGURATION ---
 readonly THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
 readonly HKBM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hkbm"
+readonly HCM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hcm"
 readonly BASE_WALL_DIR="${HOME}/Wallpapers"
 readonly CACHE_DIR="${HOME}/.cache/rofi_thumbs"
 readonly TEMP_INPUT="/tmp/rofi_input_$$"
@@ -113,7 +114,7 @@ show_keybinds_menu() {
 
   # Launch hkbm in a floating terminal window
   # We use 'nohup' to detach it so closing the terminal doesn't kill the script
-  nohup kitty --class hkbm_floating --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
+  nohup kitty --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
 }
 
 # --- THEME TOGGLE MENU ---
@@ -207,40 +208,6 @@ show_appearance_menu() {
     ;;
   *"Back"*)
     show_main_menu
-    ;;
-  *)
-    exit 0
-    ;;
-  esac
-}
-
-show_diagnostics_menu() {
-  local state_output
-  state_output=$("$THEME_CTL" get-state 2>&1 || echo "Failed to get state")
-
-  local choice
-  choice=$(menu "Theme Diagnostics" \
-    "󰋼 View State\n󰁯 Unlock Script\n󰋲 Clear Cache\n󰸉 Back" \
-    -mesg "Current: $DISPLAY_MODE")
-
-  case "${choice}" in
-  *"View State"*)
-    notify-send "Theme State" "$state_output" -t 5000
-    show_diagnostics_menu
-    ;;
-  *"Unlock"*)
-    "$THEME_CTL" unlock
-    notify-send "Theme" "Lock file removed" -t 2000
-    show_diagnostics_menu
-    ;;
-  *"Clear Cache"*)
-    rm -rf "$CACHE_DIR"
-    mkdir -p "$CACHE_DIR"
-    notify-send "Theme" "Thumbnail cache cleared" -t 2000
-    show_diagnostics_menu
-    ;;
-  *"Back"*)
-    show_appearance_menu
     ;;
   *)
     exit 0
@@ -503,22 +470,16 @@ show_power_menu() {
 
 # --- CONFIG MENU ---
 
-show_config_menu() {
-  local choice
-  choice=$(menu "Configuration" " Hyprland Config\n󰸉 Look & Feel\n󱣱 Waybar\n󰪐 Animations\n󰸉 Back")
+configuration_menu() {
+  # Verify the binary exists first
+  if [[ ! -x "$HCM_CMD" ]]; then
+    notify-send "Error" "hcm not found at: $HCM_CMD"
+    return
+  fi
 
-  case "${choice,,}" in
-  *hyprland*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/hyprland.conf & ;;
-  *look*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/user-configs/looknfeel.conf & ;;
-  *binds*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/hypr/user-configs/userbinds.conf & ;;
-  *waybar*) command -v kitty &>/dev/null && kitty -e nvim ~/.config/waybar/config.jsonc & ;;
-  *animations*)
-    command -v kitty &>/dev/null &&
-      kitty -e nvim ~/.config/hypr/user-configs/animations.conf &
-    ;;
-  *back*) show_main_menu ;;
-  *) exit 0 ;;
-  esac
+  # Launch hcm in a floating terminal window
+  # We use 'nohup' to detach it so closing the terminal doesn't kill the script
+  nohup kitty --title "Config manager" -e "$HCM_CMD" >/dev/null 2>&1 &
 }
 
 # --- APPLICATIONS MENU ---
@@ -543,7 +504,7 @@ show_main_menu() {
   "󰀻 Applications") show_applications_menu ;;
   "󱊨 Keybinds") show_keybinds_menu ;;
   "󰍹 System") show_system_menu ;;
-  " Configuration") show_config_menu ;;
+  " Configuration") configuration_menu ;;
   "󰏖 Packages") show_package_menu ;;
   "󰐥 Power") show_power_menu ;;
   *) exit 0 ;;
@@ -572,7 +533,6 @@ main() {
     --toggle) run_app "$THEME_CTL" toggle ;;
     --select) select_wallpaper ;;
     --theme-toggle) show_theme_toggle_menu ;;
-    --diagnostics) show_diagnostics_menu ;;
     --applications) show_applications_menu ;;
     --packages) show_package_menu ;;
     *) show_main_menu ;;

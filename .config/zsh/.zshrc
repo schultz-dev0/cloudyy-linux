@@ -91,6 +91,7 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
 source $ZSH/oh-my-zsh.sh
+source ~/.cargo/env
 
 # User configuration
 
@@ -136,7 +137,7 @@ alias ir='yay -Rs'
 alias ic='sudo pacman -S'
 alias ping='ping -c'
 alias iu='sudo pacman -Syu'
-alias zshconfig='nvim .zshrc'
+alias zshconfig='nvim ~/.config/zsh/.zshrc'
 alias hyprconfig='nvim ~/dots/.config/hypr/hyprland.conf'
 alias hyprbinds='nvim ~/dots/.config/hypr/source/bindings.conf'
 alias windows='~/cloudyy_scripts/offtowindows.sh'
