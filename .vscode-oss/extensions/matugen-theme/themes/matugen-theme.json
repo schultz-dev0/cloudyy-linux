@@ -3,46 +3,46 @@
   "type": "dark",
   "colors": {
     /* --- BASE UI --- */
-    "editor.background": "#111418",
-    "editor.foreground": "#e1e2e8",
-    "activityBar.background": "#191c20",
-    "sideBar.background": "#1d2024",
-    "sideBar.border": "#43474e",
-    "titleBar.activeBackground": "#111418",
-    "statusBar.background": "#1d2024",
-    "statusBar.foreground": "#e1e2e8",
+    "editor.background": "#11140e",
+    "editor.foreground": "#e1e4d9",
+    "activityBar.background": "#191d16",
+    "sideBar.background": "#1d211a",
+    "sideBar.border": "#43483e",
+    "titleBar.activeBackground": "#11140e",
+    "statusBar.background": "#1d211a",
+    "statusBar.foreground": "#e1e4d9",
     
     /* --- ACCENTS --- */
-    "activityBar.activeBorder": "#a1c9fd",
-    "activityBar.foreground": "#a1c9fd",
-    "textLink.foreground": "#a1c9fd",
-    "button.background": "#a1c9fd",
-    "button.foreground": "#00325a",
-    "inputOption.activeBorder": "#a1c9fd",
+    "activityBar.activeBorder": "#aad291",
+    "activityBar.foreground": "#aad291",
+    "textLink.foreground": "#aad291",
+    "button.background": "#aad291",
+    "button.foreground": "#183807",
+    "inputOption.activeBorder": "#aad291",
     
     /* --- LISTS & TREES --- */
-    "list.activeSelectionBackground": "#a1c9fd40",
-    "list.hoverBackground": "#e1e2e810",
-    "list.activeSelectionForeground": "#a1c9fd",
+    "list.activeSelectionBackground": "#aad29140",
+    "list.hoverBackground": "#e1e4d910",
+    "list.activeSelectionForeground": "#aad291",
     
     /* --- TABS --- */
-    "editorGroupHeader.tabsBackground": "#111418",
-    "tab.activeBackground": "#272a2f",
-    "tab.inactiveBackground": "#111418",
-    "tab.activeBorderTop": "#a1c9fd"
+    "editorGroupHeader.tabsBackground": "#11140e",
+    "tab.activeBackground": "#282b24",
+    "tab.inactiveBackground": "#11140e",
+    "tab.activeBorderTop": "#aad291"
   },
   "tokenColors": [
     {
       "scope": ["comment", "punctuation.definition.comment"],
-      "settings": { "foreground": "#c3c6cf" }
+      "settings": { "foreground": "#c3c8bb" }
     },
     {
       "scope": ["variable", "string.constant.other.placeholder"],
-      "settings": { "foreground": "#e1e2e8" }
+      "settings": { "foreground": "#e1e4d9" }
     },
     {
       "scope": ["constant.other.color"],
-      "settings": { "foreground": "#d7bde4" }
+      "settings": { "foreground": "#a0cfcf" }
     },
     {
       "scope": ["invalid", "invalid.illegal"],
@@ -50,15 +50,15 @@
     },
     {
       "scope": ["keyword", "storage.type", "storage.modifier"],
-      "settings": { "foreground": "#a1c9fd" }
+      "settings": { "foreground": "#aad291" }
     },
     {
       "scope": ["entity.name.function", "support.function"],
-      "settings": { "foreground": "#bbc7db" }
+      "settings": { "foreground": "#bdcbaf" }
     },
     {
       "scope": ["string"],
-      "settings": { "foreground": "#d7bde4" }
+      "settings": { "foreground": "#a0cfcf" }
     }
   ]
 }
