@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # HYPRLAND DASHBOARD (ROFI FRONTEND)
+# ==============================================================================
 # Dependencies: rofi, uwsm, kitty, ImageMagick/magick
-# -----------------------------------------------------------------------------
+# ==============================================================================
 
 set -uo pipefail
 
-# --- CONFIGURATION ---
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
 readonly THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
 readonly HKBM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hkbm"
 readonly HCM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hcm"
@@ -17,17 +21,14 @@ readonly TEMP_INPUT="/tmp/rofi_input_$$"
 readonly THUMB_SIZE=250
 readonly MAX_JOBS=$(nproc)
 
-readonly ROFI_CMD=(
-  rofi
-  -dmenu
-  -i
-)
-
+readonly ROFI_CMD=(rofi -dmenu -i)
 readonly SUPPORTED_FORMATS=("*.jpg" "*.jpeg" "*.png" "*.webp")
 
 trap 'rm -f "$TEMP_INPUT"' EXIT INT TERM
 
-# --- MODE DETECTION ---
+# ==============================================================================
+# MODE DETECTION
+# ==============================================================================
 
 get_current_mode() {
   local raw_mode
@@ -43,7 +44,9 @@ DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<${CURRENT_MODE:0:1})${CURRENT_MODE
 WALL_DIR="$BASE_WALL_DIR/$DISPLAY_MODE"
 [[ ! -d "$WALL_DIR" ]] && WALL_DIR="$BASE_WALL_DIR"
 
-# --- CORE FUNCTIONS ---
+# ==============================================================================
+# UTILITY FUNCTIONS
+# ==============================================================================
 
 init_dirs() {
   mkdir -p "$CACHE_DIR" "$WALL_DIR"
@@ -53,14 +56,12 @@ menu() {
   local prompt="$1"
   local options="$2"
   local extra_args=("${@:3}")
-
   printf "%b" "$options" | "${ROFI_CMD[@]}" -p "$prompt" "${extra_args[@]}"
 }
 
 centered_menu() {
   local prompt="$1"
   local options="$2"
-
   printf "%b" "$options" | rofi -dmenu -i -p "$prompt" \
     -theme-str 'window { location: center; anchor: center; width: 450px; }' \
     -theme-str 'listview { lines: 8; }' \
@@ -90,64 +91,26 @@ gen_thumb() {
 export -f gen_thumb
 export CACHE_DIR THUMB_SIZE
 
-build_find_cmd() {
-  local dir="$1"
-  local cmd="find \"$dir\" -type f \\("
+# ==============================================================================
+# APPEARANCE MENU (INTEGRATED THEME OPTIONS)
+# ==============================================================================
 
-  for i in "${!SUPPORTED_FORMATS[@]}"; do
-    [[ $i -gt 0 ]] && cmd+=" -o"
-    cmd+=" -iname \"${SUPPORTED_FORMATS[$i]}\""
-  done
-
-  cmd+=" \\)"
-  echo "$cmd"
-}
-
-# --- KEYBIND MENU ---
-
-show_keybinds_menu() {
-  # Verify the binary exists first
-  if [[ ! -x "$HKBM_CMD" ]]; then
-    notify-send "Error" "hkbm not found at: $HKBM_CMD"
-    return
-  fi
-
-  # Launch hkbm in a floating terminal window
-  # We use 'nohup' to detach it so closing the terminal doesn't kill the script
-  nohup kitty --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
-}
-
-# --- THEME TOGGLE MENU ---
-
-show_theme_toggle_menu() {
+show_appearance_menu() {
+  # Refresh current mode
   CURRENT_MODE=$(get_current_mode)
   DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<${CURRENT_MODE:0:1})${CURRENT_MODE:1}"
 
-  local light_indicator=""
-  local dark_indicator=""
-
-  [[ "$CURRENT_MODE" == "light" ]] && light_indicator=" ✓" || dark_indicator=" ✓"
-
   local choice
-  choice=$(centered_menu "Theme: $DISPLAY_MODE" \
-    "󰖨 Light Mode$light_indicator\n󰖔 Dark Mode$dark_indicator\n󰆥 Toggle Mode\n \n󰑐 Next Wallpaper\n󰗆 Random Wallpaper\n󰘁 Refresh Colors\n󰁯 Reset Theme\n󰸉 Back")
+  choice=$(menu "Theme: $DISPLAY_MODE" \
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n \n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰜉 Refresh Colors\n󰘍 Back")
 
   case "${choice}" in
-  *"Light Mode"*)
-    if [[ "$CURRENT_MODE" != "light" ]]; then
-      run_app "$THEME_CTL" --force set --mode light
-      notify-send "Theme" "Switching to Light mode..." -t 2000
-    fi
-    ;;
-  *"Dark Mode"*)
-    if [[ "$CURRENT_MODE" != "dark" ]]; then
-      run_app "$THEME_CTL" --force set --mode dark
-      notify-send "Theme" "Switching to Dark mode..." -t 2000
-    fi
-    ;;
   *"Toggle Mode"*)
-    run_app "$THEME_CTL" --force toggle
-    notify-send "Theme" "Toggling theme..." -t 2000
+    run_app "$THEME_CTL" toggle
+    notify-send "Theme" "Switching theme mode..." -t 2000
+    ;;
+  *"Select Wallpaper"*)
+    select_wallpaper
     ;;
   *"Next Wallpaper"*)
     run_app "$THEME_CTL" next
@@ -161,51 +124,6 @@ show_theme_toggle_menu() {
     run_app "$THEME_CTL" refresh
     notify-send "Theme" "Refreshing colors..." -t 2000
     ;;
-  *"Reset Theme"*)
-    local confirm
-    confirm=$(centered_menu "Reset Theme?" \
-      "󰁯 Reset & Apply Wallpaper\n󰁯 Reset Only (No Wallpaper)\n󰸉 Cancel")
-
-    case "${confirm}" in
-    *"Reset & Apply"*)
-      run_app "$THEME_CTL" --force reset --apply
-      notify-send "Theme" "Theme reset, applying wallpaper..." -t 3000
-      ;;
-    *"Reset Only"*)
-      run_app "$THEME_CTL" --force reset
-      notify-send "Theme" "Theme state reset to dark mode" -t 3000
-      ;;
-    *)
-      show_theme_toggle_menu
-      ;;
-    esac
-    ;;
-  *"Back"*)
-    show_appearance_menu
-    ;;
-  *)
-    exit 0
-    ;;
-  esac
-}
-
-# --- APPEARANCE MENU ---
-
-show_appearance_menu() {
-  local choice
-  choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Theme Mode\n󰸉 Select Wallpaper\n󰘁 Diagnostics\n󰸉 Back")
-
-  case "${choice}" in
-  *"Theme Mode"*)
-    show_theme_toggle_menu
-    ;;
-  *"Select Wallpaper"*)
-    select_wallpaper
-    ;;
-  *"Diagnostics"*)
-    show_diagnostics_menu
-    ;;
   *"Back"*)
     show_main_menu
     ;;
@@ -215,27 +133,47 @@ show_appearance_menu() {
   esac
 }
 
+# ==============================================================================
+# WALLPAPER SELECTOR
+# ==============================================================================
+
 select_wallpaper() {
   [[ ! -d "$WALL_DIR" ]] || [[ ! -r "$WALL_DIR" ]] && {
     notify-send "Error" "Cannot access: $WALL_DIR"
     return 1
   }
 
-  local find_cmd
-  find_cmd=$(build_find_cmd "$WALL_DIR")
-  eval "$find_cmd" | xargs -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
+  # Generate thumbnails in parallel
+  find -L "$WALL_DIR" -type f \
+    \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
+    -print0 2>/dev/null |
+    xargs -0 -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
 
+  # Map basename -> full path
+  declare -A wallpaper_paths
+
+  # Clear temp input
   >"$TEMP_INPUT"
-  while IFS= read -r img; do
-    local thumb="$CACHE_DIR/$(basename "$img").png"
-    [[ -f "$thumb" ]] && echo -en "$(basename "$img")\0icon\x1f$thumb\n" >>"$TEMP_INPUT"
-  done < <(eval "$find_cmd")
+
+  # Build rofi input with thumbnails
+  while IFS= read -r -d '' img; do
+    local basename_img="$(basename "$img")"
+    local thumb="$CACHE_DIR/${basename_img}.png"
+
+    if [[ -f "$thumb" ]]; then
+      echo -en "${basename_img}\0icon\x1f$thumb\n" >>"$TEMP_INPUT"
+      wallpaper_paths["$basename_img"]="$img"
+    fi
+  done < <(find -L "$WALL_DIR" -type f \
+    \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
+    -print0 2>/dev/null | sort -z)
 
   [[ ! -s "$TEMP_INPUT" ]] && {
     notify-send "No Wallpapers" "No images found in $WALL_DIR"
     return 1
   }
 
+  # Show wallpaper selector
   local selection
   selection=$(rofi -dmenu -i -p "Select Wallpaper" \
     -theme-str 'window { width: 60%; }' \
@@ -245,11 +183,31 @@ select_wallpaper() {
     -theme-str 'element-text { horizontal-align: 0.5; }' \
     -show-icons <"$TEMP_INPUT")
 
-  [[ -n "$selection" ]] && [[ -f "$WALL_DIR/$selection" ]] &&
-    run_app "$THEME_CTL" set-image "$WALL_DIR/$selection"
+  # Apply selected wallpaper
+  if [[ -n "$selection" ]] && [[ -n "${wallpaper_paths[$selection]}" ]]; then
+    run_app "$THEME_CTL" set-image "${wallpaper_paths[$selection]}"
+  elif [[ -n "$selection" ]]; then
+    notify-send "Error" "Could not find path for: $selection"
+    return 1
+  fi
 }
 
-# --- PACKAGE MANAGER MENU ---
+# ==============================================================================
+# KEYBINDS MENU
+# ==============================================================================
+
+show_keybinds_menu() {
+  if [[ ! -x "$HKBM_CMD" ]]; then
+    notify-send "Error" "hkbm not found at: $HKBM_CMD"
+    return
+  fi
+
+  nohup kitty --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
+}
+
+# ==============================================================================
+# PACKAGE MANAGER MENU
+# ==============================================================================
 
 show_package_menu() {
   local choice
@@ -276,7 +234,7 @@ show_package_menu() {
 }
 
 remove_package() {
-  # core packages that should never be removed
+  # Core packages that should never be removed
   local -a protected_packages=(
     "base"
     "base-devel"
@@ -299,7 +257,7 @@ remove_package() {
     "wayland"
   )
 
-  # detect package manager
+  # Detect package manager
   local pkg_manager=""
   if command -v yay &>/dev/null; then
     pkg_manager="yay"
@@ -312,16 +270,15 @@ remove_package() {
     return 1
   fi
 
-  # get list of explicitly installed packages (both official and AUR)
+  # Get list of explicitly installed packages
   local pkg_list
   if [[ "$pkg_manager" == "pacman" ]]; then
     pkg_list=$(pacman -Qe | awk '{print $1}')
   else
-    # yay/paru will show both official and AUR packages
     pkg_list=$($pkg_manager -Qe | awk '{print $1}')
   fi
 
-  # filter out protected packages
+  # Filter out protected packages
   local filtered_list=""
   while IFS= read -r pkg; do
     local is_protected=0
@@ -331,7 +288,7 @@ remove_package() {
     [[ $is_protected -eq 0 ]] && filtered_list+="$pkg\n"
   done <<<"$pkg_list"
 
-  # show package selection
+  # Show package selection
   local selected_pkg
   selected_pkg=$(echo -e "$filtered_list" | rofi -dmenu -i -p "Select package to remove" \
     -theme-str 'window { width: 50%; }' \
@@ -340,7 +297,7 @@ remove_package() {
 
   [[ -z "$selected_pkg" ]] && return 0
 
-  # confirmation
+  # Confirmation
   local confirm
   confirm=$(centered_menu "Remove $selected_pkg?" \
     "󰆴 Confirm Removal\n󰸉 Cancel")
@@ -350,7 +307,6 @@ remove_package() {
     if [[ "$pkg_manager" == "pacman" ]]; then
       kitty -e sh -c "sudo pacman -Rns $selected_pkg; read -p 'Press Enter to close'" &
     else
-      # yay/paru can remove both official and AUR packages
       kitty -e sh -c "$pkg_manager -Rns $selected_pkg; read -p 'Press Enter to close'" &
     fi
     ;;
@@ -377,7 +333,6 @@ list_packages() {
     if [[ "$pkg_manager" == "pacman" ]]; then
       kitty -e sh -c "pacman -Q | less; read -p 'Press Enter to close'" &
     else
-      # yay/paru will show both official and AUR packages
       kitty -e sh -c "$pkg_manager -Q | less; read -p 'Press Enter to close'" &
     fi
   fi
@@ -400,7 +355,6 @@ package_info() {
   if [[ "$pkg_manager" == "pacman" ]]; then
     pkg_list=$(pacman -Q | awk '{print $1}')
   else
-    # yay/paru will show both official and AUR packages
     pkg_list=$($pkg_manager -Q | awk '{print $1}')
   fi
 
@@ -415,13 +369,14 @@ package_info() {
     if [[ "$pkg_manager" == "pacman" ]]; then
       kitty -e sh -c "pacman -Qi $selected_pkg; read -p 'Press Enter to close'" &
     else
-      # yay/paru can show info for both official and AUR packages
       kitty -e sh -c "$pkg_manager -Qi $selected_pkg; read -p 'Press Enter to close'" &
     fi
   fi
 }
 
-# --- SYSTEM MENU ---
+# ==============================================================================
+# SYSTEM MENU
+# ==============================================================================
 
 show_system_menu() {
   local uptime kernel
@@ -430,7 +385,7 @@ show_system_menu() {
 
   local choice
   choice=$(menu "System" \
-    "󰢮 System Info\n󰑐 Refresh\n󰿅 Process Killer\n󰸉 Back" \
+    "󰢮 System Info\n󰑐 Refresh\n󰿅 Process Killer\n󰘍 Back" \
     -mesg "Uptime: $uptime | Kernel: $kernel")
 
   case "${choice,,}" in
@@ -438,51 +393,75 @@ show_system_menu() {
     command -v kitty &>/dev/null &&
       kitty -e sh -c "fastfetch 2>/dev/null || neofetch 2>/dev/null || echo 'No system info tool'; read -p 'Press Enter...'" &
     ;;
-  *refresh*) show_system_menu ;;
+  *refresh*)
+    show_system_menu
+    ;;
   *killer*)
     command -v kitty &>/dev/null &&
       kitty -e sh -c "hyprctl kill; read -p 'Click on window to close'" &
     ;;
-  *back*) show_main_menu ;;
-  *) exit 0 ;;
+  *back*)
+    show_main_menu
+    ;;
+  *)
+    exit 0
+    ;;
   esac
 }
 
-# --- POWER MENU ---
+# ==============================================================================
+# POWER MENU
+# ==============================================================================
 
 show_power_menu() {
   local choice
-  choice=$(menu "Power" " Power Options\n󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰸉 Back")
+  choice=$(menu "Power" \
+    "⏻ Power Options\n󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰘍 Back")
 
   case "$choice" in
-  " Power Options")
+  "⏻ Power Options")
     kitty --class floating -e sudo ~/cloudyy_scripts/powermenu.sh
     ;;
-  "󰐥 Shutdown") systemctl poweroff ;;
-  "󰜉 Reboot") systemctl reboot ;;
-  "󰒲 Suspend") systemctl suspend ;;
-  "󰤄 Lock") loginctl lock-session ;;
-  "󰗼 Logout") hyprctl dispatch exit ;;
-  "󰸉 Back") show_main_menu ;;
-  *) exit 0 ;;
+  "󰐥 Shutdown")
+    systemctl poweroff
+    ;;
+  "󰜉 Reboot")
+    systemctl reboot
+    ;;
+  "󰒲 Suspend")
+    systemctl suspend
+    ;;
+  "󰤄 Lock")
+    loginctl lock-session
+    ;;
+  "󰗼 Logout")
+    hyprctl dispatch exit
+    ;;
+  "󰘍 Back")
+    show_main_menu
+    ;;
+  *)
+    exit 0
+    ;;
   esac
 }
 
-# --- CONFIG MENU ---
+# ==============================================================================
+# CONFIGURATION MENU
+# ==============================================================================
 
 configuration_menu() {
-  # Verify the binary exists first
   if [[ ! -x "$HCM_CMD" ]]; then
     notify-send "Error" "hcm not found at: $HCM_CMD"
     return
   fi
 
-  # Launch hcm in a floating terminal window
-  # We use 'nohup' to detach it so closing the terminal doesn't kill the script
   nohup kitty --title "Config manager" -e "$HCM_CMD" >/dev/null 2>&1 &
 }
 
-# --- APPLICATIONS MENU ---
+# ==============================================================================
+# APPLICATIONS MENU
+# ==============================================================================
 
 show_applications_menu() {
   rofi -show drun \
@@ -493,27 +472,49 @@ show_applications_menu() {
     -show-icons
 }
 
-# --- MAIN MENU ---
+# ==============================================================================
+# MAIN MENU
+# ==============================================================================
 
 show_main_menu() {
   local choice
-  choice=$(menu "Dashboard" "󱔗 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰍹 System\n Configuration\n󰏖 Packages\n󰐥 Power")
+  choice=$(menu "Dashboard" \
+    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n⏻ Configuration\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
-  "󱔗 Appearance") show_appearance_menu ;;
-  "󰀻 Applications") show_applications_menu ;;
-  "󱊨 Keybinds") show_keybinds_menu ;;
-  "󰍹 System") show_system_menu ;;
-  " Configuration") configuration_menu ;;
-  "󰏖 Packages") show_package_menu ;;
-  "󰐥 Power") show_power_menu ;;
-  *) exit 0 ;;
+  "󱓻 Appearance")
+    show_appearance_menu
+    ;;
+  "󰀻 Applications")
+    show_applications_menu
+    ;;
+  "󱊨 Keybinds")
+    show_keybinds_menu
+    ;;
+  "󰹑 System")
+    show_system_menu
+    ;;
+  "⏻ Configuration")
+    configuration_menu
+    ;;
+  "󰏖 Packages")
+    show_package_menu
+    ;;
+  "󰐥 Power")
+    show_power_menu
+    ;;
+  *)
+    exit 0
+    ;;
   esac
 }
 
-# --- ENTRY POINT ---
+# ==============================================================================
+# ENTRY POINT
+# ==============================================================================
 
 main() {
+  # Verify dependencies
   command -v rofi &>/dev/null || {
     notify-send "Error" "rofi is not installed"
     exit 1
@@ -526,16 +527,33 @@ main() {
 
   init_dirs
 
+  # Handle command-line arguments
   if [[ -n "${1:-}" ]]; then
     case "$1" in
-    --random) run_app "$THEME_CTL" random ;;
-    --next) run_app "$THEME_CTL" next ;;
-    --toggle) run_app "$THEME_CTL" toggle ;;
-    --select) select_wallpaper ;;
-    --theme-toggle) show_theme_toggle_menu ;;
-    --applications) show_applications_menu ;;
-    --packages) show_package_menu ;;
-    *) show_main_menu ;;
+    --random)
+      run_app "$THEME_CTL" random
+      ;;
+    --next)
+      run_app "$THEME_CTL" next
+      ;;
+    --toggle)
+      run_app "$THEME_CTL" toggle
+      ;;
+    --select)
+      select_wallpaper
+      ;;
+    --appearance)
+      show_appearance_menu
+      ;;
+    --applications)
+      show_applications_menu
+      ;;
+    --packages)
+      show_package_menu
+      ;;
+    *)
+      show_main_menu
+      ;;
     esac
   else
     show_main_menu
