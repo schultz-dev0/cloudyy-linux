@@ -52,6 +52,26 @@ window#waybar > box {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   TEMPERATURES
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#custom-temps {
+  padding: 0px 5px 0px 5px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-weight: 700;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-temps:hover {
+  padding: 0px 5px 0px 5px;
+  background-color: alpha(@surface_container_highest, 0.9);
+  border: 1px solid alpha(@primary, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    CLOCK
    ───────────────────────────────────────────────────────────────────────────── */
 

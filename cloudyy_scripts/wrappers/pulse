@@ -1,0 +1,5 @@
+#!/bin/bash
+# ~/.local/bin/pulse-fix
+export QT_QPA_PLATFORM=xcb
+export GDK_BACKEND=x11
+/opt/pulsesecure/bin/pulseUI &

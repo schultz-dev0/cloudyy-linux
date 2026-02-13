@@ -25,7 +25,8 @@
 
   "modules-center": [
     "hyprland/workspaces",
-    "custom/timer"
+    "custom/timer",
+    "custom/temps"
   ],
 
   "modules-right": [
@@ -46,6 +47,14 @@
     "on-click": "rofi -show drun",
     "tooltip-format": "Application Launcher"
   },
+
+  "custom/temps":{
+  "exec": "~/.config/waybar/scripts/temps.py",
+    "return-type": "json",
+    "format": "{}",   // Format is handled by the script
+    "interval": 2,    // Update every 2 seconds
+    "tooltip": true
+  }, 
 
   "clock": {
     //"format": "󰥔 {:%I:%M}",

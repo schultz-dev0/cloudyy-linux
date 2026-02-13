@@ -10,6 +10,8 @@ readonly WALL_DIR="${HOME}/Wallpapers"
 readonly STATE_DIR="${HOME}/.config/hypr/theme_state"
 readonly STATE_FILE="${STATE_DIR}/state.conf"
 readonly PUBLIC_STATE="${STATE_DIR}/state"
+readonly CURRENT_WALLPAPER_DIR="${STATE_DIR}/current_wallpaper"
+readonly CURRENT_WALLPAPER_FILE="${CURRENT_WALLPAPER_DIR}/current.jpg"
 
 # --- LOGGING ---
 log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
@@ -47,6 +49,10 @@ CURRENT_WALL="$CURRENT_WALL"
 EOF
   # Waybar signal: 1=Light, 0=Dark
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
+
+  if [[ -f "$CURRENT_WALL" ]]; then
+    cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
+  fi
 }
 
 # --- HELPERS ---
