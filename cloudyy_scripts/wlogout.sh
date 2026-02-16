@@ -11,7 +11,7 @@ set -euo pipefail
 # We use ~/.config because 'stow' links your dotfiles here.
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wlogout"
 readonly LAYOUT_FILE="${CONFIG_DIR}/layout"
-readonly ICONS_DIR="$HOME/dots/.config/wlogout/icons"
+readonly ICONS_DIR="$HOME/.config/wlogout/icons"
 readonly MATUGEN_COLORS="${XDG_CONFIG_HOME:-$HOME/.config}/matugen/generated/colors.css"
 readonly TMP_CSS="/tmp/wlogout-${UID}.css"
 

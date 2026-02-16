@@ -105,7 +105,7 @@ def main():
 
         # JSON Output for Waybar
         print(json.dumps({
-            "text": f"{ICON_CPU} {cpu_str} {ICON_GPU} {gpu_str}",
+            "text": f"{ICON_CPU} {cpu_str}", #{ICON_GPU} {gpu_str}", uncomment this for GPU temps
             "tooltip": f"<b>CPU Package:</b> {cpu_str}C\n<b>GPU Core:</b> {gpu_str}C",
             "class": css_class
         }))
