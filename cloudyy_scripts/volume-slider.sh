@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# volume-slider - Optimized wrapper for swayosd
+# universal slider manager thingy
 #
 
 set -euo pipefail
@@ -14,7 +14,6 @@ readonly VOLUME_STEP=5
 # COMMAND HANDLING
 # ==============================================================================
 
-# Ensure server is running (optional safety check)
 if ! pgrep -x "swayosd-server" >/dev/null; then
   echo "Starting swayosd-server..."
   swayosd-server &

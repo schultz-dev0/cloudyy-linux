@@ -1,0 +1,20 @@
+1771180510682	Sync.LogManager	DEBUG	Flushing file log
+1771180510684	Sync.LogManager	DEBUG	Log cleanup threshold time: 1770316510684
+1771180510686	Sync.LogManager	DEBUG	Done deleting files.
+1771180541698	Sync.SyncScheduler	DEBUG	Woke from sleep.
+1771180541706	Sync.SyncScheduler	DEBUG	Online, will sync in 2s.
+1771180541706	Sync.SyncScheduler	DEBUG	Next sync in 2000 ms. (why=wake_notification)
+1771180541708	Sync.SyncScheduler	DEBUG	Network link status changed to "changed". Offline?: false
+1771180542678	Sync.SyncScheduler	DEBUG	Network link status changed to "changed". Offline?: false
+1771180543707	Sync.Service	DEBUG	User-Agent: Firefox/147.0.3 (Linux x86_64) FxSync/1.149.0.20260210080434.desktop
+1771180543707	Sync.Service	INFO	Starting sync at 2026-02-15 18:35:43 in browser session ftFY3a_KW1Fu
+1771180543708	Sync.SyncScheduler	DEBUG	Clearing sync triggers and the global score.
+1771180543713	Sync.Status	INFO	Resetting Status.
+1771180543713	Sync.Status	DEBUG	Status.service: error.sync.failed => success.status_ok
+1771180543714	FirefoxAccounts	TRACE	not checking freshness of profile as it remains recent
+1771180543719	Sync.Resource	WARN	GET request to https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/info/collections failed: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771180543719	Sync.Status	DEBUG	Status.sync: success.sync => error.login.reason.network
+1771180543719	Sync.Status	DEBUG	Status.service: success.status_ok => error.sync.failed
+1771180543719	Sync.ErrorHandler	ERROR	Sync encountered an error: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771180543720	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=reschedule)
+1771180543725	Sync.Service	DEBUG	Exception calling anonymous function: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available

@@ -1,0 +1,45 @@
+1771277056628	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=schedule)
+1771277620257	Sync.Service	DEBUG	User-Agent: Firefox/147.0.3 (Linux x86_64) FxSync/1.149.0.20260210080434.desktop
+1771277620257	Sync.Service	INFO	Starting sync at 2026-02-16 21:33:40 in browser session PVFImLKOosFm
+1771277620257	Sync.SyncScheduler	DEBUG	Clearing sync triggers and the global score.
+1771277620261	Sync.Status	INFO	Resetting Status.
+1771277620261	Sync.Status	DEBUG	Status.service: success.status_ok => success.status_ok
+1771277620263	FirefoxAccounts	DEBUG	FxAccountsProfileClient: Requested profile
+1771277620263	FirefoxAccounts	DEBUG	getOAuthToken enter
+1771277620263	FirefoxAccounts	TRACE	getCachedToken returning cached token
+1771277620263	FirefoxAccounts	DEBUG	getOAuthToken returning a cached token
+1771277620264	Services.Common.RESTRequest	DEBUG	GET request to https://profile.accounts.firefox.com/v1/profile
+1771277620559	Sync.Resource	DEBUG	GET success 200 https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/info/collections
+1771277620560	Sync.Service	DEBUG	Fetching server configuration: https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/info/configuration
+1771277620565	Services.Common.RESTRequest	DEBUG	GET https://profile.accounts.firefox.com/v1/profile 304
+1771277620751	Sync.Resource	DEBUG	GET success 200 https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/info/configuration
+1771277620751	Sync.Service	DEBUG	Fetching global metadata record
+1771277620751	Sync.Service	DEBUG	Weave Version: 1.149.0 Local Storage: 5 Remote Storage: 5
+1771277620751	Sync.Service	DEBUG	Fetching and verifying -- or generating -- symmetric keys.
+1771277620751	Sync.Service	INFO	Testing info/collections: {"clients":1771276962.89,"crypto":1770075135.21,"history":1771276964.02,"tabs":1771277207.23,"prefs":1770749948.48,"forms":1771202307.05,"addons":1770638558.52,"addresses":1770166111.97,"meta":1770075491.04,"passwords":1770638539.56,"bookmarks":1770753621.8}
+1771277620751	Sync.CollectionKeyManager	INFO	Testing for updateNeeded. Last modified: 1770075135.21
+1771277620751	Sync.Synchronizer	DEBUG	Refreshing client list.
+1771277620752	Sync.Engine.Clients	DEBUG	Resetting clients last sync time
+1771277620753	FirefoxAccounts	TRACE	not checking freshness of profile as it remains recent
+1771277620798	FirefoxAccounts	DEBUG	CommandQueue shutdown is flushing the queue with a timer=false
+1771277620852	Sync.Collection	WARN	GET request to https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/storage/clients?full=1&limit=1000 failed: [Exception... "The connection was established, but no data was ever received"  nsresult: "0x804b0014 (NS_ERROR_NET_RESET)"  location: "<unknown>"  data: no] No traceback available
+1771277620852	Sync.Status	DEBUG	Status.sync: success.sync => error.login.reason.network
+1771277620852	Sync.Status	DEBUG	Status.service: success.status_ok => error.sync.failed
+1771277620852	Sync.Status	DEBUG	Status for engine clients: error.engine.reason.unknown_fail
+1771277620852	Sync.Status	DEBUG	Status.service: error.sync.failed => error.sync.failed_partial
+1771277620852	Sync.ErrorHandler	DEBUG	clients failed: [Exception... "The connection was established, but no data was ever received"  nsresult: "0x804b0014 (NS_ERROR_NET_RESET)"  location: "<unknown>"  data: no] No traceback available
+1771277620853	Sync.Synchronizer	INFO	Updating enabled engines: 4 clients.
+1771277620855	Sync.Synchronizer	INFO	Syncing all enabled engines.
+1771277620856	Sync.Status	DEBUG	Status for engine prefs: error.engine.reason.unknown_fail
+1771277620856	Sync.Status	DEBUG	Status.service: error.sync.failed_partial => error.sync.failed_partial
+1771277620856	Sync.ErrorHandler	DEBUG	prefs was interrupted due to the application shutting down
+1771277620856	Sync.Synchronizer	INFO	prefs was interrupted by shutdown; no other engines will sync
+1771277620856	Sync.Synchronizer	INFO	Aborting sync for failure in prefs
+1771277620856	Sync.Doctor	INFO	Skipping validation: no engines qualify
+1771277620857	Sync.Synchronizer	INFO	Sync completed at 2026-02-16 21:33:40 after 0.60 secs.
+1771277620857	Sync.Declined	DEBUG	Handling remote declined: []
+1771277620857	Sync.Declined	DEBUG	Handling local declined: []
+1771277620858	Sync.Declined	DEBUG	Declined changed? false
+1771277620858	Sync.Service	INFO	No change to declined engines. Not reuploading meta/global.
+1771277620858	Sync.ErrorHandler	ERROR	Some engines did not sync correctly.
+1771277620859	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=schedule)

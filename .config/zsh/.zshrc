@@ -91,7 +91,7 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
 source $ZSH/oh-my-zsh.sh
-source ~/.cargo/env
+#source ~/.cargo/env
 
 # User configuration
 
@@ -151,6 +151,7 @@ alias youtube='xdg-open https://www.youtube.com/'
 alias gemini='xdg-open https://gemini.google.com/app'
 alias swayncrestart='swaync-client -rs'
 alias cloudyysync='cd ~/dots/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
+alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 
 
 

@@ -1,0 +1,49 @@
+1771186061260	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=schedule)
+1771186062054	Sync.Engine.Tabs.Tracker	DEBUG	Detected a tab change: scheduling a quick-write in 5000ms
+1771186062734	FirefoxAccounts	TRACE	not checking freshness of profile as it remains recent
+1771186062739	FirefoxAccounts	TRACE	not checking freshness of profile as it remains recent
+1771186065180	Sync.SyncScheduler	DEBUG	Network link status changed to "down". Offline?: false
+1771186065180	Sync.SyncScheduler	DEBUG	Clearing sync triggers and the global score.
+1771186065183	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=schedule)
+1771186065188	Sync.SyncScheduler	DEBUG	Network link status changed to "changed". Offline?: false
+1771186065198	Sync.SyncScheduler	DEBUG	Woke from sleep.
+1771186065279	Sync.SyncScheduler	DEBUG	Online, will sync in 2s.
+1771186065279	Sync.SyncScheduler	DEBUG	Next sync in 2000 ms. (why=wake_notification)
+1771186065281	Sync.SyncScheduler	DEBUG	Network link status changed to "changed". Offline?: false
+1771186066343	Sync.RemoteTabs	INFO	Generating tab list with filter
+1771186066356	Sync.Engine.Tabs	INFO	Storing tabs from a client that doesn't appear in the devices list: 6F-0TUi39wK7
+1771186066357	Sync.Engine.Tabs	INFO	Storing tabs from a client that doesn't appear in the devices list: _U-9uOLq7LcC
+1771186066359	Sync.RemoteTabs	DEBUG	Processing client: {"id":"69e95601027eb2f01b6fd0d5199ff4dd","type":"client","name":"Firefox on samsung SM-F966B","clientType":"phone","lastModified":1771183580070,"tabs":[]}
+1771186066360	Sync.RemoteTabs	DEBUG	Processing client: {"id":"GRbne4eK8woC","type":"client","name":"schultz’s Firefox on hyprbook","clientType":"desktop","lastModified":1770393029380,"tabs":[]}
+1771186066361	Sync.RemoteTabs	DEBUG	Processing client: {"id":"dBIkmNGbDs6G","type":"client","name":"schultz’s Firefox on Hyprrice","clientType":"desktop","lastModified":1771083268360,"tabs":[]}
+1771186066364	Sync.RemoteTabs	INFO	Final tab list has 3 clients with 41 tabs.
+1771186067111	Sync.Engine.Tabs	DEBUG	Updating last sync to 1771186060.95
+1771186067113	Sync.Engine.Tabs	INFO	update_local_state has 9 tab entries
+1771186067113	FirefoxAccounts	TRACE	Getting command keys: https://identity.mozilla.com/cmd/open-uri
+1771186067113	FirefoxAccounts	TRACE	Getting command keys: https://identity.mozilla.com/cmd/close-uri/v1
+1771186067114	Sync.Engine.Tabs	DEBUG	Updating last sync to 4102405200000
+1771186067118	Sync.Engine.Tabs	INFO	prepare_local_tabs_for_upload found 9 tabs
+1771186067119	Sync.Engine.Tabs	INFO	Uploading 1 outgoing records
+1771186067121	Sync.Engine.Tabs	INFO	Posting 1 records of 4163 bytes with batch=true
+1771186067121	FirefoxAccounts	DEBUG	FxAccountsProfileClient: Requested profile
+1771186067121	FirefoxAccounts	DEBUG	getOAuthToken enter
+1771186067122	FirefoxAccounts	TRACE	getCachedToken returning cached token
+1771186067122	FirefoxAccounts	DEBUG	getOAuthToken returning a cached token
+1771186067122	Services.Common.RESTRequest	DEBUG	GET request to https://profile.accounts.firefox.com/v1/profile
+1771186067123	Sync.Collection	DEBUG	POST Length: 4163
+1771186067341	Services.Common.RESTRequest	DEBUG	GET https://profile.accounts.firefox.com/v1/profile failed: 2152398878 - NS_ERROR_UNKNOWN_HOST
+1771186067341	FirefoxAccounts	ERROR	Background refresh of profile failed: {"name":"FxAccountsProfileClientError","code":null,"errno":998,"error":"NETWORK_ERROR","message":"[Exception... \"NS_ERROR_UNKNOWN_HOST\"  nsresult: \"0x804b001e (NS_ERROR_UNKNOWN_HOST)\"  location: \"JS frame :: resource://services-common/rest.sys.mjs :: onStopRequest :: line 478\"  data: no]"}
+1771186067342	Sync.Collection	WARN	POST request to https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/storage/tabs?batch=true&commit=true failed: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771186067342	Sync.Engine.Tabs	WARN	quicksync sync failed: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771186067347	Sync.Service	DEBUG	User-Agent: Firefox/147.0.3 (Linux x86_64) FxSync/1.149.0.20260210080434.desktop
+1771186067347	Sync.Service	INFO	Starting sync at 2026-02-15 20:07:47 in browser session ftFY3a_KW1Fu
+1771186067347	Sync.SyncScheduler	DEBUG	Clearing sync triggers and the global score.
+1771186067355	Sync.Status	INFO	Resetting Status.
+1771186067355	Sync.Status	DEBUG	Status.service: success.status_ok => success.status_ok
+1771186067355	FirefoxAccounts	TRACE	not checking freshness of profile as it remains recent
+1771186067943	Sync.Resource	WARN	GET request to https://sync-1-us-west1-g.sync.services.mozilla.com/1.5/280667204/info/collections failed: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771186067943	Sync.Status	DEBUG	Status.sync: success.sync => error.login.reason.network
+1771186067943	Sync.Status	DEBUG	Status.service: success.status_ok => error.sync.failed
+1771186067943	Sync.ErrorHandler	ERROR	Sync encountered an error: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
+1771186067943	Sync.SyncScheduler	DEBUG	Next sync in 600000 ms. (why=reschedule)
+1771186067950	Sync.Service	DEBUG	Exception calling anonymous function: [Exception... "The lookup of the hostname failed"  nsresult: "0x804b001e (NS_ERROR_UNKNOWN_HOST)"  location: "<unknown>"  data: no] No traceback available
