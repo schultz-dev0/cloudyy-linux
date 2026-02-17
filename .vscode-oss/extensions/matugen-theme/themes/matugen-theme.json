@@ -1,0 +1,64 @@
+{
+  "name": "Matugen",
+  "type": "dark",
+  "colors": {
+    /* --- BASE UI --- */
+    "editor.background": "#111418",
+    "editor.foreground": "#e1e2e8",
+    "activityBar.background": "#191c20",
+    "sideBar.background": "#1d2024",
+    "sideBar.border": "#43474e",
+    "titleBar.activeBackground": "#111418",
+    "statusBar.background": "#1d2024",
+    "statusBar.foreground": "#e1e2e8",
+    
+    /* --- ACCENTS --- */
+    "activityBar.activeBorder": "#a3c9fe",
+    "activityBar.foreground": "#a3c9fe",
+    "textLink.foreground": "#a3c9fe",
+    "button.background": "#a3c9fe",
+    "button.foreground": "#00315c",
+    "inputOption.activeBorder": "#a3c9fe",
+    
+    /* --- LISTS & TREES --- */
+    "list.activeSelectionBackground": "#a3c9fe40",
+    "list.hoverBackground": "#e1e2e810",
+    "list.activeSelectionForeground": "#a3c9fe",
+    
+    /* --- TABS --- */
+    "editorGroupHeader.tabsBackground": "#111418",
+    "tab.activeBackground": "#272a2f",
+    "tab.inactiveBackground": "#111418",
+    "tab.activeBorderTop": "#a3c9fe"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "punctuation.definition.comment"],
+      "settings": { "foreground": "#c3c6cf" }
+    },
+    {
+      "scope": ["variable", "string.constant.other.placeholder"],
+      "settings": { "foreground": "#e1e2e8" }
+    },
+    {
+      "scope": ["constant.other.color"],
+      "settings": { "foreground": "#d8bde3" }
+    },
+    {
+      "scope": ["invalid", "invalid.illegal"],
+      "settings": { "foreground": "#ffb4ab" }
+    },
+    {
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": { "foreground": "#a3c9fe" }
+    },
+    {
+      "scope": ["entity.name.function", "support.function"],
+      "settings": { "foreground": "#bcc7db" }
+    },
+    {
+      "scope": ["string"],
+      "settings": { "foreground": "#d8bde3" }
+    }
+  ]
+}
