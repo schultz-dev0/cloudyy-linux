@@ -414,38 +414,8 @@ show_system_menu() {
 # ==============================================================================
 
 show_power_menu() {
-  local choice
-  choice=$(menu "Power" \
-    "⏻ Power Options\n󰐥 Shutdown\n󰜉 Reboot\n󰒲 Suspend\n󰤄 Lock\n󰗼 Logout\n󰘍 Back")
-
-  case "$choice" in
-  "⏻ Power Options")
-    kitty --class floating -e sudo ~/cloudyy_scripts/powermenu.sh
-    ;;
-  "󰐥 Shutdown")
-    systemctl poweroff
-    ;;
-  "󰜉 Reboot")
-    systemctl reboot
-    ;;
-  "󰒲 Suspend")
-    systemctl suspend
-    ;;
-  "󰤄 Lock")
-    loginctl lock-session
-    ;;
-  "󰗼 Logout")
-    hyprctl dispatch exit
-    ;;
-  "󰘍 Back")
-    show_main_menu
-    ;;
-  *)
-    exit 0
-    ;;
-  esac
+  exec ~/cloudyy_scripts/power-menu.sh
 }
-
 # ==============================================================================
 # CONFIGURATION MENU
 # ==============================================================================

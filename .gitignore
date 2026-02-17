@@ -1,8 +1,15 @@
 *.swap
 
 # Ignore user configs
-hypr/user-configs/*
-!hypr/user-configs/.gitkeep
+.config/hypr/user-configs/*
+!.config/hypr/user-configs/.gitkeep
 
 # Ignore OMZ --- PUT IT IN INSTALL SCRIPT YA LAZY BUM!!!! ---
 .config/zsh/oh-my-zsh
+
+# ignore all extensions in vs code except matugen config
+
+.vscode-oss/extensions*
+!.vscode-oss/extensions/matugen-theme
+
+.config/mozilla*
