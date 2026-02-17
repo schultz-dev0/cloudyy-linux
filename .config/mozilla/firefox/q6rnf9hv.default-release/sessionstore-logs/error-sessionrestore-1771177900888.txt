@@ -1,1 +1,0 @@
-1771177902003	SessionStore	ERROR	NotReadableError when reading session file: clean: NotReadableError: Could not read `/home/schultz/.config/mozilla/firefox/q6rnf9hv.default-release/sessionstore.jsonlz4': could not decompress file: buffer is too small (NS_ERROR_FILE_CORRUPTED) No traceback available
