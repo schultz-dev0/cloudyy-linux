@@ -34,7 +34,7 @@ output_path   = '~/.config/gtk-4.0/gtk.css'
 [templates.kitty]
 input_path    = '~/.config/matugen/templates/kitty-colors.conf'
 output_path   = '~/.config/matugen/generated/kitty-colors.conf'
-post_hook     = '~/dots/.config/kitty/matugen-reload.sh'
+post_hook     = '~/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
 input_path    = '~/.config/matugen/templates/nvimmode.lua'
@@ -80,5 +80,5 @@ post_hook = 'pywalfox update'
 
 [templates.vscode]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
-output_path = '~/.vscode-oss/extensions/matugen-theme/themes/matugen-theme.json'
+output_path = '~/.vscode-oss/extensions/matugen-theme/themes/matugen-dark.json'
 post_hook = 'touch ~/.vscode/extensions/matugen-theme/package.json && touch ~/.vscode/extensions/matugen-theme/themes/matugen-theme.json'

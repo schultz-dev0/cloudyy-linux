@@ -143,6 +143,7 @@ alias hyprbinds='nvim ~/dots/.config/hypr/source/bindings.conf'
 alias windows='~/cloudyy_scripts/offtowindows.sh'
 alias gparted='sudo -E gparted'
 
+
 # browser tabs #
 
 alias canvas='xdg-open https://herts.instructure.com/'
@@ -182,3 +183,6 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+# Created by `pipx` on 2026-02-18 23:28:17
+export PATH="$PATH:/home/schultz/.local/bin"
