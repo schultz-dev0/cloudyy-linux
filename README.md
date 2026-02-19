@@ -1,6 +1,11 @@
 As of FEB 6 2026 the install script is extremely rough, use it ONLY if you know what to do in case anything breaks or there is a missing dependency... Just don't use it if you want a working system lol
 
 ## Install instructions: 
+
+# Requirements:
+```bash
+Sudo pacman -S git
+```
 ```bash
 git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
 ```
