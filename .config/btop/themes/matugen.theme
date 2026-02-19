@@ -1,87 +1,87 @@
 # Matugen btop template
-# Theme: #a3c9fe
+# Theme: #92d5ab
 
 # Main background, empty for terminal default, need to be empty if you want transparent background
-theme[main_bg]="#111418"
+theme[main_bg]="#0f1511"
 
 # Main text color
-theme[main_fg]="#e1e2e8"
+theme[main_fg]="#dfe4dd"
 
 # Title color for boxes
-theme[title]="#a3c9fe"
+theme[title]="#92d5ab"
 
 # Highlight color for listview items
-theme[hi_fg]="#00315c"
+theme[hi_fg]="#003921"
 
 # Background color of selected item in processes box
-theme[selected_bg]="#a3c9fe"
+theme[selected_bg]="#92d5ab"
 
 # Foreground color of selected item in processes box
-theme[selected_fg]="#00315c"
+theme[selected_fg]="#003921"
 
 # Color of inactive/disabled text
-theme[inactive_fg]="#8d9199"
+theme[inactive_fg]="#8a938b"
 
 # Color of text appearing on top of graphs, i.e uptime and current network graph scaling
-theme[graph_text]="#c3c6cf"
+theme[graph_text]="#c0c9c0"
 
 # Background color of the percentage meters
-theme[meter_bg]="#32353a"
+theme[meter_bg]="#313632"
 
 # Misc colors for processes box including mini cpu graphs, details memory graph and details status text
-theme[proc_misc]="#bcc7db"
+theme[proc_misc]="#b5ccbb"
 
 # Cpu box outline color
-theme[cpu_box]="#43474e"
+theme[cpu_box]="#404942"
 
 # Memory box outline color
-theme[mem_box]="#43474e"
+theme[mem_box]="#404942"
 
 # Net box outline color
-theme[net_box]="#43474e"
+theme[net_box]="#404942"
 
 # Processes box outline color
-theme[proc_box]="#43474e"
+theme[proc_box]="#404942"
 
 # Box divider line and small boxes line color
-theme[div_line]="#43474e"
+theme[div_line]="#404942"
 
 # Temperature graph colors
-theme[temp_start]="#a3c9fe"
-theme[temp_mid]="#bcc7db"
-theme[temp_end]="#d8bde3"
+theme[temp_start]="#92d5ab"
+theme[temp_mid]="#b5ccbb"
+theme[temp_end]="#a3cddc"
 
 # CPU graph colors
-theme[cpu_start]="#a3c9fe"
-theme[cpu_mid]="#bcc7db"
-theme[cpu_end]="#d8bde3"
+theme[cpu_start]="#92d5ab"
+theme[cpu_mid]="#b5ccbb"
+theme[cpu_end]="#a3cddc"
 
 # Mem/Disk free meter
-theme[free_start]="#bcc7db"
-theme[free_mid]="#bcc7db"
-theme[free_end]="#d8bde3"
+theme[free_start]="#b5ccbb"
+theme[free_mid]="#b5ccbb"
+theme[free_end]="#a3cddc"
 
 # Mem/Disk cached meter
-theme[cached_start]="#bcc7db"
-theme[cached_mid]="#bcc7db"
-theme[cached_end]="#d8bde3"
+theme[cached_start]="#b5ccbb"
+theme[cached_mid]="#b5ccbb"
+theme[cached_end]="#a3cddc"
 
 # Mem/Disk available meter
-theme[available_start]="#d8bde3"
-theme[available_mid]="#d8bde3"
-theme[available_end]="#a3c9fe"
+theme[available_start]="#a3cddc"
+theme[available_mid]="#a3cddc"
+theme[available_end]="#92d5ab"
 
 # Mem/Disk used meter
-theme[used_start]="#a3c9fe"
-theme[used_mid]="#a3c9fe"
-theme[used_end]="#bcc7db"
+theme[used_start]="#92d5ab"
+theme[used_mid]="#92d5ab"
+theme[used_end]="#b5ccbb"
 
 # Download graph colors
-theme[download_start]="#a3c9fe"
-theme[download_mid]="#bcc7db"
-theme[download_end]="#d8bde3"
+theme[download_start]="#92d5ab"
+theme[download_mid]="#b5ccbb"
+theme[download_end]="#a3cddc"
 
 # Upload graph colors
-theme[upload_start]="#d8bde3"
-theme[upload_mid]="#bcc7db"
-theme[upload_end]="#a3c9fe"
+theme[upload_start]="#a3cddc"
+theme[upload_mid]="#b5ccbb"
+theme[upload_end]="#92d5ab"
