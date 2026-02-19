@@ -3,7 +3,7 @@
 # Hyprland Complete Setup Script for Arch Linux
 # Master installer that runs both hardware setup and dotfiles deployment
 
-set -e  # Exit on error
+set -e # Exit on error
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,25 +14,25 @@ NC='\033[0m' # No Color
 
 # Helper functions
 print_status() {
-    echo -e "${BLUE}[*]${NC} $1"
+  echo -e "${BLUE}[*]${NC} $1"
 }
 
 print_success() {
-    echo -e "${GREEN}[✓]${NC} $1"
+  echo -e "${GREEN}[✓]${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}[✗]${NC} $1"
+  echo -e "${RED}[✗]${NC} $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}[!]${NC} $1"
+  echo -e "${YELLOW}[!]${NC} $1"
 }
 
 # Display header
 clear
 echo -e "${GREEN}"
-cat << "EOF"
+cat <<"EOF"
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
 ║        Hyprland Complete Setup - Arch Linux              ║
@@ -46,14 +46,14 @@ echo -e "${NC}"
 
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
-   print_error "This script should not be run as root. Run as normal user with sudo privileges."
-   exit 1
+  print_error "This script should not be run as root. Run as normal user with sudo privileges."
+  exit 1
 fi
 
 # Check for sudo privileges
 if ! sudo -v; then
-    print_error "This script requires sudo privileges. Please ensure you have sudo access."
-    exit 1
+  print_error "This script requires sudo privileges. Please ensure you have sudo access."
+  exit 1
 fi
 
 # Get script directory
@@ -61,13 +61,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if sub-scripts exist
 if [ ! -f "$SCRIPT_DIR/hyprland-install.sh" ]; then
-    print_error "hyprland-install.sh not found in $SCRIPT_DIR"
-    exit 1
+  print_error "hyprland-install.sh not found in $SCRIPT_DIR"
+  exit 1
 fi
 
 if [ ! -f "$SCRIPT_DIR/deploy-dotfiles.sh" ]; then
-    print_error "deploy-dotfiles.sh not found in $SCRIPT_DIR"
-    exit 1
+  print_error "deploy-dotfiles.sh not found in $SCRIPT_DIR"
+  exit 1
 fi
 
 # Make scripts executable
@@ -86,8 +86,8 @@ echo ""
 read -p "Do you want to continue? (y/n): " continue_choice
 
 if [[ ! $continue_choice =~ ^[Yy]$ ]]; then
-    print_status "Installation cancelled by user."
-    exit 0
+  print_status "Installation cancelled by user."
+  exit 0
 fi
 
 # Run hardware installation
@@ -98,8 +98,8 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 if ! bash "$SCRIPT_DIR/hyprland-install.sh"; then
-    print_error "Hardware installation failed. Please check the errors above."
-    exit 1
+  print_error "Hardware installation failed. Please check the errors above."
+  exit 1
 fi
 
 print_success "Hardware installation completed!"
@@ -114,14 +114,14 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 if ! bash "$SCRIPT_DIR/deploy-dotfiles.sh"; then
-    print_error "Dotfiles deployment failed. Please check the errors above."
-    exit 1
+  print_error "Dotfiles deployment failed. Please check the errors above."
+  exit 1
 fi
 
 # Final summary
 echo ""
 echo -e "${GREEN}"
-cat << "EOF"
+cat <<"EOF"
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
 ║             🎉 Installation Complete! 🎉                 ║
