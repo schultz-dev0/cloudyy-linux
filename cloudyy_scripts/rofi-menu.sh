@@ -102,7 +102,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n \n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰜉 Refresh Colors\n󰘍 Back")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n \n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n Theme UI\n󰜉 Refresh Colors\n󰘍 Back")
 
   case "${choice}" in
   *"Toggle Mode"*)
@@ -119,6 +119,9 @@ show_appearance_menu() {
   *"Random Wallpaper"*)
     run_app "$THEME_CTL" random
     notify-send "Theme" "Applying random wallpaper..." -t 2000
+    ;;
+  *"Theme UI"*)
+    run_app "kitty --class theme-tui theme-tui"
     ;;
   *"Refresh Colors"*)
     run_app "$THEME_CTL" refresh
