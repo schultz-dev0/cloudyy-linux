@@ -185,4 +185,4 @@ esac
 # pnpm end
 
 # Created by `pipx` on 2026-02-18 23:28:17
-export PATH="$PATH:/home/schultz/.local/bin"
+export PATH="$HOME/cloudyy_scripts:$HOME/cloudyy_scripts/cloudyy-other:$HOME/.local/bin:$PATH"
