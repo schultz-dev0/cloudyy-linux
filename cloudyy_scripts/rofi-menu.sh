@@ -206,14 +206,6 @@ show_keybinds_menu() {
 }
 
 # ==============================================================================
-# FONT SELECTION MENU
-# ==============================================================================
-
-show_font_menu() {
-  rofi -show fontmenu -modi "fontmenu:~/cloudyy_scripts/font-selector.sh"
-}
-
-# ==============================================================================
 # PACKAGE MANAGER MENU
 # ==============================================================================
 
@@ -459,7 +451,7 @@ show_applications_menu() {
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󱓻 Appearance\n󰀻 Applications\n Fonts\n󱊨 Keybinds\n󰹑 System\n⏻ Configuration\n󰏖 Packages\n󰐥 Power")
+    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n⏻ Configuration\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
   "󱓻 Appearance")
@@ -467,9 +459,6 @@ show_main_menu() {
     ;;
   "󰀻 Applications")
     show_applications_menu
-    ;;
-  " Fonts")
-    show_font_menu
     ;;
   "󱊨 Keybinds")
     show_keybinds_menu
