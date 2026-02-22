@@ -92,6 +92,79 @@ export -f gen_thumb
 export CACHE_DIR THUMB_SIZE
 
 # ==============================================================================
+# COLOR PROFILE MENU
+# ==============================================================================
+
+show_color_menu() {
+  local current_variant
+  current_variant=$(grep -oP '(?<=variant\s=\s")[^"]+' ~/.config/matugen/config.toml 2>/dev/null | sed 's/^scheme-//' || echo "tonal_spot")
+
+  local choice
+  choice=$(menu "Color Scheme" "Tonal Spot  — balanced, subtle (default)
+Vibrant     — punchy, boosted saturation
+Expressive  — bold hue shifts
+Neutral     — muted, desaturated
+Monochrome  — full greyscale
+Fidelity    — faithful to wallpaper
+Content     — conservative, readable
+Rainbow     — full spectrum
+Fruit Salad — inverted spectrum
+󰘍 Back")
+
+  local variant=""
+  case "${choice}" in
+  "Tonal Spot"*) variant="tonal_spot" ;;
+  "Vibrant"*) variant="vibrant" ;;
+  "Expressive"*) variant="expressive" ;;
+  "Neutral"*) variant="neutral" ;;
+  "Monochrome"*) variant="monochrome" ;;
+  "Fidelity"*) variant="fidelity" ;;
+  "Content"*) variant="content" ;;
+  "Rainbow"*) variant="rainbow" ;;
+  "Fruit Salad"*) variant="fruit_salad" ;;
+  *"Back"*)
+    show_appearance_menu
+    return
+    ;;
+  *) return ;;
+  esac
+
+  show_contrast_menu "$variant"
+}
+
+show_contrast_menu() {
+  local variant="$1"
+  local variant_label="${variant//_/ }"
+  # Capitalise first letter
+  variant_label="$(tr '[:lower:]' '[:upper:]' <<<${variant_label:0:1})${variant_label:1}"
+
+  local choice
+  choice=$(menu "Contrast — ${variant_label}" "-1.0  Softest
+-0.5  Softer
++0.0  Default
++0.5  Sharper
++1.0  Sharpest
+󰘍 Back")
+
+  local contrast=""
+  case "${choice}" in
+  "-1.0"*) contrast="-1.0" ;;
+  "-0.5"*) contrast="-0.5" ;;
+  "+0.0"*) contrast="0.0" ;;
+  "+0.5"*) contrast="0.5" ;;
+  "+1.0"*) contrast="1.0" ;;
+  *"Back"*)
+    show_color_menu
+    return
+    ;;
+  *) return ;;
+  esac
+
+  notify-send "Theme" "Applying ${variant_label} contrast ${contrast}..." -t 2000
+  run_app "$THEME_CTL" refresh "scheme-${variant}" "$contrast"
+}
+
+# ==============================================================================
 # APPEARANCE MENU (INTEGRATED THEME OPTIONS)
 # ==============================================================================
 
@@ -102,7 +175,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n \n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n Theme UI\n󰜉 Refresh Colors\n󰘍 Back")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile\n󰜉 Refresh Colors\n󰘍 Back")
 
   case "${choice}" in
   *"Toggle Mode"*)
@@ -121,7 +194,10 @@ show_appearance_menu() {
     notify-send "Theme" "Applying random wallpaper..." -t 2000
     ;;
   *"Theme UI"*)
-    run_app "kitty --class theme-tui theme-tui"
+    exec kitty --class theme-ui --override background_opacity=1.0 -e theme-ui
+    ;;
+  *"Color Profile"*)
+    show_color_menu
     ;;
   *"Refresh Colors"*)
     run_app "$THEME_CTL" refresh
@@ -454,7 +530,7 @@ show_applications_menu() {
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n⏻ Configuration\n󰏖 Packages\n󰐥 Power")
+    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n Configuration\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
   "󱓻 Appearance")
@@ -469,7 +545,7 @@ show_main_menu() {
   "󰹑 System")
     show_system_menu
     ;;
-  "⏻ Configuration")
+  " Configuration")
     configuration_menu
     ;;
   "󰏖 Packages")
