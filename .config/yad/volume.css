@@ -3,7 +3,7 @@
 /* Use Matugen keywords to grab colors */
 window {
     background-color: #131313;
-    border: 2px solid #d7c950;
+    border: 2px solid #ffffff;
     border-radius: 12px;
 }
 
@@ -15,7 +15,7 @@ scale trough {
 }
 
 scale highlight {
-    background-color: #d7c950;
+    background-color: #ffffff;
     border-radius: 10px;
     min-height: 10px;
 }
@@ -29,5 +29,5 @@ label {
 button {
     background: none;
     box-shadow: none;
-    color: #d7c950;
+    color: #ffffff;
 }

@@ -8,40 +8,40 @@
        ===================================================================== */
     
     /* Solid reference colors (for borders, accents) */
-    primary: #d7c950;
-    primary-fixed: #f4e569;
-    primary-fixed-dim: #d7c950;
-    on-primary: #363100;
-    on-primary-fixed: #1f1c00;
-    on-primary-fixed-variant: #4f4800;
-    primary-container: #4f4800;
-    on-primary-container: #f4e569;
+    primary: #ffffff;
+    primary-fixed: #5e5e5e;
+    primary-fixed-dim: #474747;
+    on-primary: #1b1b1b;
+    on-primary-fixed: #ffffff;
+    on-primary-fixed-variant: #e2e2e2;
+    primary-container: #d4d4d4;
+    on-primary-container: #000000;
     
     /* =====================================================================
        SECONDARY COLORS
        ===================================================================== */
     
-    secondary: #cec7a3;
-    secondary-fixed: #eae3bd;
-    secondary-fixed-dim: #cec7a3;
-    on-secondary: #343117;
-    on-secondary-fixed: #1f1c05;
-    on-secondary-fixed-variant: #4b472b;
-    secondary-container: #4b472b;
-    on-secondary-container: #eae3bd;
+    secondary: #c6c6c6;
+    secondary-fixed: #c6c6c6;
+    secondary-fixed-dim: #ababab;
+    on-secondary: #1b1b1b;
+    on-secondary-fixed: #1b1b1b;
+    on-secondary-fixed-variant: #3b3b3b;
+    secondary-container: #474747;
+    on-secondary-container: #e2e2e2;
     
     /* =====================================================================
        TERTIARY COLORS
        ===================================================================== */
     
-    tertiary: #a6d0b8;
-    tertiary-fixed: #c2ecd3;
-    tertiary-fixed-dim: #a6d0b8;
-    on-tertiary: #103726;
-    on-tertiary-fixed: #002113;
-    on-tertiary-fixed-variant: #284e3c;
-    tertiary-container: #284e3c;
-    on-tertiary-container: #c2ecd3;
+    tertiary: #e2e2e2;
+    tertiary-fixed: #5e5e5e;
+    tertiary-fixed-dim: #474747;
+    on-tertiary: #1b1b1b;
+    on-tertiary-fixed: #ffffff;
+    on-tertiary-fixed-variant: #e2e2e2;
+    tertiary-container: #919191;
+    on-tertiary-container: #000000;
     
     /* =====================================================================
        ERROR COLORS
@@ -65,7 +65,7 @@
     scrim: #000000;
     inverse-surface: #e2e2e2;
     inverse-on-surface: #303030;
-    inverse-primary: #686000;
+    inverse-primary: #5e5e5e;
     surface-dim: #131313;
     surface-bright: #393939;
     surface-container-lowest: #0e0e0e;
@@ -86,7 +86,7 @@
     glass-input: #2a2a2aCC;  /* 80% opacity */
     
     /* Selected items - Medium opacity */
-    glass-selected: #4f4800D9;  /* 85% opacity */
+    glass-selected: #d4d4d4D9;  /* 85% opacity */
     
     /* Hover state - Light opacity */
     glass-hover: #1f1f1f99;  /* 60% opacity */
