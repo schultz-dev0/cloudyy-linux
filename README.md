@@ -1,4 +1,4 @@
-As of FEB 6 2026 the install script is extremely rough, use it ONLY if you know what to do in case anything breaks or there is a missing dependency... Just don't use it if you want a working system lol
+As of 22nd Feb 2026 the install script is reliable and can be safely used. Although there may be a missing dependency, scripts and apps will install any missing dependency if needed
 
 ## Install instructions: 
 
