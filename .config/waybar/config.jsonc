@@ -109,7 +109,7 @@
     "format": "󰏔 {}",
     "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
     "interval": 3600,
-    "on-click": "kitty sh -c 'command -v yay >/dev/null && yay || paru'",
+    "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
     "tooltip-format": "System Updates"
   },
 
