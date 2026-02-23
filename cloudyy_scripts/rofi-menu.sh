@@ -175,7 +175,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile\n󰜉 Refresh Colors\n󰘍 Back")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile\n󰘍 Back")
 
   case "${choice}" in
   *"Toggle Mode"*)
@@ -198,10 +198,6 @@ show_appearance_menu() {
     ;;
   *"Color Profile"*)
     show_color_menu
-    ;;
-  *"Refresh Colors"*)
-    run_app "$THEME_CTL" refresh
-    notify-send "Theme" "Refreshing colors..." -t 2000
     ;;
   *"Back"*)
     show_main_menu
@@ -380,6 +376,7 @@ remove_package() {
   local confirm
   confirm=$(centered_menu "Remove $selected_pkg?" \
     "󰆴 Confirm Removal\n󰸉 Cancel")
+
   # ==============================================================================
   # KEYBINDS MENU
   # ==============================================================================

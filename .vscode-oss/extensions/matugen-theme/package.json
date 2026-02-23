@@ -1,21 +1,38 @@
 {
-  "name": "matugen-theme",
-  "displayName": "Matugen Theme",
-  "description": "Auto-generated theme from Matugen",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.60.0"
-  },
-  "categories": [
-    "Themes"
-  ],
+  "name": "matugen-vscode",
+  "displayName": "Matugen Theme Sync",
+  "description": "Auto-syncs matugen Material You colors to VSCode via material-code",
+  "version": "0.1.0",
+  "publisher": "local",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Themes"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
   "contributes": {
-    "themes": [
-      {
-        "label": "Matugen",
-        "uiTheme": "vs-dark",
-        "path": "./themes/matugen-theme.json"
+    "commands": [
+      { "command": "matugen-vscode.applyNow",    "title": "Matugen: Apply Colors Now" },
+      { "command": "matugen-vscode.toggleWatch", "title": "Matugen: Toggle File Watcher" }
+    ],
+    "configuration": {
+      "title": "Matugen Theme Sync",
+      "properties": {
+        "matugen-vscode.colorsPath": {
+          "type": "string",
+          "default": "~/.config/matugen/generated/vscode-colors.json",
+          "description": "Path to your matugen colors output file"
+        },
+        "matugen-vscode.enableWatcher": {
+          "type": "boolean",
+          "default": true,
+          "description": "Watch the file and auto-apply on changes"
+        },
+        "matugen-vscode.scheme": {
+          "type": "string",
+          "enum": ["dark", "light"],
+          "default": "dark",
+          "description": "Color scheme variant"
+        }
       }
-    ]
+    }
   }
 }
