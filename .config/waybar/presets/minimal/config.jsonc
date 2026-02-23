@@ -1,6 +1,6 @@
-// waybar preset: compact
-// Floating rounded container, tighter modules, no per-module backgrounds.
-// Middle ground between pill and minimal.
+// waybar preset: minimal
+// Flat floating bar, no module backgrounds, bottom-border only.
+// All modules visible. No rounding on the container.
 
 {
   "layer": "top",

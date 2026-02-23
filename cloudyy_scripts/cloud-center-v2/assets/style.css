@@ -1,0 +1,87 @@
+/* Cloud Center — assets/style.css */
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+
+.sidebar-app-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.sidebar-app-icon {
+  -gtk-icon-size: 18px;
+  color: @accent_color;
+}
+
+.navigation-sidebar {
+  background: transparent;
+}
+
+.nav-row {
+  border-radius: 8px;
+  margin: 1px 6px;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.nav-row:hover {
+  background: alpha(@window_fg_color, 0.07);
+}
+
+.nav-row:selected {
+  background: alpha(@accent_color, 0.18);
+  color: @accent_color;
+}
+
+.nav-row:selected .nav-icon {
+  color: @accent_color;
+}
+
+.nav-row:selected .nerd-icon {
+  color: @accent_color;
+}
+
+.nav-icon {
+  -gtk-icon-size: 16px;
+  color: alpha(@window_fg_color, 0.7);
+}
+
+/* ── Nerd Font icons ─────────────────────────────────────────────────────── */
+
+.nerd-icon {
+  font-family: 'JetBrainsMono Nerd Font', 'Symbols Nerd Font Mono', 'Symbols Nerd Font', monospace;
+  font-size: 15px;
+  min-width: 20px;
+  color: alpha(@window_fg_color, 0.7);
+}
+
+/* Row-level nerd icons (slightly smaller, in row prefix) */
+.row-nerd-icon {
+  font-size: 14px;
+  min-width: 18px;
+  margin-end: 2px;
+}
+
+/* App title nerd icon */
+.sidebar-app-icon.nerd-icon {
+  font-size: 18px;
+  color: @accent_color;
+}
+
+/* ── Content area ────────────────────────────────────────────────────────── */
+
+headerbar.flat {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+row.error {
+  background: alpha(@error_color, 0.12);
+}
+
+/* ── Search entry ────────────────────────────────────────────────────────── */
+
+searchentry {
+  border-radius: 8px;
+}

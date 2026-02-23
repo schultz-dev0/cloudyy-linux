@@ -1,0 +1,262 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR STYLE — dense.css
+   Full-width top bar. No floating, no pill shapes. Maximum info density.
+   Inspired by i3status / classic status bars — functional over decorative.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: 'JetBrainsMono Nerd Font', 'Monocraft', monospace;
+  font-weight: 600;
+  font-size: 11px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+window#waybar {
+  background: transparent;
+}
+
+/* ── Full-width bar — no rounding, no margins ───────────────────────────── */
+
+window#waybar > box {
+  background-color: alpha(@surface, 0.96);
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid alpha(@primary, 0.2);
+  margin: 0;
+}
+
+/* ── All modules: uniform, compact, no background ───────────────────────── */
+
+#custom-launcher,
+#custom-timer,
+#custom-weather,
+#custom-updates,
+#custom-notification,
+#custom-temps,
+#clock,
+#workspaces,
+#mpris,
+#network,
+#bluetooth,
+#pulseaudio,
+#cpu,
+#memory,
+#battery,
+#tray,
+#custom-power {
+  background: transparent;
+  border-radius: 0;
+  padding: 0 6px;
+  margin: 0;
+  color: @on_surface_variant;
+}
+
+/* ── Vertical separator between groups via box-shadow ────────────────────── */
+
+#custom-temps,
+#network,
+#custom-power,
+#clock {
+  border-left: 1px solid alpha(@outline_variant, 0.2);
+  border-right: 1px solid alpha(@outline_variant, 0.2);
+}
+
+/* ── Hover ───────────────────────────────────────────────────────────────── */
+
+#custom-launcher:hover,
+#custom-timer:hover,
+#custom-weather:hover,
+#custom-updates:hover,
+#custom-notification:hover,
+#custom-temps:hover,
+#clock:hover,
+#mpris:hover,
+#network:hover,
+#bluetooth:hover,
+#pulseaudio.output:hover,
+#cpu:hover,
+#memory:hover,
+#battery:hover,
+#custom-power:hover {
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+}
+
+/* ── Launcher ────────────────────────────────────────────────────────────── */
+
+#custom-launcher {
+  padding: 0 10px;
+  background-color: alpha(@primary_container, 0.5);
+  color: @on_primary_container;
+  font-size: 13px;
+  border-right: 1px solid alpha(@primary, 0.25);
+}
+
+#custom-launcher:hover {
+  background-color: @primary_container;
+  color: @on_primary_container;
+}
+
+/* ── Workspaces — numbered, compact ─────────────────────────────────────── */
+
+#workspaces {
+  background: transparent;
+  padding: 0 2px;
+  margin: 0;
+}
+
+#workspaces button {
+  padding: 0 5px;
+  margin: 3px 1px;
+  border-radius: 3px;
+  min-width: 18px;
+  background-color: alpha(@surface_container_high, 0.3);
+  color: alpha(@on_surface_variant, 0.6);
+  font-size: 10px;
+}
+
+#workspaces button.empty {
+  background: transparent;
+  color: alpha(@on_surface_variant, 0.2);
+  min-width: 14px;
+}
+
+#workspaces button.visible {
+  background-color: alpha(@surface_container_high, 0.55);
+  color: @on_surface;
+}
+
+#workspaces button.active {
+  background-color: @primary_container;
+  color: @on_primary_container;
+  font-weight: 800;
+  min-width: 22px;
+}
+
+#workspaces button:hover {
+  background-color: @surface_container_highest;
+  color: @on_surface;
+}
+
+#workspaces button.urgent {
+  background-color: @error_container;
+  color: @on_error;
+  animation: dense-urgent 0.8s ease-in-out infinite;
+}
+
+@keyframes dense-urgent {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.6; }
+  100% { opacity: 1;   }
+}
+
+/* ── Clock — center focus ────────────────────────────────────────────────── */
+
+#clock {
+  color: @on_surface;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Mpris — tight ───────────────────────────────────────────────────────── */
+
+#mpris {
+  color: @secondary;
+  font-size: 10px;
+  padding: 0 6px;
+  max-width: 180px;
+}
+
+#mpris.stopped {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  color: transparent;
+}
+
+/* ── Network — shows bandwidth ───────────────────────────────────────────── */
+
+#network.wifi        { color: @primary_fixed; }
+#network.ethernet    { color: @tertiary; }
+#network.disconnected { color: alpha(@on_surface_variant, 0.3); }
+
+/* ── Bluetooth ───────────────────────────────────────────────────────────── */
+
+#bluetooth.connected { color: @primary_fixed; }
+#bluetooth.disabled  { color: alpha(@on_surface_variant, 0.25); }
+
+/* ── Audio ───────────────────────────────────────────────────────────────── */
+
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.3); }
+
+/* ── CPU / Memory ────────────────────────────────────────────────────────── */
+
+#cpu.warning,    #memory.warning  { color: @tertiary; }
+#cpu.critical,   #memory.critical {
+  color: @error;
+  animation: dense-urgent 1s ease-in-out infinite;
+}
+
+/* ── Battery ─────────────────────────────────────────────────────────────── */
+
+#battery.good                    { color: @tertiary; }
+#battery.charging, #battery.full { color: @tertiary; }
+#battery.warning:not(.charging)  { color: @primary_fixed; }
+#battery.critical:not(.charging) { color: @error; animation: dense-urgent 1s ease-in-out infinite; }
+
+/* ── Tray ────────────────────────────────────────────────────────────────── */
+
+#tray {
+  padding: 0 4px;
+}
+
+#tray > .passive { -gtk-icon-effect: dim; }
+#tray > .needs-attention { -gtk-icon-effect: highlight; }
+
+/* ── Timer active ────────────────────────────────────────────────────────── */
+
+#custom-timer { color: @secondary; }
+
+/* ── Updates badge ───────────────────────────────────────────────────────── */
+
+#custom-updates { color: @tertiary; }
+
+/* ── Power ───────────────────────────────────────────────────────────────── */
+
+#custom-power {
+  padding: 0 8px;
+  color: alpha(@on_surface_variant, 0.6);
+  font-size: 12px;
+  border-left: 1px solid alpha(@outline_variant, 0.2);
+}
+
+#custom-power:hover {
+  background-color: alpha(@error_container, 0.5);
+  color: @error;
+}
+
+/* ── Temps ───────────────────────────────────────────────────────────────── */
+
+#custom-temps { color: @on_surface; font-weight: 700; }
+#custom-temps.critical { color: @error; }
+
+/* ── Tooltips ────────────────────────────────────────────────────────────── */
+
+tooltip {
+  background-color: alpha(@surface_container_high, 0.97);
+  border: 1px solid alpha(@outline_variant, 0.2);
+  border-radius: 6px;
+}
+
+tooltip label {
+  padding: 4px 8px;
+  color: @on_surface;
+  font-size: 11px;
+}
