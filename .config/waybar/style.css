@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   WAYBAR STYLE — compact.css
-   Compact floating bar — rounded container, tighter modules, no module
-   backgrounds (icons + text only). A middle ground between pill and minimal.
+   WAYBAR PRESET — ultraminimal
+   28px. Barely there. Only the essentials exist.
+   Clock · notification · workspace dots · audio · battery · power.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import "/home/schultz/.config/matugen/generated/waybar-colors.css";
@@ -10,191 +10,125 @@
   border: none;
   border-radius: 0;
   min-height: 0;
+  box-shadow: none;
   font-family: 'Monocraft';
-  font-weight: 600;
-  font-size: 12px;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  font-weight: 500;
+  font-size: 11px;
+  transition: color 0.12s ease, opacity 0.12s ease;
 }
 
 window#waybar {
   background: transparent;
+  box-shadow: none;
 }
 
-/* ── Bar container ──────────────────────────────────────────────────────── */
-
 window#waybar > box {
-  background-color: alpha(@surface, 0.80);
-  border-radius: 12px;
-  border: 1px solid alpha(@outline_variant, 0.18);
+  background-color: alpha(@surface, 0.68);
+  border-radius: 10px;
+  border: 1px solid alpha(@outline_variant, 0.1);
+  box-shadow: none;
   margin: 2px 0;
 }
 
-/* ── Default module style: no pill, just spacing ────────────────────────── */
+/* ── All modules ─────────────────────────────────────────────────────────── */
 
-#custom-launcher,
-#custom-timer,
-#custom-pycharm,
-#custom-themeswitcher,
-#custom-weather,
-#custom-updates,
-#custom-notification,
-#custom-temps,
 #clock,
-#mpris,
-#network,
-#bluetooth,
+#custom-notification,
+#workspaces,
 #pulseaudio,
-#cpu,
-#memory,
 #battery,
 #custom-power {
   background: transparent;
   padding: 0 7px;
-  margin: 2px 1px;
-  border-radius: 6px;
-  color: @on_surface_variant;
+  margin: 0 1px;
+  color: alpha(@on_surface_variant, 0.6);
 }
 
-/* ── Hover ──────────────────────────────────────────────────────────────── */
+/* ── Hover ───────────────────────────────────────────────────────────────── */
 
-#custom-launcher:hover,
-#custom-timer:hover,
-#custom-themeswitcher:hover,
-#custom-weather:hover,
-#custom-updates:hover,
-#custom-notification:hover,
-#custom-temps:hover,
 #clock:hover,
-#mpris:hover,
-#network:hover,
-#bluetooth:hover,
+#custom-notification:hover,
 #pulseaudio.output:hover,
-#cpu:hover,
-#memory:hover,
-#battery:hover {
-  background-color: alpha(@surface_container_high, 0.5);
+#battery:hover,
+#custom-power:hover {
   color: @on_surface;
 }
 
-/* ── Launcher ───────────────────────────────────────────────────────────── */
-
-#custom-launcher {
-  padding: 0 12px;
-  margin: 3px 3px 3px 5px;
-  border-radius: 8px;
-  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
-  color: @on_primary_container;
-  font-size: 17px;
-}
-
-#custom-launcher:hover {
-  background-image: linear-gradient(135deg, @primary_fixed_dim 0%, @primary 100%);
-}
-
-/* ── Clock ──────────────────────────────────────────────────────────────── */
+/* ── Clock ───────────────────────────────────────────────────────────────── */
 
 #clock {
   color: @on_surface;
   font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0 10px;
 }
 
-/* ── Workspaces ─────────────────────────────────────────────────────────── */
+/* ── Workspaces: tiny dots only ──────────────────────────────────────────── */
 
 #workspaces {
   background: transparent;
-  margin: 3px 5px;
+  margin: 0 4px;
   padding: 0;
 }
 
 #workspaces button {
-  padding: 1px 7px;
-  margin: 2px 1px;
-  border-radius: 6px;
-  min-width: 12px;
-  background-color: alpha(@surface_container_highest, 0.3);
-  color: alpha(@on_surface_variant, 0.6);
-  font-size: 11px;
-}
-
-#workspaces button.empty {
   background: transparent;
-  color: alpha(@on_surface_variant, 0.25);
-  min-width: 8px;
-  padding: 1px 5px;
+  border: none;
+  padding: 0 3px;
+  margin: 0;
+  min-width: 10px;
+  color: alpha(@on_surface_variant, 0.2);
+  font-size: 9px;
 }
 
-#workspaces button.visible {
-  background-color: alpha(@surface_container_highest, 0.55);
-  color: @on_surface;
-}
+#workspaces button.visible { color: alpha(@on_surface_variant, 0.5); }
+#workspaces button.active  { color: @primary; font-size: 11px; }
+#workspaces button.urgent  { color: @error; animation: umin-urgent 0.9s ease-in-out infinite; }
+#workspaces button:hover   { color: @on_surface; }
 
-#workspaces button.active {
-  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
-  color: @on_primary_container;
-  font-weight: 700;
-  min-width: 22px;
-}
+/* ── Notification ────────────────────────────────────────────────────────── */
 
-#workspaces button:hover {
-  background-color: @surface_container_highest;
-  color: @on_surface;
-}
+#custom-notification { font-size: 12px; }
 
-#workspaces button.urgent {
-  background-image: linear-gradient(135deg, @error_container 0%, @error 100%);
-  color: @on_error;
-}
+/* ── Audio ───────────────────────────────────────────────────────────────── */
 
-/* ── States ─────────────────────────────────────────────────────────────── */
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.22); }
 
-#mpris            { color: @secondary; font-size: 11px; }
-#mpris.stopped    { padding: 0; margin: 0; min-width: 0; background: transparent; }
-
-#network.wifi        { color: @primary_fixed; }
-#network.ethernet    { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.35); }
-
-#bluetooth.connected  { color: @primary_fixed; }
-#bluetooth.disabled   { color: alpha(@on_surface_variant, 0.3); }
-
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.3); }
-
-#cpu.warning, #memory.warning  { color: @tertiary; }
-#cpu.critical, #memory.critical { color: @error; }
+/* ── Battery ─────────────────────────────────────────────────────────────── */
 
 #battery.good                    { color: @tertiary; }
-#battery.charging, #battery.plugged, #battery.full { color: @tertiary; }
+#battery.charging, #battery.full { color: alpha(@tertiary, 0.7); }
 #battery.warning:not(.charging)  { color: @primary_fixed; }
-#battery.critical:not(.charging) { color: @error; animation: crit 1s ease-in-out infinite; }
-
-@keyframes crit {
-  0%   { opacity: 1;   }
-  50%  { opacity: 0.7; }
-  100% { opacity: 1;   }
-}
+#battery.critical:not(.charging) { color: @error; animation: umin-urgent 0.8s ease-in-out infinite; }
 
 /* ── Power ───────────────────────────────────────────────────────────────── */
 
 #custom-power {
-  margin-right: 5px;
-  font-size: 13px;
+  padding-right: 8px;
+  font-size: 12px;
 }
 
-#custom-power:hover {
-  background-color: alpha(@error_container, 0.4);
-  color: @error;
+#custom-power:hover { color: @error; }
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes umin-urgent {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1; }
 }
 
 /* ── Tooltips ────────────────────────────────────────────────────────────── */
 
 tooltip {
-  background-color: alpha(@surface_container_high, 0.95);
-  border: 1px solid alpha(@outline_variant, 0.25);
-  border-radius: 10px;
+  background-color: alpha(@surface_container_high, 0.97);
+  border: 1px solid alpha(@outline_variant, 0.18);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 tooltip label {
-  padding: 5px 10px;
+  padding: 4px 8px;
   color: @on_surface;
-  font-size: 12px;
+  font-size: 11px;
 }

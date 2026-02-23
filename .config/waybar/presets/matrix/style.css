@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — matrix
+   Terminal / hacker aesthetic. Green phosphor on near-black.
+   Monospace font. Uppercase labels. No icons — ASCII only.
+   Pipe separators between groups. Seconds-level clock in center.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  box-shadow: none;
+  font-family: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 11px;
+  transition: color 0.1s ease, background-color 0.1s ease;
+}
+
+window#waybar {
+  background: transparent;
+  box-shadow: none;
+}
+
+window#waybar > box {
+  background-color: rgba(5, 10, 5, 0.97);
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.3);
+  box-shadow: none;
+  margin: 0;
+  color: rgba(0, 255, 65, 0.85);
+}
+
+/* ── All modules: uniform flat terminal style ───────────────────────────── */
+
+#custom-launcher,
+#custom-timer,
+#custom-updates,
+#custom-notification,
+#custom-temps,
+#clock,
+#workspaces,
+#mpris,
+#network,
+#pulseaudio,
+#cpu,
+#memory,
+#battery,
+#custom-power {
+  background: transparent;
+  padding: 0 8px;
+  margin: 0;
+  color: rgba(0, 255, 65, 0.75);
+  border-radius: 0;
+}
+
+/* ── Hover: brighten ─────────────────────────────────────────────────────── */
+
+#custom-launcher:hover,
+#custom-timer:hover,
+#custom-updates:hover,
+#custom-notification:hover,
+#custom-temps:hover,
+#clock:hover,
+#mpris:hover,
+#network:hover,
+#pulseaudio.output:hover,
+#cpu:hover,
+#memory:hover,
+#battery:hover,
+#custom-power:hover {
+  background-color: rgba(0, 255, 65, 0.07);
+  color: rgba(0, 255, 65, 1.0);
+}
+
+/* ── Launcher ────────────────────────────────────────────────────────────── */
+
+#custom-launcher {
+  padding: 0 14px;
+  color: rgba(0, 255, 65, 1.0);
+  font-size: 12px;
+  font-weight: 700;
+  border-right: 1px solid rgba(0, 255, 65, 0.2);
+  letter-spacing: 1px;
+}
+
+/* ── Workspaces: [N] bracket style ──────────────────────────────────────── */
+
+#workspaces {
+  background: transparent;
+  margin: 0;
+  padding: 0 2px;
+  border-right: 1px solid rgba(0, 255, 65, 0.15);
+}
+
+#workspaces button {
+  padding: 0 5px;
+  margin: 3px 0;
+  min-width: 22px;
+  background: transparent;
+  color: rgba(0, 255, 65, 0.3);
+  font-size: 11px;
+  border-radius: 0;
+}
+
+#workspaces button.visible { color: rgba(0, 255, 65, 0.65); }
+#workspaces button.active  {
+  color: rgba(0, 255, 65, 1.0);
+  background-color: rgba(0, 255, 65, 0.1);
+  font-weight: 700;
+}
+#workspaces button.empty { color: rgba(0, 255, 65, 0.15); }
+#workspaces button:hover { background-color: rgba(0, 255, 65, 0.08); color: rgba(0, 255, 65, 0.9); }
+#workspaces button.urgent {
+  background-color: rgba(255, 50, 50, 0.15);
+  color: rgba(255, 80, 80, 1.0);
+  animation: mtx-blink 0.6s ease-in-out infinite;
+}
+
+/* ── Clock: seconds clock, highest emphasis ──────────────────────────────── */
+
+#clock {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: rgba(0, 255, 65, 1.0);
+  padding: 0 16px;
+  border-left: 1px solid rgba(0, 255, 65, 0.2);
+  border-right: 1px solid rgba(0, 255, 65, 0.2);
+}
+
+/* ── Mpris: dimmer, italic feel ──────────────────────────────────────────── */
+
+#mpris        { color: rgba(0, 200, 50, 0.6); font-size: 10px; max-width: 200px; }
+#mpris.paused { color: rgba(0, 180, 45, 0.4); }
+#mpris.stopped { padding: 0; margin: 0; min-width: 0; }
+
+/* ── Temps ───────────────────────────────────────────────────────────────── */
+
+#custom-temps {
+  color: rgba(0, 255, 65, 0.85);
+  border-left: 1px solid rgba(0, 255, 65, 0.15);
+  border-right: 1px solid rgba(0, 255, 65, 0.15);
+  font-weight: 700;
+}
+
+/* ── Network ─────────────────────────────────────────────────────────────── */
+
+#network.disconnected { color: rgba(255, 80, 80, 0.7); }
+
+/* ── Updates / timer / notification ─────────────────────────────────────── */
+
+#custom-updates      { color: rgba(0, 200, 50, 0.65); border-left: 1px solid rgba(0, 255, 65, 0.12); }
+#custom-notification { color: rgba(0, 200, 50, 0.65); }
+#custom-timer        { color: rgba(0, 200, 50, 0.65); }
+
+/* ── CPU / memory ────────────────────────────────────────────────────────── */
+
+#cpu.warning,  #memory.warning  { color: rgba(200, 255, 0, 0.9); }
+#cpu.critical, #memory.critical { color: rgba(255, 80, 80, 1.0); animation: mtx-blink 1s ease-in-out infinite; }
+
+/* ── Battery ─────────────────────────────────────────────────────────────── */
+
+#battery.charging, #battery.full { color: rgba(0, 255, 65, 1.0); }
+#battery.warning:not(.charging)  { color: rgba(200, 255, 0, 0.9); }
+#battery.critical:not(.charging) { color: rgba(255, 80, 80, 1.0); animation: mtx-blink 0.7s ease-in-out infinite; }
+
+/* ── Audio muted ─────────────────────────────────────────────────────────── */
+
+#pulseaudio.output.muted { color: rgba(0, 255, 65, 0.25); }
+
+/* ── Power ───────────────────────────────────────────────────────────────── */
+
+#custom-power {
+  padding: 0 12px;
+  color: rgba(0, 255, 65, 0.5);
+  font-size: 11px;
+  border-left: 1px solid rgba(0, 255, 65, 0.15);
+  letter-spacing: 1px;
+}
+
+#custom-power:hover {
+  background-color: rgba(255, 50, 50, 0.12);
+  color: rgba(255, 80, 80, 1.0);
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes mtx-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+/* ── Tooltips ────────────────────────────────────────────────────────────── */
+
+tooltip {
+  background-color: rgba(5, 10, 5, 0.98);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+tooltip label {
+  padding: 5px 10px;
+  color: rgba(0, 255, 65, 0.9);
+  font-family: 'JetBrainsMono Nerd Font', monospace;
+  font-size: 11px;
+}

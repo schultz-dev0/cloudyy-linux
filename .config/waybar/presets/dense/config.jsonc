@@ -1,6 +1,5 @@
 // waybar preset: dense
-// Full-width top bar. Every module visible, network shows live bandwidth,
-// tray included. Designed for maximum information density.
+// Full-width, maximum info density. Live network bandwidth, tray, all modules.
 
 {
   "layer": "top",
@@ -120,8 +119,7 @@
 
   "tray": {
     "icon-size": 14,
-    "spacing": 4,
-    "show-passive-items": true
+    "spacing": 4
   },
 
   "hyprland/workspaces": {
@@ -145,11 +143,11 @@
   },
 
   "network": {
-    "format-wifi": "  {bandwidthDownBytes}  {bandwidthUpBytes}",
-    "format-ethernet": "󰈀  {bandwidthDownBytes}  {bandwidthUpBytes}",
-    "format-disconnected": "󰖪 Disconnected",
-    "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}\n {bandwidthDownBytes}  {bandwidthUpBytes}",
-    "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
+    "format-wifi": "󰤨  {bandwidthDownBits}",
+    "format-ethernet": "󰈀  {bandwidthDownBits}",
+    "format-disconnected": "󰖪",
+    "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}\n{bandwidthDownBits} down  {bandwidthUpBits} up",
+    "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}\n{bandwidthDownBits} down  {bandwidthUpBits} up",
     "tooltip-format-disconnected": "Disconnected",
     "on-click": "uwsm-app nm-connection-editor",
     "interval": 2

@@ -166,18 +166,18 @@ pages:
 
   - id: waybar
     title: Waybar
-    icon: 󱂬
+    icon: 󰂬
     layout:
       - type: section
         properties:
           title: Bar Preset
-          description: "Each preset lives in ~/.config/waybar/presets/<name>/ and contains its own config.jsonc + style.css. Switching always does a full restart."
+          description: "8 presets — each is a complete layout and style. Switching always does a full restart."
         items:
           - type: selection
             properties:
               title: Style Preset
-              description: Full preset — layout and style together
-              icon: 
+              description: "pill · minimal · compact · dense · bubble · ultraminimal · ghost · matrix"
+              icon: 
               key: waybar/style
               options:
                 - pill
@@ -186,6 +186,8 @@ pages:
                 - dense
                 - bubble
                 - ultraminimal
+                - ghost
+                - matrix
               options_map:
                 pill: pill
                 minimal: minimal
@@ -193,6 +195,8 @@ pages:
                 dense: dense
                 bubble: bubble
                 ultraminimal: ultraminimal
+                ghost: ghost
+                matrix: matrix
             on_change:
               command: "~/.config/waybar/scripts/switch_style.sh {value} && ~/cloudyy_scripts/launch_waybar.sh"
 
@@ -200,7 +204,7 @@ pages:
             properties:
               title: Reload Waybar
               description: Kill and restart waybar with the current preset
-              icon: 󰑐
+              icon: 󰐐
               button_text: Reload
             on_press:
               command: "~/cloudyy_scripts/launch_waybar.sh"
@@ -222,6 +226,30 @@ pages:
               button_text: Style
             on_press:
               command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
+
+      - type: section
+        properties:
+          title: Bar Position
+          description: "Move the bar to any screen edge. Left/right create a vertical sidebar."
+        items:
+          - type: selection
+            properties:
+              title: Position
+              description: Which screen edge the bar sits on
+              icon: 󱊖
+              key: waybar/position
+              options:
+                - top
+                - bottom
+                - left
+                - right
+              options_map:
+                top: top
+                bottom: bottom
+                left: left
+                right: right
+            on_change:
+              command: "~/.config/waybar/scripts/set_position.sh {value} && ~/cloudyy_scripts/launch_waybar.sh"
 
       - type: section
         properties:
