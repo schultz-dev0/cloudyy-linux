@@ -1,6 +1,6 @@
-// waybar preset: minimal
-// Flat floating bar, no module backgrounds, bottom-border only.
-// All modules visible. No rounding on the container.
+// waybar preset: pill
+// Floating pill bar — each module in its own rounded pill.
+// All modules visible.
 
 {
   "layer": "top",
