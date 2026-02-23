@@ -1,0 +1,410 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR STYLE — pill.css
+   Floating pill bar. Uses Matugen variables from waybar-colors.css.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+* {
+    transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: 'Monocraft';
+  font-weight: 600;
+  font-size: 13px;
+}
+
+window#waybar {
+  background: transparent;
+}
+
+/* ── Bar container ──────────────────────────────────────────────────────── */
+
+window#waybar > box {
+  background-color: alpha(@surface, 0.75);
+  border-radius: 14px;
+  border: 2px solid alpha(@outline_variant, 0.15);
+  /* No box-shadow — prevents the halo/glow artifact */
+  margin: 2px 0px;
+}
+
+/* ── Launcher ───────────────────────────────────────────────────────────── */
+
+#custom-launcher {
+  padding: 0px 13px 2px 8px;
+  margin: 5px 2px 5px 6px;
+  border-radius: 10px;
+  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
+  color: @on_primary_container;
+  font-size: 19px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-launcher:hover {
+  background-image: linear-gradient(135deg, @primary_fixed_dim 0%, @primary 100%);
+}
+
+/* ── Temperatures ───────────────────────────────────────────────────────── */
+
+#custom-temps {
+  padding: 0px 5px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-weight: 700;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-temps:hover {
+  background-color: alpha(@surface_container_highest, 0.9);
+  border: 1px solid alpha(@primary, 0.3);
+}
+
+/* ── Clock ──────────────────────────────────────────────────────────────── */
+
+#clock {
+  padding: 0px 5px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-weight: 700;
+  transition: all 0.2s ease-in-out;
+}
+
+#clock:hover {
+  background-color: alpha(@surface_container_highest, 0.9);
+  border: 1px solid alpha(@primary, 0.3);
+}
+
+/* ── Timer ──────────────────────────────────────────────────────────────── */
+
+#custom-timer {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-timer:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── PyCharm ────────────────────────────────────────────────────────────── */
+
+#custom-pycharm {
+  padding: 0px 12px 0px 9px;
+  margin: 4px 2px;
+  border-radius: 8px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-pycharm:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── Theme switcher ─────────────────────────────────────────────────────── */
+
+#custom-themeswitcher {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-themeswitcher:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── Weather ────────────────────────────────────────────────────────────── */
+
+#custom-weather {
+  padding: 0 8px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @tertiary;
+  font-size: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-weather:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── Updates ────────────────────────────────────────────────────────────── */
+
+#custom-updates {
+  padding: 0 8px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @secondary;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-updates:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── Notifications ──────────────────────────────────────────────────────── */
+
+#custom-notification {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-notification:hover {
+  background-color: alpha(@surface_container_high, 0.9);
+}
+
+/* ── Workspaces ─────────────────────────────────────────────────────────── */
+
+#workspaces {
+  padding: 0px;
+  margin: 4px 6px;
+  border-radius: 12px;
+  background-color: alpha(@surface_container, 0.5);
+  border: 1px solid alpha(@outline_variant, 0.1);
+}
+
+#workspaces button {
+  padding: 0px 8px;
+  margin: 3px 2px;
+  min-width: 12px;
+  border-radius: 8px;
+  background-color: alpha(@surface_container_highest, 0.4);
+  color: @on_surface_variant;
+  font-size: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+#workspaces button.empty {
+  padding: 0 6px;
+  min-width: 20px;
+  background-color: alpha(@surface_container_high, 0.2);
+  color: alpha(@on_surface_variant, 0.4);
+}
+
+#workspaces button.visible {
+  background-color: alpha(@surface_container_highest, 0.6);
+  color: @on_surface;
+}
+
+#workspaces button.active {
+  padding: 0px 1px;
+  min-width: 28px;
+  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
+  color: @on_primary_container;
+  font-weight: 700;
+}
+
+#workspaces button:hover {
+  background-color: @surface_container_highest;
+  color: @on_surface;
+}
+
+#workspaces button.active:hover {
+  background-image: linear-gradient(135deg, @primary_fixed_dim 0%, @primary 100%);
+}
+
+#workspaces button.urgent {
+  background-image: linear-gradient(135deg, @error_container 0%, @error 100%);
+  color: @on_error;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.7; }
+  100% { opacity: 1;   }
+}
+
+/* ── Mpris ──────────────────────────────────────────────────────────────── */
+
+#mpris {
+  padding: 0 10px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@secondary_container, 0.4);
+  color: @on_secondary_container;
+  font-size: 12px;
+  border: 1px solid alpha(@secondary, 0.15);
+  transition: all 0.2s ease-in-out;
+}
+
+#mpris:hover {
+  background-color: alpha(@secondary_container, 0.7);
+  border: 1px solid alpha(@secondary, 0.3);
+}
+
+#mpris.playing { color: @secondary; }
+
+#mpris.paused  { color: alpha(@on_secondary_container, 0.6); }
+
+#mpris.stopped {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  background-color: transparent;
+  border: none;
+}
+
+/* ── Network ────────────────────────────────────────────────────────────── */
+
+#network {
+  padding: 1px 14px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#network:hover            { background-color: alpha(@surface_container_high, 0.9); }
+#network.disconnected     { color: alpha(@on_surface_variant, 0.4); }
+#network.linked,
+#network.ethernet         { color: @tertiary; }
+#network.wifi             { color: @primary_fixed; }
+
+/* ── Bluetooth ──────────────────────────────────────────────────────────── */
+
+#bluetooth {
+  padding: 0px 8px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+#bluetooth:hover    { background-color: alpha(@surface_container_high, 0.9); }
+#bluetooth.disabled { color: alpha(@on_surface_variant, 0.4); }
+#bluetooth.connected { color: @primary_fixed; }
+
+/* ── Audio ──────────────────────────────────────────────────────────────── */
+
+#pulseaudio.output {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#pulseaudio.output:hover  { background-color: alpha(@surface_container_high, 0.9); }
+#pulseaudio.output.muted  { color: alpha(@on_surface_variant, 0.4); }
+
+/* ── CPU ────────────────────────────────────────────────────────────────── */
+
+#cpu {
+  padding: 0 8px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface_variant;
+  font-size: 11px;
+  transition: all 0.2s ease-in-out;
+}
+
+#cpu:hover    { background-color: alpha(@surface_container_high, 0.9); }
+#cpu.warning  { color: @tertiary; background-color: alpha(@tertiary_container, 0.2); }
+#cpu.critical { color: @error; background-color: alpha(@error_container, 0.3); animation: pulse 1.5s ease-in-out infinite; }
+
+/* ── Memory ─────────────────────────────────────────────────────────────── */
+
+#memory {
+  padding: 0 8px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface_variant;
+  font-size: 11px;
+  transition: all 0.2s ease-in-out;
+}
+
+#memory:hover    { background-color: alpha(@surface_container_high, 0.9); }
+#memory.warning  { color: @tertiary; background-color: alpha(@tertiary_container, 0.2); }
+#memory.critical { color: @error; background-color: alpha(@error_container, 0.3); animation: pulse 1.5s ease-in-out infinite; }
+
+/* ── Battery ────────────────────────────────────────────────────────────── */
+
+#battery {
+  padding: 0px 5px;
+  margin: 5px 2px;
+  border-radius: 10px;
+  background-color: alpha(@surface_container, 0.6);
+  color: @on_surface;
+  font-weight: 700;
+  transition: all 0.2s ease-in-out;
+}
+
+#battery:hover                     { background-color: alpha(@surface_container_high, 0.9); }
+#battery.good                      { color: @tertiary; }
+#battery.charging,
+#battery.plugged,
+#battery.full                      { color: @tertiary; background-color: alpha(@tertiary_container, 0.25); border: 1px solid alpha(@tertiary, 0.15); }
+#battery.warning:not(.charging)    { color: @primary_fixed; background-color: alpha(@primary_container, 0.3); border: 1px solid alpha(@primary, 0.2); }
+#battery.critical:not(.charging)   { color: @on_error; background-image: linear-gradient(135deg, @error_container 0%, @error 100%); animation: critical-blink 1s ease-in-out infinite; }
+
+@keyframes critical-blink {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.8; }
+  100% { opacity: 1;   }
+}
+
+/* ── Power button ───────────────────────────────────────────────────────── */
+
+#custom-power {
+  padding: 0px 12px 0px 9px;
+  margin: 5px 6px 5px 2px;
+  border-radius: 10px;
+  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
+  color: @on_primary_container;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+
+#custom-power:hover {
+  background-color: @error;
+  background-image: none;
+}
+
+/* ── Tooltips ───────────────────────────────────────────────────────────── */
+
+tooltip {
+  background-color: alpha(@surface_container_high, 0.95);
+  border: 1px solid alpha(@outline_variant, 0.3);
+  border-radius: 12px;
+}
+
+tooltip label {
+  padding: 6px 10px;
+  color: @on_surface;
+  font-size: 12px;
+}

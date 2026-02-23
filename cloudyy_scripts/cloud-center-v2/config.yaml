@@ -1,0 +1,483 @@
+# Cloud Center — config.yaml
+# Add pages, sections, and items here. No Python needed.
+# Supported row types: button, toggle, slider, selection, label
+# Icons: use Nerd Font glyphs (any unicode char) OR GTK symbolic icon names
+
+pages:
+
+  - id: home
+    title: Home
+    icon: 
+    layout:
+      - type: section
+        properties:
+          title: Quick Actions
+        items:
+          - type: toggle
+            properties:
+              title: Dark Mode
+              description: Switch between dark and light Matugen theme
+              icon: 󰖔
+              key: theme/dark_mode
+            on_toggle:
+              enabled:
+                command: ~/cloudyy_scripts/theme_controller.sh set --mode dark
+              disabled:
+                command: ~/cloudyy_scripts/theme_controller.sh set --mode light
+
+          - type: toggle
+            properties:
+              title: Bluetooth
+              description: Bluetooth adapter power
+              icon: 󰂯
+              key: hypr/bluetooth
+              # Checks if bluetoothctl reports Powered: yes; falls back to 0 if service is down
+              state_command: "bluetoothctl show 2>/dev/null | grep -c 'Powered: yes' || echo 0"
+              interval: 5
+            on_toggle:
+              enabled:
+                command: "rfkill unblock bluetooth; sleep 0.5; bluetoothctl power on"
+              disabled:
+                command: "bluetoothctl power off"
+
+          - type: toggle
+            properties:
+              title: Wi-Fi
+              description: Wireless radio
+              icon: 󰤨
+              key: hypr/wifi
+              state_command: "nmcli radio wifi 2>/dev/null | grep -c '^enabled' || echo 0"
+              interval: 5
+            on_toggle:
+              enabled:
+                command: nmcli radio wifi on
+              disabled:
+                command: nmcli radio wifi off
+
+      - type: section
+        properties:
+          title: System
+        items:
+          - type: label
+            properties:
+              title: CPU
+              icon: 󰍛
+            value:
+              type: system
+              key: cpu
+
+          - type: label
+            properties:
+              title: GPU
+              icon: 󰍹
+            value:
+              type: system
+              key: gpu
+
+          - type: label
+            properties:
+              title: Memory Used
+              icon: 󰘚
+              interval: 5
+            value:
+              type: system
+              key: memory_used
+
+          - type: label
+            properties:
+              title: Kernel
+              icon: 
+            value:
+              type: system
+              key: kernel
+
+  - id: appearance
+    title: Appearance
+    icon: 󰔎
+    layout:
+      - type: section
+        properties:
+          title: Theme
+        items:
+          - type: selection
+            properties:
+              title: Color Scheme
+              description: Matugen color variant
+              icon: 
+              key: theme/scheme
+              options:
+                - neutral
+                - vibrant
+                - monochrome
+                - rainbow
+                - expressive
+                - fruit-salad
+                - tonal-spot
+                - fidelity
+                - content
+              options_map:
+                neutral: scheme-neutral
+                vibrant: scheme-vibrant
+                monochrome: scheme-monochrome
+                rainbow: scheme-rainbow
+                expressive: scheme-expressive
+                fruit-salad: scheme-fruit-salad
+                tonal-spot: scheme-tonal-spot
+                fidelity: scheme-fidelity
+                content: scheme-content
+            on_change:
+              command: ~/cloudyy_scripts/theme_controller.sh refresh {value} $(cat ~/.config/cloud-center/settings/theme/contrast 2>/dev/null || echo 0)
+
+          - type: slider
+            properties:
+              title: Contrast
+              description: "Matugen contrast adjustment (-1.0 to +1.0)"
+              icon: 󱡓
+              key: theme/contrast
+              min: -10
+              max: 10
+              step: 1
+              default: 0
+            on_change:
+              command: ~/cloudyy_scripts/theme_controller.sh refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(echo "scale=1; {value}/10" | bc)
+
+          - type: button
+            properties:
+              title: Apply Theme
+              description: Re-run Matugen with current settings
+              icon: 󰑐
+              button_text: Apply
+            on_press:
+              command: ~/cloudyy_scripts/theme_controller.sh refresh
+
+      - type: section
+        properties:
+          title: Wallpaper
+        items:
+          - type: button
+            properties:
+              title: Open Theme Manager
+              description: Browse wallpapers and manage theme in TUI
+              icon: 󰇄
+              button_text: Launch
+            on_press:
+              command: kitty --class theme-ui theme-ui
+              terminal: false
+
+  - id: waybar
+    title: Waybar
+    icon: 󱂬
+    layout:
+      - type: section
+        properties:
+          title: Bar Preset
+          description: "Each preset lives in ~/.config/waybar/presets/<name>/ and contains its own config.jsonc + style.css. Switching always does a full restart."
+        items:
+          - type: selection
+            properties:
+              title: Style Preset
+              description: Full preset — layout and style together
+              icon: 
+              key: waybar/style
+              options:
+                - pill
+                - minimal
+                - compact
+                - dense
+                - bubble
+                - ultraminimal
+              options_map:
+                pill: pill
+                minimal: minimal
+                compact: compact
+                dense: dense
+                bubble: bubble
+                ultraminimal: ultraminimal
+            on_change:
+              command: "~/.config/waybar/scripts/switch_style.sh {value} && ~/cloudyy_scripts/launch_waybar.sh"
+
+          - type: button
+            properties:
+              title: Reload Waybar
+              description: Kill and restart waybar with the current preset
+              icon: 󰑐
+              button_text: Reload
+            on_press:
+              command: "~/cloudyy_scripts/launch_waybar.sh"
+
+          - type: button
+            properties:
+              title: Edit Active Config
+              description: Open the live config.jsonc in your editor
+              icon: 󰦭
+              button_text: Config
+            on_press:
+              command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/config.jsonc"
+
+          - type: button
+            properties:
+              title: Edit Active Style
+              description: Open the live style.css in your editor
+              icon: 󰦭
+              button_text: Style
+            on_press:
+              command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
+
+      - type: section
+        properties:
+          title: Preset Management
+          description: "Open a preset folder directly to customise it, then reload."
+        items:
+          - type: button
+            properties:
+              title: Open Presets Folder
+              description: Browse all presets in your file manager
+              icon: 󰉋
+              button_text: Browse
+            on_press:
+              command: "xdg-open ~/.config/waybar/presets"
+
+          - type: button
+            properties:
+              title: Clone Active Preset
+              description: Copy the current active files back into their preset folder
+              icon: 󰆒
+              button_text: Sync
+            on_press:
+              command: >
+                PRESET=$(cat ~/.config/waybar/.current_preset 2>/dev/null || echo pill) &&
+                cp ~/.config/waybar/config.jsonc ~/.config/waybar/presets/${PRESET}/config.jsonc &&
+                cp ~/.config/waybar/style.css ~/.config/waybar/presets/${PRESET}/style.css &&
+                notify-send "Waybar" "Saved edits back to preset: ${PRESET}"
+
+      - type: section
+        properties:
+          title: Bar Visibility
+        items:
+          - type: toggle
+            properties:
+              title: Show on All Monitors
+              description: Mirror waybar across every connected display
+              icon: 󰍹
+              key: waybar/all_monitors
+            on_toggle:
+              enabled:
+                command: "sed -i 's/\"output\": .*//' ~/.config/waybar/config.jsonc && ~/cloudyy_scripts/launch_waybar.sh"
+              disabled:
+                command: "notify-send 'Waybar' 'Edit the output key in ~/.config/waybar/presets/<preset>/config.jsonc to restrict to one monitor, then reload.'"
+
+  - id: hyprland
+    title: Hyprland
+    icon: 
+    layout:
+      - type: section
+        properties:
+          title: Window Decoration
+        items:
+          - type: slider
+            properties:
+              title: Border Size
+              description: Window border width in pixels
+              icon: 󱂬
+              key: hypr/border_size
+              min: 0
+              max: 10
+              step: 1
+              default: 2
+            on_change:
+              command: hyprctl keyword general:border_size {value}
+
+          - type: slider
+            properties:
+              title: Corner Rounding
+              description: Window corner radius
+              icon: 󰕰
+              key: hypr/rounding
+              min: 0
+              max: 20
+              step: 1
+              default: 8
+            on_change:
+              command: hyprctl keyword decoration:rounding {value}
+
+          - type: toggle
+            properties:
+              title: Blur
+              description: Background blur on transparent windows
+              icon: 󱣴
+              key: hypr/blur
+            on_toggle:
+              enabled:
+                command: hyprctl keyword decoration:blur:enabled true
+              disabled:
+                command: hyprctl keyword decoration:blur:enabled false
+
+          - type: slider
+            properties:
+              title: Blur Passes
+              description: More passes = stronger blur, more GPU cost
+              icon: 󱣴
+              key: hypr/blur_passes
+              min: 1
+              max: 6
+              step: 1
+              default: 3
+            on_change:
+              command: hyprctl keyword decoration:blur:passes {value}
+
+          - type: slider
+            properties:
+              title: Blur Size
+              description: Blur kernel size
+              icon: 󱣴
+              key: hypr/blur_size
+              min: 1
+              max: 20
+              step: 1
+              default: 8
+            on_change:
+              command: hyprctl keyword decoration:blur:size {value}
+
+          - type: slider
+            properties:
+              title: Window Opacity (Active)
+              description: Active window opacity (100 = fully opaque)
+              icon: 󰗔
+              key: hypr/active_opacity
+              min: 50
+              max: 100
+              step: 1
+              default: 100
+            on_change:
+              command: hyprctl keyword decoration:active_opacity $(echo "scale=2; {value}/100" | bc)
+
+          - type: slider
+            properties:
+              title: Window Opacity (Inactive)
+              description: Inactive window opacity
+              icon: 󰗔
+              key: hypr/inactive_opacity
+              min: 50
+              max: 100
+              step: 1
+              default: 95
+            on_change:
+              command: hyprctl keyword decoration:inactive_opacity $(echo "scale=2; {value}/100" | bc)
+
+      - type: section
+        properties:
+          title: Layout & Gaps
+        items:
+          - type: slider
+            properties:
+              title: Outer Gaps
+              description: Gaps between windows and screen edge
+              icon: 󰫠
+              key: hypr/gaps_out
+              min: 0
+              max: 60
+              step: 2
+              default: 8
+            on_change:
+              command: hyprctl keyword general:gaps_out {value}
+
+          - type: slider
+            properties:
+              title: Inner Gaps
+              description: Gaps between windows
+              icon: 󰫠
+              key: hypr/gaps_in
+              min: 0
+              max: 30
+              step: 2
+              default: 4
+            on_change:
+              command: hyprctl keyword general:gaps_in {value}
+
+      - type: section
+        properties:
+          title: Animations
+        items:
+          - type: toggle
+            properties:
+              title: Animations
+              description: Enable Hyprland window animations
+              icon: 󰝣
+              key: hypr/animations
+            on_toggle:
+              enabled:
+                command: hyprctl keyword animations:enabled true
+              disabled:
+                command: hyprctl keyword animations:enabled false
+
+          - type: slider
+            properties:
+              title: Animation Speed
+              description: Lower = faster animations
+              icon: 󱎫
+              key: hypr/anim_speed
+              min: 1
+              max: 10
+              step: 1
+              default: 4
+            on_change:
+              command: hyprctl keyword animations:bezier "myBezier,0.05,0.9,0.1,1.05" && hyprctl keyword animations:animation "windows,1,{value},myBezier"
+
+  - id: tools
+    title: Tools
+    icon: 
+    layout:
+      - type: section
+        properties:
+          title: Management TUIs
+          description: Opens in a floating Kitty window
+        items:
+          - type: button
+            properties:
+              title: Theme Manager
+              description: Wallpapers, color schemes, contrast
+              icon: 󰔎
+              button_text: Open
+            on_press:
+              command: kitty --class theme-ui --title "Theme Manager" theme-ui
+
+          - type: button
+            properties:
+              title: Keybind Manager
+              description: Browse and manage Hyprland keybindings
+              icon: 󰌌
+              button_text: Open
+            on_press:
+              command: kitty --class hkbm --title "Keybind Manager" hkbm
+
+          - type: button
+            properties:
+              title: Config Manager
+              description: Browse and edit Hyprland config files
+              icon: 󰦭
+              button_text: Open
+            on_press:
+              command: kitty --class hcm --title "Config Manager" hcm
+
+      - type: section
+        properties:
+          title: System
+        items:
+          - type: button
+            properties:
+              title: System Update
+              description: Run Arch Linux system updater
+              icon: 󰚰
+              button_text: Update
+            on_press:
+              command: ~/cloudyy_scripts/system_update.sh
+              terminal: true
+
+          - type: button
+            properties:
+              title: Reload Hyprland
+              description: Reload Hyprland configuration
+              icon: 󰑐
+              button_text: Reload
+            on_press:
+              command: hyprctl reload

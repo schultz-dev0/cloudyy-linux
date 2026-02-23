@@ -1,14 +1,15 @@
-// waybar preset: compact
-// Floating rounded container, tighter modules, no per-module backgrounds.
-// Middle ground between pill and minimal.
+// waybar preset: bubble
+// Floating pill bar. Each module sits in its own coloured bubble.
+// Workspaces rendered as filled circle dots. Only essential system
+// modules — no weather, updates, pycharm, themeswitcher.
 
 {
   "layer": "top",
   "exclusive": true,
   "reload_style_on_change": false,
   "position": "top",
-  "spacing": 4,
-  "height": 40,
+  "spacing": 3,
+  "height": 42,
   "margin-top": 6,
   "margin-left": 10,
   "margin-right": 10,
@@ -16,27 +17,21 @@
 
   "modules-left": [
     "custom/launcher",
-    "clock",
-    "custom/weather",
-    "custom/updates",
-    "custom/notification",
-    "custom/pycharm",
-    "custom/themeswitcher"
-  ],
-
-  "modules-center": [
     "hyprland/workspaces",
-    "custom/timer",
     "custom/temps"
   ],
 
-  "modules-right": [
+  "modules-center": [
     "mpris",
+    "clock",
+    "custom/timer"
+  ],
+
+  "modules-right": [
+    "cpu",
+    "pulseaudio#output",
     "network",
     "bluetooth",
-    "pulseaudio#output",
-    "cpu",
-    "memory",
     "battery",
     "custom/power"
   ],
@@ -56,36 +51,21 @@
   },
 
   "clock": {
-    "format": "󰥔 {:%I:%M}",
-    "format-alt": "󰃭 {:%A, %B %d}",
-    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+    "format": "{:%H:%M}",
+    "format-alt": "󰃭 {:%a %d %b}",
+    "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
     "on-click-right": "uwsm-app -- gnome-clocks",
     "on-click-middle": "uwsm-app -- kitty --class peaclock -e peaclock",
     "calendar": {
       "mode": "month",
-      "mode-mon-col": 3,
-      "weeks-pos": "right",
       "on-scroll": 1,
       "format": {
         "months":   "<span color='#ffb786'><b>{}</b></span>",
         "days":     "<span color='#e2e2e2'>{}</span>",
-        "weeks":    "<span color='#c9ca93'>W{}</span>",
         "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-        "today":    "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+        "today":    "<span color='#131313' background='#ffb786'><b>{}</b></span>"
       }
     }
-  },
-
-  "custom/themeswitcher": {
-    "format": "󰔎",
-    "on-click": "~/cloudyy_scripts/theme_controller.sh toggle",
-    "tooltip-format": "Switch theme"
-  },
-
-  "custom/pycharm": {
-    "format": "󱜙 ",
-    "on-click": "pycharm &",
-    "tooltip-format": "Launch PyCharm"
   },
 
   "custom/timer": {
@@ -97,56 +77,17 @@
     "on-click-right": "rm /tmp/waybar_timer",
     "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
     "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub",
-    "tooltip-format": "Left: 2h | Middle: Custom | Scroll: +/- 5m"
-  },
-
-  "custom/weather": {
-    "format": "{}",
-    "exec": "curl -s 'wttr.in/?format=%c%t' | head -c 15",
-    "interval": 1800,
-    "tooltip-format": "Weather Conditions"
-  },
-
-  "custom/updates": {
-    "format": "󰏔 {}",
-    "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
-    "interval": 3600,
-    "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
-    "tooltip-format": "System Updates"
-  },
-
-  "custom/notification": {
-    "format": "{icon}",
-    "format-icons": {
-      "notification": "󱅫",
-      "none": "󰂚",
-      "dnd-notification": "󱏧",
-      "dnd-none": "󰂛",
-      "inhibited-notification": "󱅫",
-      "inhibited-none": "󰂚",
-      "dnd-inhibited-notification": "󱏧",
-      "dnd-inhibited-none": "󰂛"
-    },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true,
-    "tooltip-format": "Notifications\n\n LMB  Toggle Panel\n RMB  Do Not Disturb"
-  },
-
-  "tray": {
-    "icon-size": 15,
-    "spacing": 6,
-    "show-passive-items": true
+    "tooltip-format": "Left: 2h | Middle: Custom | Scroll: ±5m"
   },
 
   "hyprland/workspaces": {
     "on-click": "activate",
     "format": "{icon}",
-    "format-window-separator": " ",
-    "window-rewrite-default": "",
+    "format-icons": {
+      "active":  "󱗜",
+      "default": "󰊠",
+      "empty":   "󰝥"
+    },
     "persistent-workspaces": { "*": 5 },
     "on-scroll-up": "hyprctl dispatch workspace e-1",
     "on-scroll-down": "hyprctl dispatch workspace e+1"
@@ -154,23 +95,23 @@
 
   "mpris": {
     "format": "{player_icon} {title}",
-    "format-paused": "{status_icon} <i>{title}</i>",
+    "format-paused": "󰏤 <i>{title}</i>",
     "format-stopped": "",
-    "max-length": 25,
+    "max-length": 20,
     "status-icons": { "paused": "󰏤" },
-    "tooltip-format": "{player} - {artist}\n{title}\n{album}",
+    "tooltip-format": "{player} — {artist}\n{title}\n{album}",
     "on-click": "playerctl play-pause",
     "on-scroll-up": "playerctl next",
     "on-scroll-down": "playerctl previous"
   },
 
   "network": {
-    "format-wifi": "{signalStrength}%",
+    "format-wifi": "󰤨",
     "format-ethernet": "󰈀",
     "format-disconnected": "󰖪",
-    "tooltip-format-wifi": "󰤨 {essid}\n󱑽 {signalStrength}%\n󰩟 {ipaddr}",
+    "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}",
     "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
-    "tooltip-format-disconnected": "Disconnected",
+    "tooltip-format-disconnected": "Not connected",
     "on-click": "uwsm-app nm-connection-editor",
     "interval": 5
   },
@@ -178,26 +119,22 @@
   "bluetooth": {
     "format": "󰂯",
     "format-disabled": "󰂲",
-    "format-connected": "󰂱 {num_connections}",
-    "format-connected-battery": "󰂱 {device_battery_percentage}%",
+    "format-connected": "󰂱",
     "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
     "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-    "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
-    "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
     "on-click": "uwsm-app -- blueman-manager",
     "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
   },
 
   "pulseaudio#output": {
-    "format": "{icon}",
+    "format": "{icon} {volume}%",
     "format-muted": "󰖁",
     "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] },
     "on-click": "uwsm-app -- pavucontrol",
     "on-click-middle": "swayosd-client --output-volume mute-toggle",
-    "on-click-right": "uwsm-app -- kitty --class cava -e cava",
     "on-scroll-up": "swayosd-client --output-volume raise",
     "on-scroll-down": "swayosd-client --output-volume lower",
-    "tooltip-format": "Volume: {volume}%\n\n LMB  Pavucontrol\n MMB  Mute\n RMB  Visualizer"
+    "tooltip-format": "Volume: {volume}%\n MMB  Mute"
   },
 
   "cpu": {
@@ -207,22 +144,14 @@
     "states": { "warning": 70, "critical": 90 }
   },
 
-  "memory": {
-    "interval": 2,
-    "format": "󰘚 {percentage}%",
-    "on-click": "uwsm-app -- kitty --class io_monitor.sh -e $HOME/user_scripts/drives/io_monitor.sh",
-    "states": { "warning": 70, "critical": 90 }
-  },
-
   "battery": {
     "states": { "good": 80, "warning": 30, "critical": 15 },
     "on-click": "uwsm-app -- kitty --class power_saver.sh --hold -e $HOME/user_scripts/battery/power_saving/power_saver.sh",
-    "on-click-right": "uwsm-app -- kitty --class timeout.sh -e $HOME/user_scripts/hypridle/timeout.sh",
     "format": "{icon} {capacity}%",
     "format-charging": "󰂄 {capacity}%",
     "format-plugged": "󰚥 {capacity}%",
-    "format-full": "󰁹 Full",
-    "tooltip-format": "{timeTo}\n\n󱟦 Health: {health}%\n󱐋 Power: {power:.2f}W",
+    "format-full": "󰁹",
+    "tooltip-format": "{timeTo}\n󱟦 Health: {health}%",
     "format-icons": ["󰂎","󰁺","󰁻","󰁼","󰁽","󰁾","󰁿","󰂀","󰂁","󰂂","󰁹"]
   },
 
