@@ -1,0 +1,164 @@
+/* ==============================================================================
+   CLOUD CENTER — assets/style.css
+   Applied on top of Adwaita. Matugen colors are inherited automatically
+   from your gtk.css — no hardcoded colors here where Adwaita handles them.
+   ============================================================================== */
+
+/* ── Window ── */
+window {
+  background-color: @window_bg_color;
+}
+
+/* ── Sidebar ── */
+.sidebar-scroll {
+  background-color: @sidebar_bg_color;
+}
+
+.sidebar {
+  background-color: @sidebar_bg_color;
+  padding-bottom: 12px;
+}
+
+.sidebar-header {
+  padding: 18px 16px 14px 16px;
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: @accent_color;
+}
+
+.app-icon {
+  color: @accent_color;
+}
+
+.sidebar-category {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: alpha(@window_fg_color, 0.45);
+  text-transform: uppercase;
+  padding: 6px 10px 2px 10px;
+}
+
+.sidebar-row {
+  border-radius: 6px;
+  margin: 1px 6px;
+  padding: 0;
+  background: transparent;
+  color: @window_fg_color;
+  font-size: 12px;
+  transition: background-color 80ms ease;
+}
+
+.sidebar-row:hover {
+  background-color: alpha(@accent_color, 0.12);
+}
+
+.sidebar-row.selected {
+  background-color: alpha(@accent_color, 0.22);
+  color: @accent_color;
+  font-weight: 600;
+}
+
+.sidebar-row.selected .row-icon {
+  color: @accent_color;
+}
+
+/* ── Nerd font glyph sizing ── */
+.row-icon {
+  font-size: 16px;
+  min-width: 20px;
+}
+
+.app-icon {
+  font-size: 22px;
+  color: @accent_color;
+}
+
+.welcome-icon {
+  font-size: 56px;
+  color: alpha(@accent_color, 0.5);
+  margin-bottom: 8px;
+}
+
+.error-icon {
+  font-size: 40px;
+  color: @error_color;
+  margin-bottom: 4px;
+}
+
+.sidebar-sep {
+  margin: 0;
+  opacity: 0.15;
+}
+
+/* ── Module pages ── */
+.module-page {
+  background-color: @window_bg_color;
+}
+
+.module-header {
+  padding: 16px 20px 14px 20px;
+}
+
+.page-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: @window_fg_color;
+}
+
+.page-subtitle {
+  font-size: 12px;
+  color: alpha(@window_fg_color, 0.55);
+}
+
+.page-sep {
+  opacity: 0.12;
+}
+
+/* ── Embedded terminal ── */
+.embedded-terminal {
+  background-color: @window_bg_color;
+  color: @window_fg_color;
+  padding: 8px;
+  font-family: "JetBrainsMono Nerd Font", "Noto Sans Mono", monospace;
+  font-size: 13px;
+}
+
+/* ── Welcome / error pages ── */
+
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: @window_fg_color;
+}
+
+.welcome-sub {
+  font-size: 13px;
+  color: alpha(@window_fg_color, 0.5);
+}
+
+.error-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: @error_color;
+}
+
+.error-detail {
+  font-size: 12px;
+  color: alpha(@window_fg_color, 0.6);
+}
+
+.preview-frame {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid alpha(@window_fg_color, 0.1);
+}
+
+.wallpaper-preview {
+  border-radius: 8px;
+  min-height: 160px;
+}
