@@ -1,11 +1,11 @@
-// waybar preset: pill
+// waybar preset: compact
 // Floating pill bar — each module in its own rounded pill.
 // All modules visible.
 
 {
   "layer": "top",
   "exclusive": true,
-  "reload_style_on_change": false,
+  "reload_style_on_change": true,
   "position": "top",
   "spacing": 4,
   "height": 40,
@@ -20,20 +20,17 @@
     "custom/weather",
     "custom/updates",
     "custom/notification",
-    "custom/pycharm",
-    "custom/themeswitcher"
+    "custom/pycharm"
   ],
 
   "modules-center": [
     "hyprland/workspaces",
-    "custom/timer",
-    "custom/temps"
+    "custom/timer"
   ],
 
   "modules-right": [
     "mpris",
     "network",
-    "bluetooth",
     "pulseaudio#output",
     "cpu",
     "memory",
@@ -42,17 +39,9 @@
   ],
 
   "custom/launcher": {
-    "format": "☁️",
+    "format": "󰅟",
     "on-click": "rofi -show drun",
     "tooltip-format": "Application Launcher"
-  },
-
-  "custom/temps": {
-    "exec": "~/.config/waybar/scripts/temps.py",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "tooltip": true
   },
 
   "clock": {
@@ -74,12 +63,6 @@
         "today":    "<span color='#131313' background='#ffb786'><b> {} </b></span>"
       }
     }
-  },
-
-  "custom/themeswitcher": {
-    "format": "󰔎",
-    "on-click": "~/cloudyy_scripts/theme_controller.sh toggle",
-    "tooltip-format": "Switch theme"
   },
 
   "custom/pycharm": {
@@ -175,19 +158,6 @@
     "interval": 5
   },
 
-  "bluetooth": {
-    "format": "󰂯",
-    "format-disabled": "󰂲",
-    "format-connected": "󰂱 {num_connections}",
-    "format-connected-battery": "󰂱 {device_battery_percentage}%",
-    "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
-    "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-    "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
-    "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
-    "on-click": "uwsm-app -- blueman-manager",
-    "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
-  },
-
   "pulseaudio#output": {
     "format": "{icon}",
     "format-muted": "󰖁",
@@ -227,7 +197,7 @@
   },
 
   "custom/power": {
-    "format": "⏻",
+    "format": "󰐥",
     "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power Menu"
   }

@@ -1,19 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   WAYBAR PRESET — pill
-   Floating pill container. Each module sits in its own rounded pill.
+   PRESET: vertical_ultraminimal
+   ─────────────────────────────────────────────────────────────────────────
+   Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
 
 @import "/home/schultz/.config/matugen/generated/waybar-colors.css";
 
+/* ── Universal reset ───────────────────────────────────────────────────────── */
+
 * {
-  border: none;
+  border:        none;
   border-radius: 0;
-  min-height: 0;
-  box-shadow: none;
-  font-family: 'Monocraft';
-  font-weight: 600;
-  font-size: 13px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  min-height:    0;
+  box-shadow:    none;
+  font-family:   'Monocraft', monospace;
+  font-weight:   600;
+  font-size:     12px;
+  transition:    background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
 }
 
 window#waybar {
@@ -21,316 +26,145 @@ window#waybar {
   box-shadow: none;
 }
 
-window#waybar > box {
-  background-color: alpha(@surface, 0.78);
-  border-radius: 14px;
-  border: 1px solid alpha(@outline_variant, 0.18);
-  box-shadow: none;
-  margin: 2px 0;
-}
-
-/* ── Launcher ────────────────────────────────────────────────────────────── */
-
-#custom-launcher {
-  padding: 0 14px 2px 10px;
-  margin: 5px 3px 5px 6px;
-  border-radius: 10px;
-  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  color: @on_primary_container;
-  font-size: 18px;
-}
-
-#custom-launcher:hover {
-  background-image: linear-gradient(135deg, @primary_fixed_dim, @primary);
-}
-
-/* ── Clock ───────────────────────────────────────────────────────────────── */
-
-#clock {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-weight: 800;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#clock:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-}
-
-/* ── Temperatures ────────────────────────────────────────────────────────── */
-
-#custom-temps {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@tertiary_container, 0.35);
-  color: @tertiary;
-  font-weight: 700;
-  border: 1px solid alpha(@tertiary, 0.12);
-}
-
-#custom-temps:hover {
-  background-color: alpha(@tertiary_container, 0.6);
-}
-
-/* ── Timer ───────────────────────────────────────────────────────────────── */
-
-#custom-timer {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @secondary;
-  font-size: 12px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#custom-timer:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-}
-
-/* ── Weather ─────────────────────────────────────────────────────────────── */
-
-#custom-weather {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @tertiary;
-  font-size: 12px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-/* ── Updates ─────────────────────────────────────────────────────────────── */
-
-#custom-updates {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @secondary;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-/* ── Notification ────────────────────────────────────────────────────────── */
-
-#custom-notification,
-#custom-pycharm,
-#custom-themeswitcher {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-size: 13px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#custom-notification:hover,
-#custom-pycharm:hover,
-#custom-themeswitcher:hover,
-#custom-weather:hover,
-#custom-updates:hover,
-#custom-timer:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-  color: @on_surface;
-}
-
-/* ── Workspaces ──────────────────────────────────────────────────────────── */
-
-#workspaces {
-  padding: 0;
-  margin: 4px 5px;
-  border-radius: 12px;
-  background-color: alpha(@surface_container, 0.5);
-  border: 1px solid alpha(@outline_variant, 0.1);
-}
-
-#workspaces button {
-  padding: 0 8px;
-  margin: 3px 2px;
-  min-width: 14px;
-  border-radius: 8px;
-  background-color: transparent;
-  color: alpha(@on_surface_variant, 0.55);
-  font-size: 12px;
-}
-
-#workspaces button.empty {
-  color: alpha(@on_surface_variant, 0.25);
-}
-
-#workspaces button.visible {
-  background-color: alpha(@surface_container_high, 0.6);
-  color: @on_surface;
-}
-
-#workspaces button.active {
-  min-width: 28px;
-  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  color: @on_primary_container;
-  font-weight: 800;
-}
-
-#workspaces button:hover {
-  background-color: @surface_container_highest;
-  color: @on_surface;
-}
-
-#workspaces button.urgent {
-  background-image: linear-gradient(135deg, @error_container, @error);
-  color: @on_error;
-  animation: pill-pulse 1.2s ease-in-out infinite;
-}
-
-/* ── Mpris ───────────────────────────────────────────────────────────────── */
-
-#mpris {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@secondary_container, 0.4);
-  color: @secondary;
-  font-size: 12px;
-  border: 1px solid alpha(@secondary, 0.12);
-}
-
-#mpris:hover     { background-color: alpha(@secondary_container, 0.65); }
-#mpris.paused    { color: alpha(@on_secondary_container, 0.55); }
-#mpris.stopped   { background: transparent; border: none; padding: 0; margin: 0; min-width: 0; }
-
-/* ── Network ─────────────────────────────────────────────────────────────── */
-
-#network {
-  padding: 0 12px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-size: 13px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#network:hover        { background-color: alpha(@surface_container_high, 0.9); }
-#network.wifi         { color: @primary_fixed; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.35); }
-
-/* ── Bluetooth ───────────────────────────────────────────────────────────── */
-
-#bluetooth {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-size: 12px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#bluetooth:hover     { background-color: alpha(@surface_container_high, 0.9); }
-#bluetooth.connected { color: @primary_fixed; }
-#bluetooth.disabled  { color: alpha(@on_surface_variant, 0.3); }
-
-/* ── Audio ───────────────────────────────────────────────────────────────── */
-
-#pulseaudio.output {
-  padding: 0 12px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-size: 13px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#pulseaudio.output:hover { background-color: alpha(@surface_container_high, 0.9); }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.3); }
-
-/* ── CPU / Memory ────────────────────────────────────────────────────────── */
-
-#cpu,
-#memory {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface_variant;
-  font-size: 11px;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#cpu:hover,    #memory:hover    { background-color: alpha(@surface_container_high, 0.9); }
-#cpu.warning,  #memory.warning  { background-color: alpha(@tertiary_container, 0.3); color: @tertiary; }
-#cpu.critical, #memory.critical {
-  background-color: alpha(@error_container, 0.4);
-  color: @error;
-  animation: pill-pulse 1.5s ease-in-out infinite;
-}
-
-/* ── Battery ─────────────────────────────────────────────────────────────── */
-
-#battery {
-  padding: 0 10px;
-  margin: 5px 2px;
-  border-radius: 10px;
-  background-color: alpha(@surface_container, 0.65);
-  color: @on_surface;
-  font-weight: 700;
-  border: 1px solid alpha(@outline_variant, 0.08);
-}
-
-#battery:hover                   { background-color: alpha(@surface_container_high, 0.9); }
-#battery.good                    { color: @tertiary; }
-#battery.charging, #battery.full { background-color: alpha(@tertiary_container, 0.3); color: @tertiary; border-color: alpha(@tertiary, 0.15); }
-#battery.warning:not(.charging)  { background-color: alpha(@primary_container, 0.3); color: @primary_fixed; border-color: alpha(@primary, 0.2); }
-#battery.critical:not(.charging) { background-image: linear-gradient(135deg, @error_container, @error); color: @on_error; animation: pill-crit 0.9s ease-in-out infinite; }
-
-/* ── Power ───────────────────────────────────────────────────────────────── */
-
-#custom-power {
-  padding: 0 12px 2px 10px;
-  margin: 5px 6px 5px 2px;
-  border-radius: 10px;
-  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  color: @on_primary_container;
-  font-size: 14px;
-}
-
-#custom-power:hover {
-  background-image: none;
-  background-color: alpha(@error_container, 0.7);
-  color: @error;
-}
-
-/* ── Animations ──────────────────────────────────────────────────────────── */
-
-@keyframes pill-pulse {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-@keyframes pill-crit {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.75; }
-  100% { opacity: 1; }
-}
-
-/* ── Tooltips ────────────────────────────────────────────────────────────── */
+/* ── Tooltips ──────────────────────────────────────────────────────────────── */
 
 tooltip {
   background-color: alpha(@surface_container_high, 0.97);
-  border: 1px solid alpha(@outline_variant, 0.25);
-  border-radius: 12px;
-  box-shadow: none;
+  border:           1px solid alpha(@outline_variant, 0.22);
+  border-radius:    10px;
+  box-shadow:       none;
 }
 
 tooltip label {
-  padding: 6px 10px;
-  color: @on_surface;
+  padding:   5px 10px;
+  color:     @on_surface;
   font-size: 12px;
 }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes blink {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1;   }
+}
+
+@keyframes blink-urgent {
+  0%   { opacity: 1;    }
+  50%  { opacity: 0.15; }
+  100% { opacity: 1;    }
+}
+
+/* ── ultraminimal-modules ────────────────────────────────────────────────────── */
+
+/* ultraminimal-modules — absolute minimum presence */
+
+#clock {
+  color:          @on_surface;
+  font-size:      15px;
+  font-weight:    700;
+  letter-spacing: 0.5px;
+}
+
+#workspaces button {
+  background:  transparent;
+  color:       alpha(@on_surface_variant, 0.22);
+  font-size:   9px;
+  min-width:   22px;
+  padding:     2px 0;
+  margin:      1px 3px;
+  transition:  all 0.14s ease;
+}
+#workspaces button.visible { color: alpha(@on_surface, 0.5); }
+#workspaces button.active  {
+  color:       @primary;
+  font-size:   12px;
+  font-weight: 700;
+}
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.09); }
+#workspaces button:hover   { color: @on_surface; }
+#workspaces button.urgent  { color: @error; animation: blink-urgent 0.9s ease-in-out infinite; }
+
+#custom-notification { font-size: 12px; color: alpha(@on_surface_variant, 0.55); }
+#custom-notification:hover { color: @on_surface; }
+
+#pulseaudio.output       { color: alpha(@on_surface_variant, 0.55); font-size: 11px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.2); }
+
+#battery                               { color: alpha(@on_surface_variant, 0.55); font-size: 11px; }
+#battery.good                          { color: @tertiary; }
+#battery.charging, #battery.full       { color: @tertiary; }
+#battery.warning:not(.charging)        { color: @primary_fixed; }
+#battery.critical:not(.charging)       { color: @error; animation: blink 0.9s ease-in-out infinite; }
+
+#custom-power       { color: alpha(@on_surface_variant, 0.4); font-size: 12px; transition: color 0.15s ease; }
+#custom-power:hover { color: @error; }
+
+
+
+/* ── Bar container & layout ──────────────────────────────────────────────────── */
+
+window#waybar, window#waybar > box {
+  background: transparent;
+  border:     none;
+  box-shadow: none;
+  margin:     0;
+}
+
+.modules-left {
+  background-color: alpha(@surface, 0.60);
+  border-radius:    10px;
+  border:           1px solid alpha(@outline_variant, 0.1);
+  margin:           6px 5px 3px 5px;
+  padding:          5px 0;
+}
+.modules-center {
+  background-color: alpha(@surface, 0.60);
+  border-radius:    10px;
+  border:           1px solid alpha(@outline_variant, 0.1);
+  margin:           3px 5px;
+  padding:          5px 0;
+}
+.modules-right {
+  background-color: alpha(@surface, 0.60);
+  border-radius:    10px;
+  border:           1px solid alpha(@outline_variant, 0.1);
+  margin:           3px 5px 6px 5px;
+  padding:          5px 0;
+}
+
+/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
+/* share consistent symmetric padding so nothing is misaligned.                 */
+
+#clock {
+  min-width:   42px;
+  padding:     8px 0;
+  font-size:   16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+#workspaces button {
+  padding:   6px 0;
+  margin:    1px 0;
+}
+
+#custom-launcher,
+#custom-power,
+#custom-notification,
+#custom-temps,
+#custom-updates,
+#custom-timer,
+#custom-weather,
+#mpris,
+#network,
+#pulseaudio,
+#bluetooth,
+#cpu,
+#memory,
+#battery {
+  padding: 6px 4px;
+  margin:  2px 4px;
+}
+

@@ -1,0 +1,135 @@
+{
+  "layer": "top",
+  "exclusive": true,
+  "reload_style_on_change": true,
+  "position": "left",
+  "width": 52,
+  "spacing": 0,
+  "margin-top": 6,
+  "margin-bottom": 6,
+  "margin-left": 6,
+  "margin-right": 0,
+  "modules-left": [
+    "custom/launcher",
+    "hyprland/workspaces",
+    "custom/notification"
+  ],
+  "modules-center": [
+    "clock",
+    "custom/temps",
+    "custom/updates"
+  ],
+  "modules-right": [
+    "cpu",
+    "pulseaudio#output",
+    "battery",
+    "custom/power"
+  ],
+  "custom/launcher": {
+    "format": "󰅟",
+    "on-click": "rofi -show drun",
+    "tooltip-format": "Launch"
+  },
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{name}",
+    "persistent-workspaces": {
+      "*": 5
+    },
+    "on-scroll-up": "hyprctl dispatch workspace e-1",
+    "on-scroll-down": "hyprctl dispatch workspace e+1"
+  },
+  "custom/notification": {
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂚",
+      "dnd-notification": "󱏧",
+      "dnd-none": "󱏧",
+      "inhibited-notification": "󱅫",
+      "inhibited-none": "󰂚",
+      "dnd-inhibited-notification": "󱏧",
+      "dnd-inhibited-none": "󱏧"
+    },
+    "return-type": "json",
+    "exec-if": "which swaync-client",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true
+  },
+  "clock": {
+    "min-width": 42,
+    "format": "{:%H}\n{:%M}",
+    "format-alt": "{:%a\n%d}",
+    "interval": 60,
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "on-click-right": "uwsm-app -- gnome-clocks",
+    "calendar": {
+      "mode": "month",
+      "on-scroll": 1,
+      "format": {
+        "months": "<span color='#ffb786'><b>{}</b></span>",
+        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
+      }
+    }
+  },
+  "custom/temps": {
+    "exec": "~/.config/waybar/scripts/temps.py",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "tooltip": true
+  },
+  "custom/updates": {
+    "format": "󰏔\n{}",
+    "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
+    "interval": 3600,
+    "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+    "tooltip-format": "Pending updates"
+  },
+  "cpu": {
+    "interval": 2,
+    "format": "󰍛\n{usage}%",
+    "on-click": "kitty -e btop",
+    "states": {
+      "warning": 70,
+      "critical": 90
+    }
+  },
+  "pulseaudio#output": {
+    "format": "󰕾\n{volume}%",
+    "format-muted": "󰖁",
+    "on-click": "swayosd-client --output-volume mute-toggle",
+    "on-scroll-up": "swayosd-client --output-volume raise",
+    "on-scroll-down": "swayosd-client --output-volume lower",
+    "tooltip-format": "Volume: {volume}%"
+  },
+  "battery": {
+    "states": {
+      "good": 80,
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "{icon}\n{capacity}%",
+    "format-charging": "󰂄\n{capacity}%",
+    "format-plugged": "󰚥\n{capacity}%",
+    "format-full": "󰁹\n100%",
+    "tooltip-format": "{timeTo}\nHealth: {health}%",
+    "format-icons": [
+      "▁",
+      "▂",
+      "▃",
+      "▄",
+      "▅",
+      "▆",
+      "▇",
+      "█"
+    ]
+  },
+  "custom/power": {
+    "format": "󰐥",
+    "on-click": "~/cloudyy_scripts/wlogout.sh",
+    "tooltip-format": "Power"
+  }
+}

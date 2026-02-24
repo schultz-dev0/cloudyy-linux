@@ -1,0 +1,263 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRESET: bubble
+   ─────────────────────────────────────────────────────────────────────────
+   Self-contained — base, module styles, and layout are all inline here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+/* ── Universal reset ───────────────────────────────────────────────────────── */
+
+* {
+  border:        none;
+  border-radius: 0;
+  min-height:    0;
+  box-shadow:    none;
+  font-family:   'Monocraft', monospace;
+  font-weight:   600;
+  font-size:     12px;
+  transition:    background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+}
+
+window#waybar {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Tooltips ──────────────────────────────────────────────────────────────── */
+
+tooltip {
+  background-color: alpha(@surface_container_high, 0.97);
+  border:           1px solid alpha(@outline_variant, 0.22);
+  border-radius:    10px;
+  box-shadow:       none;
+}
+
+tooltip label {
+  padding:   5px 10px;
+  color:     @on_surface;
+  font-size: 12px;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes blink {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1;   }
+}
+
+@keyframes blink-urgent {
+  0%   { opacity: 1;    }
+  50%  { opacity: 0.15; }
+  100% { opacity: 1;    }
+}
+
+/* ── bubble-modules ──────────────────────────────────────────────────────────── */
+
+/* bubble-modules — every module is its own colored island */
+
+#custom-launcher {
+  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
+  border:           1px solid alpha(@primary, 0.25);
+  border-radius:    14px;
+  color:            @on_primary_container;
+  font-size:        18px;
+  padding:          6px 9px;
+  margin:           2px;
+  box-shadow:       0 2px 10px alpha(@primary, 0.28);
+  transition:       all 0.2s ease;
+}
+#custom-launcher:hover {
+  background-image: linear-gradient(135deg, @primary_fixed_dim, @primary);
+  box-shadow:       0 4px 18px alpha(@primary, 0.42);
+}
+
+#clock {
+  background-color: alpha(@secondary_container, 0.55);
+  border:           1px solid alpha(@secondary, 0.2);
+  border-radius:    12px;
+  color:            @on_secondary_container;
+  font-size:        17px;
+  font-weight:      800;
+  letter-spacing:   0.5px;
+  margin:           2px;
+  padding:          5px 10px;
+}
+#clock:hover { background-color: alpha(@secondary_container, 0.78); }
+
+#workspaces {
+  background: transparent;
+  margin:  2px;
+  padding: 0;
+}
+#workspaces button {
+  background:    transparent;
+  border-radius: 50%;
+  color:         alpha(@on_surface_variant, 0.35);
+  font-size:     13px;
+  min-width:     28px;
+  padding:       3px 0;
+  margin:        1px 3px;
+  transition:    all 0.15s ease;
+}
+#workspaces button.visible { color: @on_surface; }
+#workspaces button.active  {
+  background-color: @primary;
+  color:            @on_primary;
+  font-weight:      800;
+  box-shadow:       0 2px 10px alpha(@primary, 0.5);
+}
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.15); font-size: 10px; }
+#workspaces button:hover   { background-color: alpha(@surface_container_high, 0.55); color: @on_surface; }
+#workspaces button.urgent  {
+  background-color: @error;
+  color:            @on_error;
+  box-shadow:       0 2px 10px alpha(@error, 0.5);
+  animation:        blink-urgent 0.9s ease-in-out infinite;
+}
+
+#custom-temps {
+  background-color: alpha(@tertiary_container, 0.5);
+  border:           1px solid alpha(@tertiary, 0.22);
+  border-radius:    10px;
+  color:            @tertiary;
+  font-size:        11px;
+  font-weight:      700;
+  margin:           2px;
+  padding:          5px 7px;
+}
+#custom-temps:hover { background-color: alpha(@tertiary_container, 0.75); }
+
+#mpris {
+  background-color: alpha(@secondary_container, 0.4);
+  border:           1px solid alpha(@secondary, 0.15);
+  border-radius:    10px;
+  color:            @on_secondary_container;
+  font-size:        11px;
+  margin:           2px;
+  padding:          5px 8px;
+}
+#mpris:hover   { background-color: alpha(@secondary_container, 0.65); }
+#mpris.paused  { color: alpha(@on_secondary_container, 0.5); }
+#mpris.stopped { padding: 0; margin: 0; min-width: 0; background: transparent; border: none; }
+
+#custom-notification, #custom-timer, #custom-updates {
+  color:     @on_surface_variant;
+  font-size: 13px;
+}
+
+/* Network — colored per connection state */
+#network {
+  background-color: alpha(@surface_container, 0.5);
+  border:           1px solid alpha(@outline_variant, 0.1);
+  border-radius:    10px;
+  font-size:        11px;
+  margin:           2px;
+  padding:          5px 7px;
+  color:            @on_surface_variant;
+}
+#network:hover      { background-color: alpha(@surface_container, 0.8); }
+#network.wifi       {
+  color:            @primary_fixed;
+  background-color: alpha(@primary_container, 0.3);
+  border:           1px solid alpha(@primary, 0.18);
+}
+#network.ethernet   {
+  color:            @tertiary;
+  background-color: alpha(@tertiary_container, 0.3);
+  border:           1px solid alpha(@tertiary, 0.18);
+}
+#network.disconnected {
+  color:            alpha(@on_surface_variant, 0.3);
+  background:       transparent;
+}
+
+/* Pulseaudio — secondary tint when active */
+#pulseaudio.output {
+  background-color: alpha(@secondary_container, 0.35);
+  border:           1px solid alpha(@secondary, 0.12);
+  border-radius:    10px;
+  color:            @on_secondary_container;
+  font-size:        11px;
+  margin:           2px;
+  padding:          5px 7px;
+}
+#pulseaudio.output:hover   { background-color: alpha(@secondary_container, 0.6); }
+#pulseaudio.output.muted   { background: transparent; color: alpha(@on_surface_variant, 0.3); border: none; }
+
+/* Battery — vivid state-coded bubbles */
+#battery {
+  background-color: alpha(@surface_container, 0.5);
+  border:           1px solid alpha(@outline_variant, 0.1);
+  border-radius:    10px;
+  color:            @on_surface_variant;
+  font-size:        11px;
+  margin:           2px;
+  padding:          5px 7px;
+}
+#battery:hover { background-color: alpha(@surface_container, 0.8); }
+#battery.good  {
+  color:            @tertiary;
+  background-color: alpha(@tertiary_container, 0.38);
+  border:           1px solid alpha(@tertiary, 0.18);
+}
+#battery.charging, #battery.plugged, #battery.full {
+  color:            @tertiary;
+  background-color: alpha(@tertiary_container, 0.38);
+  border:           1px solid alpha(@tertiary, 0.22);
+  box-shadow:       0 1px 6px alpha(@tertiary, 0.28);
+}
+#battery.warning:not(.charging) {
+  color:            @primary_fixed;
+  background-color: alpha(@primary_container, 0.45);
+  border:           1px solid alpha(@primary, 0.25);
+}
+#battery.critical:not(.charging) {
+  color:            @error;
+  background-color: alpha(@error_container, 0.6);
+  border:           1px solid alpha(@error, 0.35);
+  box-shadow:       0 1px 8px alpha(@error, 0.4);
+  animation:        blink 0.9s ease-in-out infinite;
+}
+
+/* CPU */
+#cpu, #memory {
+  color:     @on_surface_variant;
+  font-size: 11px;
+}
+#cpu.warning, #memory.warning   { color: @tertiary; }
+#cpu.critical, #memory.critical { color: @error; animation: blink 1.2s ease-in-out infinite; }
+
+#bluetooth          { color: alpha(@on_surface_variant, 0.5); font-size: 11px; }
+#bluetooth.connected { color: @primary; }
+
+#custom-power {
+  background-image: linear-gradient(135deg, alpha(@primary_container, 0.8), alpha(@primary_fixed_dim, 0.8));
+  border:           1px solid alpha(@primary, 0.2);
+  border-radius:    12px;
+  color:            @on_primary_container;
+  font-size:        14px;
+  margin:           2px;
+  padding:          5px 8px;
+  transition:       all 0.2s ease;
+}
+#custom-power:hover {
+  background-image: none;
+  background-color: alpha(@error_container, 0.7);
+  color:            @error;
+  border:           1px solid alpha(@error, 0.3);
+  box-shadow:       0 2px 10px alpha(@error, 0.3);
+}
+
+/* ── Bar container & layout ──────────────────────────────────────────────────── */
+
+window#waybar > box {
+  background-color: transparent;
+  border-radius:    0;
+  border:           none;
+  box-shadow:       none;
+  margin-top: 4px; margin-left: 4px; margin-right: 4px;
+}

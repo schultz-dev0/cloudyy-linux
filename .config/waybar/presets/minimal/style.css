@@ -1,20 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   WAYBAR PRESET — minimal
-   Dead flat bar. No module backgrounds whatsoever — just icons and text.
-   Single thin accent line at the bottom. Clean as it gets.
+   PRESET: minimal
+   ─────────────────────────────────────────────────────────────────────────
+   Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
 
 @import "/home/schultz/.config/matugen/generated/waybar-colors.css";
 
+/* ── Universal reset ───────────────────────────────────────────────────────── */
+
 * {
-  border: none;
+  border:        none;
   border-radius: 0;
-  min-height: 0;
-  box-shadow: none;
-  font-family: 'Monocraft';
-  font-weight: 500;
-  font-size: 12px;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  min-height:    0;
+  box-shadow:    none;
+  font-family:   'Monocraft', monospace;
+  font-weight:   600;
+  font-size:     12px;
+  transition:    background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
 }
 
 window#waybar {
@@ -22,186 +26,128 @@ window#waybar {
   box-shadow: none;
 }
 
-window#waybar > box {
-  background-color: alpha(@surface, 0.95);
-  border-radius: 0;
-  /* border-bottom: 2px solid alpha(@primary, 0.35);  removed: GTK CSS does not support directional border shorthand */
-  box-shadow: none;
-  margin: 0;
-}
-
-/* ── All modules: flat, no background ───────────────────────────────────── */
-
-#custom-launcher,
-#custom-timer,
-#custom-weather,
-#custom-updates,
-#custom-notification,
-#custom-pycharm,
-#custom-themeswitcher,
-#custom-temps,
-#clock,
-#workspaces,
-#mpris,
-#network,
-#bluetooth,
-#pulseaudio,
-#cpu,
-#memory,
-#battery,
-#custom-power {
-  background: transparent;
-  border-radius: 0;
-  padding: 0 8px;
-  margin: 0;
-  color: alpha(@on_surface_variant, 0.7);
-}
-
-/* ── Hover: subtle underline rather than background ─────────────────────── */
-
-#custom-launcher:hover,
-#custom-timer:hover,
-#custom-weather:hover,
-#custom-updates:hover,
-#custom-notification:hover,
-#custom-pycharm:hover,
-#custom-themeswitcher:hover,
-#custom-temps:hover,
-#clock:hover,
-#mpris:hover,
-#network:hover,
-#bluetooth:hover,
-#pulseaudio.output:hover,
-#cpu:hover,
-#memory:hover,
-#battery:hover,
-#custom-power:hover {
-  color: @on_surface;
-  background-color: alpha(@surface_container, 0.4);
-}
-
-/* ── Launcher: only module with any decoration ───────────────────────────── */
-
-#custom-launcher {
-  padding: 0 14px;
-  margin: 4px 4px 4px 6px;
-  border-radius: 5px;
-  background-color: alpha(@primary_container, 0.55);
-  color: @on_primary_container;
-  font-size: 15px;
-}
-
-#custom-launcher:hover {
-  background-color: @primary_container;
-  color: @on_primary_container;
-}
-
-/* ── Clock ───────────────────────────────────────────────────────────────── */
-
-#clock {
-  color: @on_surface;
-  font-weight: 700;
-  padding: 0 12px;
-  letter-spacing: 0.3px;
-}
-
-/* ── Workspaces ──────────────────────────────────────────────────────────── */
-
-#workspaces {
-  background: transparent;
-  margin: 3px 8px;
-  padding: 0;
-}
-
-#workspaces button {
-  padding: 2px 7px;
-  margin: 0 1px;
-  border-radius: 3px;
-  min-width: 16px;
-  background: transparent;
-  color: alpha(@on_surface_variant, 0.4);
-  font-size: 11px;
-}
-
-#workspaces button.empty { color: alpha(@on_surface_variant, 0.2); }
-#workspaces button.visible { color: alpha(@on_surface, 0.65); }
-
-#workspaces button.active {
-  background-color: alpha(@primary_container, 0.5);
-  color: @on_primary_container;
-  font-weight: 700;
-  min-width: 22px;
-}
-
-#workspaces button:hover {
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface;
-}
-
-#workspaces button.urgent {
-  background-color: alpha(@error_container, 0.6);
-  color: @on_error;
-  animation: min-blink 1s ease-in-out infinite;
-}
-
-/* ── Mpris ───────────────────────────────────────────────────────────────── */
-
-#mpris        { color: @secondary; font-size: 11px; }
-#mpris.paused { color: alpha(@on_surface_variant, 0.45); }
-#mpris.stopped { background: transparent; padding: 0; margin: 0; min-width: 0; }
-
-/* ── States ──────────────────────────────────────────────────────────────── */
-
-#network.wifi         { color: @primary_fixed; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.3); }
-
-#bluetooth.connected  { color: @primary_fixed; }
-#bluetooth.disabled   { color: alpha(@on_surface_variant, 0.25); }
-
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.25); }
-
-#custom-temps { color: @tertiary; }
-
-#cpu.warning,    #memory.warning  { color: @tertiary; }
-#cpu.critical,   #memory.critical { color: @error; animation: min-blink 1.2s ease-in-out infinite; }
-
-#battery.good                    { color: @tertiary; }
-#battery.charging, #battery.full { color: @tertiary; }
-#battery.warning:not(.charging)  { color: @primary_fixed; }
-#battery.critical:not(.charging) { color: @error; animation: min-blink 0.9s ease-in-out infinite; }
-
-/* ── Power ───────────────────────────────────────────────────────────────── */
-
-#custom-power {
-  margin-right: 6px;
-  color: alpha(@on_surface_variant, 0.5);
-}
-
-#custom-power:hover {
-  color: @error;
-  background-color: alpha(@error_container, 0.25);
-}
-
-/* ── Animations ──────────────────────────────────────────────────────────── */
-
-@keyframes min-blink {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.4; }
-  100% { opacity: 1; }
-}
-
-/* ── Tooltips ────────────────────────────────────────────────────────────── */
+/* ── Tooltips ──────────────────────────────────────────────────────────────── */
 
 tooltip {
-  background-color: alpha(@surface_container_high, 0.98);
-  border: 1px solid alpha(@outline_variant, 0.2);
-  border-radius: 6px;
-  box-shadow: none;
+  background-color: alpha(@surface_container_high, 0.97);
+  border:           1px solid alpha(@outline_variant, 0.22);
+  border-radius:    10px;
+  box-shadow:       none;
 }
 
 tooltip label {
-  padding: 4px 10px;
-  color: @on_surface;
+  padding:   5px 10px;
+  color:     @on_surface;
   font-size: 12px;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes blink {
+  0%   { opacity: 1;   }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1;   }
+}
+
+@keyframes blink-urgent {
+  0%   { opacity: 1;    }
+  50%  { opacity: 0.15; }
+  100% { opacity: 1;    }
+}
+
+/* ── minimal-modules ─────────────────────────────────────────────────────────── */
+
+/* minimal-modules — clean typographic bar */
+
+* {
+  border:      none;
+  font-family: 'Monocraft', monospace;
+  font-weight: 600;
+  font-size:   13px;
+  min-height:  0;
+}
+
+#custom-launcher {
+  color:   alpha(@on_primary_container, 0.8);
+  padding: 0 8px;
+  transition: all 0.15s ease;
+}
+#custom-launcher:hover { color: @primary; }
+
+#clock {
+  color:          @on_surface;
+  font-weight:    700;
+  letter-spacing: 0.5px;
+  padding:        0 8px;
+}
+
+#workspaces button {
+  background:    transparent;
+  border-radius: 6px;
+  color:         alpha(@on_surface_variant, 0.28);
+  min-width:     24px;
+  padding:       2px 0;
+  margin:        2px;
+  transition:    all 0.14s ease;
+}
+#workspaces button.visible {
+  background-color: alpha(@surface_container_highest, 0.55);
+  color:            alpha(@on_surface, 0.6);
+}
+#workspaces button.active {
+  padding:          0 2px;
+  min-width:        28px;
+  background-color: @on_primary_container;
+  color:            @primary_container;
+  box-shadow:       0 2px 8px alpha(@primary, 0.38);
+  font-weight:      700;
+}
+#workspaces button.empty  { color: alpha(@on_surface_variant, 0.12); }
+#workspaces button:hover  { background-color: alpha(@surface_container_highest, 0.4); color: @on_surface; }
+#workspaces button.urgent { color: @error; animation: blink 1s ease-in-out infinite; }
+
+#custom-notification { color: alpha(@on_surface_variant, 0.6);  padding: 0 8px; }
+#custom-notification:hover { color: @on_surface; }
+#custom-updates      { color: @secondary; padding: 0 8px; }
+#custom-timer        { color: @secondary; padding: 0 8px; }
+#mpris               { color: alpha(@on_surface_variant, 0.55); padding: 0 8px; }
+#mpris.paused        { color: alpha(@on_surface_variant, 0.28); }
+
+#network              { color: alpha(@on_surface_variant, 0.6);  padding: 0 8px; }
+#network.wifi         { color: @primary_fixed; }
+#network.ethernet     { color: @tertiary; }
+#network.disconnected { color: alpha(@on_surface_variant, 0.28); }
+
+#bluetooth           { color: alpha(@on_surface_variant, 0.38); padding: 0 8px; }
+#bluetooth.connected { color: @primary; }
+
+#pulseaudio.output       { color: alpha(@on_surface_variant, 0.6);  padding: 0 8px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.2); }
+
+#battery                               { color: alpha(@on_surface_variant, 0.6); padding: 0 8px; }
+#battery.good                          { color: @tertiary; }
+#battery.charging, #battery.full       { color: @tertiary; }
+#battery.warning:not(.charging)        { color: @primary_fixed; }
+#battery.critical:not(.charging)       { color: @error; animation: blink 0.9s ease-in-out infinite; }
+
+#cpu                                   { color: alpha(@on_surface_variant, 0.6); padding: 0 4px; }
+#cpu.warning                           { color: @tertiary; }
+#cpu.critical                          { color: @error; animation: blink 1.2s ease-in-out infinite; }
+
+#custom-power       { color: alpha(@on_surface_variant, 0.42); padding: 0 8px; transition: all 0.15s ease; }
+#custom-power:hover { color: @error; }
+
+
+/* ── Bar container & layout ──────────────────────────────────────────────────── */
+
+window#waybar > box {
+  background-color: alpha(@surface, 0.92);
+  border-radius:    10px;
+  border:           1px solid alpha(@outline_variant, 0.1);
+  box-shadow:       none;
+  margin-top: 6px; margin-left: 10px; margin-right: 10px;
+}
+
+#workspaces button.active {
+  border-radius: 0 4px 4px 0;
 }
