@@ -71,7 +71,7 @@ window#waybar > box {
 
 #custom-launcher {
   background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  border-color: alpha(@primary, 0.2);
+  border: 1px solid alpha(@primary, 0.2);  /* was: border-color: alpha(@primary, 0.2) */
   color: @on_primary_container;
   font-size: 17px;
   padding: 0 15px 2px 11px;
@@ -87,7 +87,7 @@ window#waybar > box {
 #workspaces {
   background-color: alpha(@surface_container_low, 0.5);
   border-radius: 14px;
-  border-color: alpha(@outline_variant, 0.1);
+  border: 1px solid alpha(@outline_variant, 0.1);  /* was: border-color: alpha(@outline_variant, 0.1) */
   padding: 0 4px;
   margin: 4px 4px;
 }
@@ -113,7 +113,7 @@ window#waybar > box {
 
 #custom-temps {
   background-color: alpha(@tertiary_container, 0.4);
-  border-color: alpha(@tertiary, 0.18);
+  border: 1px solid alpha(@tertiary, 0.18);  /* was: border-color: alpha(@tertiary, 0.18) */
   color: @tertiary;
   font-weight: 700;
 }
@@ -130,7 +130,7 @@ window#waybar > box {
   margin: 4px 6px;
   background-color: alpha(@secondary_container, 0.45);
   color: @on_secondary_container;
-  border-color: alpha(@secondary, 0.15);
+  border: 1px solid alpha(@secondary, 0.15);  /* was: border-color: alpha(@secondary, 0.15) */
 }
 
 #clock:hover { background-color: alpha(@secondary_container, 0.7); }
@@ -141,8 +141,7 @@ window#waybar > box {
   background-color: alpha(@secondary_container, 0.3);
   color: @secondary;
   font-size: 11px;
-  border-color: alpha(@secondary, 0.12);
-  max-width: 160px;
+  border: 1px solid alpha(@secondary, 0.12);  /* was: border-color: alpha(@secondary, 0.12) */
 }
 
 #mpris:hover   { background-color: alpha(@secondary_container, 0.55); }
@@ -188,7 +187,7 @@ window#waybar > box {
 
 #custom-power {
   background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  border-color: alpha(@primary, 0.2);
+  border: 1px solid alpha(@primary, 0.2);  /* was: border-color: alpha(@primary, 0.2) */
   color: @on_primary_container;
   font-size: 13px;
   margin-right: 6px;
@@ -198,7 +197,7 @@ window#waybar > box {
   background-image: none;
   background-color: alpha(@error_container, 0.65);
   color: @error;
-  border-color: alpha(@error, 0.3);
+  border: 1px solid alpha(@error, 0.3);  /* was: border-color: alpha(@error, 0.3) */
 }
 
 /* ── Animations (NO transform — GTK CSS doesn't support it in keyframes) ─── */

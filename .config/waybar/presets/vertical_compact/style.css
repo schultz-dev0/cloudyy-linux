@@ -1,0 +1,127 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — vertical_compact
+   Three pills, medium density. Launcher gets a subtle gradient.
+   Workspaces highlight with filled circle on active.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  box-shadow: none;
+  font-family: 'Monocraft';
+  font-weight: 600;
+  font-size: 12px;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+window#waybar { background: transparent; box-shadow: none; }
+window#waybar > box { background: transparent; border: none; box-shadow: none; margin: 0; }
+
+.modules-left {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius: 14px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 6px 5px 3px 5px;
+  padding: 8px 0;
+}
+
+.modules-center {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius: 14px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 3px 5px;
+  padding: 8px 0;
+}
+
+.modules-right {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius: 14px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 3px 5px 6px 5px;
+  padding: 8px 0;
+}
+
+#custom-launcher,
+#custom-notification,
+#custom-updates,
+#custom-temps,
+#clock,
+#workspaces,
+#cpu,
+#pulseaudio,
+#battery,
+#custom-power {
+  background: transparent;
+  padding: 5px 4px;
+  margin: 0;
+  color: @on_surface_variant;
+}
+
+#custom-launcher {
+  font-size: 17px;
+  color: @on_primary_container;
+  padding: 8px 4px;
+  background-image: linear-gradient(180deg, alpha(@primary_container, 0.5), transparent);
+  border-radius: 10px 10px 0 0;
+}
+#custom-launcher:hover { background-image: linear-gradient(180deg, alpha(@primary_container, 0.75), transparent); color: @primary; }
+
+#clock { color: @on_surface; font-size: 17px; font-weight: 800; padding: 8px 4px; }
+
+#workspaces { margin: 3px 0; padding: 0 4px; }
+#workspaces button {
+  background: transparent;
+  border-radius: 8px;
+  padding: 3px 0;
+  margin: 1px 3px;
+  min-width: 28px;
+  color: alpha(@on_surface_variant, 0.4);
+  font-size: 12px;
+  border: none;
+}
+#workspaces button.visible { color: @on_surface; }
+#workspaces button.active {
+  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
+  color: @on_primary_container;
+  font-weight: 800;
+  border-radius: 8px;
+  min-width: 28px;
+}
+#workspaces button.empty  { color: alpha(@on_surface_variant, 0.18); }
+#workspaces button:hover  { background-color: alpha(@surface_container_high, 0.5); color: @on_surface; }
+#workspaces button.urgent { background-color: @error_container; color: @on_error; animation: vcmp-blink 1s ease-in-out infinite; }
+
+#custom-notification { font-size: 13px; padding: 4px; }
+#custom-notification:hover { color: @on_surface; }
+
+#custom-temps { color: @tertiary; font-size: 11px; font-weight: 700; }
+
+#custom-updates { color: @secondary; font-size: 11px; }
+
+#cpu { font-size: 11px; }
+#cpu.warning  { color: @tertiary; }
+#cpu.critical { color: @error; animation: vcmp-blink 1.5s ease-in-out infinite; }
+
+#pulseaudio.output       { font-size: 11px; color: @on_surface; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.25); }
+
+#battery { font-size: 11px; color: @on_surface; }
+#battery.good { color: @tertiary; }
+#battery.charging, #battery.full { color: @tertiary; }
+#battery.warning:not(.charging)  { color: @primary_fixed; }
+#battery.critical:not(.charging) { color: @error; animation: vcmp-blink 0.9s ease-in-out infinite; }
+
+#custom-power { font-size: 13px; padding: 6px 4px; }
+#custom-power:hover { color: @error; background-color: alpha(@error_container, 0.3); border-radius: 8px; }
+
+@keyframes vcmp-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+tooltip { background-color: alpha(@surface_container_high, 0.97); border: 1px solid alpha(@outline_variant, 0.22); border-radius: 10px; box-shadow: none; }
+tooltip label { padding: 5px 10px; color: @on_surface; font-size: 12px; }

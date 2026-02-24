@@ -158,7 +158,7 @@ pages:
             properties:
               title: Open Theme Manager
               description: Browse wallpapers and manage theme in TUI
-              icon: 󰇄
+              icon: 󰸉
               button_text: Launch
             on_press:
               command: kitty --class theme-ui theme-ui
@@ -166,18 +166,18 @@ pages:
 
   - id: waybar
     title: Waybar
-    icon: 󰂬
+    icon: 
     layout:
       - type: section
         properties:
           title: Bar Preset
-          description: "8 presets — each is a complete layout and style. Switching always does a full restart."
+          description: "Pick any preset. Horizontal presets sit at the top, vertical_* presets become a left sidebar."
         items:
           - type: selection
             properties:
-              title: Style Preset
-              description: "pill · minimal · compact · dense · bubble · ultraminimal · ghost · matrix"
-              icon: 
+              title: Preset
+              description: "↔ horizontal  |  ↕ vertical_*"
+              icon: 
               key: waybar/style
               options:
                 - pill
@@ -188,6 +188,14 @@ pages:
                 - ultraminimal
                 - ghost
                 - matrix
+                - vertical_pill
+                - vertical_minimal
+                - vertical_compact
+                - vertical_dense
+                - vertical_bubble
+                - vertical_ultraminimal
+                - vertical_ghost
+                - vertical_matrix
               options_map:
                 pill: pill
                 minimal: minimal
@@ -197,14 +205,22 @@ pages:
                 ultraminimal: ultraminimal
                 ghost: ghost
                 matrix: matrix
+                vertical_pill: vertical_pill
+                vertical_minimal: vertical_minimal
+                vertical_compact: vertical_compact
+                vertical_dense: vertical_dense
+                vertical_bubble: vertical_bubble
+                vertical_ultraminimal: vertical_ultraminimal
+                vertical_ghost: vertical_ghost
+                vertical_matrix: vertical_matrix
             on_change:
               command: "~/.config/waybar/scripts/switch_style.sh {value} && ~/cloudyy_scripts/launch_waybar.sh"
 
           - type: button
             properties:
               title: Reload Waybar
-              description: Kill and restart waybar with the current preset
-              icon: 󰐐
+              description: Kill and restart with the current preset
+              icon: ↩
               button_text: Reload
             on_press:
               command: "~/cloudyy_scripts/launch_waybar.sh"
@@ -212,8 +228,8 @@ pages:
           - type: button
             properties:
               title: Edit Active Config
-              description: Open the live config.jsonc in your editor
-              icon: 󰦭
+              description: Open the live config.jsonc
+              icon: ✏
               button_text: Config
             on_press:
               command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/config.jsonc"
@@ -221,62 +237,57 @@ pages:
           - type: button
             properties:
               title: Edit Active Style
-              description: Open the live style.css in your editor
-              icon: 󰦭
+              description: Open the live style.css
+              icon: 
               button_text: Style
             on_press:
               command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
 
       - type: section
         properties:
-          title: Bar Position
-          description: "Move the bar to any screen edge. Left/right create a vertical sidebar."
-        items:
-          - type: selection
-            properties:
-              title: Position
-              description: Which screen edge the bar sits on
-              icon: 󱊖
-              key: waybar/position
-              options:
-                - top
-                - bottom
-                - left
-                - right
-              options_map:
-                top: top
-                bottom: bottom
-                left: left
-                right: right
-            on_change:
-              command: "~/.config/waybar/scripts/set_position.sh {value} && ~/cloudyy_scripts/launch_waybar.sh"
-
-      - type: section
-        properties:
           title: Preset Management
-          description: "Open a preset folder directly to customise it, then reload."
         items:
           - type: button
             properties:
               title: Open Presets Folder
-              description: Browse all presets in your file manager
-              icon: 󰉋
+              icon: 
               button_text: Browse
             on_press:
               command: "xdg-open ~/.config/waybar/presets"
 
           - type: button
             properties:
-              title: Clone Active Preset
-              description: Copy the current active files back into their preset folder
-              icon: 󰆒
+              title: Save Live Edits to Preset
+              description: Writes your current active files back into their source preset folder
+              icon: 
               button_text: Sync
             on_press:
               command: >
                 PRESET=$(cat ~/.config/waybar/.current_preset 2>/dev/null || echo pill) &&
                 cp ~/.config/waybar/config.jsonc ~/.config/waybar/presets/${PRESET}/config.jsonc &&
                 cp ~/.config/waybar/style.css ~/.config/waybar/presets/${PRESET}/style.css &&
-                notify-send "Waybar" "Saved edits back to preset: ${PRESET}"
+                notify-send "Waybar" "Saved to: ${PRESET}"
+
+          - type: button
+            properties:
+              title: Debug Presets
+              description: Run waybar_debug.sh to check all presets for issues
+              icon: 󱡴
+              button_text: Debug
+            on_press:
+              command: "kitty --class waybar-debug --hold -e ~/.config/waybar/scripts/waybar_debug.sh"
+
+          - type: button
+            properties:
+              title: Test Active Preset
+              description: Switch + watch live logs to diagnose invisible bars
+              icon: 󰙨
+              button_text: Test
+            on_press:
+              command: >
+                PRESET=$(cat ~/.config/waybar/.current_preset 2>/dev/null || echo pill) &&
+                kitty --class waybar-debug --hold -e
+                ~/.config/waybar/scripts/waybar_debug.sh --test ${PRESET}
 
       - type: section
         properties:
@@ -286,13 +297,13 @@ pages:
             properties:
               title: Show on All Monitors
               description: Mirror waybar across every connected display
-              icon: 󰍹
+              icon: 
               key: waybar/all_monitors
             on_toggle:
               enabled:
                 command: "sed -i 's/\"output\": .*//' ~/.config/waybar/config.jsonc && ~/cloudyy_scripts/launch_waybar.sh"
               disabled:
-                command: "notify-send 'Waybar' 'Edit the output key in ~/.config/waybar/presets/<preset>/config.jsonc to restrict to one monitor, then reload.'"
+                command: "notify-send 'Waybar' 'Edit the output key in the preset config.jsonc to restrict to one monitor, then reload.'"
 
   - id: hyprland
     title: Hyprland
@@ -332,7 +343,7 @@ pages:
             properties:
               title: Blur
               description: Background blur on transparent windows
-              icon: 󱣴
+              icon: 󰂵
               key: hypr/blur
             on_toggle:
               enabled:
@@ -344,7 +355,7 @@ pages:
             properties:
               title: Blur Passes
               description: More passes = stronger blur, more GPU cost
-              icon: 󱣴
+              icon: 󰂶
               key: hypr/blur_passes
               min: 1
               max: 6
@@ -357,7 +368,7 @@ pages:
             properties:
               title: Blur Size
               description: Blur kernel size
-              icon: 󱣴
+              icon: 󰂸
               key: hypr/blur_size
               min: 1
               max: 20
@@ -370,7 +381,7 @@ pages:
             properties:
               title: Window Opacity (Active)
               description: Active window opacity (100 = fully opaque)
-              icon: 󰗔
+              icon: 󰗌
               key: hypr/active_opacity
               min: 50
               max: 100
@@ -383,7 +394,7 @@ pages:
             properties:
               title: Window Opacity (Inactive)
               description: Inactive window opacity
-              icon: 󰗔
+              icon: 󱡕
               key: hypr/inactive_opacity
               min: 50
               max: 100
@@ -400,7 +411,7 @@ pages:
             properties:
               title: Outer Gaps
               description: Gaps between windows and screen edge
-              icon: 󰫠
+              icon: 󱁐
               key: hypr/gaps_out
               min: 0
               max: 60
@@ -413,7 +424,7 @@ pages:
             properties:
               title: Inner Gaps
               description: Gaps between windows
-              icon: 󰫠
+              icon: 󱁐
               key: hypr/gaps_in
               min: 0
               max: 30
@@ -430,7 +441,7 @@ pages:
             properties:
               title: Animations
               description: Enable Hyprland window animations
-              icon: 󰝣
+              icon: 󰪐
               key: hypr/animations
             on_toggle:
               enabled:
@@ -464,7 +475,7 @@ pages:
             properties:
               title: Theme Manager
               description: Wallpapers, color schemes, contrast
-              icon: 󰔎
+              icon: 󰸉
               button_text: Open
             on_press:
               command: kitty --class theme-ui --title "Theme Manager" theme-ui

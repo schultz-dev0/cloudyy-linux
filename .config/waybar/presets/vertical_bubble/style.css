@@ -1,0 +1,161 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — vertical_bubble (FIXED)
+   Three pill sections, but each module WITHIN has its own color tint.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  box-shadow: none;
+  font-family: 'Monocraft';
+  font-weight: 600;
+  font-size: 12px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+window#waybar {
+    background: transparent;
+    color: @on_surface;
+}
+
+.modules-left {
+  background-color: alpha(@surface, 0.82);
+  border-radius: 18px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 6px 5px 3px 5px;
+  padding: 8px 4px;
+}
+
+.modules-center {
+  background-color: alpha(@surface, 0.82);
+  border-radius: 18px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 3px 5px;
+  padding: 8px 4px;
+}
+
+.modules-right {
+  background-color: alpha(@surface, 0.82);
+  border-radius: 18px;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 3px 5px 6px 5px;
+  padding: 8px 4px;
+}
+
+/* Default module style */
+#custom-launcher,
+#custom-temps,
+#clock,
+#workspaces,
+#network,
+#pulseaudio,
+#battery,
+#custom-power {
+  background-color: alpha(@surface_container, 0.6);
+  border-radius: 12px;
+  padding: 5px 4px;
+  margin: 2px 0;
+  color: @on_surface;
+  border: 1px solid alpha(@outline_variant, 0.1);
+}
+
+/* Hover */
+#custom-launcher:hover, #custom-temps:hover, #clock:hover,
+#network:hover, #pulseaudio.output:hover, #battery:hover {
+  background-color: alpha(@surface_container_high, 0.8);
+}
+
+/* Launcher: primary gradient */
+#custom-launcher {
+  background-image: linear-gradient(180deg, @primary_container, @primary_fixed_dim);
+  border: 1px solid alpha(@primary, 0.2);
+  color: @on_primary_container;
+  font-size: 18px;
+  padding: 8px 4px;
+}
+#custom-launcher:hover { background-image: linear-gradient(180deg, @primary_fixed_dim, @primary); }
+
+/* Workspaces: no individual bg, stacked buttons */
+#workspaces {
+  background: transparent;
+  border: none;
+  padding: 0 4px;
+  margin: 2px 0;
+}
+
+#workspaces button {
+  background: transparent;
+  border-radius: 50%;
+  padding: 3px 0;
+  
+  /* FIXED: Replaced 'margin: 1px auto' with explicit margins to prevent collapse */
+  margin: 1px 3px;
+  
+  min-width: 28px;
+  color: alpha(@on_surface_variant, 0.4);
+  font-size: 13px;
+  border: none;
+}
+
+#workspaces button.visible { color: @on_surface; }
+#workspaces button.active  { background-color: @primary; color: @on_primary; font-weight: 800; }
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.18); font-size: 10px; }
+#workspaces button:hover   { background-color: alpha(@surface_container_high, 0.5); }
+#workspaces button.urgent  { background-color: @error; color: @on_error; animation: vbbl-blink 0.9s ease-in-out infinite; }
+
+/* Temps: tertiary tint */
+#custom-temps {
+  background-color: alpha(@tertiary_container, 0.4);
+  border: 1px solid alpha(@tertiary, 0.18);
+  color: @tertiary;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Clock: secondary tint, large */
+#clock {
+  background-color: alpha(@secondary_container, 0.45);
+  border: 1px solid alpha(@secondary, 0.15);
+  color: @on_secondary_container;
+  font-size: 17px;
+  font-weight: 800;
+  padding: 8px 4px;
+  letter-spacing: 0.5px;
+}
+#clock:hover { background-color: alpha(@secondary_container, 0.7); }
+
+/* Network, audio, battery: subtle tints */
+/* #network.wifi     { color: @primary_fixed; border-color: alpha(@primary, 0.15); } */
+#network.ethernet { color: @tertiary; }
+#network.disconnected { color: alpha(@on_surface_variant, 0.3); }
+#network          { font-size: 11px; }
+
+#pulseaudio.output     { font-size: 11px; }
+#pulseaudio.output.muted { background-color: transparent; color: alpha(@on_surface_variant, 0.3); }
+
+#battery { font-size: 11px; }
+/* #battery.good                    { color: @tertiary; background-color: alpha(@tertiary_container, 0.35); border-color: alpha(@tertiary, 0.15); } */
+#battery.charging, #battery.full { color: @tertiary; background-color: alpha(@tertiary_container, 0.35); }
+#battery.warning:not(.charging)  { color: @primary_fixed; background-color: alpha(@primary_container, 0.35); }
+#battery.critical:not(.charging) { color: @error; background-color: alpha(@error_container, 0.5); animation: vbbl-blink 0.9s ease-in-out infinite; }
+
+#custom-power {
+  background-image: linear-gradient(180deg, alpha(@primary_container, 0.7), alpha(@primary_fixed_dim, 0.7));
+  border: 1px solid alpha(@primary, 0.2);
+  color: @on_primary_container;
+  font-size: 14px;
+  padding: 6px 4px;
+}
+#custom-power:hover { background-image: none; background-color: alpha(@error_container, 0.65); color: @error; }
+
+@keyframes vbbl-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.45; }
+  100% { opacity: 1; }
+}
+
+tooltip { background-color: alpha(@surface_container_high, 0.97); border: 1px solid alpha(@outline_variant, 0.25); border-radius: 12px; box-shadow: none; }
+tooltip label { padding: 5px 10px; color: @on_surface; font-size: 12px; }

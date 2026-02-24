@@ -521,13 +521,21 @@ show_applications_menu() {
 }
 
 # ==============================================================================
+# CLOUDCENTER
+# ==============================================================================
+
+cloud_center_menu() {
+  hyprctl dispatch exec "python3 $HOME/cloudyy_scripts/cloud-center-v2/cloud-center.py"
+}
+
+# ==============================================================================
 # MAIN MENU
 # ==============================================================================
 
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n Configuration\n󰏖 Packages\n󰐥 Power")
+    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n Configuration\n CloudCenter\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
   "󱓻 Appearance")
@@ -544,6 +552,9 @@ show_main_menu() {
     ;;
   " Configuration")
     configuration_menu
+    ;;
+  " CloudCenter")
+    cloud_center_menu
     ;;
   "󰏖 Packages")
     show_package_menu
