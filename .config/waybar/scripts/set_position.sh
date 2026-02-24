@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# set_position.sh — Waybar position switcher
+# set_position.sh — Waybar position switcher (Atomic Fix)
 # Patches the active config.jsonc to place the bar at top, bottom, left, or right.
-# Saves position to ~/.config/waybar/.current_position for state restore.
-#
-# Usage:
-#   set_position.sh <top|bottom|left|right>
-#   set_position.sh --list
+# Uses atomic writes to prevent Waybar from reading an empty file during reload.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -14,8 +10,12 @@ set -euo pipefail
 readonly WAYBAR_DIR="${HOME}/.config/waybar"
 readonly ACTIVE_CONFIG="${WAYBAR_DIR}/config.jsonc"
 readonly CURRENT_POSITION_FILE="${WAYBAR_DIR}/.current_position"
+readonly VERTICAL_SIDE_FILE="${WAYBAR_DIR}/.vertical_side"
 
-die()  { printf '[set_position] ERROR: %s\n' "$*" >&2; exit 1; }
+die() {
+  printf '[set_position] ERROR: %s\n' "$*" >&2
+  exit 1
+}
 info() { printf '[set_position] %s\n' "$*" >&2; }
 
 # ── Argument handling ──────────────────────────────────────────────────────
@@ -31,30 +31,32 @@ if [[ "${1:-}" == "--list" ]]; then
 fi
 
 POSITION="${1:-}"
-[[ -z "$POSITION" ]] && { printf 'Usage: %s <top|bottom|left|right>\n' "$0" >&2; exit 1; }
+[[ -z "$POSITION" ]] && {
+  printf 'Usage: %s <top|bottom|left|right>\n' "$0" >&2
+  exit 1
+}
 
 case "$POSITION" in
-  top|bottom|left|right) ;;
-  *) die "Invalid position '$POSITION'. Must be: top, bottom, left, right" ;;
+top | bottom | left | right) ;;
+*) die "Invalid position '$POSITION'. Must be: top, bottom, left, right" ;;
 esac
 
 [[ -f "${ACTIVE_CONFIG}" ]] || die "Active config not found at ${ACTIVE_CONFIG}"
 
 info "Applying position: ${POSITION}"
 
-# ── Patch config via Python ────────────────────────────────────────────────
-# Read the JSONC (strip // comments), patch, write back.
+# ── Patch config via Python (Atomic) ───────────────────────────────────────
 
-python3 - "$ACTIVE_CONFIG" "$POSITION" << 'PYEOF'
-import sys, re, json
+python3 - "$ACTIVE_CONFIG" "$POSITION" <<'PYEOF'
+import sys, re, json, os
 
 config_path = sys.argv[1]
 position    = sys.argv[2]
 
-with open(config_path) as f:
+# Read existing config
+with open(config_path, 'r') as f:
     raw = f.read()
 
-# Strip single-line // comments (preserve structure)
 def strip_comments(text):
     result = []
     in_string = False
@@ -71,20 +73,23 @@ def strip_comments(text):
         i += 1
     return ''.join(result)
 
-cfg = json.loads(strip_comments(raw))
+try:
+    cfg = json.loads(strip_comments(raw))
+except json.JSONDecodeError as e:
+    print(f"Error decoding JSON: {e}")
+    sys.exit(1)
 
 cfg["position"] = position
 
+# Adjust margins based on position
 if position in ("top", "bottom"):
-    # Horizontal bar — restore/set sensible margins
-    # Detect if this is a floating preset (has existing non-zero margins)
-    # or a full-width preset (margin-left/right == 0)
+    # Check if there were side margins indicating a floating bar
     is_floating = cfg.get("margin-left", 0) != 0 or cfg.get("margin-right", 0) != 0
-
+    
+    # Heuristic: If it was vertical with margins, preserve margin "thickness" for top/bottom
     if is_floating:
-        margin_edge = cfg.get("margin-top", 6) if cfg.get("margin-top", 0) != 0 else cfg.get("margin-bottom", 6)
-        if margin_edge == 0:
-            margin_edge = 6
+        # Grab existing margin or default to 6
+        margin_edge = cfg.get("margin-top", 0) or cfg.get("margin-bottom", 0) or 6
     else:
         margin_edge = 0
 
@@ -95,14 +100,21 @@ if position in ("top", "bottom"):
         cfg["margin-top"]    = 0
         cfg["margin-bottom"] = margin_edge
 
-    # Remove vertical-bar overrides if any
+    # Remove width restriction for horizontal bars (allow full width or auto)
     cfg.pop("width", None)
 
 elif position in ("left", "right"):
-    # Vertical bar — remove height, set width, clear horizontal margins
+    # Remove height restriction for vertical bars
     cfg.pop("height", None)
-    cfg["width"] = 40
 
+    # Preserve the preset's own width if it specified one;
+    # only fall back to the generic default when no width is present.
+    # (set_position.sh is called AFTER switch_style.sh copies the preset
+    #  config, so the width here is already the preset's intended value.)
+    if "width" not in cfg:
+        cfg["width"] = 46
+
+    # Add standard vertical margins
     cfg["margin-top"]    = 6
     cfg["margin-bottom"] = 6
 
@@ -113,16 +125,26 @@ elif position in ("left", "right"):
         cfg["margin-left"]  = 0
         cfg["margin-right"] = 6
 
-# Write back (pretty-printed, no trailing whitespace)
-output = json.dumps(cfg, indent=2, ensure_ascii=False)
-with open(config_path, 'w') as f:
+# ── ATOMIC WRITE FIX ──────────────────────────────────────────────────────
+# Write to a temp file first, then rename. 
+# This prevents Waybar from reading a truncated (empty) file during reload.
+
+output = json.dumps(cfg, indent=4, ensure_ascii=False)
+tmp_path = config_path + ".tmp"
+
+with open(tmp_path, 'w') as f:
     f.write(output + '\n')
 
+os.replace(tmp_path, config_path)
 print(f"[set_position] Patched {config_path} → position: {position}")
 PYEOF
 
-echo "${POSITION}" > "${CURRENT_POSITION_FILE}"
-info "Position saved. Run launch_waybar.sh to apply."
+echo "${POSITION}" >"${CURRENT_POSITION_FILE}"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Restart is done by the caller (Cloud Center chains: set_position.sh <pos> && launch_waybar.sh)
+# Also persist left/right as the preferred vertical side
+if [[ "${POSITION}" == "left" || "${POSITION}" == "right" ]]; then
+  echo "${POSITION}" >"${VERTICAL_SIDE_FILE}"
+  info "Vertical side saved: ${POSITION}"
+fi
+
+info "Position saved."

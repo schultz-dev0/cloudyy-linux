@@ -1,7 +1,7 @@
 {
   "layer": "top",
   "exclusive": true,
-  "reload_style_on_change": false,
+  "reload_style_on_change": true,
   "position": "left",
   "width": 60,
   "spacing": 0,
@@ -48,18 +48,23 @@
     "tooltip-format": "Pending updates"
   },
   "clock": {
-    "format": "{:%H}\n{:%M}\n{:%S}",
-    "format-alt": "{:%a\n%d}",
-    "interval": 1,
-    "tooltip-format": "<tt>{calendar}</tt>",
-    "on-click-right": "uwsm-app -- gnome-clocks",
-    "calendar": {
-      "mode": "month",
-      "on-scroll": 1,
-      "format": {
-        "months": "<span color='#ffb786'><b>{}</b></span>",
-        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
-      }
+    "format": "{:%H\n%M}",
+    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+      "calendar": {
+        "mode": "month",
+        "mode-mon-col": 3,
+        "weeks-pos": "right",
+        "on-scroll": 1,
+        "format": {
+          "months": "<span color='#ffb786'><b>{}</b></span>",
+          "days": "<span color='#e2e2e2'>{}</span>",
+          "weeks": "<span color='#c9ca93'>W{}</span>",
+          "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+          "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+          }
+      },
+    "actions": {
+      "on-click-right": "mode"
     }
   },
   "custom/temps": {
@@ -114,7 +119,7 @@
     "format": "BAT\n{capacity}%",
     "format-charging": "CHG\n{capacity}%",
     "format-plugged": "PWR\n{capacity}%",
-    "format-full": "✓\n100%",
+    "format-full": "󰁹\n100%",
     "tooltip-format": "{timeTo}\nHealth: {health}%",
     "format-icons": [
       "▁",

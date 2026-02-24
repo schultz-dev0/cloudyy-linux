@@ -6,7 +6,7 @@
 {
   "layer": "top",
   "exclusive": true,
-  "reload_style_on_change": false,
+  "reload_style_on_change": true,
   "position": "top",
   "spacing": 3,
   "height": 42,
@@ -37,7 +37,7 @@
   ],
 
   "custom/launcher": {
-    "format": "☁️",
+    "format": "󰅟",
     "on-click": "rofi -show drun",
     "tooltip-format": "Application Launcher"
   },
@@ -82,12 +82,7 @@
 
   "hyprland/workspaces": {
     "on-click": "activate",
-    "format": "{icon}",
-    "format-icons": {
-      "active":  "󱗜",
-      "default": "󰊠",
-      "empty":   "󰝥"
-    },
+    "format": "{name}",
     "persistent-workspaces": { "*": 5 },
     "on-scroll-up": "hyprctl dispatch workspace e-1",
     "on-scroll-down": "hyprctl dispatch workspace e+1"
@@ -156,7 +151,7 @@
   },
 
   "custom/power": {
-    "format": "⏻",
+    "format": "󰐥",
     "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power Menu"
   }

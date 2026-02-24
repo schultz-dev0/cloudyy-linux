@@ -1,7 +1,7 @@
 {
   "layer": "top",
   "exclusive": true,
-  "reload_style_on_change": false,
+  "reload_style_on_change": true,
   "position": "left",
   "width": 44,
   "spacing": 0,
@@ -10,7 +10,8 @@
   "margin-left": 6,
   "margin-right": 0,
   "modules-left": [
-    "hyprland/workspaces"
+    "hyprland/workspaces",
+    "custom/notification"
   ],
   "modules-center": [
     "clock"
@@ -28,19 +29,46 @@
     "on-scroll-up": "hyprctl dispatch workspace e-1",
     "on-scroll-down": "hyprctl dispatch workspace e+1"
   },
+
+  "custom/notification": {
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂚",
+      "dnd-notification": "󱏧",
+      "dnd-none": "󰂛",
+      "inhibited-notification": "󱅫",
+      "inhibited-none": "󰂚",
+      "dnd-inhibited-notification": "󱏧",
+      "dnd-inhibited-none": "󰂛"
+    },
+    "return-type": "json",
+    "exec-if": "which swaync-client",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true,
+    "tooltip-format": "Notifications"
+  },
+
   "clock": {
-    "format": "{:%H}\n{:%M}",
-    "format-alt": "{:%a\n%d}",
-    "interval": 60,
-    "tooltip-format": "<tt>{calendar}</tt>",
-    "on-click-right": "uwsm-app -- gnome-clocks",
-    "calendar": {
-      "mode": "month",
-      "on-scroll": 1,
-      "format": {
-        "months": "<span color='#ffb786'><b>{}</b></span>",
-        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
-      }
+    "format": "{:%H\n%M}",
+    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+      "calendar": {
+        "mode": "month",
+        "mode-mon-col": 3,
+        "weeks-pos": "right",
+        "on-scroll": 1,
+        "format": {
+          "months": "<span color='#ffb786'><b>{}</b></span>",
+          "days": "<span color='#e2e2e2'>{}</span>",
+          "weeks": "<span color='#c9ca93'>W{}</span>",
+          "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+          "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+          }
+      },
+    "actions": {
+      "on-click-right": "mode"
     }
   },
   "battery": {
@@ -50,9 +78,9 @@
       "critical": 15
     },
     "format": "{icon}",
-    "format-charging": "⚡",
-    "format-plugged": "🔌",
-    "format-full": "✓",
+    "format-charging": "󰂄",
+    "format-plugged": "󰚥",
+    "format-full": "󰁹",
     "tooltip-format": "{timeTo}\nHealth: {health}%",
     "format-icons": [
       "▁",
@@ -66,7 +94,7 @@
     ]
   },
   "custom/power": {
-    "format": "⏻",
+    "format": "󰐥",
     "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power"
   }

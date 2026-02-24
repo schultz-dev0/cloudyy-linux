@@ -1,0 +1,156 @@
+{
+  "layer": "top",
+  "exclusive": true,
+  "reload_style_on_change": true,
+  "position": "left",
+  "width": 58,
+  "spacing": 0,
+  "margin-top": 0,
+  "margin-bottom": 0,
+  "margin-left": 0,
+  "margin-right": 0,
+  "modules-left": [
+    "custom/launcher",
+    "hyprland/workspaces",
+    "custom/notification",
+    "custom/updates"
+  ],
+  "modules-center": [
+    "clock",
+    "custom/temps"
+  ],
+  "modules-right": [
+    "network",
+    "pulseaudio#output",
+    "cpu",
+    "memory",
+    "battery",
+    "custom/power"
+  ],
+  "custom/launcher": {
+    "format": ">_",
+    "on-click": "rofi -show drun",
+    "tooltip-format": "Launch"
+  },
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{name}",
+    "persistent-workspaces": {
+      "*": 5
+    },
+    "on-scroll-up": "hyprctl dispatch workspace e-1",
+    "on-scroll-down": "hyprctl dispatch workspace e+1"
+  },
+  "custom/notification": {
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂚",
+      "dnd-notification": "󱏧",
+      "dnd-none": "󱏧",
+      "inhibited-notification": "󱅫",
+      "inhibited-none": "󰂚",
+      "dnd-inhibited-notification": "󱏧",
+      "dnd-inhibited-none": "󱏧"
+    },
+    "return-type": "json",
+    "exec-if": "which swaync-client",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true
+  },
+  "custom/updates": {
+    "format": "󰏔\n{}",
+    "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
+    "interval": 3600,
+    "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+    "tooltip-format": "Pending updates"
+  },
+  "clock": {
+    "min-width": 48,
+    "format": "{:%H}\n{:%M}\n{:%S}",
+    "format-alt": "{:%a\n%d}",
+    "interval": 1,
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "on-click-right": "uwsm-app -- gnome-clocks",
+    "calendar": {
+      "mode": "month",
+      "on-scroll": 1,
+      "format": {
+        "months": "<span color='#ffb786'><b>{}</b></span>",
+        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
+      }
+    }
+  },
+  "custom/temps": {
+    "exec": "~/.config/waybar/scripts/temps.py",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "tooltip": true
+  },
+  "network": {
+    "format-wifi": "󰤨\n{signalStrength}%",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰖪",
+    "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
+    "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
+    "tooltip-format-disconnected": "Disconnected",
+    "on-click": "uwsm-app nm-connection-editor",
+    "interval": 5
+  },
+  "pulseaudio#output": {
+    "format": "󰕾\n{volume}%",
+    "format-muted": "󰖁",
+    "on-click": "swayosd-client --output-volume mute-toggle",
+    "on-scroll-up": "swayosd-client --output-volume raise",
+    "on-scroll-down": "swayosd-client --output-volume lower",
+    "tooltip-format": "Volume: {volume}%"
+  },
+  "cpu": {
+    "interval": 2,
+    "format": "󰍛\n{usage}%",
+    "on-click": "kitty -e btop",
+    "states": {
+      "warning": 70,
+      "critical": 90
+    }
+  },
+  "memory": {
+    "interval": 2,
+    "format": "󰘚\n{percentage}%",
+    "on-click": "kitty -e btop",
+    "states": {
+      "warning": 70,
+      "critical": 90
+    }
+  },
+  "battery": {
+    "states": {
+      "good": 80,
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "{icon}\n{capacity}%",
+    "format-charging": "󰂄\n{capacity}%",
+    "format-plugged": "󰚥\n{capacity}%",
+    "format-full": "󰁹\n100%",
+    "tooltip-format": "{timeTo}\nHealth: {health}%",
+    "format-icons": [
+      "▁",
+      "▂",
+      "▃",
+      "▄",
+      "▅",
+      "▆",
+      "▇",
+      "█"
+    ]
+  },
+  "custom/power": {
+    "format": "󰐥",
+    "on-click": "~/cloudyy_scripts/wlogout.sh",
+    "tooltip-format": "Power"
+  }
+}

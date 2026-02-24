@@ -1,224 +1,165 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   WAYBAR PRESET — bubble
-   Every module is its own coloured bubble. Bold, playful, distinctive.
-   Circle workspace glyphs. Clock is the largest element in the center.
+   PRESET: bubble (HORIZONTAL)
+   ─────────────────────────────────────────────────────────────────────────
+   Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import "/home/schultz/.config/matugen/generated/waybar-colors.css";
 
+/* ── Universal Reset ───────────────────────────────────────────────────────── */
 * {
   border: none;
   border-radius: 0;
   min-height: 0;
   box-shadow: none;
-  font-family: 'Monocraft';
-  font-weight: 600;
+  font-family: 'Monocraft', monospace;
+  font-weight: 700;
   font-size: 12px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  text-shadow: none;
 }
 
+/* ── Bar Window ────────────────────────────────────────────────────────────── */
 window#waybar {
   background: transparent;
-  box-shadow: none;
 }
 
 window#waybar > box {
-  background-color: alpha(@surface, 0.80);
-  border-radius: 16px;
+  background: transparent;
+  margin: 0;
+}
+
+/* ── The "Bubbles" (Containers) ────────────────────────────────────────────── */
+
+.modules-left, .modules-center, .modules-right {
+  background-color: alpha(@surface_container, 0.96);
   border: 1px solid alpha(@outline_variant, 0.15);
-  box-shadow: none;
-  margin: 2px 0;
+  border-radius: 24px;
+  margin-left: 6px;
+  margin-right: 6px;
+  padding: 4px 10px;
 }
 
-/* ── Default bubble style ────────────────────────────────────────────────── */
+/* ── Modules (Transparent) ─────────────────────────────────────────────────── */
 
-#custom-launcher,
-#custom-timer,
-#custom-temps,
-#clock,
-#workspaces,
-#mpris,
-#network,
-#bluetooth,
-#pulseaudio,
-#cpu,
-#battery,
-#custom-power {
-  background-color: alpha(@surface_container, 0.6);
-  border-radius: 12px;
-  padding: 2px 12px;
-  margin: 4px 2px;
+#custom-launcher, #workspaces, #clock, #custom-temps, #custom-updates,
+#pulseaudio, #network, #battery, #custom-power, #custom-notification, #cpu, #mpris {
+  background: transparent;
   color: @on_surface;
-  border: 1px solid alpha(@outline_variant, 0.1);
+  padding: 0 4px;
+  margin: 0;
+  font-size: 12px;
 }
 
-/* ── Hover (default) ─────────────────────────────────────────────────────── */
-
-#custom-launcher:hover,
-#custom-timer:hover,
-#custom-temps:hover,
-#clock:hover,
-#mpris:hover,
-#network:hover,
-#bluetooth:hover,
-#pulseaudio.output:hover,
-#cpu:hover,
-#battery:hover {
-  background-color: alpha(@surface_container_high, 0.8);
-}
-
-/* ── Launcher: primary gradient ──────────────────────────────────────────── */
+/* ── Left Bubble Specifics ─────────────────────────────────────────────────── */
 
 #custom-launcher {
-  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  border: 1px solid alpha(@primary, 0.2);  /* was: border-color: alpha(@primary, 0.2) */
-  color: @on_primary_container;
-  font-size: 17px;
-  padding: 0 15px 2px 11px;
-  margin-left: 6px;
+  color: @primary;
+  font-size: 18px;
+  margin-right: 4px;
+  border-right: 1px solid alpha(@outline_variant, 0.1);
+  padding-right: 12px;
 }
 
-#custom-launcher:hover {
-  background-image: linear-gradient(135deg, @primary_fixed_dim, @primary);
+#custom-notification {
+  font-size: 16px;
+  color: @on_surface_variant;
+  padding-left: 8px;
 }
 
-/* ── Workspaces: circle dots ─────────────────────────────────────────────── */
-
-#workspaces {
-  background-color: alpha(@surface_container_low, 0.5);
-  border-radius: 14px;
-  border: 1px solid alpha(@outline_variant, 0.1);  /* was: border-color: alpha(@outline_variant, 0.1) */
-  padding: 0 4px;
-  margin: 4px 4px;
-}
-
-#workspaces button {
-  background: transparent;
-  border-radius: 50%;
-  padding: 0 4px;
-  margin: 3px 1px;
-  min-width: 14px;
-  color: alpha(@on_surface_variant, 0.4);
-  font-size: 14px;
-  border: none;
-}
-
-#workspaces button.empty   { color: alpha(@on_surface_variant, 0.18); font-size: 11px; }
-#workspaces button.visible { color: alpha(@on_surface, 0.7); }
-#workspaces button.active  { color: @primary; font-size: 17px; }
-#workspaces button:hover   { background-color: alpha(@surface_container_high, 0.4); color: @on_surface; }
-#workspaces button.urgent  { color: @error; animation: bbl-urgent 0.8s ease-in-out infinite; }
-
-/* ── Temps: warm tertiary tint ───────────────────────────────────────────── */
-
-#custom-temps {
-  background-color: alpha(@tertiary_container, 0.4);
-  border: 1px solid alpha(@tertiary, 0.18);  /* was: border-color: alpha(@tertiary, 0.18) */
-  color: @tertiary;
-  font-weight: 700;
-}
-
-#custom-temps:hover { background-color: alpha(@tertiary_container, 0.65); }
-
-/* ── Clock: large, secondary accent, center ──────────────────────────────── */
+/* ── Center Bubble Specifics ───────────────────────────────────────────────── */
 
 #clock {
-  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 1px;
-  padding: 2px 18px;
-  margin: 4px 6px;
-  background-color: alpha(@secondary_container, 0.45);
-  color: @on_secondary_container;
-  border: 1px solid alpha(@secondary, 0.15);  /* was: border-color: alpha(@secondary, 0.15) */
+  color: @on_surface;
 }
 
-#clock:hover { background-color: alpha(@secondary_container, 0.7); }
+#custom-temps {
+  color: @tertiary;
+  padding-left: 8px;
+}
 
-/* ── Mpris: secondary tint, italic title ─────────────────────────────────── */
+#custom-updates {
+  color: @secondary;
+  font-size: 14px;
+  padding-left: 8px;
+}
 
-#mpris {
-  background-color: alpha(@secondary_container, 0.3);
+/* ── Right Bubble Specifics ────────────────────────────────────────────────── */
+
+#cpu {
   color: @secondary;
   font-size: 11px;
-  border: 1px solid alpha(@secondary, 0.12);  /* was: border-color: alpha(@secondary, 0.12) */
 }
 
-#mpris:hover   { background-color: alpha(@secondary_container, 0.55); }
-#mpris.paused  { color: alpha(@on_secondary_container, 0.5); }
-#mpris.stopped { background: transparent; border: none; padding: 0; margin: 0; min-width: 0; }
+#pulseaudio.output { color: @tertiary; }
+#network           { color: @tertiary; }
+#battery           { color: @on_surface; }
 
-/* ── Timer ───────────────────────────────────────────────────────────────── */
-
-#custom-timer { color: @secondary; font-size: 12px; }
-
-/* ── Network ─────────────────────────────────────────────────────────────── */
-
-#network      { font-size: 14px; }
-#network.wifi         { color: @primary_fixed; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.3); }
-
-/* ── Bluetooth ───────────────────────────────────────────────────────────── */
-
-#bluetooth       { font-size: 13px; }
-#bluetooth.connected { color: @primary_fixed; }
-#bluetooth.disabled  { color: alpha(@on_surface_variant, 0.22); }
-
-/* ── Audio ───────────────────────────────────────────────────────────────── */
-
-#pulseaudio.output { font-size: 12px; }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.3); }
-
-/* ── CPU ─────────────────────────────────────────────────────────────────── */
-
-#cpu { font-size: 11px; }
-#cpu.warning  { background-color: alpha(@tertiary_container, 0.35); color: @tertiary; }
-#cpu.critical { background-color: alpha(@error_container, 0.45); color: @error; animation: bbl-urgent 1s ease-in-out infinite; }
-
-/* ── Battery ─────────────────────────────────────────────────────────────── */
-
-#battery.good                    { color: @tertiary; }
-#battery.charging, #battery.full { background-color: alpha(@tertiary_container, 0.35); color: @tertiary; border-color: alpha(@tertiary, 0.15); }
-#battery.warning:not(.charging)  { background-color: alpha(@primary_container, 0.35); color: @primary_fixed; border-color: alpha(@primary, 0.18); }
-#battery.critical:not(.charging) { background-color: alpha(@error_container, 0.55); color: @error; border-color: alpha(@error, 0.3); animation: bbl-urgent 1s ease-in-out infinite; }
-
-/* ── Power ───────────────────────────────────────────────────────────────── */
+#battery.charging  { color: @primary; }
+#battery.warning   { color: @error; }
+#battery.critical  { color: @error; animation: blink 1s infinite; }
 
 #custom-power {
-  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
-  border: 1px solid alpha(@primary, 0.2);  /* was: border-color: alpha(@primary, 0.2) */
-  color: @on_primary_container;
-  font-size: 13px;
-  margin-right: 6px;
+  color: @error;
+  font-size: 16px;
+  margin-left: 4px;
+  border-left: 1px solid alpha(@outline_variant, 0.1);
+  padding-left: 12px;
 }
 
 #custom-power:hover {
-  background-image: none;
-  background-color: alpha(@error_container, 0.65);
-  color: @error;
-  border: 1px solid alpha(@error, 0.3);  /* was: border-color: alpha(@error, 0.3) */
+  background-color: alpha(@error, 0.15);
+  border-radius: 20px;
 }
 
-/* ── Animations (NO transform — GTK CSS doesn't support it in keyframes) ─── */
+/* ── Workspaces ────────────────────────────────────────────────────────────── */
 
-@keyframes bbl-urgent {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.55; }
-  100% { opacity: 1; }
+#workspaces {
+  padding: 0;
 }
 
-/* ── Tooltips ────────────────────────────────────────────────────────────── */
-
-tooltip {
-  background-color: alpha(@surface_container_high, 0.97);
-  border: 1px solid alpha(@outline_variant, 0.28);
-  border-radius: 14px;
-  box-shadow: none;
+#workspaces button {
+  padding: 0;
+  margin: 0 3px; 
+  color: alpha(@on_surface_variant, 0.4);
+  background: transparent;
+  min-width: 12px; 
+  min-height: 24px;
+  border-radius: 6px;
 }
 
-tooltip label {
-  padding: 6px 12px;
+#workspaces button.active {
+  color: @on_primary;
+  background-color: @primary;
+  font-weight: 800;
+  box-shadow: 0 2px 8px alpha(@primary, 0.3);
+  min-width: 28px;
+}
+
+#workspaces button:hover {
+  background-color: alpha(@on_surface, 0.05);
   color: @on_surface;
-  font-size: 12px;
+}
+
+#workspaces button.urgent {
+  color: @error;
+  animation: blink 1s infinite;
+}
+
+/* ── Tooltips ──────────────────────────────────────────────────────────────── */
+tooltip {
+  background-color: @surface_container;
+  border-radius: 12px;
+  border: 1px solid alpha(@outline, 0.1);
+}
+tooltip label {
+  color: @on_surface;
+  padding: 8px;
+}
+
+/* ── Animation ─────────────────────────────────────────────────────────────── */
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }

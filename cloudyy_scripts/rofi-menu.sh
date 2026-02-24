@@ -175,7 +175,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰗆 Random Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile\n󰘍 Back")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile\n󰘍 Back")
 
   case "${choice}" in
   *"Toggle Mode"*)
@@ -188,10 +188,6 @@ show_appearance_menu() {
   *"Next Wallpaper"*)
     run_app "$THEME_CTL" next
     notify-send "Theme" "Loading next wallpaper..." -t 2000
-    ;;
-  *"Random Wallpaper"*)
-    run_app "$THEME_CTL" random
-    notify-send "Theme" "Applying random wallpaper..." -t 2000
     ;;
   *"Theme UI"*)
     exec kitty --class theme-ui --override background_opacity=1.0 -e theme-ui
@@ -378,7 +374,7 @@ remove_package() {
     "󰆴 Confirm Removal\n󰸉 Cancel")
 
   # ==============================================================================
-  # KEYBINDS MENU
+  # PACKAGE MENU
   # ==============================================================================
   case "${confirm}" in
   *"Confirm"*)
@@ -499,12 +495,19 @@ show_power_menu() {
 # ==============================================================================
 
 configuration_menu() {
-  if [[ ! -x "$HCM_CMD" ]]; then
-    notify-send "Error" "hcm not found at: $HCM_CMD"
-    return
-  fi
+  local choice
+  choice=$(menu "Setup" "󱊨 Keybinds\n Configs")
 
-  nohup kitty --title "Config manager" -e "$HCM_CMD" >/dev/null 2>&1 &
+  case "${choice,,}" in
+  #*keybind*) run_app "~/cloudyy_scripts/rofi/keybindings.sh" ;; when I actually do it
+  *configs*)
+    nohup kitty --title "Config manager" -e "$HCM_CMD" >/dev/null 2>&1 &
+    ;;
+  *keybinds*)
+    nohup kitty --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
+    ;;
+  *) show_main_menu ;;
+  esac
 }
 
 # ==============================================================================
@@ -518,6 +521,22 @@ show_applications_menu() {
     -theme-str 'element-icon { size: 64px; horizontal-align: 0.5; }' \
     -theme-str 'element-text { horizontal-align: 0.5; }' \
     -show-icons
+}
+
+# ==============================================================================
+# LEARN MENU
+# ==============================================================================
+
+show_learn_menu() {
+  local choice
+  choice=$(menu "Learn" "󰣇  Arch Wiki\n  Hyprland Wiki")
+
+  case "${choice,,}" in
+  #*keybind*) run_app "~/cloudyy_scripts/rofi/keybindings.sh" ;; when I actually do it
+  *arch*) run_app xdg-open "https://wiki.archlinux.org/" ;;
+  *hypr*) run_app xdg-open "https://wiki.hypr.land/" ;;
+  *) show_main_menu ;;
+  esac
 }
 
 # ==============================================================================
@@ -535,17 +554,17 @@ cloud_center_menu() {
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󱓻 Appearance\n󰀻 Applications\n󱊨 Keybinds\n󰹑 System\n Configuration\n CloudCenter\n󰏖 Packages\n󰐥 Power")
+    "󰧑 Learn\n󱓻 Appearance\n󰀻 Applications\n󰹑 System\n Configuration\n CloudCenter\n󰏖 Packages\n󰐥 Power")
 
   case "$choice" in
+  "󰧑 Learn")
+    show_learn_menu
+    ;;
   "󱓻 Appearance")
     show_appearance_menu
     ;;
   "󰀻 Applications")
     show_applications_menu
-    ;;
-  "󱊨 Keybinds")
-    show_keybinds_menu
     ;;
   "󰹑 System")
     show_system_menu

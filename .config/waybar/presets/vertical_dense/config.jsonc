@@ -1,7 +1,7 @@
 {
   "layer": "top",
   "exclusive": true,
-  "reload_style_on_change": false,
+  "reload_style_on_change": true,
   "position": "left",
   "width": 58,
   "spacing": 0,
@@ -44,14 +44,14 @@
   "custom/notification": {
     "format": "{icon}",
     "format-icons": {
-      "notification": "🔔",
-      "none": "🔕",
-      "dnd-notification": "⛔",
-      "dnd-none": "⛔",
-      "inhibited-notification": "🔔",
-      "inhibited-none": "🔕",
-      "dnd-inhibited-notification": "⛔",
-      "dnd-inhibited-none": "⛔"
+      "notification": "󱅫",
+      "none": "󰂚",
+      "dnd-notification": "󱏧",
+      "dnd-none": "󱏧",
+      "inhibited-notification": "󱅫",
+      "inhibited-none": "󰂚",
+      "dnd-inhibited-notification": "󱏧",
+      "dnd-inhibited-none": "󱏧"
     },
     "return-type": "json",
     "exec-if": "which swaync-client",
@@ -61,25 +61,30 @@
     "escape": true
   },
   "custom/updates": {
-    "format": "📦\n{}",
+    "format": "󰏔\n{}",
     "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
     "interval": 3600,
     "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
     "tooltip-format": "Pending updates"
   },
   "clock": {
-    "format": "{:%H}\n{:%M}\n{:%S}",
-    "format-alt": "{:%a\n%d}",
-    "interval": 1,
-    "tooltip-format": "<tt>{calendar}</tt>",
-    "on-click-right": "uwsm-app -- gnome-clocks",
-    "calendar": {
-      "mode": "month",
-      "on-scroll": 1,
-      "format": {
-        "months": "<span color='#ffb786'><b>{}</b></span>",
-        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
-      }
+    "format": "{:%H\n%M}",
+    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+      "calendar": {
+        "mode": "month",
+        "mode-mon-col": 3,
+        "weeks-pos": "right",
+        "on-scroll": 1,
+        "format": {
+          "months": "<span color='#ffb786'><b>{}</b></span>",
+          "days": "<span color='#e2e2e2'>{}</span>",
+          "weeks": "<span color='#c9ca93'>W{}</span>",
+          "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+          "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+          }
+      },
+    "actions": {
+      "on-click-right": "mode"
     }
   },
   "custom/temps": {
@@ -90,9 +95,9 @@
     "tooltip": true
   },
   "network": {
-    "format-wifi": "📶\n{signalStrength}%",
-    "format-ethernet": "🔗",
-    "format-disconnected": "✗",
+    "format-wifi": "󰤨\n{signalStrength}%",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰖪",
     "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
     "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
     "tooltip-format-disconnected": "Disconnected",
@@ -100,8 +105,8 @@
     "interval": 5
   },
   "pulseaudio#output": {
-    "format": "🔊\n{volume}%",
-    "format-muted": "🔇",
+    "format": "󰕾\n{volume}%",
+    "format-muted": "󰖁",
     "on-click": "swayosd-client --output-volume mute-toggle",
     "on-scroll-up": "swayosd-client --output-volume raise",
     "on-scroll-down": "swayosd-client --output-volume lower",
@@ -109,7 +114,7 @@
   },
   "cpu": {
     "interval": 2,
-    "format": "💻\n{usage}%",
+    "format": "󰍛\n{usage}%",
     "on-click": "kitty -e btop",
     "states": {
       "warning": 70,
@@ -118,7 +123,7 @@
   },
   "memory": {
     "interval": 2,
-    "format": "🧠\n{percentage}%",
+    "format": "󰘚\n{percentage}%",
     "on-click": "kitty -e btop",
     "states": {
       "warning": 70,
@@ -132,9 +137,9 @@
       "critical": 15
     },
     "format": "{icon}\n{capacity}%",
-    "format-charging": "⚡\n{capacity}%",
-    "format-plugged": "🔌\n{capacity}%",
-    "format-full": "✓\n100%",
+    "format-charging": "󰂄\n{capacity}%",
+    "format-plugged": "󰚥\n{capacity}%",
+    "format-full": "󰁹\n100%",
     "tooltip-format": "{timeTo}\nHealth: {health}%",
     "format-icons": [
       "▁",
@@ -148,7 +153,7 @@
     ]
   },
   "custom/power": {
-    "format": "⏻",
+    "format": "󰐥",
     "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power"
   }

@@ -11,6 +11,7 @@ Features (inspired by Dusky Control Center):
   - Structured logging
   - XDG-compliant pycache
   - Nerd Font icon support
+  - Matugen auto-reload: watches colors file, reloads CSS + restarts waybar
 """
 from __future__ import annotations
 
@@ -58,6 +59,7 @@ except ImportError:
 APP_ID          = "dev.cloudyy.CloudCenter"
 CONFIG_PATH     = SCRIPT_DIR / "config.yaml"
 CSS_PATH        = SCRIPT_DIR / "assets" / "style.css"
+MATUGEN_COLORS  = Path.home() / ".config" / "matugen" / "generated" / "waybar-colors.css"
 SEARCH_DEBOUNCE = 200   # ms
 SIDEBAR_WIDTH   = 200   # px
 
@@ -456,12 +458,51 @@ class CloudCenter(Adw.Application):
             self._window = CloudCenterWindow(self)
             self._window.connect("close-request", self._on_close)
             self._load_css()
+            self._start_matugen_watcher()
         self._window.present()
 
     def _on_close(self, win: CloudCenterWindow) -> bool:
         """Hide instead of destroy — instant relaunch next time."""
         win.set_visible(False)
         return True  # suppress destroy
+
+    def _start_matugen_watcher(self) -> None:
+        """Watch matugen color output; reload CSS + restart waybar when it changes."""
+        if not MATUGEN_COLORS.exists():
+            log.info("Matugen colors file not found, skipping watcher: %s", MATUGEN_COLORS)
+            return
+        gfile = Gio.File.new_for_path(str(MATUGEN_COLORS))
+        self._matugen_monitor = gfile.monitor_file(Gio.FileMonitorFlags.NONE, None)
+        self._matugen_monitor.connect("changed", self._on_matugen_changed)
+        self._matugen_debounce: int = 0
+        log.info("Watching matugen colors: %s", MATUGEN_COLORS)
+
+    def _on_matugen_changed(
+        self, monitor: Gio.FileMonitor, file: Gio.File,
+        other_file: Gio.File, event_type: Gio.FileMonitorEvent
+    ) -> None:
+        if event_type not in (
+            Gio.FileMonitorEvent.CHANGED,
+            Gio.FileMonitorEvent.CREATED,
+        ):
+            return
+        log.info("Matugen colors updated — scheduling reload")
+        if self._matugen_debounce:
+            GLib.source_remove(self._matugen_debounce)
+        self._matugen_debounce = GLib.timeout_add(600, self._do_matugen_reload)
+
+    def _do_matugen_reload(self) -> bool:
+        """Reload CSS and restart waybar after matugen regenerates colors."""
+        import subprocess
+        self._matugen_debounce = 0
+        self._load_css()
+        if self._window:
+            utility.toast(self._window._toast_ov, "Theme updated")
+        launch = Path.home() / "cloudyy_scripts" / "launch_waybar.sh"
+        if launch.exists():
+            subprocess.Popen([str(launch)], start_new_session=True)
+            log.info("Waybar restarted after theme change")
+        return GLib.SOURCE_REMOVE
 
     def _load_css(self) -> None:
         if not CSS_PATH.exists():
