@@ -3,7 +3,7 @@
   "exclusive": true,
   "reload_style_on_change": false,
   "position": "left",
-  "width": 58,
+  "width": 60,
   "spacing": 0,
   "margin-top": 0,
   "margin-bottom": 0,
@@ -12,7 +12,6 @@
   "modules-left": [
     "custom/launcher",
     "hyprland/workspaces",
-    "custom/notification",
     "custom/updates"
   ],
   "modules-center": [
@@ -30,38 +29,19 @@
   "custom/launcher": {
     "format": ">_",
     "on-click": "rofi -show drun",
-    "tooltip-format": "Launch"
+    "tooltip-format": "[ launch ]"
   },
   "hyprland/workspaces": {
     "on-click": "activate",
-    "format": "{name}",
+    "format": "[{name}]",
     "persistent-workspaces": {
       "*": 5
     },
     "on-scroll-up": "hyprctl dispatch workspace e-1",
     "on-scroll-down": "hyprctl dispatch workspace e+1"
   },
-  "custom/notification": {
-    "format": "{icon}",
-    "format-icons": {
-      "notification": "🔔",
-      "none": "🔕",
-      "dnd-notification": "⛔",
-      "dnd-none": "⛔",
-      "inhibited-notification": "🔔",
-      "inhibited-none": "🔕",
-      "dnd-inhibited-notification": "⛔",
-      "dnd-inhibited-none": "⛔"
-    },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true
-  },
   "custom/updates": {
-    "format": "📦\n{}",
+    "format": "PKG\n{}",
     "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
     "interval": 3600,
     "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
@@ -90,9 +70,9 @@
     "tooltip": true
   },
   "network": {
-    "format-wifi": "📶\n{signalStrength}%",
-    "format-ethernet": "🔗",
-    "format-disconnected": "✗",
+    "format-wifi": "NET\n{signalStrength}%",
+    "format-ethernet": "ETH",
+    "format-disconnected": "---",
     "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
     "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
     "tooltip-format-disconnected": "Disconnected",
@@ -100,8 +80,8 @@
     "interval": 5
   },
   "pulseaudio#output": {
-    "format": "🔊\n{volume}%",
-    "format-muted": "🔇",
+    "format": "VOL\n{volume}%",
+    "format-muted": "---",
     "on-click": "swayosd-client --output-volume mute-toggle",
     "on-scroll-up": "swayosd-client --output-volume raise",
     "on-scroll-down": "swayosd-client --output-volume lower",
@@ -109,7 +89,7 @@
   },
   "cpu": {
     "interval": 2,
-    "format": "💻\n{usage}%",
+    "format": "CPU\n{usage}%",
     "on-click": "kitty -e btop",
     "states": {
       "warning": 70,
@@ -118,7 +98,7 @@
   },
   "memory": {
     "interval": 2,
-    "format": "🧠\n{percentage}%",
+    "format": "RAM\n{percentage}%",
     "on-click": "kitty -e btop",
     "states": {
       "warning": 70,
@@ -131,9 +111,9 @@
       "warning": 30,
       "critical": 15
     },
-    "format": "{icon}\n{capacity}%",
-    "format-charging": "⚡\n{capacity}%",
-    "format-plugged": "🔌\n{capacity}%",
+    "format": "BAT\n{capacity}%",
+    "format-charging": "CHG\n{capacity}%",
+    "format-plugged": "PWR\n{capacity}%",
     "format-full": "✓\n100%",
     "tooltip-format": "{timeTo}\nHealth: {health}%",
     "format-icons": [
@@ -148,7 +128,7 @@
     ]
   },
   "custom/power": {
-    "format": "⏻",
+    "format": "[X]",
     "on-click": "~/cloudyy_scripts/wlogout.sh",
     "tooltip-format": "Power"
   }

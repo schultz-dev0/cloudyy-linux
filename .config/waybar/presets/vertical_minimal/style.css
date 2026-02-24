@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — vertical_minimal (FIXED)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Ensure this path is correct relative to where you launch waybar */
+@import "../../.config/matugen/generated/waybar-colors.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0; /* Kept as requested */
+  box-shadow: none;
+  font-family: 'Monocraft';
+  font-weight: 500;
+  font-size: 11px;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+window#waybar {
+    background: transparent;
+    color: @on_surface;
+}
+
+#custom-launcher,
+#custom-notification,
+#clock,
+#workspaces,
+#pulseaudio,
+#battery,
+#custom-power {
+  background: transparent;
+  padding: 6px 0px;
+  margin: 3px 1px;
+  color: @on_surface;
+}
+
+#custom-launcher { font-size: 16px; color: @on_primary_container; padding: 6px 3px; }
+#custom-launcher:hover { color: @primary; }
+
+#custom-notification { font-size: 12px; }
+#custom-notification:hover { color: @on_surface; }
+
+#workspaces { margin: 2px 0; padding: 0 3px; }
+
+#workspaces button.visible { color: @on_surface; }
+
+#workspaces button {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 0;
+  
+  /* FIXED: Changed 'auto' to explicit side margins (1px top/bottom, 3px left/right) */
+  margin: 1px 3px; 
+  
+  min-width: 24px;
+  color: @on_surface_variant;
+  font-size: 11px;
+}
+
+#workspaces button.visible { 
+  color: @on_surface; 
+}
+
+#workspaces button.active {
+  background-color: @primary;
+  color: @on_primary;
+  font-weight: 700;
+  border-radius: 0 4px 4px 0;
+  margin: 1px 3px;
+  padding: 8px 0;
+}
+
+#workspaces button.urgent {
+    background-color: @error;
+    color: @on_error;
+}
+
+#workspaces button:hover {
+    background-color: @on_primary_fixed_variant;
+}
+
+#pulseaudio.output       { font-size: 11px; }
+#pulseaudio.output.muted { color: @on_surface_variant; }
+
+#battery { font-size: 11px; }
+#battery.good { color: @tertiary; }
+#battery.warning:not(.charging)  { color: @primary_fixed; }
+#battery.critical:not(.charging) { color: @error; animation: vmin-blink 0.9s ease-in-out infinite; }
+
+#custom-power { font-size: 13px; padding: 5px 3px; }
+#custom-power:hover { color: @error; }
+
+@keyframes vmin-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.45; }
+  100% { opacity: 1; }
+}

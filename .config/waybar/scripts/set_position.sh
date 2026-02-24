@@ -15,10 +15,7 @@ readonly WAYBAR_DIR="${HOME}/.config/waybar"
 readonly ACTIVE_CONFIG="${WAYBAR_DIR}/config.jsonc"
 readonly CURRENT_POSITION_FILE="${WAYBAR_DIR}/.current_position"
 
-die() {
-  printf '[set_position] ERROR: %s\n' "$*" >&2
-  exit 1
-}
+die()  { printf '[set_position] ERROR: %s\n' "$*" >&2; exit 1; }
 info() { printf '[set_position] %s\n' "$*" >&2; }
 
 # ── Argument handling ──────────────────────────────────────────────────────
@@ -34,14 +31,11 @@ if [[ "${1:-}" == "--list" ]]; then
 fi
 
 POSITION="${1:-}"
-[[ -z "$POSITION" ]] && {
-  printf 'Usage: %s <top|bottom|left|right>\n' "$0" >&2
-  exit 1
-}
+[[ -z "$POSITION" ]] && { printf 'Usage: %s <top|bottom|left|right>\n' "$0" >&2; exit 1; }
 
 case "$POSITION" in
-top | bottom | left | right) ;;
-*) die "Invalid position '$POSITION'. Must be: top, bottom, left, right" ;;
+  top|bottom|left|right) ;;
+  *) die "Invalid position '$POSITION'. Must be: top, bottom, left, right" ;;
 esac
 
 [[ -f "${ACTIVE_CONFIG}" ]] || die "Active config not found at ${ACTIVE_CONFIG}"
@@ -51,7 +45,7 @@ info "Applying position: ${POSITION}"
 # ── Patch config via Python ────────────────────────────────────────────────
 # Read the JSONC (strip // comments), patch, write back.
 
-python3 - "$ACTIVE_CONFIG" "$POSITION" <<'PYEOF'
+python3 - "$ACTIVE_CONFIG" "$POSITION" << 'PYEOF'
 import sys, re, json
 
 config_path = sys.argv[1]
@@ -107,7 +101,7 @@ if position in ("top", "bottom"):
 elif position in ("left", "right"):
     # Vertical bar — remove height, set width, clear horizontal margins
     cfg.pop("height", None)
-    cfg["width"] = 15
+    cfg["width"] = 40
 
     cfg["margin-top"]    = 6
     cfg["margin-bottom"] = 6
@@ -127,7 +121,7 @@ with open(config_path, 'w') as f:
 print(f"[set_position] Patched {config_path} → position: {position}")
 PYEOF
 
-echo "${POSITION}" >"${CURRENT_POSITION_FILE}"
+echo "${POSITION}" > "${CURRENT_POSITION_FILE}"
 info "Position saved. Run launch_waybar.sh to apply."
 
 # ─────────────────────────────────────────────────────────────────────────────

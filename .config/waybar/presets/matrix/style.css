@@ -24,7 +24,7 @@ window#waybar {
 window#waybar > box {
   background-color: rgba(5, 10, 5, 0.97);
   border-radius: 0;
-  border-bottom: 1px solid rgba(0, 255, 65, 0.3);
+  /* border-bottom: 1px solid rgba(0, 255, 65, 0.3);  removed: GTK CSS does not support directional border shorthand */
   box-shadow: none;
   margin: 0;
   color: rgba(0, 255, 65, 0.85);
@@ -79,7 +79,7 @@ window#waybar > box {
   color: rgba(0, 255, 65, 1.0);
   font-size: 12px;
   font-weight: 700;
-  border-right: 1px solid rgba(0, 255, 65, 0.2);
+  /* border-right: 1px solid rgba(0, 255, 65, 0.2);  removed: GTK CSS does not support directional border shorthand */
   letter-spacing: 1px;
 }
 
@@ -89,7 +89,7 @@ window#waybar > box {
   background: transparent;
   margin: 0;
   padding: 0 2px;
-  border-right: 1px solid rgba(0, 255, 65, 0.15);
+  /* border-right: 1px solid rgba(0, 255, 65, 0.15);  removed: GTK CSS does not support directional border shorthand */
 }
 
 #workspaces button {
@@ -124,13 +124,13 @@ window#waybar > box {
   letter-spacing: 1.5px;
   color: rgba(0, 255, 65, 1.0);
   padding: 0 16px;
-  border-left: 1px solid rgba(0, 255, 65, 0.2);
-  border-right: 1px solid rgba(0, 255, 65, 0.2);
+  /* border-left: 1px solid rgba(0, 255, 65, 0.2);  removed: GTK CSS does not support directional border shorthand */
+  /* border-right: 1px solid rgba(0, 255, 65, 0.2);  removed: GTK CSS does not support directional border shorthand */
 }
 
 /* ── Mpris: dimmer, italic feel ──────────────────────────────────────────── */
 
-#mpris        { color: rgba(0, 200, 50, 0.6); font-size: 10px; max-width: 200px; }
+#mpris        { color: rgba(0, 200, 50, 0.6); font-size: 10px; }
 #mpris.paused { color: rgba(0, 180, 45, 0.4); }
 #mpris.stopped { padding: 0; margin: 0; min-width: 0; }
 
@@ -138,8 +138,8 @@ window#waybar > box {
 
 #custom-temps {
   color: rgba(0, 255, 65, 0.85);
-  border-left: 1px solid rgba(0, 255, 65, 0.15);
-  border-right: 1px solid rgba(0, 255, 65, 0.15);
+  /* border-left: 1px solid rgba(0, 255, 65, 0.15);  removed: GTK CSS does not support directional border shorthand */
+  /* border-right: 1px solid rgba(0, 255, 65, 0.15);  removed: GTK CSS does not support directional border shorthand */
   font-weight: 700;
 }
 
@@ -149,7 +149,7 @@ window#waybar > box {
 
 /* ── Updates / timer / notification ─────────────────────────────────────── */
 
-#custom-updates      { color: rgba(0, 200, 50, 0.65); border-left: 1px solid rgba(0, 255, 65, 0.12); }
+#custom-updates      { color: rgba(0, 200, 50, 0.65); }
 #custom-notification { color: rgba(0, 200, 50, 0.65); }
 #custom-timer        { color: rgba(0, 200, 50, 0.65); }
 
@@ -174,7 +174,7 @@ window#waybar > box {
   padding: 0 12px;
   color: rgba(0, 255, 65, 0.5);
   font-size: 11px;
-  border-left: 1px solid rgba(0, 255, 65, 0.15);
+  /* border-left: 1px solid rgba(0, 255, 65, 0.15);  removed: GTK CSS does not support directional border shorthand */
   letter-spacing: 1px;
 }
 

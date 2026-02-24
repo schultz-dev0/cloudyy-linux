@@ -1,0 +1,84 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — vertical_ultraminimal
+   44px wide. Three tiny whisper-thin pills. Only workspaces, clock, battery.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  box-shadow: none;
+  font-family: 'Monocraft';
+  font-weight: 500;
+  font-size: 11px;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+
+window#waybar { background: transparent; box-shadow: none; }
+window#waybar > box { background: transparent; border: none; box-shadow: none; margin: 0; }
+
+.modules-left {
+  background-color: alpha(@surface, 0.60);
+  border-radius: 10px;
+  border: 1px solid alpha(@outline_variant, 0.1);
+  margin: 6px 4px 3px 4px;
+  padding: 5px 0;
+}
+.modules-center {
+  background-color: alpha(@surface, 0.60);
+  border-radius: 10px;
+  border: 1px solid alpha(@outline_variant, 0.1);
+  margin: 3px 4px;
+  padding: 5px 0;
+}
+.modules-right {
+  background-color: alpha(@surface, 0.60);
+  border-radius: 10px;
+  border: 1px solid alpha(@outline_variant, 0.1);
+  margin: 3px 4px 6px 4px;
+  padding: 5px 0;
+}
+
+#workspaces, #clock, #battery, #custom-power {
+  background: transparent;
+  padding: 3px 2px;
+  margin: 0;
+  color: alpha(@on_surface_variant, 0.55);
+}
+
+#workspaces { margin: 2px 0; padding: 0 3px; }
+#workspaces button {
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  margin: 0 3px;
+  min-width: 22px;
+  color: alpha(@on_surface_variant, 0.25);
+  font-size: 9px;
+}
+#workspaces button.visible { color: alpha(@on_surface, 0.5); }
+#workspaces button.active  { color: @primary; font-size: 12px; font-weight: 700; }
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.1); }
+#workspaces button:hover   { color: @on_surface; }
+#workspaces button.urgent  { color: @error; animation: vumin-blink 0.9s ease-in-out infinite; }
+
+#clock { color: @on_surface; font-size: 15px; font-weight: 700; padding: 5px 2px; }
+
+#battery { font-size: 11px; }
+#battery.good { color: @tertiary; }
+#battery.warning:not(.charging)  { color: @primary_fixed; }
+#battery.critical:not(.charging) { color: @error; animation: vumin-blink 0.9s ease-in-out infinite; }
+
+#custom-power { font-size: 12px; padding: 5px 2px; }
+#custom-power:hover { color: @error; }
+
+@keyframes vumin-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.25; }
+  100% { opacity: 1; }
+}
+
+tooltip { background-color: alpha(@surface_container_high, 0.97); border: 1px solid alpha(@outline_variant, 0.18); border-radius: 8px; box-shadow: none; }
+tooltip label { padding: 4px 8px; color: @on_surface; font-size: 11px; }

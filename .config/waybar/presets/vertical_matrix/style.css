@@ -1,0 +1,138 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAYBAR PRESET — vertical_matrix
+   Phosphor terminal. Full-height sidebar. Monospace. Green on black.
+   Sections separated by thin green lines. Everything looks like a readout.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  box-shadow: none;
+  font-family: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
+  font-weight: 400;
+  font-size: 10px;
+  transition: color 0.1s ease;
+}
+
+window#waybar { background: transparent; box-shadow: none; }
+
+window#waybar > box {
+  background-color: rgba(3, 8, 3, 0.96);
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.modules-left {
+  background: transparent;
+  margin: 0;
+  padding: 4px 0;
+}
+.modules-center {
+  background: transparent;
+  margin: 0;
+  padding: 4px 0;
+}
+.modules-right {
+  background: transparent;
+  margin: 0;
+  padding: 4px 0;
+}
+
+#custom-launcher,
+#custom-updates,
+#custom-notification,
+#custom-temps,
+#clock,
+#workspaces,
+#network,
+#pulseaudio,
+#cpu,
+#memory,
+#battery,
+#custom-power {
+  background: transparent;
+  padding: 4px 2px;
+  margin: 0;
+  color: rgba(0, 255, 65, 0.7);
+}
+
+#custom-launcher:hover, #custom-updates:hover, #custom-notification:hover,
+#custom-temps:hover, #clock:hover, #network:hover,
+#pulseaudio.output:hover, #cpu:hover, #memory:hover,
+#battery:hover, #custom-power:hover {
+  background-color: rgba(0, 255, 65, 0.06);
+  color: rgba(0, 255, 65, 1.0);
+}
+
+#custom-launcher {
+  color: rgba(0, 255, 65, 1.0);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 7px 2px;
+  background-color: rgba(0, 255, 65, 0.08);
+}
+
+#clock {
+  color: rgba(0, 255, 65, 1.0);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 7px 2px;
+}
+
+#workspaces { margin: 0; padding: 0 2px; }
+#workspaces button {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 3px 0;
+  margin: 1px 3px;
+  min-width: 30px;
+  color: rgba(0, 255, 65, 0.3);
+  font-size: 10px;
+}
+#workspaces button.visible { color: rgba(0, 255, 65, 0.6); }
+#workspaces button.active  {
+  color: rgba(0, 255, 65, 1.0);
+  font-weight: 700;
+  background-color: rgba(0, 255, 65, 0.1);
+}
+#workspaces button.empty   { color: rgba(0, 255, 65, 0.12); }
+#workspaces button:hover   { background-color: rgba(0, 255, 65, 0.07); color: rgba(0, 255, 65, 0.9); }
+#workspaces button.urgent  { background-color: rgba(255, 50, 50, 0.15); color: rgba(255, 80, 80, 1.0); animation: vmtx-blink 0.6s ease-in-out infinite; }
+
+#custom-updates      { color: rgba(0, 200, 50, 0.6); font-size: 10px; }
+#custom-notification { font-size: 11px; }
+#custom-temps        { color: rgba(0, 255, 65, 0.85); font-weight: 700; }
+#network.disconnected { color: rgba(255, 80, 80, 0.7); }
+#pulseaudio.output.muted { color: rgba(0, 255, 65, 0.2); }
+#cpu.warning,  #memory.warning  { color: rgba(200, 255, 0, 0.9); }
+#cpu.critical, #memory.critical { color: rgba(255, 80, 80, 1.0); animation: vmtx-blink 1s ease-in-out infinite; }
+#battery.charging, #battery.full { color: rgba(0, 255, 65, 1.0); }
+#battery.warning:not(.charging)  { color: rgba(200, 255, 0, 0.9); }
+#battery.critical:not(.charging) { color: rgba(255, 80, 80, 1.0); animation: vmtx-blink 0.7s ease-in-out infinite; }
+
+#custom-power {
+  color: rgba(0, 255, 65, 0.4);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 6px 2px;
+}
+#custom-power:hover { background-color: rgba(255, 50, 50, 0.1); color: rgba(255, 80, 80, 1.0); }
+
+@keyframes vmtx-blink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.15; }
+  100% { opacity: 1; }
+}
+
+tooltip {
+  background-color: rgba(3, 8, 3, 0.98);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  border-radius: 0;
+  box-shadow: none;
+}
+tooltip label { padding: 4px 8px; color: rgba(0, 255, 65, 0.9); font-size: 10px; }
