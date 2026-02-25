@@ -179,11 +179,23 @@ pages:
               icon: 
               key: waybar/preset
               options:
+                - default
                 - compact
                 - bubble
+                - dense
+                - ghost
+                - matrix
+                - minimal
+                - ultraminimal
               options_map:
+                default: pill
                 compact: compact
                 bubble: bubble
+                dense: dense
+                ghost: ghost
+                matrix: matrix
+                minimal: minimal
+                ultraminimal: ultraminimal
             on_change:
               # Checks if currently vertical and prepends the prefix accordingly
               command: >-

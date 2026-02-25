@@ -102,7 +102,7 @@ cmd_apply() {
   log "Applying: $(basename "$img") [$mode]"
 
   # Generate colors first — post_hooks fire and restart apps
-  run_matugen "$img" "$mode"
+  run_matugen "$img" "$mode" #|| log "WARNING: Matugen failed, but continuing to wallpaper..."
 
   # Save state
   CURRENT_WALL="$img"
