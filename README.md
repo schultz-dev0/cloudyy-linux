@@ -14,6 +14,10 @@ git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
 ```
 * Follow the prompts and it will automatically deploy and symlink all the dotfiles*
 
+## *Waybar presets:*
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybr/2026-02-25-014835_hyprcap.png)
+
+
 
 ## to do list:
 
