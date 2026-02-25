@@ -1,13 +1,13 @@
 # wallpaper
 
 [config]
-variant  = "scheme-neutral"
+variant  = "scheme-vibrant"
 contrast = 0
 
 [config.wallpaper]
 command       = "/usr/bin/swww"
 arguments     = ["img", "--transition-type", "center", "--transition-step", "15", "--transition-fps", "60"]
-set           = true  
+set           = false  
 
 # hyprland config
 
@@ -41,7 +41,7 @@ post_hook     = '~/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
 input_path    = '~/.config/matugen/templates/nvimmode.lua'
-output_path   = '~/~/.config/nvim/lua/current_mode.lua'
+output_path   = '~/.config/nvim/lua/current_mode.lua'
 post_hook     = 'sh -c "touch ~/.config/nvim/lua/current_mode.lua"'
 
 [templates.rofi]
