@@ -15,7 +15,13 @@ git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
 * Follow the prompts and it will automatically deploy and symlink all the dotfiles*
 
 ## *Waybar presets:*
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybr/2026-02-25-014835_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014835_hyprcap.png)
+
+
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014826_hyprcap.png)
+
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014301_hyprcap.png)
+
 
 
 
@@ -34,17 +40,17 @@ git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
   - *Blank obsidian vault folder is where you can place your vault for matugen colors*
 
 previews:
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021844_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021844_hyprcap.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021914_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021914_hyprcap.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-04-014028_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-04-014028_hyprcap.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021928_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021928_hyprcap.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-021944_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021944_hyprcap.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-03-022001_hyprcap.png)
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-022001_hyprcap.png)
 
 
 Keybind menu preview:
