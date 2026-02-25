@@ -46,6 +46,10 @@ previews:
 
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-04-014028_hyprcap.png)
 
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/general/2026-02-25-014206_hyprcap.png)
+
+![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/general/2026-02-25-014226_hyprcap.png)
+
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021928_hyprcap.png)
 
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021944_hyprcap.png)
