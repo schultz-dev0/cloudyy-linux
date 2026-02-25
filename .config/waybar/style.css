@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: pill
+   PRESET: ultraminimal
    ─────────────────────────────────────────────────────────────────────────
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -55,313 +55,63 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── pill-modules ────────────────────────────────────────────────────────────── */
+/* ── ultraminimal-modules ────────────────────────────────────────────────────── */
 
-/* pill-modules — polished floating pill bar */
-
-* {
-  border:        none;
-  border-radius: 0;
-  min-height:    0;
-  font-family:   'Monocraft', monospace;
-  font-weight:   600;
-  font-size:     13px;
-}
-
-#custom-launcher {
-  padding:          0 13px 2px 8px;
-  margin:           5px 2px 5px 6px;
-  border-radius:    10px;
-  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
-  color:            @on_primary_container;
-  font-size:        19px;
-  box-shadow:       0 2px 10px alpha(@primary, 0.32);
-  transition:       all 0.2s ease;
-}
-#custom-launcher:hover {
-  background-image: linear-gradient(135deg, @primary_fixed_dim 0%, @primary 100%);
-  box-shadow:       0 4px 18px alpha(@primary, 0.45);
-}
-
-#custom-temps {
-  padding:          0 5px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@tertiary_container, 0.45);
-  border:           1px solid alpha(@tertiary, 0.18);
-  color:            @tertiary;
-  font-weight:      700;
-  transition:       all 0.2s ease;
-}
-#custom-temps:hover {
-  background-color: alpha(@tertiary_container, 0.75);
-  border:           1px solid alpha(@tertiary, 0.35);
-}
+/* ultraminimal-modules — absolute minimum presence */
 
 #clock {
-  padding:          0 5px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@secondary_container, 0.45);
-  border:           1px solid alpha(@secondary, 0.12);
-  color:            @on_secondary_container;
-  font-weight:      700;
-  letter-spacing:   0.5px;
-  transition:       all 0.2s ease;
-}
-#clock:hover {
-  background-color: alpha(@secondary_container, 0.75);
-  border:           1px solid alpha(@secondary, 0.28);
+  color:          @on_surface;
+  font-size:      15px;
+  font-weight:    700;
+  letter-spacing: 0.5px;
+  margin:         2px 8px;
 }
 
-#custom-timer {
-  padding:          0 12px 0 9px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@surface_container, 0.6);
-  color:            @on_surface;
-  font-size:        14px;
-  transition:       all 0.2s ease;
-}
-
-#custom-pycharm, #custom-themeswitcher {
-  padding:          0 12px 0 9px;
-  margin:           4px 2px;
-  border-radius:    8px;
-  background-color: alpha(@surface_container, 0.6);
-  color:            @on_surface;
-  font-size:        14px;
-  transition:       all 0.2s ease;
-}
-#custom-pycharm:hover, #custom-themeswitcher:hover {
-  background-color: alpha(@surface_container_high, 0.9);
-}
-
-#custom-weather {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @tertiary; font-size: 12px; transition: all 0.2s ease;
-}
-#custom-weather:hover { background-color: alpha(@surface_container_high, 0.9); }
-
-#custom-updates {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @secondary; transition: all 0.2s ease;
-}
-#custom-updates:hover { background-color: alpha(@surface_container_high, 0.9); }
-
-#custom-notification {
-  padding: 0 12px 0 9px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface; font-size: 14px; transition: all 0.2s ease;
-}
-#custom-notification:hover { background-color: alpha(@surface_container_high, 0.9); }
-
-#tray {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.4);
-  transition: all 0.2s ease;
-}
-#tray:hover { background-color: alpha(@surface_container_high, 0.9); }
-#tray > .passive      { -gtk-icon-effect: dim; }
-#tray > .needs-attention {
-  -gtk-icon-effect: highlight;
-  background-color: alpha(@error, 0.2);
-  border-radius: 6px;
-}
-
-#workspaces {
-  padding:          0;
-  margin:           4px 6px;
-  border-radius:    12px;
-  background-color: alpha(@surface_container, 0.5);
-  border:           1px solid alpha(@outline_variant, 0.1);
-  box-shadow:       0 1px 4px alpha(@shadow, 0.12);
-}
 #workspaces button {
-  padding:          0 8px;
-  margin:           3px 2px;
-  min-width:        12px;
-  border-radius:    8px;
-  background-color: alpha(@surface_container_highest, 0.38);
-  color:            @on_surface_variant;
-  font-size:        12px;
-  transition:       all 0.18s ease;
+  background:  transparent;
+  color:       alpha(@on_surface_variant, 0.22);
+  font-size:   9px;
+  min-width:   22px;
+  padding:     2px 0;
+  margin:      1px 3px;
+  transition:  all 0.14s ease;
 }
-#workspaces button.empty {
-  padding:          0 6px;
-  min-width:        20px;
-  background-color: alpha(@surface_container_high, 0.18);
-  color:            alpha(@on_surface_variant, 0.35);
+#workspaces button.visible { color: alpha(@on_surface, 0.5); }
+#workspaces button.active  {
+  color:       @primary;
+  font-size:   12px;
+  font-weight: 700;
 }
-#workspaces button.visible {
-  background-color: alpha(@surface_container_highest, 0.6);
-  color:            @on_surface;
-}
-#workspaces button.active {
-  padding:          0 1px;
-  min-width:        28px;
-  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
-  color:            @on_primary_container;
-  box-shadow:       0 2px 8px alpha(@primary, 0.38);
-  font-weight:      700;
-}
-#workspaces button:hover {
-  background-color: @surface_container_highest;
-  color:            @on_surface;
-}
-#workspaces button.active:hover {
-  background-image: linear-gradient(135deg, @primary_fixed_dim 0%, @primary 100%);
-  box-shadow:       0 3px 12px alpha(@primary, 0.48);
-}
-#workspaces button.urgent {
-  background-image: linear-gradient(135deg, @error_container 0%, @error 100%);
-  color:            @on_error;
-  animation:        blink-urgent 1.2s ease-in-out infinite;
-}
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.09); }
+#workspaces button:hover   { color: @on_surface; }
+#workspaces button.urgent  { color: @error; animation: blink-urgent 0.9s ease-in-out infinite; }
 
-#mpris {
-  padding:          0 10px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@secondary_container, 0.45);
-  color:            @on_secondary_container;
-  font-size:        12px;
-  border:           1px solid alpha(@secondary, 0.15);
-  transition:       all 0.2s ease;
-}
-#mpris:hover     { background-color: alpha(@secondary_container, 0.72); border: 1px solid alpha(@secondary, 0.32); }
-#mpris.playing   { color: @secondary; }
-#mpris.paused    { color: alpha(@on_secondary_container, 0.55); }
-#mpris.stopped   { padding: 0; margin: 0; min-width: 0; background: transparent; border: none; }
+#custom-notification { font-size: 12px; color: alpha(@on_surface_variant, 0.55); }
+#custom-notification:hover { color: @on_surface; }
 
-/* Network — per-state colored pills */
-#network {
-  padding:          1px 14px 0 9px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@surface_container, 0.6);
-  color:            @on_surface;
-  font-size:        14px;
-  transition:       all 0.2s ease;
-}
-#network:hover      { background-color: alpha(@surface_container_high, 0.9); }
-#network.disconnected { color: alpha(@on_surface_variant, 0.38); }
-#network.linked, #network.ethernet {
-  color: @tertiary;
-  background-color: alpha(@tertiary_container, 0.3);
-  border:           1px solid alpha(@tertiary, 0.15);
-}
-#network.wifi {
-  color:            @primary_fixed;
-  background-color: alpha(@primary_container, 0.28);
-  border:           1px solid alpha(@primary, 0.15);
-}
+#pulseaudio.output       { color: alpha(@on_surface_variant, 0.55); font-size: 11px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.2); }
 
-#bluetooth {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface; font-size: 12px; transition: all 0.2s ease;
-}
-#bluetooth:hover     { background-color: alpha(@surface_container_high, 0.9); }
-#bluetooth.disabled  { color: alpha(@on_surface_variant, 0.38); }
-#bluetooth.connected { color: @primary_fixed; background-color: alpha(@primary_container, 0.28); }
+#battery                               { color: alpha(@on_surface_variant, 0.55); font-size: 11px; }
+#battery.good                          { color: @tertiary; }
+#battery.charging, #battery.full       { color: @tertiary; }
+#battery.warning:not(.charging)        { color: @primary_fixed; }
+#battery.critical:not(.charging)       { color: @error; animation: blink 0.9s ease-in-out infinite; }
 
-#pulseaudio.output {
-  padding:          0 12px 0 9px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@surface_container, 0.6);
-  color:            @on_surface;
-  font-size:        14px;
-  transition:       all 0.2s ease;
+#custom-power { 
+  color: alpha(@on_surface_variant, 0.4); 
+  font-size: 12px; 
+  transition: color 0.15s ease;
+  margin: 2px 8px;
 }
-#pulseaudio.output:hover  { background-color: alpha(@surface_container_high, 0.9); }
-#pulseaudio.output.muted  { color: alpha(@on_surface_variant, 0.35); }
-
-#cpu {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
-}
-#cpu:hover     { background-color: alpha(@surface_container_high, 0.9); }
-#cpu.warning   { color: @tertiary;  background-color: alpha(@tertiary_container, 0.22); }
-#cpu.critical  { color: @error;     background-color: alpha(@error_container, 0.32); animation: blink-urgent 1.5s ease-in-out infinite; }
-
-#memory {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
-  background-color: alpha(@surface_container, 0.6);
-  color: @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
-}
-#memory:hover    { background-color: alpha(@surface_container_high, 0.9); }
-#memory.warning  { color: @tertiary; background-color: alpha(@tertiary_container, 0.22); }
-#memory.critical { color: @error;    background-color: alpha(@error_container, 0.32); animation: blink-urgent 1.5s ease-in-out infinite; }
-
-#battery {
-  padding:          0 5px;
-  margin:           5px 2px;
-  border-radius:    10px;
-  background-color: alpha(@surface_container, 0.6);
-  color:            @on_surface;
-  font-weight:      700;
-  transition:       all 0.2s ease;
-}
-#battery:hover                          { background-color: alpha(@surface_container_high, 0.9); }
-#battery.good                           { color: @tertiary; }
-#battery.charging, #battery.plugged, #battery.full {
-  color:            @tertiary;
-  background-color: alpha(@tertiary_container, 0.3);
-  border:           1px solid alpha(@tertiary, 0.18);
-  box-shadow:       0 1px 5px alpha(@tertiary, 0.2);
-}
-#battery.warning:not(.charging) {
-  color:            @primary_fixed;
-  background-color: alpha(@primary_container, 0.32);
-  border:           1px solid alpha(@primary, 0.22);
-}
-#battery.critical:not(.charging) {
-  color:            @on_error;
-  background-image: linear-gradient(135deg, @error_container 0%, @error 100%);
-  box-shadow:       0 2px 10px alpha(@error, 0.45);
-  animation:        blink-urgent 1s ease-in-out infinite;
-}
-
-#custom-power {
-  padding:          0 12px 0 9px;
-  margin:           5px 6px 5px 2px;
-  border-radius:    10px;
-  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
-  color:            @on_primary_container;
-  font-size:        14px;
-  box-shadow:       0 2px 8px alpha(@error, 0.22);
-  transition:       all 0.2s ease;
-}
-#custom-power:hover {
-  background-color: @error;
-  background-image: none;
-  box-shadow:       0 4px 16px alpha(@error, 0.45);
-}
-
-tooltip {
-  background-color: alpha(@surface_container_high, 0.95);
-  border:           1px solid alpha(@outline_variant, 0.3);
-  border-radius:    12px;
-}
-tooltip label { padding: 6px 10px; color: @on_surface; font-size: 12px; }
-
-@keyframes blink-urgent {
-  0%   { opacity: 1;    }
-  50%  { opacity: 0.65; }
-  100% { opacity: 1;    }
-}
+#custom-power:hover { color: @error; }
 
 /* ── Bar container & layout ──────────────────────────────────────────────────── */
 
 window#waybar > box {
-  background-color: alpha(@surface, 0.88);
-  border-radius:    14px;
-  border:           1px solid alpha(@outline_variant, 0.18);
+  background-color: alpha(@surface, 0.68);
+  border-radius:    10px;
+  border:           1px solid alpha(@outline_variant, 0.1);
   box-shadow:       none;
-  margin-top: 6px; margin-left: 8px; margin-right: 8px;
+  margin-top: 2px; margin-left: 0; margin-right: 0;
 }
