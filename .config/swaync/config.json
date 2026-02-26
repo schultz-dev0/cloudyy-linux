@@ -1,7 +1,7 @@
 {
   "$schema": "/etc/xdg/swaync/configSchema.json",
   "positionX": "right",
-  "positionY": "top",
+  "positionY": "bottom",
   "layer": "overlay",
   "control-center-margin-top": 10,
   "control-center-margin-right": 10,
@@ -14,6 +14,8 @@
   "widgets": [
     "title",
     "buttons-grid",
+    "volume",
+    "backlight",
     "dnd",
     "notifications"
   ],
@@ -22,6 +24,22 @@
       "text": "Control Center",
       "clear-all-button": true,
       "button-text": "Clear"
+    },
+    "dnd": {
+      "label": "󰂛"
+    },
+    "backlight": {
+      "label": ""
+    },
+    "volume": {
+      "label": "󰕾",
+      "show-per-app": false
+    },
+    "backlight": {
+      "label": "󰃟",
+      "device": "intel_backlight",
+      "subsystem": "backlight",
+      "min": 1
     },
     "buttons-grid": {
       "actions": [
@@ -46,16 +64,13 @@
         },
         {
           "label": "󰸉",
-          "command": "uwsm-app $HOME/cloudyy_scripts/rofi-menu.sh --select"
+          "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi-menu.sh --select"
         },
         {
           "label": "󰄬",
-          "type": "toggle",
           "command": "hyprpicker"
         }
       ]
     }
   }
 }
-
-

@@ -1,7 +1,7 @@
 /* =====================================================================
    1. IMPORTS & VARIABLES
    ===================================================================== */
-@import url("file:///home/schultz/.config/matugen/generated/colors-swaync.css");
+@import url("../matugen/generated/colors-swaync.css");
 
 /* Define missing variables manually to prevent errors */
 @define-color shadow rgba(0, 0, 0, 0.25);
@@ -156,6 +156,88 @@
 /* =====================================================================
    9. SLIDERS & DND
    ===================================================================== */
+
+/* Volume & Backlight slider rows */
+.widget-volume,
+.widget-backlight {
+  background: alpha(@surface, 0.45);
+  border-radius: 16px;
+  border: 1px solid transparent;
+  padding: 10px 14px;
+  margin: 0 0 8px 0;
+}
+
+.widget-volume:hover,
+.widget-backlight:hover {
+  border-color: @rim-light;
+}
+
+.widget-volume > image,
+.widget-backlight > image {
+  color: @primary;
+  margin-right: 10px;
+  min-width: 22px;
+  font-size: 18px;
+}
+
+.widget-volume > label,
+.widget-backlight > label {
+  color: @text-secondary;
+  min-width: 36px;
+  font-size: 11px;
+}
+
+/* GTK scale — must explicitly restore after all:unset */
+.widget-volume scale,
+.widget-backlight scale {
+  /* re-establish sizing stripped by all:unset */
+  min-height: 20px;
+  padding: 0 4px;
+}
+
+.widget-volume scale trough,
+.widget-backlight scale trough {
+  background: alpha(@surface, 0.8);
+  border-radius: 100px;
+  /* explicit sizes are required — all:unset removes them */
+  min-height: 5px;
+  min-width: 40px;
+}
+
+.widget-volume scale trough highlight,
+.widget-backlight scale trough highlight {
+  background: @primary;
+  border-radius: 100px;
+  min-height: 5px;
+}
+
+.widget-volume scale slider,
+.widget-backlight scale slider {
+  background: @primary;
+  border-radius: 100px;
+  /* explicit size required after all:unset */
+  min-height: 16px;
+  min-width: 16px;
+  margin: -6px 0;   /* vertically centre thumb over the 5px track */
+  box-shadow: 0 0 8px alpha(@primary, 0.55);
+  transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.widget-volume scale slider:hover,
+.widget-backlight scale slider:hover {
+  background: @on-primary;
+  box-shadow: 0 0 14px alpha(@primary, 0.75);
+  min-height: 19px;
+  min-width: 19px;
+}
+
+.widget-volume scale slider:active,
+.widget-backlight scale slider:active {
+  box-shadow: 0 0 20px alpha(@primary, 0.9);
+  min-height: 21px;
+  min-width: 21px;
+}
+
 .widget-dnd {
   margin: 0 0 16px 0;
   background: alpha(@surface, 0.3);
