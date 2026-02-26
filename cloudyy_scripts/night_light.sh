@@ -1,33 +1,67 @@
 #!/usr/bin/env bash
-
 # ==============================================================================
-# NIGHT LIGHT TOGGLE SCRIPT (With Auto-Install)
+# NIGHT LIGHT — wlsunset + yad --scale temperature picker
+# Deps: wlsunset, yad
 # ==============================================================================
 
-# 1. Configuration
-TEMP_LOW=4000
-TEMP_HIGH=6500
-TERMINAL="kitty" # <--- CHANGE THIS if you use alacritty, foot, or wezterm
+readonly TEMP_CACHE="$HOME/.cache/wltemp"
+readonly TEMP_MIN=1000
+readonly TEMP_MAX=6500
+readonly NOTIF_ID=555
 
-# 2. Dependency Check & Auto-Install
-if ! command -v wlsunset &>/dev/null; then
-  notify-send -u critical -a "System" "Missing Dependency" "Installing wlsunset..."
+_read_temp() {
+  [[ -f "$TEMP_CACHE" ]] && cat "$TEMP_CACHE" || echo "4000"
+}
 
-  # Open a terminal to ask for sudo password
-  $TERMINAL --title "Installer" -e sh -c "sudo pacman -S --noconfirm wlsunset; echo 'Done! Closing...'; sleep 1"
+_write_temp() { echo "$1" >"$TEMP_CACHE"; }
 
-  # verification
-  if ! command -v wlsunset &>/dev/null; then
-    notify-send -u critical -a "System" "Installation Failed" "Please install wlsunset manually."
-    exit 1
-  fi
-fi
+_apply_temp() {
+  local temp="$1"
+  pkill wlsunset 2>/dev/null
+  sleep 0.05
+  wlsunset -t "$temp" -T "$TEMP_MAX" &
+  _write_temp "$temp"
+}
 
-# 3. Main Toggle Logic
+# ── toggle ───────────────────────────────────────────────────────────────────
+
 if pgrep -x "wlsunset" >/dev/null; then
   pkill wlsunset
-  notify-send -r 555 -a "Display" "Night Light" "Disabled " -t 2000
-else
-  wlsunset -t $TEMP_LOW -T $TEMP_HIGH &
-  notify-send -r 555 -a "Display" "Night Light" "Enabled " -t 2000
+  exit 0
 fi
+
+# ── not on: enable immediately then open picker ──────────────────────────────
+
+current=$(_read_temp)
+_apply_temp "$current"
+
+# ── yad slider — auto-close on release ───────────────────────────────────────
+# coproc pipes yad stdout to us. --print-partial streams values while dragging.
+# read -t 0.35 times out when values stop (i.e. finger/mouse released).
+# Loop exits → we kill yad and apply the last received value.
+
+coproc YAD { yad \
+  --scale \
+  --title="Night Light" \
+  --text="<span font_desc='Monocraft 10'>Night Light</span>\n" \
+  --min-value=$TEMP_MIN \
+  --max-value=$TEMP_MAX \
+  --value="$current" \
+  --step=100 \
+  --print-partial \
+  --no-escape \
+  --center \
+  --width=400 \
+  --borders=16 \
+  --no-buttons \
+  2>/dev/null; }
+
+last_temp="$current"
+while IFS= read -r -t 0.35 line <&${YAD[0]}; do
+  [[ -n "$line" ]] && last_temp="$line"
+done
+
+kill "$YAD_PID" 2>/dev/null
+wait "$YAD_PID" 2>/dev/null
+
+_apply_temp "$last_temp"
