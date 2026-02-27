@@ -16,5 +16,5 @@
 .config/mozilla*
 
 .config/zsh/.zsh_history
-.config/zsh/.zcompdump
+.config/zsh/.zcompdump*
 .config/zsh/.bash_history

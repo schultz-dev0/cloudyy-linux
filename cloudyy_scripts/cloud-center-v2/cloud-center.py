@@ -60,6 +60,7 @@ APP_ID          = "dev.cloudyy.CloudCenter"
 CONFIG_PATH     = SCRIPT_DIR / "config.yaml"
 CSS_PATH        = SCRIPT_DIR / "assets" / "style.css"
 MATUGEN_COLORS  = Path.home() / ".config" / "matugen" / "generated" / "waybar-colors.css"
+GTK4_COLORS     = Path.home() / ".config" / "gtk-4.0" / "colors.css"
 SEARCH_DEBOUNCE = 200   # ms
 SIDEBAR_WIDTH   = 200   # px
 
@@ -451,6 +452,8 @@ class CloudCenter(Adw.Application):
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
         self._window: CloudCenterWindow | None = None
+        self._css_provider: Gtk.CssProvider | None = None
+        self._gtk4_colors_provider: Gtk.CssProvider | None = None
         self.hold()  # prevent GApplication 10s timeout — daemon mode
 
     def do_activate(self) -> None:
@@ -467,15 +470,33 @@ class CloudCenter(Adw.Application):
         return True  # suppress destroy
 
     def _start_matugen_watcher(self) -> None:
-        """Watch matugen color output; reload CSS + restart waybar when it changes."""
-        if not MATUGEN_COLORS.exists():
-            log.info("Matugen colors file not found, skipping watcher: %s", MATUGEN_COLORS)
-            return
-        gfile = Gio.File.new_for_path(str(MATUGEN_COLORS))
-        self._matugen_monitor = gfile.monitor_file(Gio.FileMonitorFlags.NONE, None)
-        self._matugen_monitor.connect("changed", self._on_matugen_changed)
+        """Watch the GTK4 colors file that matugen writes and hot-reload when it changes.
+
+        Why GTK4_COLORS, not MATUGEN_COLORS (waybar-colors.css):
+          The UI uses Libadwaita named colors (@accent_color, @window_fg_color, etc.)
+          which GTK resolves from ~/.config/gtk-4.0/colors.css.  GTK4 does NOT
+          re-read that file while an app is running — we have to load it ourselves
+          as an explicit CssProvider and replace it on every update.
+
+        Why WATCH_MOVES:
+          Matugen writes atomically (temp file → rename), producing inotify
+          IN_MOVED_TO.  WATCH_MOVES makes Gio surface that as RENAMED so our
+          handler actually fires.  CHANGED/CREATED cover any non-atomic writes.
+        """
         self._matugen_debounce: int = 0
-        log.info("Watching matugen colors: %s", MATUGEN_COLORS)
+
+        # Load the GTK4 colors once at startup so colors are correct immediately.
+        self._load_gtk4_colors()
+
+        watch_path = GTK4_COLORS if GTK4_COLORS.exists() else MATUGEN_COLORS
+        if not watch_path.exists():
+            log.info("No matugen color file found to watch — skipping watcher")
+            return
+
+        gfile = Gio.File.new_for_path(str(watch_path))
+        self._matugen_monitor = gfile.monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+        self._matugen_monitor.connect("changed", self._on_matugen_changed)
+        log.info("Watching matugen colors: %s", watch_path)
 
     def _on_matugen_changed(
         self, monitor: Gio.FileMonitor, file: Gio.File,
@@ -484,37 +505,97 @@ class CloudCenter(Adw.Application):
         if event_type not in (
             Gio.FileMonitorEvent.CHANGED,
             Gio.FileMonitorEvent.CREATED,
+            Gio.FileMonitorEvent.RENAMED,
         ):
             return
-        log.info("Matugen colors updated — scheduling reload")
+        log.info("Matugen colors updated (%s) — scheduling reload", event_type.value_nick)
         if self._matugen_debounce:
             GLib.source_remove(self._matugen_debounce)
         self._matugen_debounce = GLib.timeout_add(600, self._do_matugen_reload)
 
     def _do_matugen_reload(self) -> bool:
-        """Reload CSS and restart waybar after matugen regenerates colors."""
+        """Respawn the process after matugen regenerates the GTK4 palette.
+
+        GTK4/Libadwaita resolves @define-color variables (including @accent_color,
+        @window_fg_color, etc.) once at process startup when it reads
+        ~/.config/gtk-4.0/colors.css.  There is no runtime API to force a
+        re-read — loading a new CssProvider cannot redefine variables that are
+        already locked into Libadwaita's internal style cascade.
+
+        The only way to pick up new colors is a fresh process start.
+        We re-exec ourselves in-place: the app disappears for a fraction of a
+        second and comes back with the new palette baked in from startup.
+        """
         import subprocess
         self._matugen_debounce = 0
-        self._load_css()
-        if self._window:
-            utility.toast(self._window._toast_ov, "Theme updated")
+
+        log.info("Matugen palette changed — respawning for GTK4 color reload")
+
+        # Launch a fresh instance before we exit so there's no visible gap.
+        subprocess.Popen(
+            [sys.executable] + sys.argv,
+            start_new_session=True,
+        )
+
+        # Give the new process a moment to start, then exit cleanly.
+        GLib.timeout_add(250, self.quit)
+        return GLib.SOURCE_REMOVE
         launch = Path.home() / "cloudyy_scripts" / "launch_waybar.sh"
         if launch.exists():
             subprocess.Popen([str(launch)], start_new_session=True)
             log.info("Waybar restarted after theme change")
         return GLib.SOURCE_REMOVE
 
+    def _load_gtk4_colors(self) -> None:
+        """Load ~/.config/gtk-4.0/colors.css as a high-priority CssProvider.
+
+        GTK4 reads this file once at startup via gtk.css @import, but never
+        re-reads it while the process is running.  By loading it explicitly
+        here at USER priority (above APPLICATION), we control the color
+        variable definitions directly and can swap them on every matugen run.
+        Falls back to the waybar-colors.css path if the gtk-4.0 file doesn't
+        exist yet (e.g. first run before matugen has generated it).
+        """
+        colors_path = GTK4_COLORS if GTK4_COLORS.exists() else (
+            MATUGEN_COLORS if MATUGEN_COLORS.exists() else None
+        )
+        if colors_path is None:
+            return
+        display = Gdk.Display.get_default()
+        if self._gtk4_colors_provider is not None:
+            Gtk.StyleContext.remove_provider_for_display(display, self._gtk4_colors_provider)
+            self._gtk4_colors_provider = None
+        provider = Gtk.CssProvider()
+        try:
+            provider.load_from_path(str(colors_path))
+            Gtk.StyleContext.add_provider_for_display(
+                display,
+                provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_USER,   # above APPLICATION — we own color vars
+            )
+            self._gtk4_colors_provider = provider
+            log.info("Loaded GTK4 colors: %s", colors_path)
+        except Exception as e:
+            log.error("GTK4 colors load failed: %s", e)
+
     def _load_css(self) -> None:
         if not CSS_PATH.exists():
             return
+        display = Gdk.Display.get_default()
+        # Remove the previous provider before adding the new one so providers
+        # don't stack up on every hot-reload causing conflicts and a memory leak.
+        if self._css_provider is not None:
+            Gtk.StyleContext.remove_provider_for_display(display, self._css_provider)
+            self._css_provider = None
         provider = Gtk.CssProvider()
         try:
             provider.load_from_path(str(CSS_PATH))
             Gtk.StyleContext.add_provider_for_display(
-                Gdk.Display.get_default(),
+                display,
                 provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
             )
+            self._css_provider = provider
         except Exception as e:
             log.error("CSS load failed: %s", e)
 
