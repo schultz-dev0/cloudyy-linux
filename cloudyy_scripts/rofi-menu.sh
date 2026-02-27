@@ -126,7 +126,10 @@ Fruit Salad — inverted spectrum
     show_appearance_menu
     return
     ;;
-  *) return ;;
+  *)
+    show_appearance_menu
+    return
+    ;;
   esac
 
   show_contrast_menu "$variant"
@@ -157,7 +160,10 @@ show_contrast_menu() {
     show_color_menu
     return
     ;;
-  *) return ;;
+  *)
+    show_color_menu
+    return
+    ;;
   esac
 
   notify-send "Theme" "Applying ${variant_label} contrast ${contrast}..." -t 2000
@@ -199,7 +205,7 @@ show_appearance_menu() {
     show_main_menu
     ;;
   *)
-    exit 0
+    show_main_menu
     ;;
   esac
 }
@@ -260,6 +266,8 @@ select_wallpaper() {
   elif [[ -n "$selection" ]]; then
     notify-send "Error" "Could not find path for: $selection"
     return 1
+  else
+    show_appearance_menu
   fi
 }
 
@@ -283,14 +291,11 @@ show_keybinds_menu() {
 show_package_menu() {
   local choice
   choice=$(menu "Package Manager" \
-    "󰆴 Remove Package\n󰈙 List Installed\n󰋼 Package Info\n󰸉 Back")
+    "󰆴 Remove Package\n󰋼 Package Info\n󰸉 Back")
 
   case "${choice}" in
   *"Remove Package"*)
     remove_package
-    ;;
-  *"List Installed"*)
-    list_packages
     ;;
   *"Package Info"*)
     package_info
@@ -299,7 +304,7 @@ show_package_menu() {
     show_main_menu
     ;;
   *)
-    exit 0
+    show_main_menu
     ;;
   esac
 }
@@ -366,7 +371,10 @@ remove_package() {
     -theme-str 'listview { lines: 15; }' \
     -mesg "$(echo "$pkg_list" | wc -l) packages installed | Protected: ${#protected_packages[@]}")
 
-  [[ -z "$selected_pkg" ]] && return 0
+  [[ -z "$selected_pkg" ]] && {
+    show_package_menu
+    return 0
+  }
 
   # Confirmation
   local confirm
@@ -388,28 +396,6 @@ remove_package() {
     show_package_menu
     ;;
   esac
-}
-
-list_packages() {
-  local pkg_manager=""
-  if command -v yay &>/dev/null; then
-    pkg_manager="yay"
-  elif command -v paru &>/dev/null; then
-    pkg_manager="paru"
-  elif command -v pacman &>/dev/null; then
-    pkg_manager="pacman"
-  else
-    notify-send "Error" "No supported package manager found"
-    return 1
-  fi
-
-  if command -v kitty &>/dev/null; then
-    if [[ "$pkg_manager" == "pacman" ]]; then
-      kitty -e sh -c "pacman -Q | less; read -p 'Press Enter to close'" &
-    else
-      kitty -e sh -c "$pkg_manager -Q | less; read -p 'Press Enter to close'" &
-    fi
-  fi
 }
 
 package_info() {
@@ -437,7 +423,10 @@ package_info() {
     -theme-str 'window { width: 50%; }' \
     -theme-str 'listview { lines: 15; }')
 
-  [[ -z "$selected_pkg" ]] && return 0
+  [[ -z "$selected_pkg" ]] && {
+    show_package_menu
+    return 0
+  }
 
   if command -v kitty &>/dev/null; then
     if [[ "$pkg_manager" == "pacman" ]]; then
@@ -478,7 +467,7 @@ show_system_menu() {
     show_main_menu
     ;;
   *)
-    exit 0
+    show_main_menu
     ;;
   esac
 }
@@ -529,14 +518,30 @@ show_applications_menu() {
 
 show_learn_menu() {
   local choice
-  choice=$(menu "Learn" "󰣇  Arch Wiki\n  Hyprland Wiki")
+  choice=$(menu "Learn" "󰣇  Arch Wiki\n  Hyprland Wiki\n Keybinds")
 
   case "${choice,,}" in
   #*keybind*) run_app "~/cloudyy_scripts/rofi/keybindings.sh" ;; when I actually do it
   *arch*) run_app xdg-open "https://wiki.archlinux.org/" ;;
   *hypr*) run_app xdg-open "https://wiki.hypr.land/" ;;
+  *Key*) show_keybind_tips ;;
   *) show_main_menu ;;
   esac
+}
+
+# ==============================================================================
+# KEYBIND TIPS
+# ==============================================================================
+
+show_keybind_tips() {
+  local script="$HOME/cloudyy_scripts/keybinds.sh"
+  [[ ! -x "$script" ]] && {
+    notify-send "Error" "keybinds.sh not found"
+    return
+  }
+  # Subshell + || true so rofi escape (exit 1) never trips set -euo pipefail
+  (bash "$script") || true
+  configuration_menu
 }
 
 # ==============================================================================

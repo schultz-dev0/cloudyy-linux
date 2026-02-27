@@ -1,7 +1,7 @@
 # wallpaper
 
 [config]
-variant  = "scheme-vibrant"
+variant  = "scheme-rainbow"
 contrast = 0
 
 [config.wallpaper]
@@ -80,3 +80,6 @@ post_hook = 'pywalfox update'
 input_path = '~/.config/matugen/templates/vscode-theme.json'
 output_path = '~/.vscode-oss/extensions/matugen-theme/vscode-theme.json'
 
+[templates.vesktop]
+input_path = "~/.config/matugen/templates/vesktop_theme.css"
+output_path = "~/.config/vesktop/themes/matugen_theme.css"
