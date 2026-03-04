@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: vertical_dense
+   PRESET: dense
    ─────────────────────────────────────────────────────────────────────────
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -148,60 +148,14 @@ tooltip label {
 
 /* ── Bar container & layout ──────────────────────────────────────────────────── */
 
-window#waybar, window#waybar > box {
-  background: transparent;
-  border:     none;
-  box-shadow: none;
-  margin:     0;
-}
-
-.modules-left, .modules-center, .modules-right {
-  background: transparent;
-  margin:     0;
-  padding:    4px 0;
-}
-
 window#waybar > box {
   background-color: alpha(@surface, 0.97);
-  border:           none;
   border-radius:    0;
-}
-.modules-left   { padding: 4px 0; }
-.modules-center { padding: 4px 0; }
-.modules-right  { padding: 4px 0; }
-
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
-/* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
-/* share consistent symmetric padding so nothing is misaligned.                 */
-
-#clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
-  letter-spacing: 1px;
+  border:           none;
+  box-shadow:       none;
+  margin-top: 0; margin-left: 0; margin-right: 0;
 }
 
-#workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
-}
-
-#custom-launcher,
-#custom-power,
-#custom-notification,
-#custom-temps,
-#custom-updates,
-#custom-timer,
-#custom-weather,
-#mpris,
-#network,
-#pulseaudio,
-#bluetooth,
-#cpu,
-#memory,
-#battery {
-  padding: 6px 4px;
-  margin:  2px 4px;
-}
-
+.modules-left   { padding: 0 4px; }
+.modules-center { padding: 0 6px; }
+.modules-right  { padding: 0 4px; }

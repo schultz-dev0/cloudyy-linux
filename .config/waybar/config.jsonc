@@ -2,35 +2,110 @@
     "layer": "top",
     "exclusive": true,
     "reload_style_on_change": true,
-    "position": "left",
-    "width": 58,
-    "spacing": 0,
-    "margin-top": 6,
-    "margin-bottom": 6,
-    "margin-left": 6,
+    "position": "top",
+    "spacing": 2,
+    "height": 32,
+    "margin-top": 0,
+    "margin-left": 0,
     "margin-right": 0,
+    "margin-bottom": 0,
     "modules-left": [
         "custom/launcher",
         "hyprland/workspaces",
-        "custom/notification",
-        "custom/updates"
+        "custom/timer",
+        "custom/weather",
+        "custom/updates",
+        "custom/notification"
     ],
     "modules-center": [
+        "mpris",
         "clock",
         "custom/temps"
     ],
     "modules-right": [
         "network",
+        "bluetooth",
         "pulseaudio#output",
         "cpu",
         "memory",
         "battery",
+        "tray",
         "custom/power"
     ],
     "custom/launcher": {
-        "format": ">_",
+        "format": "󰅟",
         "on-click": "rofi -show drun",
-        "tooltip-format": "Launch"
+        "tooltip-format": "Application Launcher"
+    },
+    "custom/temps": {
+        "exec": "~/.config/waybar/scripts/temps.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 2,
+        "tooltip": true
+    },
+    "clock": {
+        "format": "󰥔 {:%H:%M}",
+        "format-alt": "󰃭 {:%a %d %b}",
+        "tooltip-format": "<tt><span size='10pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "on-click-right": "uwsm-app -- gnome-clocks",
+        "calendar": {
+            "mode": "month",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#ffb786'><b>{}</b></span>",
+                "days": "<span color='#e2e2e2'>{}</span>",
+                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+                "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
+            }
+        }
+    },
+    "custom/timer": {
+        "exec": "~/.config/waybar/scripts/timer.sh",
+        "format": "{}",
+        "interval": 1,
+        "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
+        "on-click-middle": "MINUTES=$(rofi -dmenu -p 'Set timer (minutes):'); if [[ $MINUTES =~ ^[0-9]+$ ]]; then echo $(( $(date +%s) + $MINUTES * 60 )) > /tmp/waybar_timer; fi",
+        "on-click-right": "rm /tmp/waybar_timer",
+        "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
+        "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub",
+        "tooltip-format": "Left: 2h | Middle: Custom | Scroll: +/- 5m"
+    },
+    "custom/weather": {
+        "format": "{}",
+        "exec": "curl -s 'wttr.in/?format=%c%t' | head -c 15",
+        "interval": 1800,
+        "tooltip-format": "Weather"
+    },
+    "custom/updates": {
+        "format": "󰏔 {}",
+        "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
+        "interval": 3600,
+        "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+        "tooltip-format": "Pending updates"
+    },
+    "custom/notification": {
+        "format": "{icon}",
+        "format-icons": {
+            "notification": "󱅫",
+            "none": "󰂚",
+            "dnd-notification": "󱏧",
+            "dnd-none": "󰂛",
+            "inhibited-notification": "󱅫",
+            "inhibited-none": "󰂚",
+            "dnd-inhibited-notification": "󱏧",
+            "dnd-inhibited-none": "󰂛"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "tray": {
+        "icon-size": 14,
+        "spacing": 4
     },
     "hyprland/workspaces": {
         "on-click": "activate",
@@ -41,72 +116,48 @@
         "on-scroll-up": "hyprctl dispatch workspace e-1",
         "on-scroll-down": "hyprctl dispatch workspace e+1"
     },
-    "custom/notification": {
-        "format": "{icon}",
-        "format-icons": {
-            "notification": "󱅫",
-            "none": "󰂚",
-            "dnd-notification": "󱏧",
-            "dnd-none": "󱏧",
-            "inhibited-notification": "󱅫",
-            "inhibited-none": "󰂚",
-            "dnd-inhibited-notification": "󱏧",
-            "dnd-inhibited-none": "󱏧"
+    "mpris": {
+        "format": "{player_icon} {title}",
+        "format-paused": "{status_icon} <i>{title}</i>",
+        "format-stopped": "",
+        "max-length": 22,
+        "status-icons": {
+            "paused": "󰏤"
         },
-        "return-type": "json",
-        "exec-if": "which swaync-client",
-        "exec": "swaync-client -swb",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
-        "escape": true
-    },
-    "custom/updates": {
-        "format": "󰏔\n{}",
-        "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
-        "interval": 3600,
-        "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
-        "tooltip-format": "Pending updates"
-    },
-    "clock": {
-        "format": "{:%H\n%M}",
-        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-        "calendar": {
-            "mode": "month",
-            "mode-mon-col": 3,
-            "weeks-pos": "right",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weeks": "<span color='#c9ca93'>W{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-            }
-        },
-        "actions": {
-            "on-click-right": "mode"
-        }
-    },
-    "custom/temps": {
-        "exec": "~/.config/waybar/scripts/temps.py",
-        "return-type": "json",
-        "format": "{}",
-        "interval": 2,
-        "tooltip": true
+        "tooltip-format": "{player} — {artist}\n{title}",
+        "on-click": "playerctl play-pause",
+        "on-scroll-up": "playerctl next",
+        "on-scroll-down": "playerctl previous"
     },
     "network": {
-        "format-wifi": "󰤨\n{signalStrength}%",
-        "format-ethernet": "󰈀",
+        "format-wifi": "󰤨  {bandwidthDownBits}",
+        "format-ethernet": "󰈀  {bandwidthDownBits}",
         "format-disconnected": "󰖪",
-        "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
-        "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
+        "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}\n{bandwidthDownBits} down  {bandwidthUpBits} up",
+        "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}\n{bandwidthDownBits} down  {bandwidthUpBits} up",
         "tooltip-format-disconnected": "Disconnected",
         "on-click": "uwsm-app nm-connection-editor",
-        "interval": 5
+        "interval": 2
+    },
+    "bluetooth": {
+        "format": "󰂯",
+        "format-disabled": "󰂲",
+        "format-connected": "󰂱 {num_connections}",
+        "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+        "on-click": "uwsm-app -- blueman-manager",
+        "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
     "pulseaudio#output": {
-        "format": "󰕾\n{volume}%",
-        "format-muted": "󰖁",
+        "format": "{icon} {volume}%",
+        "format-muted": "󰖁 muted",
+        "format-icons": {
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
+        },
         "on-click": "swayosd-client --output-volume mute-toggle",
         "on-scroll-up": "swayosd-client --output-volume raise",
         "on-scroll-down": "swayosd-client --output-volume lower",
@@ -114,7 +165,7 @@
     },
     "cpu": {
         "interval": 2,
-        "format": "󰍛\n{usage}%",
+        "format": "󰍛 {usage}%",
         "on-click": "kitty -e btop",
         "states": {
             "warning": 70,
@@ -123,8 +174,8 @@
     },
     "memory": {
         "interval": 2,
-        "format": "󰘚\n{percentage}%",
-        "on-click": "kitty -e btop",
+        "format": "󰘚 {percentage}%",
+        "on-click": "uwsm-app -- kitty --class io_monitor.sh -e $HOME/user_scripts/drives/io_monitor.sh",
         "states": {
             "warning": 70,
             "critical": 90
@@ -136,25 +187,29 @@
             "warning": 30,
             "critical": 15
         },
-        "format": "{icon}\n{capacity}%",
-        "format-charging": "󰂄\n{capacity}%",
-        "format-plugged": "󰚥\n{capacity}%",
-        "format-full": "󰁹\n100%",
-        "tooltip-format": "{timeTo}\nHealth: {health}%",
+        "on-click": "uwsm-app -- kitty --class power_saver.sh --hold -e $HOME/user_scripts/battery/power_saving/power_saver.sh",
+        "format": "{icon} {capacity}%",
+        "format-charging": "󰂄 {capacity}%",
+        "format-plugged": "󰚥 {capacity}%",
+        "format-full": "󰁹 Full",
+        "tooltip-format": "{timeTo}\n󱟦 Health: {health}%\n󱐋 {power:.2f}W",
         "format-icons": [
-            "▁",
-            "▂",
-            "▃",
-            "▄",
-            "▅",
-            "▆",
-            "▇",
-            "█"
+            "󰂎",
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂁",
+            "󰂂",
+            "󰁹"
         ]
     },
     "custom/power": {
         "format": "󰐥",
         "on-click": "~/cloudyy_scripts/wlogout.sh",
-        "tooltip-format": "Power"
+        "tooltip-format": "Power Menu"
     }
 }
