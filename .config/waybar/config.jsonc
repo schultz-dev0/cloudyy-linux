@@ -3,7 +3,7 @@
     "exclusive": true,
     "reload_style_on_change": true,
     "position": "left",
-    "width": 54,
+    "width": 58,
     "spacing": 0,
     "margin-top": 6,
     "margin-bottom": 6,
@@ -12,32 +12,29 @@
     "modules-left": [
         "custom/launcher",
         "hyprland/workspaces",
-        "custom/notification"
+        "custom/notification",
+        "custom/updates"
     ],
     "modules-center": [
         "clock",
-        "custom/temps",
-        "custom/timer"
+        "custom/temps"
     ],
     "modules-right": [
-        "pulseaudio#output",
         "network",
+        "pulseaudio#output",
+        "cpu",
+        "memory",
         "battery",
         "custom/power"
     ],
     "custom/launcher": {
-        "format": "󰅟",
+        "format": ">_",
         "on-click": "rofi -show drun",
         "tooltip-format": "Launch"
     },
     "hyprland/workspaces": {
         "on-click": "activate",
-        "format": "{icon}",
-        "format-icons": {
-            "active": "󱗜",
-            "default": "󰊠",
-            "empty": "󰝥"
-        },
+        "format": "{name}",
         "persistent-workspaces": {
             "*": 5
         },
@@ -62,6 +59,13 @@
         "on-click": "swaync-client -t -sw",
         "on-click-right": "swaync-client -d -sw",
         "escape": true
+    },
+    "custom/updates": {
+        "format": "󰏔\n{}",
+        "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
+        "interval": 3600,
+        "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+        "tooltip-format": "Pending updates"
     },
     "clock": {
         "format": "{:%H\n%M}",
@@ -90,23 +94,6 @@
         "interval": 2,
         "tooltip": true
     },
-    "custom/timer": {
-        "exec": "~/.config/waybar/scripts/timer.sh",
-        "format": "{}",
-        "interval": 1,
-        "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
-        "on-click-right": "rm /tmp/waybar_timer",
-        "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
-        "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub"
-    },
-    "pulseaudio#output": {
-        "format": " 󰕾\n{volume}%",
-        "format-muted": " 󰖁",
-        "on-click": "swayosd-client --output-volume mute-toggle",
-        "on-scroll-up": "swayosd-client --output-volume raise",
-        "on-scroll-down": "swayosd-client --output-volume lower",
-        "tooltip-format": "Volume: {volume}%"
-    },
     "network": {
         "format-wifi": "󰤨\n{signalStrength}%",
         "format-ethernet": "󰈀",
@@ -116,6 +103,32 @@
         "tooltip-format-disconnected": "Disconnected",
         "on-click": "uwsm-app nm-connection-editor",
         "interval": 5
+    },
+    "pulseaudio#output": {
+        "format": "󰕾\n{volume}%",
+        "format-muted": "󰖁",
+        "on-click": "swayosd-client --output-volume mute-toggle",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower",
+        "tooltip-format": "Volume: {volume}%"
+    },
+    "cpu": {
+        "interval": 2,
+        "format": "󰍛\n{usage}%",
+        "on-click": "kitty -e btop",
+        "states": {
+            "warning": 70,
+            "critical": 90
+        }
+    },
+    "memory": {
+        "interval": 2,
+        "format": "󰘚\n{percentage}%",
+        "on-click": "kitty -e btop",
+        "states": {
+            "warning": 70,
+            "critical": 90
+        }
     },
     "battery": {
         "states": {
