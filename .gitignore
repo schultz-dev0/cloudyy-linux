@@ -18,3 +18,5 @@
 .config/zsh/.zsh_history
 .config/zsh/.zcompdump*
 .config/zsh/.bash_history
+
+cloudyy_scripts/cloudyy-other/folio-gtk
