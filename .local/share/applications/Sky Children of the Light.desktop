@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Sky: Children of the Light
+Comment=Play this game on Steam
+Exec=steam steam://rungameid/2325290
+Icon=steam_icon_2325290
+Terminal=false
+Type=Application
+Categories=Game;

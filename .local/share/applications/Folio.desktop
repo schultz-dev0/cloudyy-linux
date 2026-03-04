@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Folio
+Comment=Folio Reader
+Exec=/usr/lib/folio/folio-gtk
+Icon=~/.local/share/icons/folio.png
+Terminal=false
+Keywords=Folio;Reading;

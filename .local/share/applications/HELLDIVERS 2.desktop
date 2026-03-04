@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=HELLDIVERS™ 2
+Comment=Play this game on Steam
+Exec=steam steam://rungameid/553850
+Icon=steam_icon_553850
+Terminal=false
+Type=Application
+Categories=Game;
