@@ -78,7 +78,8 @@ post_hook = 'pywalfox update'
 
 [templates.vscode]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
-output_path = '~/.vscode-oss/extensions/matugen-theme/vscode-theme.json'
+output_path = '~/.config/matugen/generated/vscode-theme.json'
+post_hook = "python3 ~/cloudyy_scripts/vscodium_theme.py"
 
 [templates.vesktop]
 input_path = "~/.config/matugen/templates/vesktop_theme.css"
