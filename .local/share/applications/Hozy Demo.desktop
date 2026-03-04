@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hozy Demo
+Comment=Play this game on Steam
+Exec=steam steam://rungameid/4407820
+Icon=steam_icon_4407820
+Terminal=false
+Type=Application
+Categories=Game;

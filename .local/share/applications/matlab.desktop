@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MATLAB R2025
+Comment=Scientific computing environment
+# Point this to the wrapper script we created in Step 1
+Exec=/home/schultz/cloudyy_scripts/launch-matlab.sh
+# This icon path exists in standard installs; check if yours matches
+Icon=/home/schultz/matlab/bin/glnxa64/refbook.png
+Terminal=false
+StartupNotify=true
+Categories=Development;Education;Science;
+
