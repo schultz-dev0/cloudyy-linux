@@ -24,6 +24,8 @@
 window#waybar {
   background: transparent;
   box-shadow: none;
+  border: 1px solid alpha(@outline_variant, 0.15);
+  margin: 4px 0;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
