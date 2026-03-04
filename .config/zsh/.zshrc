@@ -90,3 +90,7 @@ esac
 
 # Created by `pipx` on 2026-02-18 23:28:17
 export PATH="$HOME/cloudyy_scripts:$HOME/cloudyy_scripts/cloudyy-other:$HOME/.local/bin:$PATH"
+
+. "$HOME/.local/bin/env"
+
+
