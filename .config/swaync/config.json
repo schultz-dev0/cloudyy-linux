@@ -14,8 +14,6 @@
   "widgets": [
     "title",
     "buttons-grid",
-    "volume",
-    "backlight",
     "dnd",
     "notifications"
   ],
@@ -27,19 +25,6 @@
     },
     "dnd": {
       "label": "󰂛"
-    },
-    "backlight": {
-      "label": ""
-    },
-    "volume": {
-      "label": "󰕾",
-      "show-per-app": false
-    },
-    "backlight": {
-      "label": "󰃟",
-      "device": "intel_backlight",
-      "subsystem": "backlight",
-      "min": 1
     },
     "buttons-grid": {
       "actions": [
@@ -54,13 +39,8 @@
           "command": "uwsm-app -- blueman-manager"
         },
         {
-          "label": "󰕾",
-          "command": "uwsm-app -- pavucontrol"
-        },
-        {
-          "label": "󰃠",
-          "type": "toggle",
-          "command": "uwsm-app $HOME/cloudyy_scripts/night_light.sh"
+          "label": "󱐋",
+          "command": "uwsm-app -- python3 $HOME/cloudyy_scripts/sliders/cloudyy_sliders.py"
         },
         {
           "label": "󰸉",

@@ -3,7 +3,6 @@
    ===================================================================== */
 @import url("../matugen/generated/colors-swaync.css");
 
-/* Define missing variables manually to prevent errors */
 @define-color shadow rgba(0, 0, 0, 0.25);
 @define-color rim-light rgba(255, 255, 255, 0.1);
 
@@ -15,24 +14,33 @@
   font-family: "Monocraft", "Jetbrains Nerd Mono", sans-serif;
   font-size: 14px;
   font-weight: 500;
-  transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* 
+   * DO NOT put transition here — applying it to every element forces GTK
+   * to recalculate/repaint the entire widget tree on any state change.
+   * That was the 10% CPU spike. Transitions are applied only where needed.
+   */
 }
 
 /* =====================================================================
-   3. CONTROL CENTER SHELL (The "Liquid Glass" Container)
+   3. CONTROL CENTER SHELL
    ===================================================================== */
 .control-center {
-  background: alpha(@cc-bg, 0.85); /* Slightly more opaque for readability */
+  background: alpha(@cc-bg, 0.85);
   border-radius: 24px;
   border: 1px solid @rim-light;
   padding: 18px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
-  
-  /* Internal blur for depth */
-  backdrop-filter: blur(12px); 
+  /*
+   * backdrop-filter: blur() forces a full compositor repaint of everything
+   * behind the panel on every damage event. On Hyprland this can cause
+   * continuous redraws. If you want blur, configure it in hyprland.conf
+   * via windowrule instead (blur = true for the swaync layer surface).
+   * Leaving it here but commented — uncomment only if your compositor
+   * handles it efficiently.
+   */
+  /* backdrop-filter: blur(12px); */
 }
 
-/* The container for all widgets */
 .widget-box {
   background: transparent;
   padding: 0;
@@ -53,6 +61,7 @@
   padding: 8px 16px;
   color: @text-primary;
   font-weight: 700;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .widget-title > button:hover {
@@ -68,7 +77,6 @@
   padding: 0;
 }
 
-/* The individual toggle buttons */
 .widget-buttons-grid > flowbox > flowboxchild > button {
   background: alpha(@surface, 0.45);
   border-radius: 16px;
@@ -77,7 +85,10 @@
   min-height: 60px;
   border: 1px solid transparent;
   color: @text-secondary;
-  font-size: 20px; /* Bigger icons */
+  font-size: 20px;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .widget-buttons-grid > flowbox > flowboxchild > button:hover {
@@ -85,7 +96,6 @@
   border-color: @rim-light;
 }
 
-/* Active State (The Glow) */
 .widget-buttons-grid > flowbox > flowboxchild > button.toggle:checked {
   background: @primary;
   color: @on-primary;
@@ -107,6 +117,8 @@
   padding: 14px;
   border: 1px solid @rim-light;
   box-shadow: 0 1px 2px @shadow;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .notification:hover {
@@ -114,7 +126,6 @@
   box-shadow: 0 6px 12px @shadow;
 }
 
-/* App Badges */
 .notification .app-name {
   font-size: 11px;
   color: @text-secondary;
@@ -132,112 +143,26 @@
 }
 
 /* =====================================================================
-   8. SPECIAL THEMED NOTIFICATIONS (The "Sugar")
+   8. SPECIAL THEMED NOTIFICATIONS
    ===================================================================== */
-
-/* Spotify: Subtle gradient, no broken variables */
 .notification[data-app-name="Spotify"] {
   background: linear-gradient(135deg, alpha(@surface, 0.5), alpha(@primary, 0.15));
   border: 1px solid alpha(@primary, 0.5);
 }
 
-/* Critical System Errors */
 .notification.critical {
   background: alpha(@error, 0.15);
   border: 1px solid @error;
   box-shadow: 0 0 10px alpha(@error, 0.2);
 }
 
-/* Discord */
 .notification[data-app-name="discord"] {
   border-left: 4px solid #5865F2;
 }
 
 /* =====================================================================
-   9. SLIDERS & DND
+   9. DND
    ===================================================================== */
-
-/* Volume & Backlight slider rows */
-.widget-volume,
-.widget-backlight {
-  background: alpha(@surface, 0.45);
-  border-radius: 16px;
-  border: 1px solid transparent;
-  padding: 10px 14px;
-  margin: 0 0 8px 0;
-}
-
-.widget-volume:hover,
-.widget-backlight:hover {
-  border-color: @rim-light;
-}
-
-.widget-volume > image,
-.widget-backlight > image {
-  color: @primary;
-  margin-right: 10px;
-  min-width: 22px;
-  font-size: 18px;
-}
-
-.widget-volume > label,
-.widget-backlight > label {
-  color: @text-secondary;
-  min-width: 36px;
-  font-size: 11px;
-}
-
-/* GTK scale — must explicitly restore after all:unset */
-.widget-volume scale,
-.widget-backlight scale {
-  /* re-establish sizing stripped by all:unset */
-  min-height: 20px;
-  padding: 0 4px;
-}
-
-.widget-volume scale trough,
-.widget-backlight scale trough {
-  background: alpha(@surface, 0.8);
-  border-radius: 100px;
-  /* explicit sizes are required — all:unset removes them */
-  min-height: 5px;
-  min-width: 40px;
-}
-
-.widget-volume scale trough highlight,
-.widget-backlight scale trough highlight {
-  background: @primary;
-  border-radius: 100px;
-  min-height: 5px;
-}
-
-.widget-volume scale slider,
-.widget-backlight scale slider {
-  background: @primary;
-  border-radius: 100px;
-  /* explicit size required after all:unset */
-  min-height: 16px;
-  min-width: 16px;
-  margin: -6px 0;   /* vertically centre thumb over the 5px track */
-  box-shadow: 0 0 8px alpha(@primary, 0.55);
-  transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.widget-volume scale slider:hover,
-.widget-backlight scale slider:hover {
-  background: @on-primary;
-  box-shadow: 0 0 14px alpha(@primary, 0.75);
-  min-height: 19px;
-  min-width: 19px;
-}
-
-.widget-volume scale slider:active,
-.widget-backlight scale slider:active {
-  box-shadow: 0 0 20px alpha(@primary, 0.9);
-  min-height: 21px;
-  min-width: 21px;
-}
-
 .widget-dnd {
   margin: 0 0 16px 0;
   background: alpha(@surface, 0.3);
@@ -248,6 +173,7 @@
 .widget-dnd > switch {
   background: alpha(@surface, 0.5);
   border-radius: 12px;
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .widget-dnd > switch:checked {
@@ -259,11 +185,19 @@
   border-radius: 12px;
 }
 
-/* Prevent SwayNC from capturing volume slider */
-notification[app-name="Volume"],
-notification[app-name="volume-slider"] {
-  opacity: 0;
-  visibility: hidden;
-  display: none;
-}
-
+/*
+ * NOTE: The old rule suppressing volume OSD notifications via
+ * notification[app-name="Volume"] { display: none } does not work —
+ * swaync does not expose app-name as a CSS attribute selector. Those
+ * notifications are controlled in swaync config via "scripts" or by
+ * configuring swayosd/dunst to suppress them at the source instead.
+ * If you want to suppress swayosd popups appearing in swaync, set a
+ * "notification-visibility" rule in config.json:
+ *
+ * "notification-visibility": {
+ *   "volume-osd": {
+ *     "state": "ignored",
+ *     "app-name": "Volume"
+ *   }
+ * }
+ */
