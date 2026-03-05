@@ -47,7 +47,7 @@
           "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi-menu.sh --select"
         },
         {
-          "label": "󰄬",
+          "label": "",
           "command": "hyprpicker"
         }
       ]
