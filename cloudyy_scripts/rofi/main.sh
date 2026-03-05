@@ -32,7 +32,7 @@ init_dirs
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󰧑 Learn\n󱓻 Appearance\n󰀻 Applications\n󰹑 System\n Configuration\n CloudCenter\n󰏖 Packages\n󰐥 Power")
+    "󰧑 Learn\n󱓻 Appearance\n󰀻 Applications\n󰹑 System\n Configuration\n CloudCenter\n󰏖 Packages\n󰚩 AI\n󰐥 Power")
 
   case "$choice" in
   "󰧑 Learn") exec "${ROFI_DIR}/learn.sh" ;;
@@ -42,6 +42,7 @@ show_main_menu() {
   " Configuration") exec "${ROFI_DIR}/configuration.sh" ;;
   " CloudCenter") hyprctl dispatch exec \ "python3 ${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center.py" exit 0 ;;
   "󰏖 Packages") exec "${ROFI_DIR}/packages.sh" ;;
+  "󰚩 AI") exec "${ROFI_DIR}/ai.sh" ;;
   "󰐥 Power") exec "${HOME}/cloudyy_scripts/rofi/power-menu.sh" ;;
   *) exit 0 ;;
   esac
