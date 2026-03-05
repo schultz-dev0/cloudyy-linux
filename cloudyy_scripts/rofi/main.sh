@@ -40,7 +40,7 @@ show_main_menu() {
   "󰀻 Applications") exec "${ROFI_DIR}/applications.sh" ;;
   "󰹑 System") exec "${ROFI_DIR}/system.sh" ;;
   " Configuration") exec "${ROFI_DIR}/configuration.sh" ;;
-  " CloudCenter") hyprctl dispatch exec \ "python3 ${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center.py" exit 0 ;;
+  " CloudCenter") hyprctl dispatch exec \ "python3 ${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center.py" ;;
   "󰏖 Packages") exec "${ROFI_DIR}/packages.sh" ;;
   "󰚩 AI") exec "${ROFI_DIR}/ai.sh" ;;
   "󰐥 Power") exec "${HOME}/cloudyy_scripts/rofi/power-menu.sh" ;;

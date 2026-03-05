@@ -15,7 +15,7 @@ source "${ROFI_DIR}/lib/common.sh"
 show_configuration_menu() {
   local choice
   choice=$(menu "Configuration" \
-    "󱊨 Keybinds\n Configs")
+    "󱊨 Keybinds\n Configs\n Monitors")
 
   case "${choice,,}" in
   *keybind*)
@@ -34,6 +34,15 @@ show_configuration_menu() {
       return
     }
     nohup kitty --title "Config Manager" -e "$HCM_CMD" >/dev/null 2>&1 &
+    disown
+    ;;
+  *monitor*)
+    [[ ! -x "$HYPRMON_CMD" ]] && {
+      notify-send "Error" "hyprmon not found at: $HYPRMON_CMD"
+      show_configuration_menu
+      return
+    }
+    nohup kitty --title "Hypr Monitors" -e "$HYPRMON_CMD" >/dev/null 2>&1 &
     disown
     ;;
   *) back_to_main ;;

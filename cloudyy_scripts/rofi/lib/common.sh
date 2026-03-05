@@ -12,6 +12,7 @@ readonly HKBM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hkbm"
 readonly HCM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hcm"
 readonly BASE_WALL_DIR="${HOME}/Wallpapers"
 readonly CACHE_DIR="${HOME}/.cache/rofi_thumbs"
+readonly HYPRMON_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hyprmon"
 
 # --- WALLPAPER THUMB SETTINGS ---
 readonly THUMB_SIZE=250
