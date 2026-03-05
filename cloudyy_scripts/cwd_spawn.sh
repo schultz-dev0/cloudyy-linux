@@ -1,284 +1,471 @@
 #!/usr/bin/env bash
 # =============================================================================
 # cwd_spawn.sh — Context-Aware Directory Spawner
-# Opens kitty or thunar in the working directory of the currently focused window
+#
+# KITTY REQUIREMENT — add these two lines to kitty.conf:
+#   allow_remote_control yes
+#   listen_on unix:/tmp/kitty-{kitty_pid}
+# Then restart kitty. Without this, the API fallback is used instead.
 #
 # Usage:
 #   cwd_spawn.sh term       — open kitty in focused window's CWD
 #   cwd_spawn.sh files      — open thunar in focused window's CWD
 #   cwd_spawn.sh yazi       — open yazi (TUI) in focused window's CWD
 #
-# Bind each mode to a separate keybind in hyprland.conf, e.g:
-#   bind = $mod, Return,    exec, ~/cloudyy_scripts/cwd_spawn.sh term
-#   bind = $mod SHIFT, E,   exec, ~/cloudyy_scripts/cwd_spawn.sh files
+# Debug:
+#   DEBUG=1 ~/cloudyy_scripts/cwd_spawn.sh term && cat /tmp/cwd_spawn.log
 # =============================================================================
 
 set -uo pipefail
-
-# =============================================================================
-# CONFIG
-# =============================================================================
 
 readonly TERMINAL="kitty"
 readonly FILE_MANAGER_GUI="thunar"
 readonly FILE_MANAGER_TUI="yazi"
 readonly FALLBACK_DIR="${HOME}"
+readonly LOG_FILE="/tmp/cwd_spawn.log"
+readonly DEBUG="${DEBUG:-0}"
 
-# Terminal class names — used to do a deeper CWD lookup via child shell PID
-# (when a terminal is focused, hyprctl gives us the terminal's PID, not the
-#  shell's — so we need to walk down to the foreground child process)
 readonly -a KNOWN_TERMINALS=(
-  kitty
-  alacritty
-  foot
-  wezterm
-  ghostty
-  konsole
-  gnome-terminal
-  xterm
+    kitty alacritty foot wezterm ghostty konsole gnome-terminal xterm
+)
+readonly -a KNOWN_FILE_MANAGERS=(
+    thunar nautilus nemo dolphin pcmanfm caja
+)
+readonly -a KNOWN_SHELLS=(
+    bash zsh fish sh dash ksh tcsh
+)
+
+# Processes that are terminal internals — never reflect the user's CWD
+readonly -a IGNORED_PROCS=(
+    kitten          # kitty internal subprocess
+    kitty           # kitty itself
+    ".kitty-wrapped" # some distros wrap kitty
+    login           # login shell wrapper
+    sshd            # ssh daemon
 )
 
 # =============================================================================
-# LOGGING  (goes to stderr so it never pollutes command substitutions)
+# LOGGING
 # =============================================================================
 
-log() { echo "[cwd_spawn] $*" >&2; }
+log()  { [[ "$DEBUG" == "1" ]] && echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2 || true; }
 warn() { echo "[cwd_spawn] WARN: $*" >&2; }
 
 # =============================================================================
-# STEP 1 — GET FOCUSED WINDOW INFO
+# HYPRCTL
 # =============================================================================
 
-get_active_window_json() {
-  hyprctl activewindow -j 2>/dev/null
-}
-
-get_active_pid() {
-  local json="$1"
-  echo "$json" | python3 -c "
+get_active_window_info() {
+    local json
+    json=$(hyprctl activewindow -j 2>/dev/null) || { echo "||"; return; }
+    [[ -z "$json" || "$json" == "null" || "$json" == "{}" ]] && { echo "||"; return; }
+    python3 -c "
 import sys, json
-data = json.load(sys.stdin)
-pid = data.get('pid', 0)
-print(pid if pid > 0 else '')
-" 2>/dev/null
+d = json.loads(sys.stdin.read())
+print(str(d.get('pid','')), d.get('class','').lower(), d.get('title',''), sep='|')
+" <<< "$json" 2>/dev/null || echo "||"
 }
-
-get_active_title() {
-  local json="$1"
-  echo "$json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('title', ''))
-" 2>/dev/null
-}
-
-get_active_class() {
-  local json="$1"
-  echo "$json" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('class', '').lower())
-" 2>/dev/null
-}
-
-# GUI file managers — these need title+fd resolution, not /proc/cwd
-readonly -a KNOWN_FILE_MANAGERS=(
-  thunar
-  nautilus
-  nemo
-  dolphin
-  pcmanfm
-  caja
-  ranger # TUI but same issue
-)
 
 # =============================================================================
-# STEP 2 — RESOLVE THE REAL WORKING DIRECTORY
+# PROC HELPERS
 # =============================================================================
 
-# Read a PID's cwd from /proc (returns empty string on failure)
-read_proc_cwd() {
-  local pid="$1"
-  [[ -z "$pid" || ! -d "/proc/$pid" ]] && return 0
-  readlink "/proc/${pid}/cwd" 2>/dev/null || true
+read_proc_cwd()  { [[ -d "/proc/$1" ]] && readlink "/proc/$1/cwd"  2>/dev/null || true; }
+read_proc_comm() { cat "/proc/$1/comm" 2>/dev/null | tr -d '\n'    || true; }
+
+read_proc_env_var() {
+    # read_proc_env_var <pid> <VAR_NAME>
+    tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null \
+        | grep "^${2}=" | cut -d= -f2- | head -1 || true
 }
 
-# Check whether a process name matches any of our known terminals
+is_shell() {
+    local comm="$1"
+    for sh in "${KNOWN_SHELLS[@]}"; do
+        [[ "$comm" == "$sh" || "$comm" == "-$sh" ]] && return 0
+    done
+    return 1
+}
+
+is_ignored_proc() {
+    local comm="$1"
+    for p in "${IGNORED_PROCS[@]}"; do
+        [[ "$comm" == "$p" ]] && return 0
+    done
+    return 1
+}
+
 is_terminal_class() {
-  local class="$1"
-  for t in "${KNOWN_TERMINALS[@]}"; do
-    [[ "$class" == *"$t"* ]] && return 0
-  done
-  return 1
+    for t in "${KNOWN_TERMINALS[@]}"; do [[ "$1" == *"$t"* ]] && return 0; done
+    return 1
 }
 
-# Check whether a process is a GUI file manager
 is_file_manager_class() {
-  local class="$1"
-  for fm in "${KNOWN_FILE_MANAGERS[@]}"; do
-    [[ "$class" == *"$fm"* ]] && return 0
-  done
-  return 1
+    for fm in "${KNOWN_FILE_MANAGERS[@]}"; do [[ "$1" == *"$fm"* ]] && return 0; done
+    return 1
 }
 
-# GUI file managers don't update kernel CWD while navigating.
-# Strategy: extract current folder name from window title, then scan
-# /proc/[PID]/fd/ for an open directory FD whose basename matches.
-resolve_file_manager_cwd() {
-  local pid="$1"
-  local title="$2"
-
-  # Thunar:   "projects — Thunar"  or  "Home"
-  # Nautilus: "projects"
-  # Nemo:     "projects"
-  # Strip known suffixes to get the bare folder name
-  local folder_hint
-  folder_hint=$(echo "$title" |
-    sed -E 's/ [—–-] Thunar$//I' |
-    sed -E 's/ [—–-] Files$//I' |
-    sed -E 's/ [—–-] File Manager$//I' |
-    xargs)
-
-  log "File manager title hint: '${folder_hint}'"
-
-  # "Home" is a special label Thunar uses for $HOME
-  if [[ "$folder_hint" == "Home" || "$folder_hint" == "$(basename "$HOME")" ]]; then
-    echo "$HOME"
-    return
-  fi
-
-  # Walk every open file descriptor looking for a directory whose name matches
-  local fd_dir="/proc/${pid}/fd"
-  if [[ -d "$fd_dir" ]]; then
-    # Sort by fd number descending — most recently opened FDs tend to be higher
-    while IFS= read -r fd_link; do
-      local target
-      target=$(readlink "$fd_link" 2>/dev/null) || continue
-      [[ -d "$target" ]] || continue         # skip non-directories
-      [[ "$target" == /proc/* ]] && continue # skip procfs noise
-      [[ "$target" == /sys/* ]] && continue  # skip sysfs noise
-
-      if [[ "$(basename "$target")" == "$folder_hint" ]]; then
-        log "Matched FD path: $target"
-        echo "$target"
-        return
-      fi
-    done < <(ls -v "$fd_dir" 2>/dev/null | sort -rn | sed "s|^|${fd_dir}/|")
-  fi
-
-  # Second pass: if the hint looks like an absolute path fragment, try it directly
-  if [[ -d "$folder_hint" ]]; then
-    echo "$folder_hint"
-    return
-  fi
-
-  # Last resort: kernel CWD (will usually be $HOME or launch dir)
-  warn "FD scan found no match for '${folder_hint}', falling back to proc CWD"
-  read_proc_cwd "$pid"
+get_all_descendants() {
+    local children
+    children=$(pgrep -P "$1" 2>/dev/null) || return 0
+    for c in $children; do echo "$c"; get_all_descendants "$c"; done
 }
 
-# For terminal emulators, hyprctl gives us the terminal's PID — but we want
-# the shell/program running *inside* it. We walk the process tree looking for
-# the foreground child with its own distinct CWD.
-resolve_terminal_cwd() {
-  local term_pid="$1"
+# =============================================================================
+# KITTY RESOLUTION
+#
+# Strategy waterfall:
+#   1. Find the kitty socket (KITTY_LISTEN_ON from process or child environs,
+#      or scan /proc/net/unix for kitty sockets)
+#   2. Call `kitty @ ls` → parse focused window CWD directly  ← most accurate
+#   3. Fall back to KITTY_WINDOW_ID matching via child environs ← no API needed
+#   4. Last resort: generic process tree walk
+# =============================================================================
 
-  # List every child PID of the terminal process
-  local children
-  children=$(pgrep -P "$term_pid" 2>/dev/null || true)
+find_kitty_socket() {
+    local kitty_pid="$1"
 
-  [[ -z "$children" ]] && {
-    # No children found — fall back to the terminal's own CWD
-    read_proc_cwd "$term_pid"
-    return
-  }
-
-  # Walk children; prefer the one with the deepest/most-specific path
-  local best_cwd=""
-  local best_depth=0
-
-  while IFS= read -r child_pid; do
-    [[ -z "$child_pid" ]] && continue
-
-    local child_cwd
-    child_cwd=$(read_proc_cwd "$child_pid")
-    [[ -z "$child_cwd" ]] && continue
-
-    # Skip kernel threads and proc paths that aren't real dirs
-    [[ ! -d "$child_cwd" ]] && continue
-
-    # Prefer paths that look like real user directories (not /)
-    local depth
-    depth=$(echo "$child_cwd" | tr -cd '/' | wc -c)
-
-    if ((depth > best_depth)); then
-      best_depth="$depth"
-      best_cwd="$child_cwd"
+    # 1a. Check kitty's own environ for KITTY_LISTEN_ON
+    local sock
+    sock=$(read_proc_env_var "$kitty_pid" "KITTY_LISTEN_ON")
+    if [[ -n "$sock" ]]; then
+        log "Socket from kitty environ: $sock"
+        echo "$sock"; return
     fi
-  done <<<"$children"
 
-  # If still empty, recurse one level deeper (handles shell → editor chains)
-  if [[ -z "$best_cwd" ]]; then
-    local first_child
-    first_child=$(pgrep -P "$term_pid" 2>/dev/null | head -1 || true)
-    [[ -n "$first_child" ]] && best_cwd=$(resolve_terminal_cwd "$first_child")
-  fi
+    # 1b. Check any child process environ (shells inherit KITTY_LISTEN_ON)
+    local child
+    for child in $(get_all_descendants "$kitty_pid" | head -20); do
+        sock=$(read_proc_env_var "$child" "KITTY_LISTEN_ON" 2>/dev/null)
+        if [[ -n "$sock" ]]; then
+            log "Socket from child $child environ: $sock"
+            echo "$sock"; return
+        fi
+    done
 
-  echo "${best_cwd:-$(read_proc_cwd "$term_pid")}"
+    # 1c. Broad scan of /proc/net/unix — catches any listen_on path the user
+    #     configured (e.g. unix:/tmp/kitty, unix:/tmp/kitty-{uid}/{pid}-{n},
+    #     or anything else). We verify ownership by checking /proc/<pid>/fd
+    #     for a file descriptor pointing at the socket path.
+    local -a all_sockets=()
+    while IFS= read -r line; do
+        local path="${line##* }"
+        [[ "$path" == /* ]] || continue
+        [[ -S "$path" ]]    || continue
+        all_sockets+=("$path")
+    done < /proc/net/unix 2>/dev/null
+
+    local fd_dir="/proc/${kitty_pid}/fd"
+    if [[ -d "$fd_dir" ]]; then
+        for sock_path in "${all_sockets[@]}"; do
+            while IFS= read -r fd_entry; do
+                local resolved
+                resolved=$(readlink "$fd_entry" 2>/dev/null) || continue
+                if [[ "$resolved" == "$sock_path" ]]; then
+                    log "Socket from fd scan: $sock_path"
+                    echo "unix:$sock_path"; return
+                fi
+            done < <(find "$fd_dir" -maxdepth 1 -type l 2>/dev/null)
+        done
+    fi
+
+    log "No kitty socket found"
+    echo ""
 }
+
+kitty_api_cwd() {
+    local socket="$1"
+    kitty @ --to "$socket" ls 2>/dev/null | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for osw in data:
+        for tab in osw.get('tabs', []):
+            if not tab.get('is_focused'):
+                continue
+            for win in tab.get('windows', []):
+                if win.get('is_focused'):
+                    print(win.get('cwd', ''))
+                    sys.exit(0)
+except:
+    pass
+" 2>/dev/null || true
+}
+
+# Fallback: match focused pane via KITTY_WINDOW_ID in child process environs.
+# hyprctl gives us the window title which kitty sets to the running command —
+# but that's fragile. Instead we read KITTY_WINDOW_ID from each child's
+# /proc/[pid]/environ and compare against the focused window ID from `kitty @`.
+# Without the API this is the next best option: find the foreground shell
+# that isn't sitting at $HOME while all others are.
+kitty_windowid_cwd() {
+    local kitty_pid="$1"
+    local -a descendants
+    mapfile -t descendants < <(get_all_descendants "$kitty_pid")
+
+    log "KITTY_WINDOW_ID fallback: scanning ${#descendants[@]} descendants"
+
+    # Group CWDs by window ID
+    # For each window, track best shell CWD and best non-shell CWD separately
+    declare -A wid_shell_cwd wid_nonshell_cwd
+    for pid in "${descendants[@]}"; do
+        [[ -d "/proc/$pid" ]] || continue
+        local cwd comm wid
+        cwd=$(read_proc_cwd "$pid");  [[ -z "$cwd" || ! -d "$cwd" ]] && continue
+        comm=$(read_proc_comm "$pid")
+
+        # Skip terminal-internal processes — they never reflect user navigation
+        is_ignored_proc "$comm" && continue
+
+        wid=$(read_proc_env_var "$pid" "KITTY_WINDOW_ID")
+        [[ -z "$wid" ]] && continue
+
+        log "  pid=$pid comm=$comm wid=$wid cwd=$cwd"
+
+        local depth
+        depth=$(tr -cd '/' <<< "$cwd" | wc -c)
+
+        if is_shell "$comm"; then
+            local existing="${wid_shell_cwd[$wid]:-}"
+            local existing_depth=0
+            [[ -n "$existing" ]] && existing_depth=$(tr -cd '/' <<< "$existing" | wc -c)
+            if [[ -z "$existing" || $depth -gt $existing_depth ]]; then
+                wid_shell_cwd[$wid]="$cwd"
+            fi
+        else
+            local existing="${wid_nonshell_cwd[$wid]:-}"
+            local existing_depth=0
+            [[ -n "$existing" ]] && existing_depth=$(tr -cd '/' <<< "$existing" | wc -c)
+            if [[ -z "$existing" || $depth -gt $existing_depth ]]; then
+                wid_nonshell_cwd[$wid]="$cwd"
+            fi
+        fi
+    done
+
+    # Merge: prefer non-shell CWD per window (it means a program is running there)
+    # but only if it is deeper than or equal to the shell CWD — guards against
+    # editors that were opened from HOME and haven't changed directory
+    declare -A wid_to_cwd
+    for wid in "${!wid_shell_cwd[@]}"; do
+        local sc="${wid_shell_cwd[$wid]:-}"
+        local nc="${wid_nonshell_cwd[$wid]:-}"
+        local sc_depth=0 nc_depth=0
+        [[ -n "$sc" ]] && sc_depth=$(tr -cd '/' <<< "$sc" | wc -c)
+        [[ -n "$nc" ]] && nc_depth=$(tr -cd '/' <<< "$nc" | wc -c)
+        if [[ -n "$nc" && $nc_depth -ge $sc_depth ]]; then
+            wid_to_cwd[$wid]="$nc"
+        else
+            wid_to_cwd[$wid]="$sc"
+        fi
+    done
+    # Also catch windows that only have non-shell children
+    for wid in "${!wid_nonshell_cwd[@]}"; do
+        [[ -z "${wid_to_cwd[$wid]:-}" ]] && wid_to_cwd[$wid]="${wid_nonshell_cwd[$wid]}"
+    done
+
+    if [[ ${#wid_to_cwd[@]} -eq 0 ]]; then
+        log "No KITTY_WINDOW_IDs found in child environs"
+        echo ""; return
+    fi
+
+    # If only one unique window, return its CWD
+    if [[ ${#wid_to_cwd[@]} -eq 1 ]]; then
+        local only_cwd
+        only_cwd="${wid_to_cwd[*]}"
+        log "Single kitty window, CWD: $only_cwd"
+        echo "$only_cwd"; return
+    fi
+
+    # Multiple windows: prefer the one whose CWD is NOT $HOME
+    # (the focused one the user is actually working in is most likely not home)
+    local best=""
+    for wid in "${!wid_to_cwd[@]}"; do
+        local c="${wid_to_cwd[$wid]}"
+        if [[ "$c" != "$HOME" ]]; then
+            best="$c"
+            log "Preferred non-home window wid=$wid cwd=$c"
+            break
+        fi
+    done
+
+    echo "${best:-${wid_to_cwd[*]% *}}"
+}
+
+resolve_kitty_cwd() {
+    local kitty_pid="$1"
+
+    # --- Strategy 1: kitty remote API ---
+    local socket
+    socket=$(find_kitty_socket "$kitty_pid")
+
+    if [[ -n "$socket" ]]; then
+        local api_cwd
+        api_cwd=$(kitty_api_cwd "$socket")
+        if [[ -n "$api_cwd" && -d "$api_cwd" ]]; then
+            log "kitty API success: $api_cwd"
+            echo "$api_cwd"; return
+        fi
+        log "kitty API returned empty/invalid: '${api_cwd:-}'"
+    fi
+
+    # --- Strategy 2: KITTY_WINDOW_ID matching ---
+    local wid_cwd
+    wid_cwd=$(kitty_windowid_cwd "$kitty_pid")
+    if [[ -n "$wid_cwd" && -d "$wid_cwd" ]]; then
+        log "KITTY_WINDOW_ID fallback success: $wid_cwd"
+        echo "$wid_cwd"; return
+    fi
+
+    # --- Strategy 3: generic tree walk ---
+    log "All kitty strategies failed, using generic tree walk"
+    resolve_terminal_cwd_generic "$kitty_pid"
+}
+
+# =============================================================================
+# GENERIC TERMINAL TREE WALK
+# =============================================================================
+
+resolve_terminal_cwd_generic() {
+    local term_pid="$1"
+    local -a descendants
+    mapfile -t descendants < <(get_all_descendants "$term_pid")
+
+    log "Generic walk: ${#descendants[@]} descendants of PID $term_pid"
+
+    local best_non_shell="" best_shell="" best_any=""
+    local best_non_shell_depth=0 best_shell_depth=0
+
+    for pid in "${descendants[@]}"; do
+        [[ -d "/proc/$pid" ]] || continue
+        local cwd comm
+        cwd=$(read_proc_cwd "$pid");  [[ -z "$cwd" || ! -d "$cwd" || "$cwd" == "/" ]] && continue
+        comm=$(read_proc_comm "$pid")
+
+        # Skip terminal-internal processes — their CWD is meaningless for navigation
+        is_ignored_proc "$comm" && continue
+
+        log "  pid=$pid comm=$comm cwd=$cwd"
+
+        local depth
+        depth=$(tr -cd '/' <<< "$cwd" | wc -c)
+
+        if is_shell "$comm"; then
+            if [[ -z "$best_shell" || $depth -gt $best_shell_depth ]]; then
+                best_shell="$cwd"
+                best_shell_depth=$depth
+            fi
+        else
+            if [[ -z "$best_non_shell" || $depth -gt $best_non_shell_depth ]]; then
+                best_non_shell="$cwd"
+                best_non_shell_depth=$depth
+            fi
+        fi
+        [[ -z "$best_any" ]] && best_any="$cwd"
+    done
+
+    # Prefer non-shell only when it is at least as deep as the shell CWD
+    local result
+    if [[ -n "$best_non_shell" && $best_non_shell_depth -ge $best_shell_depth ]]; then
+        result="$best_non_shell"
+    else
+        result="${best_shell:-${best_non_shell:-${best_any:-}}}"
+    fi
+    log "Generic walk result: '${result}'"
+    if [[ -n "$result" && -d "$result" ]]; then
+        echo "$result"
+    else
+        read_proc_cwd "$term_pid"
+    fi
+}
+
+# =============================================================================
+# FILE MANAGER (title + FD scan)
+# =============================================================================
+
+resolve_file_manager_cwd() {
+    local pid="$1" title="$2"
+
+    local folder_hint
+    folder_hint=$(printf '%s' "$title" \
+        | sed -E 's/[[:space:]]+[—–-][[:space:]]+Thunar$//I' \
+        | sed -E 's/[[:space:]]+[—–-][[:space:]]+Files$//I' \
+        | sed -E 's/[[:space:]]+[—–-][[:space:]]+File Manager$//I' \
+        | sed -E 's/^[[:space:]]+|[[:space:]]+$//')
+
+    log "File manager hint: '${folder_hint}'"
+
+    [[ "$folder_hint" == "Home" || "$folder_hint" == "$(basename "$HOME")" ]] \
+        && { echo "$HOME"; return; }
+
+    local fd_dir="/proc/${pid}/fd"
+    if [[ -d "$fd_dir" ]]; then
+        local -a fds
+        mapfile -t fds < <(ls "$fd_dir" 2>/dev/null | grep -E '^[0-9]+$' | sort -rn)
+        for fd in "${fds[@]}"; do
+            local target
+            target=$(readlink "${fd_dir}/${fd}" 2>/dev/null) || continue
+            [[ -d "$target" ]]         || continue
+            [[ "$target" == /proc/* ]] && continue
+            [[ "$target" == /sys/*  ]] && continue
+            [[ "$target" == /dev/*  ]] && continue
+            [[ "$target" == /run/*  ]] && continue
+            log "  FD $fd → $target"
+            [[ "$(basename "$target")" == "$folder_hint" ]] \
+                && { log "FD match: $target"; echo "$target"; return; }
+        done
+    fi
+
+    [[ -d "$folder_hint" ]] && { echo "$folder_hint"; return; }
+    warn "FD scan no match for '${folder_hint}', using proc CWD"
+    read_proc_cwd "$pid"
+}
+
+# =============================================================================
+# DISPATCH
+# =============================================================================
 
 resolve_cwd() {
-  local pid="$1"
-  local class="$2"
-  local title="$3"
+    local pid="$1" class="$2" title="$3"
+    local cwd=""
 
-  local cwd=""
+    if [[ "$class" == *"kitty"* ]]; then
+        log "Strategy: kitty"
+        cwd=$(resolve_kitty_cwd "$pid")
+    elif is_file_manager_class "$class"; then
+        log "Strategy: file manager"
+        cwd=$(resolve_file_manager_cwd "$pid" "$title")
+    elif is_terminal_class "$class"; then
+        log "Strategy: generic terminal"
+        cwd=$(resolve_terminal_cwd_generic "$pid")
+    else
+        log "Strategy: direct proc CWD"
+        cwd=$(read_proc_cwd "$pid")
+    fi
 
-  if is_file_manager_class "$class"; then
-    log "Focused window is a file manager (${class}), using title+fd resolution..."
-    cwd=$(resolve_file_manager_cwd "$pid" "$title")
-  elif is_terminal_class "$class"; then
-    log "Focused window is a terminal (${class}), walking child processes..."
-    cwd=$(resolve_terminal_cwd "$pid")
-  else
-    log "Focused window is ${class}, reading /proc/${pid}/cwd directly"
-    cwd=$(read_proc_cwd "$pid")
-  fi
-
-  # Validate the result is an accessible directory
-  if [[ -n "$cwd" && -d "$cwd" ]]; then
-    echo "$cwd"
-  else
-    warn "Could not resolve CWD (got: '${cwd:-empty}'), using fallback: $FALLBACK_DIR"
-    echo "$FALLBACK_DIR"
-  fi
+    if [[ -n "$cwd" && -d "$cwd" ]]; then
+        echo "$cwd"
+    else
+        warn "Resolution failed (got: '${cwd:-empty}') — using $FALLBACK_DIR"
+        echo "$FALLBACK_DIR"
+    fi
 }
 
 # =============================================================================
-# STEP 3 — LAUNCH THE TARGET APP
+# LAUNCH
 # =============================================================================
 
-spawn_terminal() {
-  local dir="$1"
-  log "Spawning kitty in: $dir"
-  uwsm-app -- "$TERMINAL" --directory "$dir" >/dev/null 2>&1 &
-  disown
+spawn_terminal()  {
+    log "Spawning kitty in: $1"
+    uwsm-app -- "$TERMINAL" --directory "$1" >/dev/null 2>&1 & disown
 }
-
 spawn_files_gui() {
-  local dir="$1"
-  log "Spawning thunar in: $dir"
-  uwsm-app -- "$FILE_MANAGER_GUI" "$dir" >/dev/null 2>&1 &
-  disown
+    log "Spawning thunar in: $1"
+    uwsm-app -- "$FILE_MANAGER_GUI" "$1" >/dev/null 2>&1 & disown
 }
-
 spawn_files_tui() {
-  local dir="$1"
-  log "Spawning yazi in: $dir"
-  uwsm-app -- "$TERMINAL" --directory "$dir" \
-    --class "yazi_spawned" \
-    -e "$FILE_MANAGER_TUI" "$dir" >/dev/null 2>&1 &
-  disown
+    log "Spawning yazi in: $1"
+    uwsm-app -- "$TERMINAL" --directory "$1" --class "yazi_spawned" \
+        -e "$FILE_MANAGER_TUI" "$1" >/dev/null 2>&1 & disown
 }
 
 # =============================================================================
@@ -286,51 +473,36 @@ spawn_files_tui() {
 # =============================================================================
 
 main() {
-  local mode="${1:-term}"
+    local mode="${1:-term}"
+    case "$mode" in
+        term|files|yazi) ;;
+        *) warn "Unknown mode '${mode}'. Valid: term, files, yazi"; exit 1 ;;
+    esac
 
-  # Validate mode early
-  case "$mode" in
-  term | files | yazi) ;;
-  *)
-    warn "Unknown mode '${mode}'. Valid modes: term, files, yazi"
-    exit 1
-    ;;
-  esac
+    [[ "$DEBUG" == "1" ]] && : > "$LOG_FILE"
+    log "=== cwd_spawn mode=$mode ==="
 
-  # 1. Get focused window info
-  local win_json
-  win_json=$(get_active_window_json)
+    local info pid class title
+    info=$(get_active_window_info)
+    IFS='|' read -r pid class title <<< "$info"
 
-  if [[ -z "$win_json" || "$win_json" == "null" || "$win_json" == "{}" ]]; then
-    warn "No active window detected (is Hyprland running?). Using fallback dir."
-    local target_dir="$FALLBACK_DIR"
-  else
-    # 2. Extract PID and class
-    local pid class title
-    pid=$(get_active_pid "$win_json")
-    class=$(get_active_class "$win_json")
-    title=$(get_active_title "$win_json")
+    log "Active window — pid='${pid}' class='${class}' title='${title}'"
 
-    log "Active window — class: '${class}', title: '${title}', PID: '${pid}'"
-
-    if [[ -z "$pid" ]]; then
-      warn "Could not extract PID. Using fallback dir."
-      local target_dir="$FALLBACK_DIR"
+    local target_dir
+    if [[ -z "$pid" || -z "$class" ]]; then
+        warn "No active window. Using fallback."
+        target_dir="$FALLBACK_DIR"
     else
-      # 3. Resolve the real CWD
-      local target_dir
-      target_dir=$(resolve_cwd "$pid" "$class" "$title")
+        target_dir=$(resolve_cwd "$pid" "$class" "$title")
     fi
-  fi
 
-  log "Target directory: $target_dir"
+    log "Final target: $target_dir"
 
-  # 4. Launch
-  case "$mode" in
-  term) spawn_terminal "$target_dir" ;;
-  files) spawn_files_gui "$target_dir" ;;
-  yazi) spawn_files_tui "$target_dir" ;;
-  esac
+    case "$mode" in
+        term)  spawn_terminal  "$target_dir" ;;
+        files) spawn_files_gui "$target_dir" ;;
+        yazi)  spawn_files_tui "$target_dir" ;;
+    esac
 }
 
 main "$@"
