@@ -1,0 +1,16 @@
+[Unit]
+Description=Hyprland Fibonacci Gap Daemon
+Documentation=https://github.com/you/cloudyy_scripts
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/cloudyy_scripts/fibonacci_gaps.py
+Restart=on-failure
+RestartSec=3
+# Keep logs readable in journalctl
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target
