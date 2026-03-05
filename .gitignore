@@ -21,3 +21,5 @@
 
 cloudyy_scripts/cloudyy-other/folio-gtk
 cloudyy_scripts/cloudyy-other/folio-gtk
+
+.config/systemd/user/
