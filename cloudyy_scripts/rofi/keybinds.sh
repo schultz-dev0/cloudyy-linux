@@ -106,11 +106,11 @@ DATA=$(hyprctl -j binds 2>/dev/null | jq -r --arg d "$DELIM" '
 
 # ── show rofi ─────────────────────────────────────────────────────────────────
 
-SELECTED_INDEX=$(awk -F"$DELIM" '{print $1}' <<< "$DATA" \
-  | "${ROFI_ARGS[@]}" -format i) || exit 0
+SELECTED_INDEX=$(awk -F"$DELIM" '{print $1}' <<<"$DATA" |
+  "${ROFI_ARGS[@]}" -format i) || exit 0
 
 if [[ "$SELECTED_INDEX" =~ ^[0-9]+$ ]]; then
-  LINE=$(sed -n "$(( SELECTED_INDEX + 1 ))p" <<< "$DATA")
-  IFS="$DELIM" read -r _ disp arg <<< "$LINE"
+  LINE=$(sed -n "$((SELECTED_INDEX + 1))p" <<<"$DATA")
+  IFS="$DELIM" read -r _ disp arg <<<"$LINE"
   [[ -n "$disp" ]] && hyprctl dispatch "$disp" "${arg:-}"
 fi

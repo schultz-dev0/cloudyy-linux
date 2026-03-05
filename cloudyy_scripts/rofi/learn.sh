@@ -13,7 +13,7 @@ source "${ROFI_DIR}/lib/common.sh"
 # =============================================================================
 
 show_keybind_tips() {
-  local script="${HOME}/cloudyy_scripts/keybinds.sh"
+  local script="${HOME}/cloudyy_scripts/rofi/keybinds.sh"
   [[ ! -x "$script" ]] && {
     notify-send "Error" "keybinds.sh not found at: $script"
     show_learn_menu
