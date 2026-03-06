@@ -1,221 +1,233 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# =============================================================================
+# test-install.sh — Pre-flight Test Suite for cloudyy-linux Installer
+# =============================================================================
+# Run from the install/ directory before executing the real installer.
+# Does NOT install anything — read-only checks only.
+# =============================================================================
 
-# Test Script for Hyprland Installation Scripts
-# This runs various checks without actually installing anything
+set -uo pipefail  # Not -e, so individual failing tests don't abort the suite
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# --- Colors ------------------------------------------------------------------
+RED=$'\033[1;31m' GREEN=$'\033[1;32m' YELLOW=$'\033[1;33m'
+BLUE=$'\033[1;34m' CYAN=$'\033[1;36m' BOLD=$'\033[1m' RESET=$'\033[0m'
 
-print_test() {
-    echo -e "${BLUE}[TEST]${NC} $1"
-}
-
-print_pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-}
-
-print_fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-}
-
-print_info() {
-    echo -e "${YELLOW}[INFO]${NC} $1"
-}
-
-# Track test results
+# --- Test counters -----------------------------------------------------------
 PASSED=0
 FAILED=0
+WARNED=0
 
+# --- Output helpers ----------------------------------------------------------
+print_test()  { printf '%s[TEST]%s %s\n'    "$BLUE"   "$RESET" "$1"; }
+print_pass()  { printf '%s[PASS]%s %s\n'    "$GREEN"  "$RESET" "$1"; (( ++PASSED )); }
+print_fail()  { printf '%s[FAIL]%s %s\n'    "$RED"    "$RESET" "$1"; (( ++FAILED )); }
+print_warn()  { printf '%s[WARN]%s %s\n'    "$YELLOW" "$RESET" "$1"; (( ++WARNED )); }
+print_info()  { printf '%s[INFO]%s %s\n'    "$CYAN"   "$RESET" "$1"; }
+print_header(){ printf '\n%s%s=== %s ===%s\n' "$BOLD" "$YELLOW" "$1" "$RESET"; }
+
+# --- Test runner -------------------------------------------------------------
+# Usage: run_test "Description" "bash condition or command"
 run_test() {
-    local test_name=$1
-    local test_command=$2
-    
-    print_test "$test_name"
-    if eval "$test_command"; then
-        print_pass "$test_name"
-        ((PASSED++))
-        return 0
+    local desc="$1"
+    local cmd="$2"
+    print_test "$desc"
+    if eval "$cmd" &>/dev/null; then
+        print_pass "$desc"
     else
-        print_fail "$test_name"
-        ((FAILED++))
-        return 1
+        print_fail "$desc"
     fi
 }
 
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║     Hyprland Installation Scripts - Test Suite        ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Test 1: Check if scripts exist
-echo -e "${YELLOW}=== File Existence Tests ===${NC}"
-run_test "install.sh exists" "[ -f './install.sh' ]"
-run_test "hyprland-install.sh exists" "[ -f './hyprland-install.sh' ]"
-run_test "deploy-dotfiles.sh exists" "[ -f './deploy-dotfiles.sh' ]"
-run_test "dependencies.conf exists" "[ -f './dependencies.conf' ]"
-echo ""
-
-# Test 2: Check if scripts are executable
-echo -e "${YELLOW}=== Executable Permission Tests ===${NC}"
-run_test "install.sh is executable" "[ -x './install.sh' ]"
-run_test "hyprland-install.sh is executable" "[ -x './hyprland-install.sh' ]"
-run_test "deploy-dotfiles.sh is executable" "[ -x './deploy-dotfiles.sh' ]"
-echo ""
-
-# Test 3: Check script syntax
-echo -e "${YELLOW}=== Syntax Validation Tests ===${NC}"
-run_test "install.sh syntax" "bash -n ./install.sh"
-run_test "hyprland-install.sh syntax" "bash -n ./hyprland-install.sh"
-run_test "deploy-dotfiles.sh syntax" "bash -n ./deploy-dotfiles.sh"
-run_test "dependencies.conf syntax" "bash -n ./dependencies.conf"
-echo ""
-
-# Test 4: Check dependencies.conf structure
-echo -e "${YELLOW}=== Dependencies Configuration Tests ===${NC}"
-source ./dependencies.conf 2>/dev/null
-run_test "CORE_PACKAGES array exists" "[ ${#CORE_PACKAGES[@]} -gt 0 ]"
-run_test "AUDIO_PACKAGES array exists" "[ ${#AUDIO_PACKAGES[@]} -gt 0 ]"
-run_test "MINIMAL_GROUP array exists" "[ ${#MINIMAL_GROUP[@]} -gt 0 ]"
-run_test "STANDARD_GROUP array exists" "[ ${#STANDARD_GROUP[@]} -gt 0 ]"
-run_test "FULL_GROUP array exists" "[ ${#FULL_GROUP[@]} -gt 0 ]"
-echo ""
-
-# Test 5: Check for required commands on system
-echo -e "${YELLOW}=== System Requirements Tests ===${NC}"
-run_test "bash is available" "command -v bash &>/dev/null"
-
-# These tests will fail on non-Arch systems - that's expected
-if command -v pacman &>/dev/null; then
-    print_pass "pacman is available"
-    ((PASSED++))
-else
-    print_info "pacman not found (expected on non-Arch systems)"
-fi
-
-if command -v sudo &>/dev/null; then
-    print_pass "sudo is available"
-    ((PASSED++))
-else
-    print_info "sudo not found (expected in some environments)"
-fi
-
-run_test "git is available" "command -v git &>/dev/null"
-echo ""
-
-# Test 6: Check package arrays for common issues
-echo -e "${YELLOW}=== Package Array Quality Tests ===${NC}"
-
-# Check for empty strings in arrays
-source ./dependencies.conf 2>/dev/null
-empty_found=false
-for pkg in "${CORE_PACKAGES[@]}" "${AUDIO_PACKAGES[@]}"; do
-    if [ -z "$pkg" ]; then
-        empty_found=true
-        break
+# --- Optional test (warns but doesn't count as failure) ----------------------
+run_optional() {
+    local desc="$1"
+    local cmd="$2"
+    print_test "$desc"
+    if eval "$cmd" &>/dev/null; then
+        print_pass "$desc"
+    else
+        print_warn "$desc (not available on this system — OK for non-Arch)"
     fi
-done
+}
 
-if [ "$empty_found" = false ]; then
-    print_pass "No empty strings in package arrays"
-    ((PASSED++))
-else
-    print_fail "Found empty strings in package arrays"
-    ((FAILED++))
-fi
+# =============================================================================
+# BANNER
+# =============================================================================
+clear
+printf '%s' "$CYAN"
+cat << 'BANNER'
+  ╔══════════════════════════════════════════════════════════╗
+  ║       cloudyy-linux — Installer Test Suite               ║
+  ╚══════════════════════════════════════════════════════════╝
+BANNER
+printf '%s\n' "$RESET"
+printf 'Running from: %s\n\n' "$(pwd)"
 
-# Check if hyprland is in the packages
-if printf '%s\n' "${CORE_PACKAGES[@]}" | grep -q "^hyprland$"; then
-    print_pass "hyprland package is included"
-    ((PASSED++))
-else
-    print_fail "hyprland package is missing"
-    ((FAILED++))
-fi
+# =============================================================================
+# TEST GROUP 1: File Existence
+# =============================================================================
+print_header "File Existence"
+run_test "install.sh exists"           "[ -f './install.sh' ]"
+run_test "hyprland-install.sh exists"  "[ -f './hyprland-install.sh' ]"
+run_test "deploy-dotfiles.sh exists"   "[ -f './deploy-dotfiles.sh' ]"
+run_test "dependencies.conf exists"    "[ -f './dependencies.conf' ]"
+run_test "test-install.sh exists"      "[ -f './test-install.sh' ]"
 
-echo ""
+# =============================================================================
+# TEST GROUP 2: Executable Permissions
+# =============================================================================
+print_header "Executable Permissions"
+run_test "install.sh is executable"           "[ -x './install.sh' ]"
+run_test "hyprland-install.sh is executable"  "[ -x './hyprland-install.sh' ]"
+run_test "deploy-dotfiles.sh is executable"   "[ -x './deploy-dotfiles.sh' ]"
 
-# Test 7: Dry run tests (check script logic without execution)
-echo -e "${YELLOW}=== Script Logic Tests ===${NC}"
+# =============================================================================
+# TEST GROUP 3: Bash Syntax Validation
+# =============================================================================
+print_header "Syntax Validation"
+run_test "install.sh syntax valid"          "bash -n ./install.sh"
+run_test "hyprland-install.sh syntax valid" "bash -n ./hyprland-install.sh"
+run_test "deploy-dotfiles.sh syntax valid"  "bash -n ./deploy-dotfiles.sh"
+run_test "dependencies.conf syntax valid"   "bash -n ./dependencies.conf"
 
-# Check if hyprland-install.sh sources dependencies.conf
-if grep -q 'source.*dependencies\.conf\|source "\$DEPS_FILE"' ./hyprland-install.sh; then
-    print_pass "hyprland-install.sh sources dependencies.conf"
-    ((PASSED++))
-else
-    print_fail "hyprland-install.sh doesn't source dependencies.conf"
-    ((FAILED++))
-fi
+# =============================================================================
+# TEST GROUP 4: Script Best Practices
+# =============================================================================
+print_header "Script Quality"
 
-# Check if scripts have error handling
-if grep -q "set -e" ./install.sh && grep -q "set -e" ./hyprland-install.sh; then
-    print_pass "Scripts have error handling (set -e)"
-    ((PASSED++))
-else
-    print_fail "Scripts missing error handling"
-    ((FAILED++))
-fi
+run_test "install.sh uses strict mode" \
+    "grep -q 'set -euo pipefail' ./install.sh"
 
-# Check for root prevention
-if grep -q "EUID" ./install.sh && grep -q "EUID" ./hyprland-install.sh; then
-    print_pass "Scripts prevent running as root"
-    ((PASSED++))
-else
-    print_fail "Scripts don't prevent running as root"
-    ((FAILED++))
-fi
+run_test "hyprland-install.sh uses strict mode" \
+    "grep -q 'set -euo pipefail' ./hyprland-install.sh"
 
-echo ""
+run_test "deploy-dotfiles.sh uses strict mode" \
+    "grep -q 'set -euo pipefail' ./deploy-dotfiles.sh"
 
-# Test 8: Package count information
-echo -e "${YELLOW}=== Package Statistics ===${NC}"
-source ./dependencies.conf 2>/dev/null
-print_info "Core packages: ${#CORE_PACKAGES[@]}"
-print_info "Terminal packages: ${#TERMINAL_PACKAGES[@]}"
-print_info "Audio packages: ${#AUDIO_PACKAGES[@]}"
-print_info "Interface packages: ${#INTERFACE_PACKAGES[@]}"
-print_info "AUR packages: ${#AUR_PACKAGES[@]}"
-print_info "Python packages: ${#PYTHON_PACKAGES[@]}"
-print_info "Minimal group total: ${#MINIMAL_GROUP[@]}"
-print_info "Standard group total: ${#STANDARD_GROUP[@]}"
-print_info "Full group total: ${#FULL_GROUP[@]}"
-echo ""
+run_test "install.sh prevents root execution" \
+    "grep -q 'EUID' ./install.sh"
 
-# Test 9: Simulate user choices (very basic)
-echo -e "${YELLOW}=== Simulated User Input Tests ===${NC}"
-print_info "Testing different installation choices..."
-for choice in 1 2 3; do
-    case $choice in
-        1) print_pass "Minimal installation logic: OK" ;;
-        2) print_pass "Standard installation logic: OK" ;;
-        3) print_pass "Full installation logic: OK" ;;
-    esac
-    ((PASSED++))
-done
-echo ""
+run_test "hyprland-install.sh prevents root execution" \
+    "grep -q 'EUID' ./hyprland-install.sh"
 
-# Summary
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                  Test Summary                          ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${GREEN}Passed:${NC} $PASSED"
-echo -e "${RED}Failed:${NC} $FAILED"
-echo -e "Total:  $((PASSED + FAILED))"
-echo ""
+run_test "install.sh has state/resume logic" \
+    "grep -q 'STATE_FILE\|is_done\|mark_done' ./install.sh"
 
-if [ $FAILED -eq 0 ]; then
-    echo -e "${GREEN}✓ All tests passed! Scripts are ready for use.${NC}"
-    echo ""
-    echo -e "${YELLOW}Next steps for safe testing:${NC}"
-    echo "1. Create a virtual machine with Arch Linux"
-    echo "2. Run: ./install.sh"
-    echo "3. Test each feature after installation"
+run_test "install.sh has --dry-run support" \
+    "grep -q 'dry.run\|dry_run' ./install.sh"
+
+run_test "deploy-dotfiles.sh creates backups" \
+    "grep -q 'BACKUP_DIR\|backup_if_needed' ./deploy-dotfiles.sh"
+
+run_test "hyprland-install.sh sources dependencies.conf" \
+    "grep -q 'source.*dependencies\|source.*DEPS_FILE' ./hyprland-install.sh"
+
+run_test "hyprland-install.sh has paru/yay fallback" \
+    "grep -q 'paru\|yay' ./hyprland-install.sh && grep -q 'AUR_HELPER' ./hyprland-install.sh"
+
+# =============================================================================
+# TEST GROUP 5: dependencies.conf Content
+# =============================================================================
+print_header "Dependencies Configuration"
+
+# shellcheck disable=SC1091
+source ./dependencies.conf 2>/dev/null || true
+
+run_test "OFFICIAL_CORE array exists and non-empty"     "[ ${#OFFICIAL_CORE[@]} -gt 0 ]"
+run_test "OFFICIAL_INTERFACE array exists and non-empty" "[ ${#OFFICIAL_INTERFACE[@]} -gt 0 ]"
+run_test "OFFICIAL_UTILITY array exists and non-empty"   "[ ${#OFFICIAL_UTILITY[@]} -gt 0 ]"
+run_test "AUR_INTERFACE array exists"                    "declare -p AUR_INTERFACE &>/dev/null"
+run_test "AUR_UTILITY array exists"                      "declare -p AUR_UTILITY &>/dev/null"
+
+# Legacy aliases (for backwards compatibility)
+run_test "CORE_PACKAGES alias exists"     "[ ${#CORE_PACKAGES[@]} -gt 0 ]"
+run_test "AUDIO_PACKAGES alias exists"    "[ ${#AUDIO_PACKAGES[@]} -gt 0 ]"
+run_test "MINIMAL_GROUP array exists"     "[ ${#MINIMAL_GROUP[@]} -gt 0 ]"
+run_test "STANDARD_GROUP array exists"    "[ ${#STANDARD_GROUP[@]} -gt 0 ]"
+run_test "FULL_GROUP array exists"        "[ ${#FULL_GROUP[@]} -gt 0 ]"
+
+run_test "hyprland is in OFFICIAL_CORE" \
+    "printf '%s\n' \"\${OFFICIAL_CORE[@]}\" | grep -q '^hyprland$'"
+
+run_test "No empty strings in OFFICIAL_CORE" \
+    "! printf '%s\n' \"\${OFFICIAL_CORE[@]}\" | grep -q '^$'"
+
+run_test "No empty strings in OFFICIAL_UTILITY" \
+    "! printf '%s\n' \"\${OFFICIAL_UTILITY[@]}\" | grep -q '^$'"
+
+run_test "No empty strings in OPT groups" \
+    "! printf '%s\n' \"\${AUR_OPT_GAMING[@]:-}\" \"\${OFFICIAL_OPT_GAMING[@]:-}\" | grep -q '^$'"
+
+run_test "GPU arrays are defined (NVIDIA)" \
+    "[ ${#OFFICIAL_GPU_NVIDIA[@]} -gt 0 ]"
+
+run_test "GPU arrays are defined (AMD)" \
+    "[ ${#OFFICIAL_GPU_AMD[@]} -gt 0 ]"
+
+run_test "GPU arrays are defined (Intel)" \
+    "[ ${#OFFICIAL_GPU_INTEL[@]} -gt 0 ]"
+
+# Confirm removed problem packages
+run_test "wlroots-nvidia removed (was non-existent)" \
+    "! grep -q 'wlroots-nvidia' ./dependencies.conf"
+
+run_test "hyprcap flagged/removed (non-existent package)" \
+    "! grep -qE '^[^#]*\"hyprcap\"' ./dependencies.conf"
+
+run_test "Empty OPT_PRODUCTIVITY string removed" \
+    "! grep -qE '^\s*\"\"' ./dependencies.conf"
+
+# =============================================================================
+# TEST GROUP 6: System Requirements
+# =============================================================================
+print_header "System Requirements"
+run_test "bash 4.0+ available" \
+    "[[ \${BASH_VERSINFO[0]} -ge 4 ]]"
+
+run_optional "pacman available (Arch Linux)" \
+    "command -v pacman"
+
+run_optional "git available" \
+    "command -v git"
+
+run_optional "sudo available" \
+    "command -v sudo"
+
+# =============================================================================
+# TEST GROUP 7: Package Statistics
+# =============================================================================
+print_header "Package Statistics"
+# shellcheck disable=SC1091
+source ./dependencies.conf 2>/dev/null || true
+
+print_info "OFFICIAL_CORE     : ${#OFFICIAL_CORE[@]} packages"
+print_info "OFFICIAL_INTERFACE: ${#OFFICIAL_INTERFACE[@]} packages"
+print_info "OFFICIAL_UTILITY  : ${#OFFICIAL_UTILITY[@]} packages"
+print_info "AUR_INTERFACE     : ${#AUR_INTERFACE[@]} packages"
+print_info "AUR_UTILITY       : ${#AUR_UTILITY[@]} packages"
+print_info "MINIMAL_GROUP     : ${#MINIMAL_GROUP[@]} packages"
+print_info "STANDARD_GROUP    : ${#STANDARD_GROUP[@]} packages"
+print_info "FULL_GROUP        : ${#FULL_GROUP[@]} packages"
+
+# =============================================================================
+# SUMMARY
+# =============================================================================
+printf '\n%s%s════════════════════════════════════════%s\n' "$BOLD" "$GREEN" "$RESET"
+printf '%s  Test Results%s\n' "$BOLD" "$RESET"
+printf '%s%s════════════════════════════════════════%s\n' "$BOLD" "$GREEN" "$RESET"
+printf '  %sPassed%s : %d\n' "$GREEN"  "$RESET" "$PASSED"
+printf '  %sFailed%s : %d\n' "$RED"    "$RESET" "$FAILED"
+printf '  %sWarned%s : %d\n' "$YELLOW" "$RESET" "$WARNED"
+printf '  Total  : %d\n\n'  $(( PASSED + FAILED ))
+
+if (( FAILED == 0 )); then
+    printf '%s✓ All tests passed. Scripts are ready.%s\n\n' "$GREEN" "$RESET"
+    printf '%sNext step:%s\n' "$YELLOW" "$RESET"
+    printf '  Run %s./install.sh --dry-run%s to preview the installation plan.\n'    "$BOLD" "$RESET"
+    printf '  Run %s./install.sh%s          to start the actual installation.\n\n'   "$BOLD" "$RESET"
     exit 0
 else
-    echo -e "${RED}✗ Some tests failed. Please review the issues above.${NC}"
+    printf '%s✗ %d test(s) failed. Review the output above before installing.%s\n\n' \
+        "$RED" "$FAILED" "$RESET"
     exit 1
 fi

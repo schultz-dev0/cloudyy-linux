@@ -1,53 +1,50 @@
-/* 1. Import your Matugen colors */
-/* ADJUST THIS PATH to match where Matugen exports your colors.css */
-@import '~/.config/matugen/generated/colors.css'; 
+@import "../../.config/matugen/generated/colors-swayosd.css";
 
-/* 2. Main Window - Position it at the bottom */
-window {
-    background: transparent;
-    /* This pushes the UI to the bottom of the screen */
-    margin-bottom: 30px; 
+window#osd {
+  border-radius: 999px;
+  border: none;
+  background: alpha(@theme_bg_color, 0.8);
+  /* CRITICAL CHANGES START */
+  /* The shadow definition: x-offset y-offset blur spread color */
+  box-shadow: 0px 4px 12px 2px rgba(0, 0, 0, 0.6);
+  /* You MUST add margin. Without this, the shadow is clipped 
+     by the window boundary and becomes invisible. */
+  margin: 16px;
+  /* CRITICAL CHANGES END */
 }
 
-/* 3. The Bubble Container */
-#container {
-    /* Use Matugen variable names (check your colors.css if these differ) */
-    background-color: @surface;
-    color: @on_surface;
-    border-radius: 24px;
-    border: 2px solid @outline;
-    padding: 10px 20px;
-    
-    /* Ensure it looks like a "layer" */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+window#osd #container {
+  margin: 16px;
 }
 
-/* 4. Progress Bar / Slider */
-progressbar {
-    background-color: @surface_variant; 
-    border-radius: 99px;
+window#osd image,
+window#osd label {
+  color: @theme_fg_color;
 }
 
-trough {
-    background-color: transparent;
-    border: none;
-    min-height: 8px;
+window#osd progressbar:disabled,
+window#osd image:disabled {
+  opacity: 0.5;
 }
 
-progress {
-    background-color: @primary;
-    border-radius: 99px;
-    min-height: 8px;
+window#osd progressbar {
+  min-height: 6px;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
 }
 
-/* 5. Icons & Text */
-image {
-    color: @primary;
-    margin-right: 12px;
+window#osd trough {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: alpha(@theme_fg_color, 0.5);
 }
 
-label {
-    color: @on_surface;
-    font-weight: bold;
-    margin-left: 12px;
+window#osd progress {
+  min-height: inherit;
+  border-radius: inherit;
+  border: none;
+  background: @theme_fg_color;
+}12px;
 }

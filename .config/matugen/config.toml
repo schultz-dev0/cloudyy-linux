@@ -28,7 +28,7 @@ post_hook     = "~/cloudyy_scripts/launch_waybar.sh"
 [templates.gtk3]
 input_path    =  '~/.config/matugen/templates/gtk-colors.css'
 output_path   = '~/.config/gtk-3.0/gtk.css'
-post_hook   = 'thunar -q 2>/dev/null; sleep 0.3; thunar --daemon &'
+post_hook     = 'thunar -q 2>/dev/null; sleep 0.3; thunar --daemon &'
 
 [templates.gtk4]                                                                                                
 input_path    = '~/.config/matugen/templates/gtk-colors.css'                                                       
@@ -52,6 +52,11 @@ output_path   = '~/.config/matugen/generated/colors-glass.rasi'
 input_path    = '~/.config/matugen/templates/colors-swaync.css'
 output_path   = '~/.config/matugen/generated/colors-swaync.css'
 post_hook     = 'swaync-client -rs'
+
+[templates.swayosd]
+input_path    = '~/.config/matugen/templates/colors-swayosd.css'
+output_path   = '~/.config/matugen/generated/colors-swayosd.css'
+post_hook     = '~/cloudyy_scripts/swayosd/restart_swayosd.sh' 
 
 [templates.wlogout]
 input_path    = '~/.config/matugen/templates/colors.css'
