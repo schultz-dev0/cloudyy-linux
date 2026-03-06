@@ -385,39 +385,68 @@ resolve_terminal_cwd_generic() {
 resolve_file_manager_cwd() {
     local pid="$1" title="$2"
 
+    # --- Parse folder name from window title ---
+    # Thunar sets title to "FolderName - Thunar"
+    # Strip the suffix with python to avoid sed unicode/locale issues
     local folder_hint
-    folder_hint=$(printf '%s' "$title" \
-        | sed -E 's/[[:space:]]+[—–-][[:space:]]+Thunar$//I' \
-        | sed -E 's/[[:space:]]+[—–-][[:space:]]+Files$//I' \
-        | sed -E 's/[[:space:]]+[—–-][[:space:]]+File Manager$//I' \
-        | sed -E 's/^[[:space:]]+|[[:space:]]+$//')
+    folder_hint=$(python3 -c "
+import sys, re
+t = sys.argv[1]
+t = re.sub(r'\s*[—–-]\s*(Thunar|Files|File Manager)\s*$', '', t, flags=re.IGNORECASE).strip()
+print(t)
+" "$title" 2>/dev/null)
 
     log "File manager hint: '${folder_hint}'"
 
-    [[ "$folder_hint" == "Home" || "$folder_hint" == "$(basename "$HOME")" ]] \
-        && { echo "$HOME"; return; }
+    [[ -z "$folder_hint" ]] && { echo "$HOME"; return; }
 
-    local fd_dir="/proc/${pid}/fd"
-    if [[ -d "$fd_dir" ]]; then
-        local -a fds
-        mapfile -t fds < <(ls "$fd_dir" 2>/dev/null | grep -E '^[0-9]+$' | sort -rn)
-        for fd in "${fds[@]}"; do
-            local target
-            target=$(readlink "${fd_dir}/${fd}" 2>/dev/null) || continue
-            [[ -d "$target" ]]         || continue
-            [[ "$target" == /proc/* ]] && continue
-            [[ "$target" == /sys/*  ]] && continue
-            [[ "$target" == /dev/*  ]] && continue
-            [[ "$target" == /run/*  ]] && continue
-            log "  FD $fd → $target"
-            [[ "$(basename "$target")" == "$folder_hint" ]] \
-                && { log "FD match: $target"; echo "$target"; return; }
-        done
+    # --- Exact match: XDG standard dirs (instant, no search needed) ---
+    declare -A xdg_dirs=(
+        ["Home"]="$HOME"
+        ["$(basename "$HOME")"]="$HOME"
+        ["Downloads"]="${XDG_DOWNLOAD_DIR:-$HOME/Downloads}"
+        ["Documents"]="${XDG_DOCUMENTS_DIR:-$HOME/Documents}"
+        ["Pictures"]="${XDG_PICTURES_DIR:-$HOME/Pictures}"
+        ["Music"]="${XDG_MUSIC_DIR:-$HOME/Music}"
+        ["Videos"]="${XDG_VIDEOS_DIR:-$HOME/Videos}"
+        ["Desktop"]="${XDG_DESKTOP_DIR:-$HOME/Desktop}"
+        ["Templates"]="${XDG_TEMPLATES_DIR:-$HOME/Templates}"
+        ["Public"]="${XDG_PUBLICSHARE_DIR:-$HOME/Public}"
+    )
+    if [[ -n "${xdg_dirs[$folder_hint]:-}" && -d "${xdg_dirs[$folder_hint]}" ]]; then
+        log "XDG match: ${xdg_dirs[$folder_hint]}"
+        echo "${xdg_dirs[$folder_hint]}"
+        return
     fi
 
-    [[ -d "$folder_hint" ]] && { echo "$folder_hint"; return; }
-    warn "FD scan no match for '${folder_hint}', using proc CWD"
-    read_proc_cwd "$pid"
+    # --- Filesystem search: find all dirs named $folder_hint under $HOME ---
+    # Use mtime (not atime — disabled by relatime on most Linux systems)
+    # Limit to depth 6 for performance; prune hidden dirs to avoid noise
+    log "Searching \$HOME for dir named: '${folder_hint}'"
+
+    local best
+    best=$(find "$HOME"         -maxdepth 6         -type d         -name "$folder_hint"         ! -path "*/.*"         -printf "%T@ %p
+" 2>/dev/null         | sort -rn         | head -1         | cut -d" " -f2-)
+
+    if [[ -n "$best" && -d "$best" ]]; then
+        log "Filesystem search found: $best"
+        echo "$best"
+        return
+    fi
+
+    # --- Last resort: include hidden dirs in search ---
+    log "Retrying with hidden dirs included"
+    best=$(find "$HOME"         -maxdepth 6         -type d         -name "$folder_hint"         -printf "%T@ %p
+" 2>/dev/null         | sort -rn         | head -1         | cut -d" " -f2-)
+
+    if [[ -n "$best" && -d "$best" ]]; then
+        log "Hidden dir search found: $best"
+        echo "$best"
+        return
+    fi
+
+    warn "Could not resolve '${folder_hint}' — using HOME"
+    echo "$HOME"
 }
 
 # =============================================================================
