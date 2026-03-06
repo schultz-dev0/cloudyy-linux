@@ -29,6 +29,7 @@ source $ZSH/oh-my-zsh.sh
 [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 export EDITOR="nvim"
 
+export PATH="~/.local/bin:$PATH"
 
 # aliases #
 
@@ -81,11 +82,11 @@ if uwsm check may-start && uwsm select; then
 fi
 
 # pnpm
-export PNPM_HOME="/home/schultz/.local/share/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
+#export PNPM_HOME="/home/schultz/.local/share/pnpm"
+#case ":$PATH:" in
+#  *":$PNPM_HOME:"*) ;;
+#  *) export PATH="$PNPM_HOME:$PATH" ;;
+#esac
 # pnpm end
 
 

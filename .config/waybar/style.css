@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: vertical_dense
+   PRESET: vertical_ghost
    ─────────────────────────────────────────────────────────────────────────
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -55,96 +55,177 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── dense-modules ───────────────────────────────────────────────────────────── */
+/* ── ghost-modules ───────────────────────────────────────────────────────────── */
 
-/* dense-modules — high-density monospace, maximum data */
+/* ghost-modules — every module is a fully independent floating island */
 
-* {
-  font-family: 'JetBrainsMono Nerd Font', 'Monocraft', monospace;
-  font-size:   10px;
-  font-weight: 500;
+/* Default island */
+#custom-launcher,
+#custom-notification, #custom-timer, #custom-temps,
+#clock, #network, #pulseaudio, #battery, #cpu, #custom-power {
+  background-color: alpha(@surface, 0.82);
+  border:           1px solid alpha(@outline_variant, 0.18);
+  border-radius:    10px;
+  color:            @on_surface_variant;
+  margin:           2px;
+  padding:          6px 8px;
+  transition:       all 0.18s ease;
 }
 
+/* Hover default */
+#custom-notification:hover, #custom-timer:hover, #custom-temps:hover,
+#network:hover, #pulseaudio.output:hover, #battery:hover, #cpu:hover {
+  background-color: alpha(@surface_container, 0.9);
+  color:            @on_surface;
+  border:           1px solid alpha(@outline_variant, 0.35);
+}
+
+/* Launcher — primary gradient island */
 #custom-launcher {
-  background-color: alpha(@primary_container, 0.5);
+  background-image: linear-gradient(135deg, alpha(@primary_container, 0.9), alpha(@primary_fixed_dim, 0.9));
+  border:           1px solid alpha(@primary, 0.28);
   color:            @on_primary_container;
-  font-size:        12px;
-  font-weight:      700;
-  padding:          4px 7px;
-  transition:       all 0.15s ease;
+  font-size:        17px;
+  padding:          6px 10px;
+  box-shadow:       0 2px 8px alpha(@primary, 0.2);
 }
-#custom-launcher:hover { background-color: @primary_container; }
+#custom-launcher:hover {
+  background-image: linear-gradient(135deg, @primary_fixed_dim, @primary);
+  box-shadow:       0 3px 14px alpha(@primary, 0.38);
+}
 
-#clock {
-  color:          @on_surface;
-  font-size:      13px;
-  font-weight:    700;
-  letter-spacing: 0.5px;
+#workspaces {
+  background-color: alpha(@surface, 0.82);
+  border:           1px solid alpha(@outline_variant, 0.18);
+  border-radius:    12px;
+  
+  /* Horizontal margin */
+  margin:           4px 4px;
+  
+  padding:          2px 6px;
 }
+
+/* this set up for workspaces: */
 
 #workspaces button {
-  background-color: alpha(@surface_container_high, 0.3);
-  border-radius:    3px;
-  color:            alpha(@on_surface_variant, 0.55);
-  font-size:        10px;
-  min-width:        18px;
-  padding:          0 5px;
-  margin:           3px 1px;
-  transition:       all 0.12s ease;
+  background:       transparent;
+  border-radius:    6px;
+  font-size:        12px;
+  
+  /* Button sizing */
+  min-width:        24px;
+  padding:          2px 8px;
+  margin:           2px;
+  
+  transition:       all 0.14s ease;
 }
-#workspaces button.visible { color: @on_surface; }
-#workspaces button.active  {
-  background-color: alpha(@primary_container, 0.6);
+
+#workspaces button.active {
+  padding:          0 1px;
+  min-width:        28px;
+  background-image: linear-gradient(135deg, alpha(@primary_container, 0.9), alpha(@primary_fixed_dim, 0.9));
   color:            @on_primary_container;
+  box-shadow:       0 2px 8px alpha(@primary, 0.38);
   font-weight:      700;
 }
-#workspaces button.empty   { background: transparent; color: alpha(@on_surface_variant, 0.18); }
+
+#workspaces button.empty {
+  padding:          0 6px;
+  min-width:        20px;
+  color:            alpha(@on_surface_variant, 0.4);
+}
+
+#workspaces button.visible { color: @on_surface; }
+
 #workspaces button:hover   { background-color: alpha(@surface_container, 0.55); color: @on_surface; }
 #workspaces button.urgent  {
-  background-color: alpha(@error_container, 0.55);
+  background-color: alpha(@error_container, 0.7);
   color:            @on_error;
-  animation:        blink-urgent 0.8s ease-in-out infinite;
+  animation:        blink-urgent 0.9s ease-in-out infinite;
 }
 
-#custom-notification { font-size: 11px; color: @on_surface_variant; }
-#custom-temps        { color: @tertiary; font-weight: 700; }
-#custom-updates      { color: @tertiary; }
-#custom-timer        { color: @secondary; }
-#mpris               { color: alpha(@on_surface_variant, 0.55); font-size: 10px; }
-#mpris.paused        { color: alpha(@on_surface_variant, 0.3); }
-#mpris.stopped       { padding: 0; margin: 0; min-width: 0; }
+/* Clock — secondary container identity */
+#clock {
+  background-color: alpha(@secondary_container, 0.6);
+  border:           1px solid alpha(@secondary, 0.2);
+  color:            @on_secondary_container;
+  font-size:        16px;
+  font-weight:      800;
+  letter-spacing:   0.5px;
+}
+#clock:hover { background-color: alpha(@secondary_container, 0.85); }
 
-#network              { color: alpha(@on_surface_variant, 0.7); }
-#network.wifi         { color: @primary_fixed; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.28); }
+/* Temps — tertiary identity */
+#custom-temps {
+  background-color: alpha(@tertiary_container, 0.45);
+  border:           1px solid alpha(@tertiary, 0.2);
+  color:            @tertiary;
+  font-size:        11px;
+  font-weight:      700;
+}
+#custom-temps:hover { background-color: alpha(@tertiary_container, 0.7); }
 
-#pulseaudio.output       { color: alpha(@on_surface_variant, 0.7); }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.22); }
+/* Network — state-coded islands */
+#network { font-size: 11px; }
+#network.wifi     {
+  color:            @primary_fixed;
+  background-color: alpha(@primary_container, 0.38);
+  border:           1px solid alpha(@primary, 0.18);
+}
+#network.ethernet {
+  color:            @tertiary;
+  background-color: alpha(@tertiary_container, 0.38);
+  border:           1px solid alpha(@tertiary, 0.18);
+}
+#network.disconnected { color: alpha(@on_surface_variant, 0.3); background: transparent; }
 
-#cpu, #memory                    { color: alpha(@on_surface_variant, 0.7); }
-#cpu.warning, #memory.warning    { color: @tertiary; background-color: alpha(@tertiary_container, 0.2); }
-#cpu.critical, #memory.critical  {
-  color:            @error;
-  background-color: alpha(@error_container, 0.25);
-  animation:        blink 1.2s ease-in-out infinite;
+/* Audio */
+#pulseaudio.output       { font-size: 11px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.28); background: transparent; border: none; }
+
+/* Battery — vivid state coding */
+#battery { font-size: 11px; }
+#battery.good {
+  color: @tertiary; background-color: alpha(@tertiary_container, 0.45);
+  border: 1px solid alpha(@tertiary, 0.2);
+}
+#battery.charging, #battery.plugged, #battery.full {
+  color: @tertiary; background-color: alpha(@tertiary_container, 0.45);
+  box-shadow: 0 1px 5px alpha(@tertiary, 0.2);
+}
+#battery.warning:not(.charging)  {
+  color: @primary_fixed; background-color: alpha(@primary_container, 0.45);
+  border: 1px solid alpha(@primary, 0.2);
+}
+#battery.critical:not(.charging) {
+  color: @error; background-color: alpha(@error_container, 0.6);
+  border: 1px solid alpha(@error, 0.3);
+  box-shadow: 0 1px 8px alpha(@error, 0.35);
+  animation: blink 0.9s ease-in-out infinite;
 }
 
-#battery                              { color: alpha(@on_surface_variant, 0.7); }
-#battery.good                         { color: @tertiary; }
-#battery.charging, #battery.full      { color: @tertiary; }
-#battery.warning:not(.charging)       { color: @primary_fixed; background-color: alpha(@primary_container, 0.18); }
-#battery.critical:not(.charging)      {
-  color:            @error;
-  background-color: alpha(@error_container, 0.3);
-  animation:        blink 0.9s ease-in-out infinite;
-}
+/* CPU */
+#cpu { font-size: 11px; }
+#cpu.warning  { color: @tertiary; }
+#cpu.critical { color: @error; animation: blink 1.2s ease-in-out infinite; }
 
-#bluetooth           { color: alpha(@on_surface_variant, 0.4); }
+#bluetooth           { color: alpha(@on_surface_variant, 0.5); font-size: 11px; }
 #bluetooth.connected { color: @primary; }
 
-#custom-power       { color: alpha(@on_surface_variant, 0.45); font-size: 11px; }
-#custom-power:hover { background-color: alpha(@error_container, 0.3); color: @error; }
+/* Power — error-tint island */
+#custom-power {
+  background-image: linear-gradient(135deg, alpha(@primary_container, 0.8), alpha(@primary_fixed_dim, 0.8));
+  border:           1px solid alpha(@primary, 0.2);
+  color:            @on_primary_container;
+  font-size:        14px;
+  padding:          6px 10px;
+}
+#custom-power:hover {
+  background-image: none;
+  background-color: alpha(@error_container, 0.72);
+  color:            @error;
+  border:           1px solid alpha(@error, 0.3);
+}
 
 /* ── Bar container & layout ──────────────────────────────────────────────────── */
 
@@ -157,18 +238,9 @@ window#waybar, window#waybar > box {
 
 .modules-left, .modules-center, .modules-right {
   background: transparent;
-  margin:     0;
-  padding:    4px 0;
+  margin:     4px 4px;
+  padding:    0;
 }
-
-window#waybar > box {
-  background-color: alpha(@surface, 0.97);
-  border:           none;
-  border-radius:    0;
-}
-.modules-left   { padding: 4px 0; }
-.modules-center { padding: 4px 0; }
-.modules-right  { padding: 4px 0; }
 
 /* ── Vertical bar module normalization ──────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
@@ -201,7 +273,7 @@ window#waybar > box {
 #cpu,
 #memory,
 #battery {
-  padding: 6px 4px;
-  margin:  2px 4px;
+  padding: 2px 2px;
+  margin:  2px 2px;
 }
 
