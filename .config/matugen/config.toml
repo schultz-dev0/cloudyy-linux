@@ -76,6 +76,11 @@ output_path = '~/.cache/wal/colors.json'
 post_hook = 'pywalfox update'
 
 
+[templates.vscodium]
+input_path = '~/.config/matugen/templates/vscode-theme.json'
+output_path = '~/.config/matugen/generated/vscode.json'
+post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
+
 [templates.vscode]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
 output_path = '~/.config/matugen/generated/vscode.json'
