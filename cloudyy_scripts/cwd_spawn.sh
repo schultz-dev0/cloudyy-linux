@@ -31,6 +31,11 @@ readonly -a KNOWN_TERMINALS=(
 readonly -a KNOWN_FILE_MANAGERS=(
     thunar nautilus nemo dolphin pcmanfm caja
 )
+
+# Electron code editors — resolved via title parsing + state.vscdb
+readonly -a KNOWN_CODE_EDITORS=(
+    codium vscodium code vscode
+)
 readonly -a KNOWN_SHELLS=(
     bash zsh fish sh dash ksh tcsh
 )
@@ -83,6 +88,14 @@ is_shell() {
     local comm="$1"
     for sh in "${KNOWN_SHELLS[@]}"; do
         [[ "$comm" == "$sh" || "$comm" == "-$sh" ]] && return 0
+    done
+    return 1
+}
+
+is_code_editor_class() {
+    local class="$1"
+    for e in "${KNOWN_CODE_EDITORS[@]}"; do
+        [[ "$class" == *"$e"* ]] && return 0
     done
     return 1
 }
@@ -450,6 +463,151 @@ print(t)
 }
 
 # =============================================================================
+# VSCODIUM / VSCODE RESOLUTION
+#
+# Title format: "{filename} - {workspace_name} - VSCodium"
+# Workspace name is always the second-to-last " - " segment.
+# Fallback: query state.vscdb (SQLite) for the active folder URI.
+# =============================================================================
+
+resolve_vscodium_cwd() {
+    local title="$1"
+
+    # Title format: "{filename} - {workspace_or_profile} - VSCodium"
+    # Parse both parts — the open filename is the most actionable signal
+    local file_hint workspace_hint
+    read -r file_hint workspace_hint < <(python3 -c "
+import sys
+t = sys.argv[1]
+for suffix in [' - VSCodium', ' - Code - OSS', ' - Code', ' - VSCode']:
+    if t.endswith(suffix):
+        t = t[:-len(suffix)]
+        break
+parts = t.split(' - ', 1)
+file_hint = parts[0].strip()
+workspace_hint = parts[1].strip() if len(parts) > 1 else ''
+print(file_hint, workspace_hint)
+" "$title" 2>/dev/null)
+
+    log "VSCodium file_hint='${file_hint}' workspace_hint='${workspace_hint}'"
+
+    # --- Strategy 1: find the open file, walk up to project root ---
+    # The filename in the title is the currently focused editor tab.
+    # Find it on disk, then walk up looking for a project root marker.
+    if [[ -n "$file_hint" && "$file_hint" != "Welcome" && "$file_hint" != "untitled" ]]; then
+        local found_file
+        found_file=$(find "$HOME" \
+            -maxdepth 8 \
+            -type f \
+            -name "$file_hint" \
+            ! -path "*/.*" \
+            -printf "%T@ %p\n" 2>/dev/null \
+            | sort -rn \
+            | head -1 \
+            | cut -d" " -f2-)
+
+        if [[ -n "$found_file" && -f "$found_file" ]]; then
+            log "Found open file: $found_file"
+
+            # Walk up from the file's directory toward HOME, stopping at the
+            # deepest directory that contains a recognised project root marker.
+            local dir project_root
+            dir="$(dirname "$found_file")"
+            project_root="$dir"   # sensible default: file's own directory
+
+            while [[ "$dir" != "$HOME" && "$dir" != "/" ]]; do
+                for marker in \
+                    .git \
+                    Cargo.toml \
+                    package.json \
+                    pyproject.toml \
+                    setup.py \
+                    go.mod \
+                    CMakeLists.txt \
+                    Makefile \
+                    flake.nix \
+                    .envrc \
+                    .project; do
+                    if [[ -e "${dir}/${marker}" ]]; then
+                        project_root="$dir"
+                        log "Project root marker '${marker}' at: $dir"
+                        break 2
+                    fi
+                done
+                dir="$(dirname "$dir")"
+            done
+
+            log "Resolved project root: $project_root"
+            echo "$project_root"
+            return
+        fi
+        log "File '${file_hint}' not found on disk, trying workspace hint"
+    fi
+
+    # --- Strategy 2: workspace hint is an actual folder name ---
+    # Skip if it matches the username/home basename — that's a profile name not a folder
+    local home_basename
+    home_basename="$(basename "$HOME")"
+    if [[ -n "$workspace_hint" \
+       && "$workspace_hint" != "$home_basename" \
+       && "$workspace_hint" != "$USER" ]]; then
+
+        local best
+        best=$(find "$HOME" \
+            -maxdepth 6 \
+            -type d \
+            -name "$workspace_hint" \
+            ! -path "*/.*" \
+            -printf "%T@ %p\n" 2>/dev/null \
+            | sort -rn \
+            | head -1 \
+            | cut -d" " -f2-)
+
+        if [[ -n "$best" && -d "$best" ]]; then
+            log "Workspace dir found: $best"
+            echo "$best"
+            return
+        fi
+    fi
+
+    # --- Strategy 3: state.vscdb most recently opened folder ---
+    local vscdb="${HOME}/.config/VSCodium/User/globalStorage/state.vscdb"
+    [[ ! -f "$vscdb" ]] && vscdb="${HOME}/.config/Code/User/globalStorage/state.vscdb"
+
+    if [[ -f "$vscdb" ]] && command -v sqlite3 &>/dev/null; then
+        local db_result
+        db_result=$(sqlite3 "$vscdb" \
+            "SELECT value FROM ItemTable
+             WHERE key = 'history.recentlyOpenedPathsList'
+             LIMIT 1;" 2>/dev/null \
+            | python3 -c "
+import sys, json, urllib.parse, os
+try:
+    d = json.loads(sys.stdin.read())
+except:
+    sys.exit(1)
+for e in d.get('entries', []):
+    if not isinstance(e, dict): continue
+    uri = e.get('folderUri', '')
+    if uri.startswith('file://'):
+        path = urllib.parse.unquote(uri[7:]).rstrip('/')
+        if os.path.isdir(path) and path != os.path.expanduser('~'):
+            print(path)
+            sys.exit(0)
+" 2>/dev/null)
+
+        if [[ -n "$db_result" && -d "$db_result" ]]; then
+            log "state.vscdb recent folder: $db_result"
+            echo "$db_result"
+            return
+        fi
+    fi
+
+    log "All VSCodium strategies failed, using HOME"
+    echo "$HOME"
+}
+
+# =============================================================================
 # DISPATCH
 # =============================================================================
 
@@ -460,6 +618,9 @@ resolve_cwd() {
     if [[ "$class" == *"kitty"* ]]; then
         log "Strategy: kitty"
         cwd=$(resolve_kitty_cwd "$pid")
+    elif is_code_editor_class "$class"; then
+        log "Strategy: VSCodium/VSCode"
+        cwd=$(resolve_vscodium_cwd "$title")
     elif is_file_manager_class "$class"; then
         log "Strategy: file manager"
         cwd=$(resolve_file_manager_cwd "$pid" "$title")
