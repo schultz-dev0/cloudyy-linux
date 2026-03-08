@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: pill (HORIZONTAL)
+   PRESET: vertical_pill
    ─────────────────────────────────────────────────────────────────────────
-   macOS-style single-strip bar. One unified pill, time + workspaces left,
-   mpris centre, system info right. Temp shown as a coloured badge.
+   Vertical companion to pill. Three stacked rounded pills on the left edge.
+   Same design language — muted palette, bold clock, temp badge at bottom.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import "/home/schultz/.config/matugen/generated/waybar-colors.css";
@@ -21,58 +21,66 @@
 }
 
 /* ── Bar Window ────────────────────────────────────────────────────────────── */
-window#waybar {
+window#waybar,
+window#waybar > box {
   background: transparent;
+  border:     none;
+  margin:     0;
 }
 
-/* ── Single pill wrapper ───────────────────────────────────────────────────── */
+/* ── Single centered pill ──────────────────────────────────────────────────── */
 .modules-center {
   background-color: alpha(@surface_container, 0.92);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    18px;
-  margin:           0;
-  padding:          0 6px;
+  margin:           5px;
+  padding:          10px 0;
 }
 
 /* ── All modules base ──────────────────────────────────────────────────────── */
-#clock, #workspaces, #mpris,
+#custom-launcher, #workspaces,
+#clock, #mpris,
 #battery, #pulseaudio, #network, #custom-temps {
   background: transparent;
   color:      @on_surface_variant;
-  padding:    0 8px;
-  margin:     0;
+  padding:    6px 2px;
+  margin:     1px 3px;
 }
 
-/* ── Clock ─────────────────────────────────────────────────────────────────── */
-#clock {
-  color:       @on_surface;
+/* ── Launcher ──────────────────────────────────────────────────────────────── */
+#custom-launcher {
+  color:       @primary;
+  font-size:   17px;
   font-weight: 800;
-  font-size:   13px;
-  padding-left: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 2px;
+}
+#custom-launcher:hover {
+  color: @on_primary;
+  background-color: alpha(@primary, 0.2);
+  border-radius:    10px;
 }
 
 /* ── Workspaces ────────────────────────────────────────────────────────────── */
 #workspaces {
-  padding: 0 4px;
+  padding: 0;
 }
 
 #workspaces button {
-  background:  transparent;
-  color:       alpha(@on_surface_variant, 0.35);
-  padding:     0 5px;
-  margin:      0 2px;
-  min-width:   14px;
-  min-height:  28px;
+  background:    transparent;
+  color:         alpha(@on_surface_variant, 0.35);
+  padding:       5px 0;
+  margin:        1px 4px;
+  min-width:     28px;
   border-radius: 8px;
-  font-size:   12px;
-  font-weight: 600;
+  font-size:     12px;
+  font-weight:   600;
 }
 
 #workspaces button.active {
   background-color: @primary;
   color:            @on_primary;
   font-weight:      800;
-  min-width:        22px;
   border-radius:    10px;
   box-shadow:       0 1px 6px alpha(@primary, 0.35);
 }
@@ -87,42 +95,50 @@ window#waybar {
   animation: blink 1s infinite;
 }
 
-/* ── Mpris ─────────────────────────────────────────────────────────────────── */
-#mpris {
-  color:     alpha(@on_surface_variant, 0.55);
-  font-size: 11px;
-}
-#mpris.paused {
-  color: alpha(@on_surface_variant, 0.3);
-  font-style: italic;
+/* ── Clock ─────────────────────────────────────────────────────────────────── */
+#clock {
+  color:          @on_surface;
+  font-size:      16px;
+  font-weight:    800;
+  letter-spacing: 0.5px;
+  min-width:      42px;
+  padding:        8px 0;
 }
 
+/* ── Mpris ─────────────────────────────────────────────────────────────────── */
+#mpris {
+  color:     alpha(@on_surface_variant, 0.45);
+  font-size: 13px;
+}
+#mpris.paused { color: alpha(@on_surface_variant, 0.25); }
+
 /* ── Battery ───────────────────────────────────────────────────────────────── */
-#battery              { color: @on_surface_variant; }
+#battery              { color: @on_surface_variant; font-size: 11px; }
 #battery.good         { color: @tertiary; }
 #battery.charging     { color: @primary; }
 #battery.warning      { color: @secondary; }
 #battery.critical     { color: @error; animation: blink 0.9s infinite; }
 
 /* ── Audio ─────────────────────────────────────────────────────────────────── */
-#pulseaudio.output       { color: @on_surface_variant; }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.28); }
+#pulseaudio.output       { color: @on_surface_variant; font-size: 13px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.25); }
 
 /* ── Network ───────────────────────────────────────────────────────────────── */
-#network              { color: @on_surface_variant; font-size: 11px; }
-#network.wifi         { color: @on_surface; }
+#network              { color: @on_surface_variant; font-size: 13px; }
+#network.wifi         { color: @primary_fixed; }
 #network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.28); }
+#network.disconnected { color: alpha(@on_surface_variant, 0.25); }
 
-/* ── Temp badge (the green "80" pill) ──────────────────────────────────────── */
+/* ── Temp badge ────────────────────────────────────────────────────────────── */
 #custom-temps {
   background-color: alpha(@tertiary, 0.18);
   border:           1px solid alpha(@tertiary, 0.25);
   border-radius:    12px;
   color:            @tertiary;
   font-weight:      800;
-  padding:          2px 10px;
-  margin:           5px 4px 5px 2px;
+  padding:          4px 2px;
+  margin:           4px 5px 2px 5px;
+  font-size:        11px;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */

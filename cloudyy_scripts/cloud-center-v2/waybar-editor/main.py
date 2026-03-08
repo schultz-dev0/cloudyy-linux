@@ -32,6 +32,24 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+# Sanity-check that all panel files are present before importing them
+_HERE = Path(__file__).resolve().parent
+_REQUIRED = [
+    _HERE / "models.py",
+    _HERE / "parser.py",
+    _HERE / "writer.py",
+    _HERE / "panels" / "__init__.py",
+    _HERE / "panels" / "modules.py",
+    _HERE / "panels" / "properties.py",
+    _HERE / "panels" / "preview.py",
+]
+_missing = [str(p) for p in _REQUIRED if not p.exists()]
+if _missing:
+    print("[waybar-editor] Missing files — did you copy the full waybar-editor/ directory?")
+    for m in _missing:
+        print(f"  MISSING: {m}")
+    sys.exit(1)
+
 from models import (
     CURRENT_FILE, WAYBAR_DIR,
     current_preset_name, list_presets,
