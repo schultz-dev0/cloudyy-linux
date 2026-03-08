@@ -23,11 +23,10 @@
         "custom/power"
     ],
     "custom/launcher": {
-      "format": "󰅟 ",
-      "on-click": "~/cloudyy_scripts/rofi/applications.sh",
-      "tooltip-format": "Application Launcher"
-     },
-  
+        "format": "\udb80\udd5f ",
+        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+        "tooltip-format": "Application Launcher"
+    },
     "hyprland/workspaces": {
         "on-click": "activate",
         "format": "{name}",
@@ -65,17 +64,17 @@
         "tooltip": true
     },
     "pulseaudio#output": {
-        "format": " 󰕾 \n{volume}%",
-        "format-muted": "󰖁 ",
+        "format": " \udb81\udd7e \n{volume}%",
+        "format-muted": "\udb81\udd81 ",
         "on-click": "swayosd-client --output-volume mute-toggle",
         "on-scroll-up": "swayosd-client --output-volume raise",
         "on-scroll-down": "swayosd-client --output-volume lower",
         "tooltip-format": "Volume: {volume}%"
     },
     "network": {
-        "format-wifi": "󰤨\n{signalStrength}",
-        "format-ethernet": "󰈀",
-        "format-disconnected": "󰖪",
+        "format-wifi": "\udb82\udd28\n{signalStrength}",
+        "format-ethernet": "\udb80\ude00",
+        "format-disconnected": "\udb81\uddaa",
         "tooltip-format-wifi": "{essid} ({signalStrength}%)",
         "on-click": "uwsm-app nm-connection-editor",
         "interval": 5
@@ -87,25 +86,24 @@
             "critical": 15
         },
         "format": "{icon}\n{capacity}",
-        "format-charging": "󰂄\n{capacity}",
-        "format-plugged": "󰚥\n{capacity}",
-        "format-full": "󰁹\nFull",
+        "format-charging": "\udb80\udc84\n{capacity}",
+        "format-plugged": "\udb81\udea5\n{capacity}",
+        "format-full": "\udb80\udc79\nFull",
         "tooltip-format": "{timeTo}\nHealth: {health}%",
         "format-icons": [
-            "▁",
-            "▂",
-            "▃",
-            "▄",
-            "▅",
-            "▆",
-            "▇",
-            "█"
+            "\u2581",
+            "\u2582",
+            "\u2583",
+            "\u2584",
+            "\u2585",
+            "\u2586",
+            "\u2587",
+            "\u2588"
         ]
     },
     "custom/power": {
-        "format": "⏻",
+        "format": "\u23fb",
         "on-click": "~/cloudyy_scripts/wlogout.sh",
         "tooltip-format": "Power"
     }
 }
-

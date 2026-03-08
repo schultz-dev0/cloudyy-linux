@@ -143,7 +143,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         # Content stack wrapped in NavigationPage
         self._stack = Adw.ViewStack()
-        self._content_nav = Adw.NavigationPage(title="")
+        self._content_nav = Adw.NavigationPage(title="Content")
         self._content_nav.set_child(self._build_content_area())
         split.set_content(self._content_nav)
 
