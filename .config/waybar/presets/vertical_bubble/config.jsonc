@@ -23,10 +23,11 @@
         "custom/power"
     ],
     "custom/launcher": {
-        "format": "☁",
-        "on-click": "rofi -show drun",
-        "tooltip-format": "Launch"
-    },
+      "format": "󰅟 ",
+      "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+      "tooltip-format": "Application Launcher"
+     },
+  
     "hyprland/workspaces": {
         "on-click": "activate",
         "format": "{name}",

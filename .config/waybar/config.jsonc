@@ -2,39 +2,26 @@
     "layer": "top",
     "exclusive": true,
     "reload_style_on_change": true,
-    "position": "left",
-    "width": 48,
+    "position": "top",
     "spacing": 0,
-    "margin-top": 6,
-    "margin-bottom": 6,
-    "margin-left": 6,
-    "margin-right": 0,
+    "height": 36,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
+    "margin-bottom": 0,
     "modules-center": [
-        "custom/launcher",
-        "hyprland/workspaces",
         "clock",
+        "hyprland/workspaces",
         "mpris",
         "battery",
         "pulseaudio#output",
         "network",
-        "custom/temps"
+        "custom/temps",
+        "custom/launcher"
     ],
-    "custom/launcher": {
-        "format": "󰅟",
-        "on-click": "rofi -show drun",
-        "tooltip-format": "Application Launcher"
-    },
-    "hyprland/workspaces": {
-        "on-click": "activate",
-        "format": "{name}",
-        "persistent-workspaces": {
-            "*": 5
-        },
-        "on-scroll-up": "hyprctl dispatch workspace e-1",
-        "on-scroll-down": "hyprctl dispatch workspace e+1"
-    },
     "clock": {
-        "format": "{:%H\n%M}",
+        "format": "{:%H:%M}",
+        "format-alt": "󰃭 {:%a %d %b}",
         "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
         "on-click-right": "uwsm-app -- gnome-clocks",
         "calendar": {
@@ -48,10 +35,25 @@
             }
         }
     },
+    "custom/launcher": {
+        "format": "󰅟 ",
+        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+        "tooltip-format": "Application Launcher"
+    },
+    "hyprland/workspaces": {
+        "on-click": "activate",
+        "format": "{name}",
+        "persistent-workspaces": {
+            "*": 5
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e-1",
+        "on-scroll-down": "hyprctl dispatch workspace e+1"
+    },
     "mpris": {
-        "format": "{player_icon}",
-        "format-paused": "󰏤",
+        "format": "{player_icon} {title}",
+        "format-paused": "󰏤 <i>{title}</i>",
         "format-stopped": "",
+        "max-length": 28,
         "status-icons": {
             "paused": "󰏤"
         },
@@ -66,10 +68,10 @@
             "warning": 30,
             "critical": 15
         },
-        "format": "{icon}\n{capacity}%",
-        "format-charging": "󰂄\n{capacity}%",
-        "format-plugged": "󰚥\n{capacity}%",
-        "format-full": "󰁹\n100%",
+        "format": "{capacity}% {icon}",
+        "format-charging": "{capacity}% 󰂄",
+        "format-plugged": "{capacity}% 󰚥",
+        "format-full": "󰁹",
         "tooltip-format": "{timeTo}\n󱟦 Health: {health}%",
         "format-icons": [
             "󰂎",
@@ -102,8 +104,8 @@
         "tooltip-format": "Volume: {volume}%\n MMB  Mute"
     },
     "network": {
-        "format-wifi": "󰤨",
-        "format-ethernet": "󰈀",
+        "format-wifi": "{essid} 󰤨",
+        "format-ethernet": "Ethernet 󰈀",
         "format-disconnected": "󰖪",
         "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}",
         "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",

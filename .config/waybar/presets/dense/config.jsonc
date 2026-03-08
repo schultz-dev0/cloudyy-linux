@@ -40,8 +40,8 @@
   ],
 
   "custom/launcher": {
-    "format": "󰅟",
-    "on-click": "rofi -show drun",
+    "format": "󰅟 ",
+    "on-click": "~/cloudyy_scripts/rofi/applications.sh",
     "tooltip-format": "Application Launcher"
   },
 

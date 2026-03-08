@@ -29,7 +29,7 @@
   ],
   "custom/launcher": {
     "format": ">_",
-    "on-click": "rofi -show drun",
+    "on-click": "~/cloudyy_scripts/rofi/applications.sh",
     "tooltip-format": "Launch"
   },
   "hyprland/workspaces": {

@@ -39,7 +39,7 @@
   ],
 
   "custom/launcher": {
-    "format": "󰅟",
+    "format": "󰅟 ",
     "on-click": "rofi -show drun",
     "tooltip-format": "Application Launcher"
   },
