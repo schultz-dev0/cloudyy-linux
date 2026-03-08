@@ -2,6 +2,14 @@
 # Add pages, sections, and items here. No Python needed.
 # Supported row types: button, toggle, slider, selection, label
 # Icons: use Nerd Font glyphs (any unicode char) OR GTK symbolic icon names
+#
+# ── Hyprland persistence ──────────────────────────────────────────────────────
+# Every Hyprland setting chains:  hyprctl keyword … && hypr_persist.sh keyword value
+#
+# hypr_persist.sh writes to ~/.config/hypr/user-configs/user_cloud-center.conf
+# using the same convention as the hcm config manager TUI.  It also injects a
+# source line into hyprland.conf the first time it runs, so no manual setup is
+# needed beyond installing the script.
 
 pages:
 
@@ -92,7 +100,7 @@ pages:
 
   - id: appearance
     title: Appearance
-    icon: 
+    icon: 
     layout:
       - type: section
         properties:
@@ -180,6 +188,7 @@ pages:
               key: waybar/preset
               options:
                 - default
+                - pill
                 - compact
                 - bubble
                 - dense
@@ -188,7 +197,8 @@ pages:
                 - minimal
                 - ultraminimal
               options_map:
-                default: pill
+                default: default
+                pill: pill
                 compact: compact
                 bubble: bubble
                 dense: dense
@@ -197,7 +207,6 @@ pages:
                 minimal: minimal
                 ultraminimal: ultraminimal
             on_change:
-              # Checks if currently vertical and prepends the prefix accordingly
               command: >-
                 ([ "$(cat ~/.config/waybar/.current_preset 2>/dev/null | grep -c '^vertical_')" = "1" ]
                 && ~/.config/waybar/scripts/switch_style.sh "vertical_{value}"
@@ -217,12 +226,10 @@ pages:
               interval: 3
             on_toggle:
               enabled:
-                # Strip any existing vertical_ prefix then re-add it, so toggling is idempotent
                 command: >-
                   BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
                   ~/.config/waybar/scripts/switch_style.sh "vertical_${BASE}"
               disabled:
-                # Strip the vertical_ prefix to get the horizontal preset name
                 command: >-
                   BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
                   ~/.config/waybar/scripts/switch_style.sh "${BASE}"
@@ -256,8 +263,17 @@ pages:
 
           - type: button
             properties:
-              title: Edit Current Style
-              description: Open the active style.css in your editor
+              title: Visual Editor
+              description: Open the graphical waybar preset editor
+              icon: 󰏘
+              button_text: Open
+            on_press:
+              command: python3 ~/cloudyy_scripts/cloud-center-v2/waybar-editor/main.py
+
+          - type: button
+            properties:
+              title: Edit Style (Raw)
+              description: Open the active style.css directly in your editor
               icon: 󰦭
               button_text: Edit
             on_press:
@@ -282,7 +298,9 @@ pages:
               step: 1
               default: 2
             on_change:
-              command: hyprctl keyword general:border_size {value}
+              command: >-
+                hyprctl keyword general:border_size {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:border_size {value}
 
           - type: slider
             properties:
@@ -295,7 +313,9 @@ pages:
               step: 1
               default: 8
             on_change:
-              command: hyprctl keyword decoration:rounding {value}
+              command: >-
+                hyprctl keyword decoration:rounding {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:rounding {value}
 
           - type: toggle
             properties:
@@ -305,9 +325,13 @@ pages:
               key: hypr/blur
             on_toggle:
               enabled:
-                command: hyprctl keyword decoration:blur:enabled true
+                command: >-
+                  hyprctl keyword decoration:blur:enabled true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:enabled true
               disabled:
-                command: hyprctl keyword decoration:blur:enabled false
+                command: >-
+                  hyprctl keyword decoration:blur:enabled false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:enabled false
 
           - type: slider
             properties:
@@ -320,7 +344,9 @@ pages:
               step: 1
               default: 3
             on_change:
-              command: hyprctl keyword decoration:blur:passes {value}
+              command: >-
+                hyprctl keyword decoration:blur:passes {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:passes {value}
 
           - type: slider
             properties:
@@ -333,7 +359,9 @@ pages:
               step: 1
               default: 8
             on_change:
-              command: hyprctl keyword decoration:blur:size {value}
+              command: >-
+                hyprctl keyword decoration:blur:size {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:size {value}
 
           - type: slider
             properties:
@@ -346,7 +374,11 @@ pages:
               step: 1
               default: 100
             on_change:
-              command: hyprctl keyword decoration:active_opacity $(echo "scale=2; {value}/100" | bc)
+              # Compute decimal once, reuse for both hyprctl and persist
+              command: >-
+                V=$(echo "scale=2; {value}/100" | bc) &&
+                hyprctl keyword decoration:active_opacity $V &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:active_opacity $V
 
           - type: slider
             properties:
@@ -359,7 +391,10 @@ pages:
               step: 1
               default: 95
             on_change:
-              command: hyprctl keyword decoration:inactive_opacity $(echo "scale=2; {value}/100" | bc)
+              command: >-
+                V=$(echo "scale=2; {value}/100" | bc) &&
+                hyprctl keyword decoration:inactive_opacity $V &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:inactive_opacity $V
 
       - type: section
         properties:
@@ -376,7 +411,9 @@ pages:
               step: 2
               default: 8
             on_change:
-              command: hyprctl keyword general:gaps_out {value}
+              command: >-
+                hyprctl keyword general:gaps_out {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:gaps_out {value}
 
           - type: slider
             properties:
@@ -389,7 +426,9 @@ pages:
               step: 2
               default: 4
             on_change:
-              command: hyprctl keyword general:gaps_in {value}
+              command: >-
+                hyprctl keyword general:gaps_in {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:gaps_in {value}
 
       - type: section
         properties:
@@ -403,14 +442,18 @@ pages:
               key: hypr/animations
             on_toggle:
               enabled:
-                command: hyprctl keyword animations:enabled true
+                command: >-
+                  hyprctl keyword animations:enabled true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh animations:enabled true
               disabled:
-                command: hyprctl keyword animations:enabled false
+                command: >-
+                  hyprctl keyword animations:enabled false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh animations:enabled false
 
           - type: slider
             properties:
               title: Animation Speed
-              description: Lower = faster animations
+              description: "Lower = faster (runtime only — bezier curves can't be expressed as a simple conf value)"
               icon: 󱎫
               key: hypr/anim_speed
               min: 1
@@ -418,11 +461,14 @@ pages:
               step: 1
               default: 4
             on_change:
-              command: hyprctl keyword animations:bezier "myBezier,0.05,0.9,0.1,1.05" && hyprctl keyword animations:animation "windows,1,{value},myBezier"
+              # Bezier pair is runtime only — not persisted
+              command: >-
+                hyprctl keyword animations:bezier "myBezier,0.05,0.9,0.1,1.05" &&
+                hyprctl keyword animations:animation "windows,1,{value},myBezier"
 
   - id: tools
     title: Tools
-    icon: 
+    icon: 
     layout:
       - type: section
         properties:
@@ -433,7 +479,7 @@ pages:
             properties:
               title: Theme Manager
               description: Wallpapers, color schemes, contrast
-              icon: 
+              icon: 
               button_text: Open
             on_press:
               command: kitty --class theme-ui --title "Theme Manager" theme-ui
