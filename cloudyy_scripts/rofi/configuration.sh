@@ -15,7 +15,7 @@ source "${ROFI_DIR}/lib/common.sh"
 show_configuration_menu() {
   local choice
   choice=$(menu "Configuration" \
-    "󱊨 Keybinds\n Configs\n Monitors")
+    "󱊨 Keybinds\n Monitors")
 
   case "${choice,,}" in
   *keybind*)
@@ -25,15 +25,6 @@ show_configuration_menu() {
       return
     }
     nohup kitty --title "Keybind Manager" -e "$HKBM_CMD" >/dev/null 2>&1 &
-    disown
-    ;;
-  *config*)
-    [[ ! -x "$HCM_CMD" ]] && {
-      notify-send "Error" "hcm not found at: $HCM_CMD"
-      show_configuration_menu
-      return
-    }
-    nohup kitty --title "Config Manager" -e "$HCM_CMD" >/dev/null 2>&1 &
     disown
     ;;
   *monitor*)

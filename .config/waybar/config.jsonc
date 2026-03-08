@@ -3,119 +3,62 @@
     "exclusive": true,
     "reload_style_on_change": true,
     "position": "left",
-    "width": 54,
+    "width": 48,
     "spacing": 0,
     "margin-top": 6,
     "margin-bottom": 6,
     "margin-left": 6,
     "margin-right": 0,
-    "modules-left": [
+    "modules-center": [
         "custom/launcher",
         "hyprland/workspaces",
-        "custom/notification"
-    ],
-    "modules-center": [
         "clock",
-        "custom/temps",
-        "custom/timer"
-    ],
-    "modules-right": [
+        "mpris",
+        "battery",
         "pulseaudio#output",
         "network",
-        "battery",
-        "custom/power"
+        "custom/temps"
     ],
     "custom/launcher": {
         "format": "󰅟",
         "on-click": "rofi -show drun",
-        "tooltip-format": "Launch"
+        "tooltip-format": "Application Launcher"
     },
     "hyprland/workspaces": {
         "on-click": "activate",
-        "format": "{icon}",
-        "format-icons": {
-            "active": "󱗜",
-            "default": "󰊠",
-            "empty": "󰝥"
-        },
+        "format": "{name}",
         "persistent-workspaces": {
             "*": 5
         },
         "on-scroll-up": "hyprctl dispatch workspace e-1",
         "on-scroll-down": "hyprctl dispatch workspace e+1"
     },
-    "custom/notification": {
-        "format": "{icon}",
-        "format-icons": {
-            "notification": "󱅫",
-            "none": "󰂚",
-            "dnd-notification": "󱏧",
-            "dnd-none": "󱏧",
-            "inhibited-notification": "󱅫",
-            "inhibited-none": "󰂚",
-            "dnd-inhibited-notification": "󱏧",
-            "dnd-inhibited-none": "󱏧"
-        },
-        "return-type": "json",
-        "exec-if": "which swaync-client",
-        "exec": "swaync-client -swb",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
-        "escape": true
-    },
     "clock": {
         "format": "{:%H\n%M}",
-        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "on-click-right": "uwsm-app -- gnome-clocks",
         "calendar": {
             "mode": "month",
-            "mode-mon-col": 3,
-            "weeks-pos": "right",
             "on-scroll": 1,
             "format": {
                 "months": "<span color='#ffb786'><b>{}</b></span>",
                 "days": "<span color='#e2e2e2'>{}</span>",
-                "weeks": "<span color='#c9ca93'>W{}</span>",
                 "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+                "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
             }
-        },
-        "actions": {
-            "on-click-right": "mode"
         }
     },
-    "custom/temps": {
-        "exec": "~/.config/waybar/scripts/temps.py",
-        "return-type": "json",
-        "format": "{}",
-        "interval": 2,
-        "tooltip": true
-    },
-    "custom/timer": {
-        "exec": "~/.config/waybar/scripts/timer.sh",
-        "format": "{}",
-        "interval": 1,
-        "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
-        "on-click-right": "rm /tmp/waybar_timer",
-        "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
-        "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub"
-    },
-    "pulseaudio#output": {
-        "format": " 󰕾\n{volume}%",
-        "format-muted": " 󰖁",
-        "on-click": "swayosd-client --output-volume mute-toggle",
-        "on-scroll-up": "swayosd-client --output-volume raise",
-        "on-scroll-down": "swayosd-client --output-volume lower",
-        "tooltip-format": "Volume: {volume}%"
-    },
-    "network": {
-        "format-wifi": "󰤨\n{signalStrength}%",
-        "format-ethernet": "󰈀",
-        "format-disconnected": "󰖪",
-        "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
-        "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
-        "tooltip-format-disconnected": "Disconnected",
-        "on-click": "uwsm-app nm-connection-editor",
-        "interval": 5
+    "mpris": {
+        "format": "{player_icon}",
+        "format-paused": "󰏤",
+        "format-stopped": "",
+        "status-icons": {
+            "paused": "󰏤"
+        },
+        "tooltip-format": "{player} — {artist}\n{title}\n{album}",
+        "on-click": "playerctl play-pause",
+        "on-scroll-up": "playerctl next",
+        "on-scroll-down": "playerctl previous"
     },
     "battery": {
         "states": {
@@ -127,21 +70,52 @@
         "format-charging": "󰂄\n{capacity}%",
         "format-plugged": "󰚥\n{capacity}%",
         "format-full": "󰁹\n100%",
-        "tooltip-format": "{timeTo}\nHealth: {health}%",
+        "tooltip-format": "{timeTo}\n󱟦 Health: {health}%",
         "format-icons": [
-            "▁",
-            "▂",
-            "▃",
-            "▄",
-            "▅",
-            "▆",
-            "▇",
-            "█"
+            "󰂎",
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂁",
+            "󰂂",
+            "󰁹"
         ]
     },
-    "custom/power": {
-        "format": "󰐥",
-        "on-click": "~/cloudyy_scripts/wlogout.sh",
-        "tooltip-format": "Power"
+    "pulseaudio#output": {
+        "format": "{icon}",
+        "format-muted": "󰖁",
+        "format-icons": {
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
+        },
+        "on-click": "uwsm-app -- pavucontrol",
+        "on-click-middle": "swayosd-client --output-volume mute-toggle",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower",
+        "tooltip-format": "Volume: {volume}%\n MMB  Mute"
+    },
+    "network": {
+        "format-wifi": "󰤨",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰖪",
+        "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}",
+        "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
+        "tooltip-format-disconnected": "Not connected",
+        "on-click": "uwsm-app nm-connection-editor",
+        "interval": 5
+    },
+    "custom/temps": {
+        "exec": "~/.config/waybar/scripts/temps.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 2,
+        "tooltip": true
     }
 }
