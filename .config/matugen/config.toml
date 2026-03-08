@@ -25,6 +25,10 @@ post_hook     = "~/cloudyy_scripts/launch_waybar.sh"
 
 # --- 
 
+[templates.starship]
+input_path = "~/.config/matugen/templates/starship_preset.tera"
+output_path = "~/.config/starship.toml"
+
 [templates.gtk3]
 input_path    =  '~/.config/matugen/templates/gtk-colors.css'
 output_path   = '~/.config/gtk-3.0/gtk.css'

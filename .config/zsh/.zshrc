@@ -1,15 +1,6 @@
-typeset -g POWERLEVEL9K_INSTANT_PROMPT=off
-
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
-
-
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.config/zsh/oh-my-zsh"
 HISTFILE="$HOME/.config/zsh/.zsh_history"
-
-ZSH_THEME="powerlevel10k/powerlevel10k"
 
 plugins=(
   git
@@ -24,6 +15,8 @@ export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 source $ZSH/oh-my-zsh.sh
 
 # personlisation
+
+eval "$(starship init zsh)"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
@@ -63,18 +56,25 @@ alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -
 
 # --- Top Left Startup Logo ---
 if [[ "$TERM" == "xterm-kitty" ]]; then
-    # Configure size here (in terminal text cells)
-    # You may need to tweak IMG_W to fix the aspect ratio (squished/stretched)
-    IMG_H=18 
-    IMG_W=30 
+    IMG_H=$((LINES / 3))
+    IMG_W=$((IMG_H / 1))
 
-    # 1. Display Image at Top-Left (0x0)
-    # The image is drawn as an overlay, so it doesn't move text by itself.
-    kitty +kitten icat --place "${IMG_W}x${IMG_H}@0x0" ~/extras/hyprchan-lol.png
+    # 1. Push prompt down first
+    printf '\n%.0s' $(seq 1 $IMG_H)
 
-    # 2. Push the prompt down
-    # We print empty lines equal to the image height so the prompt appears below it.
-    for ((i=0; i<IMG_H; i++)); do echo; done
+    # 2. Move cursor back to top-left
+    printf "\033[${IMG_H}A\033[0G"
+
+    # 3. Draw image (synchronous, no background job)
+    kitty +kitten icat \
+        --place "${IMG_W}x${IMG_H}@0x0" \
+        --scale-up \
+        --transfer-mode file \
+        --silent \
+        ~/extras/hyprchan-lol.png 2>/dev/null
+
+    # 4. Move cursor back down below the image
+    printf "\033[${IMG_H}B\033[0G"
 fi
 
 if uwsm check may-start && uwsm select; then
