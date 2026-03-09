@@ -22,7 +22,7 @@ eval "$(starship init zsh)"
 [[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 export EDITOR="nvim"
 
-export PATH="~/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 # aliases #
 
@@ -59,21 +59,14 @@ if [[ "$TERM" == "xterm-kitty" ]]; then
     IMG_H=$((LINES / 3))
     IMG_W=$((IMG_H / 1))
 
-    # 1. Push prompt down first
     printf '\n%.0s' $(seq 1 $IMG_H)
-
-    # 2. Move cursor back to top-left
     printf "\033[${IMG_H}A\033[0G"
-
-    # 3. Draw image (synchronous, no background job)
     kitty +kitten icat \
         --place "${IMG_W}x${IMG_H}@0x0" \
         --scale-up \
         --transfer-mode file \
         --silent \
         ~/extras/hyprchan-lol.png 2>/dev/null
-
-    # 4. Move cursor back down below the image
     printf "\033[${IMG_H}B\033[0G"
 fi
 
@@ -81,13 +74,6 @@ if uwsm check may-start && uwsm select; then
     exec uwsm start default
 fi
 
-# pnpm
-#export PNPM_HOME="/home/schultz/.local/share/pnpm"
-#case ":$PATH:" in
-#  *":$PNPM_HOME:"*) ;;
-#  *) export PATH="$PNPM_HOME:$PATH" ;;
-#esac
-# pnpm end
 
 
 
