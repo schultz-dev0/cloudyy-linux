@@ -52,6 +52,8 @@ alias swayncrestart='swaync-client -rs'
 alias cloudyysync='cd ~/dots/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 
+# personl
+alias remotedesk='~/cloudyy_scripts/ivanti/uni-rdp.sh'
 
 
 # --- Top Left Startup Logo ---

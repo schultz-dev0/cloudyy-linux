@@ -3,8 +3,20 @@
    ===================================================================== */
 @import url("../matugen/generated/colors-swaync.css");
 
-@define-color shadow rgba(0, 0, 0, 0.25);
-@define-color rim-light rgba(255, 255, 255, 0.1);
+@define-color background-color @surface;
+@define-color background-alt-color @surface_container;
+@define-color text-color @on_surface;
+@define-color text-sub-color @on_surface_variant;
+
+@define-color accent-color @primary;
+@define-color on-accent-color @on_primary;
+
+@define-color urgent-color @error;
+@define-color on-urgent-color @on_error;
+
+@define-color hover-color @surface_container_highest;
+@define-color shadow-color @shadow;
+
 
 /* =====================================================================
    2. GLOBAL RESETS

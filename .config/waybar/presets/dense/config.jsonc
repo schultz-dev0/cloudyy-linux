@@ -157,8 +157,11 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-connected": "󰂱 {num_connections}",
+    "format-connected-battery": "󰂱 {device_battery_percentage}%",
     "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
     "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+    "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
+    "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
     "on-click": "uwsm-app -- blueman-manager",
     "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
   },

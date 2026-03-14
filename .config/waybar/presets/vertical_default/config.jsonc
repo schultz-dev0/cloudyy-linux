@@ -15,7 +15,6 @@
     "clock",
     "custom/updates",
     "custom/notification",
-    "custom/pycharm",
     "custom/themeswitcher"
   ],
 
@@ -76,12 +75,6 @@
     "tooltip-format": "Switch theme"
   },
 
-  "custom/pycharm": {
-    "format": "󱜙",
-    "on-click": "pycharm &",
-    "tooltip-format": "Launch PyCharm"
-  },
-
   "custom/weather": {
     "format": "{}",
     "exec": "curl -s 'wttr.in/?format=%t' | head -c 15",
@@ -136,13 +129,13 @@
   },
 
   "mpris": {
-    "format": "{player_icon} {title}",
-    "format-paused": "{status_icon} <i>{title}</i>",
+    "format": "",
+    "format-paused": "󰏤",
     "format-stopped": "",
     "max-length": 25,
     "rotate": 270,
     "status-icons": { "paused": "󰏤" },
-    "tooltip-format": "{player} - {artist}\n{title}\n{album}",
+    "tooltip-format": "",
     "on-click": "playerctl play-pause",
     "on-scroll-up": "playerctl next",
     "on-scroll-down": "playerctl previous"
@@ -163,7 +156,7 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-connected": "󰂱 {num_connections}",
-    "format-connected-battery": "󰂱 {device_battery_percentage}%",
+    "format-connected-battery": " 󰂱\n{device_battery_percentage}%",
     "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
     "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
@@ -186,14 +179,14 @@
 
   "cpu": {
     "interval": 2,
-    "format": "󰍛\n{usage}%",
+    "format": " 󰍛\n{usage}%",
     "on-click": "kitty -e btop",
     "states": { "warning": 70, "critical": 90 }
   },
 
   "memory": {
     "interval": 2,
-    "format": "󰘚\n{percentage}%",
+    "format": " 󰘚\n{percentage}%",
     "on-click": "uwsm-app -- kitty --class io_monitor.sh -e $HOME/user_scripts/drives/io_monitor.sh",
     "states": { "warning": 70, "critical": 90 }
   },
@@ -202,7 +195,7 @@
     "states": { "good": 80, "warning": 30, "critical": 15 },
     "on-click": "uwsm-app -- kitty --class power_saver.sh --hold -e $HOME/user_scripts/battery/power_saving/power_saver.sh",
     "on-click-right": "uwsm-app -- kitty --class timeout.sh -e $HOME/user_scripts/hypridle/timeout.sh",
-    "format": "{icon}\n{capacity}%",
+    "format": " {icon}\n{capacity}%",
     "format-charging": "󰂄\n {capacity}%",
     "format-plugged": "󰚥\n {capacity}%",
     "format-full": "󰁹",
