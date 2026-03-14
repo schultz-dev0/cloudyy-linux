@@ -163,3 +163,6 @@ tooltip label {
   50% { opacity: 0.5; }
   100% { opacity: 1; }
 }
+
+#bluetooth { color: alpha(@on_surface_variant, 0.6); }
+#bluetooth.connected { color: @primary; }

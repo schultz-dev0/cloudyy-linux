@@ -159,3 +159,6 @@ window#waybar > box {
   box-shadow:       none;
   margin-top: 6px; margin-left: 8px; margin-right: 8px;
 }
+
+#bluetooth { color: alpha(@on_surface_variant, 0.6); }
+#bluetooth.connected { color: @primary; }
