@@ -6,7 +6,7 @@
    - Horizontal spacing (Margins: Left/Right).
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+@import url("../../.config/matugen/generated/waybar-colors.css");
 
 /* ── Universal reset ───────────────────────────────────────────────────────── */
 

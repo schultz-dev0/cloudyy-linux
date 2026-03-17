@@ -5,7 +5,7 @@
    mpris centre, system info right. Temp shown as a coloured badge.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+@import url("../../.config/matugen/generated/waybar-colors.css");
 
 /* ── Universal Reset ───────────────────────────────────────────────────────── */
 * {

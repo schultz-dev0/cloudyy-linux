@@ -5,7 +5,7 @@
    Same design language — muted palette, bold clock, temp badge at bottom.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+@import url("../../.config/matugen/generated/waybar-colors.css");
 
 /* ── Universal Reset ───────────────────────────────────────────────────────── */
 * {
