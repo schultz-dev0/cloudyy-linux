@@ -2,26 +2,26 @@
 
 /* Use Matugen keywords to grab colors */
 window {
-    background-color: #151218;
-    border: 2px solid #d8bafb;
+    background-color: #101510;
+    border: 2px solid #96d5a6;
     border-radius: 12px;
 }
 
 scale trough {
     margin: 10px 0;
-    background-color: #4a454e;
+    background-color: #414942;
     border-radius: 10px;
     min-height: 10px;
 }
 
 scale highlight {
-    background-color: #d8bafb;
+    background-color: #96d5a6;
     border-radius: 10px;
     min-height: 10px;
 }
 
 label {
-    color: #e7e0e8;
+    color: #dfe4dc;
     font-weight: bold;
     font-size: 16px;
 }
@@ -29,5 +29,5 @@ label {
 button {
     background: none;
     box-shadow: none;
-    color: #d8bafb;
+    color: #96d5a6;
 }

@@ -27,7 +27,7 @@ window#waybar {
 
 /* ── Single pill wrapper ───────────────────────────────────────────────────── */
 .modules-center {
-  background-color: alpha(@surface_container, 0.92);
+  background-color: alpha(@surface_container, 0.72);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    18px;
   margin:           0;

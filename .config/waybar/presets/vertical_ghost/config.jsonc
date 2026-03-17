@@ -1,159 +1,160 @@
 {
-  "layer": "top",
-  "exclusive": true,
-  "reload_style_on_change": true,
-  "position": "left",
-  "width": 54,
-  "spacing": 0,
-  "margin-top": 6,
-  "margin-bottom": 6,
-  "margin-left": 6,
-  "margin-right": 0,
-  "modules-left": [
-    "custom/launcher",
-    "hyprland/workspaces",
-    "custom/notification"
-  ],
-  "modules-center": [
-    "clock",
-    "custom/temps",
-    "custom/timer"
-  ],
-  "modules-right": [
-    "pulseaudio#output",
-    "network",
-    "bluetooth",
-    "battery",
-    "custom/power"
-  ],
-  "custom/launcher": {
-    "format": "󰅟 ",
-    "on-click": "~/cloudyy_scripts/rofi/applications.sh",
-    "tooltip-format": "Application Launcher"
-  },
-  "hyprland/workspaces": {
-    "on-click": "activate",
-    "format": "{icon}",
-    "format-icons": {
-      "active":  "󱗜",
-      "default": "󰊠",
-      "empty":   "󰝥"
+    "layer": "top",
+    "exclusive": true,
+    "reload_style_on_change": true,
+    "position": "left",
+    "width": 54,
+    "spacing": 0,
+    "margin-top": 6,
+    "margin-bottom": 6,
+    "margin-left": 6,
+    "margin-right": 0,
+    "modules-left": [
+        "custom/launcher",
+        "hyprland/workspaces",
+        "custom/notification"
+    ],
+    "modules-center": [
+        "clock",
+        "custom/temps",
+        "custom/timer"
+    ],
+    "modules-right": [
+        "pulseaudio#output",
+        "network",
+        "bluetooth",
+        "battery",
+        "custom/power"
+    ],
+    "custom/launcher": {
+        "format": "\udb80\udd5f ",
+        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+        "tooltip-format": "Application Launcher"
     },
-    "persistent-workspaces": { "*": 5 },
-    "on-scroll-up": "hyprctl dispatch workspace e-1",
-    "on-scroll-down": "hyprctl dispatch workspace e+1"
-  },
-  "custom/notification": {
-    "format": "{icon}",
-    "format-icons": {
-      "notification": "󱅫",
-      "none": "󰂚",
-      "dnd-notification": "󱏧",
-      "dnd-none": "󱏧",
-      "inhibited-notification": "󱅫",
-      "inhibited-none": "󰂚",
-      "dnd-inhibited-notification": "󱏧",
-      "dnd-inhibited-none": "󱏧"
+    "hyprland/workspaces": {
+        "on-click": "activate",
+        "format": "{icon}",
+        "format-icons": {
+            "active": "\udb85\udddc",
+            "default": "\udb80\udea0",
+            "empty": "\udb81\udf65"
+        },
+        "persistent-workspaces": {
+            "*": 5
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e-1",
+        "on-scroll-down": "hyprctl dispatch workspace e+1"
     },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true
-  },
-  "clock": {
-    "format": "{:%H\n%M}",
-    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-      "calendar": {
-        "mode": "month",
-        "mode-mon-col": 3,
-        "weeks-pos": "right",
-        "on-scroll": 1,
-        "format": {
-          "months": "<span color='#ffb786'><b>{}</b></span>",
-          "days": "<span color='#e2e2e2'>{}</span>",
-          "weeks": "<span color='#c9ca93'>W{}</span>",
-          "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-          "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-          }
-      },
-    "actions": {
-      "on-click-right": "mode"
+    "custom/notification": {
+        "format": "{icon}",
+        "format-icons": {
+            "notification": "\udb84\udd6b",
+            "none": "\udb80\udc9a",
+            "dnd-notification": "\udb84\udfe7",
+            "dnd-none": "\udb84\udfe7",
+            "inhibited-notification": "\udb84\udd6b",
+            "inhibited-none": "\udb80\udc9a",
+            "dnd-inhibited-notification": "\udb84\udfe7",
+            "dnd-inhibited-none": "\udb84\udfe7"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "clock": {
+        "format": "{:%H\n%M}",
+        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "calendar": {
+            "mode": "month",
+            "mode-mon-col": 3,
+            "weeks-pos": "right",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#ffb786'><b>{}</b></span>",
+                "days": "<span color='#e2e2e2'>{}</span>",
+                "weeks": "<span color='#c9ca93'>W{}</span>",
+                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+            }
+        },
+        "actions": {
+            "on-click-right": "mode"
+        }
+    },
+    "custom/temps": {
+        "exec": "~/.config/waybar/scripts/temps.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 2,
+        "tooltip": true
+    },
+    "custom/timer": {
+        "exec": "~/.config/waybar/scripts/timer.sh",
+        "format": "{}",
+        "interval": 1,
+        "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
+        "on-click-right": "rm /tmp/waybar_timer",
+        "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
+        "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub"
+    },
+    "pulseaudio#output": {
+        "format": " \udb81\udd7e\n{volume}%",
+        "format-muted": " \udb81\udd81",
+        "on-click": "swayosd-client --output-volume mute-toggle",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower",
+        "tooltip-format": "Volume: {volume}%"
+    },
+    "network": {
+        "format-wifi": " \udb82\udd28\n{signalStrength}%",
+        "format-ethernet": "\udb80\ude00",
+        "format-disconnected": "\udb81\uddaa",
+        "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
+        "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
+        "tooltip-format-disconnected": "Disconnected",
+        "on-click": "uwsm-app nm-connection-editor",
+        "interval": 5
+    },
+    "bluetooth": {
+        "format": "\udb80\udcaf",
+        "format-disabled": "\udb80\udcb2",
+        "format-connected": "\udb80\udcb1 {num_connections}",
+        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+        "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
+        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
+        "on-click": "uwsm-app -- blueman-manager",
+        "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
+    },
+    "battery": {
+        "states": {
+            "good": 80,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": " {icon}\n{capacity}%",
+        "format-charging": "\udb80\udc84\n{capacity}%",
+        "format-plugged": "\udb81\udea5\n{capacity}%",
+        "format-full": " \udb80\udc79\n100%",
+        "tooltip-format": "{timeTo}\nHealth: {health}%",
+        "format-icons": [
+            "\u2581",
+            "\u2582",
+            "\u2583",
+            "\u2584",
+            "\u2585",
+            "\u2586",
+            "\u2587",
+            "\u2588"
+        ]
+    },
+    "custom/power": {
+        "format": "\udb81\udc25",
+        "on-click": "~/cloudyy_scripts/wlogout.sh",
+        "tooltip-format": "Power"
     }
-  },
-  "custom/temps": {
-    "exec": "~/.config/waybar/scripts/temps.py",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "tooltip": true
-  },
-  "custom/timer": {
-    "exec": "~/.config/waybar/scripts/timer.sh",
-    "format": "{}",
-    "interval": 1,
-    "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
-    "on-click-right": "rm /tmp/waybar_timer",
-    "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
-    "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub"
-  },
-  "pulseaudio#output": {
-    "format": " 󰕾\n{volume}%",
-    "format-muted": " 󰖁",
-    "on-click": "swayosd-client --output-volume mute-toggle",
-    "on-scroll-up": "swayosd-client --output-volume raise",
-    "on-scroll-down": "swayosd-client --output-volume lower",
-    "tooltip-format": "Volume: {volume}%"
-  },
-  "network": {
-    "format-wifi": " 󰤨\n{signalStrength}%",
-    "format-ethernet": "󰈀",
-    "format-disconnected": "󰖪",
-    "tooltip-format-wifi": "{essid}  {signalStrength}%\n{ipaddr}",
-    "tooltip-format-ethernet": "Ethernet\n{ipaddr}",
-    "tooltip-format-disconnected": "Disconnected",
-    "on-click": "uwsm-app nm-connection-editor",
-    "interval": 5
-  },
-  "bluetooth": {
-    "format": "󰂯",
-    "format-disabled": "󰂲",
-    "format-connected": "󰂱 {num_connections}",
-    "format-connected-battery": " 󰂱\n{device_battery_percentage}%",
-    "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
-    "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-    "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
-    "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
-    "on-click": "uwsm-app -- blueman-manager",
-    "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
-  },
-
-  "battery": {
-    "states": {
-      "good": 80,
-      "warning": 30,
-      "critical": 15
-    },
-    "format": " {icon}\n{capacity}%",
-    "format-charging": "󰂄\n{capacity}%",
-    "format-plugged": "󰚥\n{capacity}%",
-    "format-full": " 󰁹\n100%",
-    "tooltip-format": "{timeTo}\nHealth: {health}%",
-    "format-icons": [
-      "▁",
-      "▂",
-      "▃",
-      "▄",
-      "▅",
-      "▆",
-      "▇",
-      "█"
-    ]
-  },
-  "custom/power": {
-    "format": "󰐥",
-    "on-click": "~/cloudyy_scripts/wlogout.sh",
-    "tooltip-format": "Power"
-  }
 }

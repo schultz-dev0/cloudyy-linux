@@ -1,153 +1,152 @@
 {
-  "layer": "top",
-  "exclusive": true,
-  "reload_style_on_change": true,
-  "position": "left",
-  "width": 52,
-  "spacing": 0,
-  "margin-top": 6,
-  "margin-bottom": 6,
-  "margin-left": 6,
-  "margin-right": 0,
-  "modules-left": [
-    "custom/launcher",
-    "hyprland/workspaces",
-    "custom/notification"
-  ],
-  "modules-center": [
-    "clock",
-    "custom/temps",
-    "custom/updates"
-  ],
-  "modules-right": [
-    "cpu",
-    "pulseaudio#output",
-    "bluetooth",
-    "battery",
-    "custom/power"
-  ],
-  "custom/launcher": {
-    "format": "󰅟 ",
-    "on-click": "~/cloudyy_scripts/rofi/applications.sh",
-    "tooltip-format": "Application Launcher"
-  },
-  "hyprland/workspaces": {
-    "on-click": "activate",
-    "format": "{name}",
-    "persistent-workspaces": {
-      "*": 5
+    "layer": "top",
+    "exclusive": true,
+    "reload_style_on_change": true,
+    "position": "left",
+    "width": 52,
+    "spacing": 0,
+    "margin-top": 6,
+    "margin-bottom": 6,
+    "margin-left": 6,
+    "margin-right": 0,
+    "modules-left": [
+        "custom/launcher",
+        "hyprland/workspaces",
+        "custom/notification"
+    ],
+    "modules-center": [
+        "clock",
+        "custom/temps",
+        "custom/updates"
+    ],
+    "modules-right": [
+        "cpu",
+        "pulseaudio#output",
+        "bluetooth",
+        "battery",
+        "custom/power"
+    ],
+    "custom/launcher": {
+        "format": "\udb80\udd5f ",
+        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+        "tooltip-format": "Application Launcher"
     },
-    "on-scroll-up": "hyprctl dispatch workspace e-1",
-    "on-scroll-down": "hyprctl dispatch workspace e+1"
-  },
-  "custom/notification": {
-    "format": "{icon}",
-    "format-icons": {
-      "notification": "󱅫",
-      "none": "󰂚",
-      "dnd-notification": "󱏧",
-      "dnd-none": "󱏧",
-      "inhibited-notification": "󱅫",
-      "inhibited-none": "󰂚",
-      "dnd-inhibited-notification": "󱏧",
-      "dnd-inhibited-none": "󱏧"
+    "hyprland/workspaces": {
+        "on-click": "activate",
+        "format": "{name}",
+        "persistent-workspaces": {
+            "*": 5
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e-1",
+        "on-scroll-down": "hyprctl dispatch workspace e+1"
     },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true
-  },
-  "clock": {
-    "format": "{:%H\n%M}",
-    "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-      "calendar": {
-        "mode": "month",
-        "mode-mon-col": 3,
-        "weeks-pos": "right",
-        "on-scroll": 1,
-        "format": {
-          "months": "<span color='#ffb786'><b>{}</b></span>",
-          "days": "<span color='#e2e2e2'>{}</span>",
-          "weeks": "<span color='#c9ca93'>W{}</span>",
-          "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-          "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-          }
-      },
-    "actions": {
-      "on-click-right": "mode"
+    "custom/notification": {
+        "format": "{icon}",
+        "format-icons": {
+            "notification": "\udb84\udd6b",
+            "none": "\udb80\udc9a",
+            "dnd-notification": "\udb84\udfe7",
+            "dnd-none": "\udb84\udfe7",
+            "inhibited-notification": "\udb84\udd6b",
+            "inhibited-none": "\udb80\udc9a",
+            "dnd-inhibited-notification": "\udb84\udfe7",
+            "dnd-inhibited-none": "\udb84\udfe7"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "clock": {
+        "format": "{:%H\n%M}",
+        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "calendar": {
+            "mode": "month",
+            "mode-mon-col": 3,
+            "weeks-pos": "right",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#ffb786'><b>{}</b></span>",
+                "days": "<span color='#e2e2e2'>{}</span>",
+                "weeks": "<span color='#c9ca93'>W{}</span>",
+                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
+            }
+        },
+        "actions": {
+            "on-click-right": "mode"
+        }
+    },
+    "custom/temps": {
+        "exec": "~/.config/waybar/scripts/temps.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 2,
+        "tooltip": true
+    },
+    "custom/updates": {
+        "format": "\udb80\udfd4\n{}",
+        "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
+        "interval": 3600,
+        "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+        "tooltip-format": "Pending updates"
+    },
+    "cpu": {
+        "interval": 2,
+        "format": " \udb80\udf5b\n{usage}%",
+        "on-click": "kitty -e btop",
+        "states": {
+            "warning": 70,
+            "critical": 90
+        }
+    },
+    "pulseaudio#output": {
+        "format": " \udb81\udd7e\n{volume}%",
+        "format-muted": "\udb81\udd81",
+        "on-click": "swayosd-client --output-volume mute-toggle",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower",
+        "tooltip-format": "Volume: {volume}%"
+    },
+    "bluetooth": {
+        "format": "\udb80\udcaf",
+        "format-disabled": "\udb80\udcb2",
+        "format-connected": "\udb80\udcb1",
+        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+        "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
+        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
+        "on-click": "uwsm-app -- blueman-manager",
+        "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
+    },
+    "battery": {
+        "states": {
+            "good": 80,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": " {icon}\n{capacity}%",
+        "format-charging": "\udb80\udc84\n{capacity}%",
+        "format-plugged": "\udb81\udea5\n{capacity}%",
+        "format-full": " \udb80\udc79\n100%",
+        "tooltip-format": "{timeTo}\nHealth: {health}%",
+        "format-icons": [
+            "\u2581",
+            "\u2582",
+            "\u2583",
+            "\u2584",
+            "\u2585",
+            "\u2586",
+            "\u2587",
+            "\u2588"
+        ]
+    },
+    "custom/power": {
+        "format": "\udb81\udc25",
+        "on-click": "~/cloudyy_scripts/wlogout.sh",
+        "tooltip-format": "Power"
     }
-  },
-  "custom/temps": {
-    "exec": "~/.config/waybar/scripts/temps.py",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "tooltip": true
-  },
-  "custom/updates": {
-    "format": "󰏔\n{}",
-    "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
-    "interval": 3600,
-    "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
-    "tooltip-format": "Pending updates"
-  },
-  "cpu": {
-    "interval": 2,
-    "format": " 󰍛\n{usage}%",
-    "on-click": "kitty -e btop",
-    "states": {
-      "warning": 70,
-      "critical": 90
-    }
-  },
-  "pulseaudio#output": {
-    "format": " 󰕾\n{volume}%",
-    "format-muted": "󰖁",
-    "on-click": "swayosd-client --output-volume mute-toggle",
-    "on-scroll-up": "swayosd-client --output-volume raise",
-    "on-scroll-down": "swayosd-client --output-volume lower",
-    "tooltip-format": "Volume: {volume}%"
-  },
-  "bluetooth": {
-    "format": "󰂯",
-    "format-disabled": "󰂲",
-    "format-connected": "󰂱",
-    "format-connected-battery": " 󰂱\n{device_battery_percentage}%",
-    "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
-    "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-    "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
-    "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
-    "on-click": "uwsm-app -- blueman-manager",
-    "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
-  },
-
-  "battery": {
-    "states": {
-      "good": 80,
-      "warning": 30,
-      "critical": 15
-    },
-    "format": " {icon}\n{capacity}%",
-    "format-charging": "󰂄\n{capacity}%",
-    "format-plugged": "󰚥\n{capacity}%",
-    "format-full": " 󰁹\n100%",
-    "tooltip-format": "{timeTo}\nHealth: {health}%",
-    "format-icons": [
-      "▁",
-      "▂",
-      "▃",
-      "▄",
-      "▅",
-      "▆",
-      "▇",
-      "█"
-    ]
-  },
-  "custom/power": {
-    "format": "󰐥",
-    "on-click": "~/cloudyy_scripts/wlogout.sh",
-    "tooltip-format": "Power"
-  }
 }
