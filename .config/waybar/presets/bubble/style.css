@@ -4,7 +4,8 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+@import url("../../.config/matugen/generated/waybar-colors.css");
+
 
 /* ── Universal Reset ───────────────────────────────────────────────────────── */
 * {

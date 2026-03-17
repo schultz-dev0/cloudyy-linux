@@ -6,7 +6,7 @@
 
 /* ── Matugen colors + base reset ─────────────────────────────────────────────── */
 
-@import "/home/schultz/.config/matugen/generated/waybar-colors.css";
+@import url("../../.config/matugen/generated/waybar-colors.css");
 
 /* ── Universal reset ───────────────────────────────────────────────────────── */
 
