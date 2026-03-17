@@ -81,38 +81,40 @@
         "interval": 5
     },
     "bluetooth": {
-      "format": " 󰂯",
-      "format-disabled": "󰂲",
-      "format-connected": "󰂱",
-      "format-connected-battery": " 󰂱\n{device_battery_percentage}%",
-      "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
-      "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-      "tooltip-format-enumerate-connected": "󰂱 {device_alias}",
-      "tooltip-format-enumerate-connected-battery": "󰂱 {device_alias} ({device_battery_percentage}%)",
-      "on-click": "uwsm-app -- blueman-manager",
-      "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
+        "format": " \udb80\udcaf",
+        "format-disabled": "\udb80\udcb2",
+        "format-connected": "\udb80\udcb1",
+        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+        "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
+        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
+        "on-click": "uwsm-app -- blueman-manager",
+        "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
-
     "battery": {
         "states": {
             "good": 80,
             "warning": 30,
             "critical": 15
         },
-        "format": "{icon}\n{capacity}",
-        "format-charging": "\udb80\udc84\n{capacity}",
-        "format-plugged": "\udb81\udea5\n{capacity}",
-        "format-full": " \udb80\udc79\nFull",
-        "tooltip-format": "{timeTo}\nHealth: {health}%",
+        "format": " {icon}\n{capacity}%",
+        "format-charging": " \udb80\udc84\n{capacity}%",
+        "format-plugged": " \udb81\udea5\n{capacity}%",
+        "format-full": "\udb80\udc79",
+        "tooltip-format": "{timeTo}\n\udb85\udfe6 Health: {health}%",
         "format-icons": [
-            "\u2581",
-            "\u2582",
-            "\u2583",
-            "\u2584",
-            "\u2585",
-            "\u2586",
-            "\u2587",
-            "\u2588"
+            "\udb80\udc8e",
+            "\udb80\udc7a",
+            "\udb80\udc7b",
+            "\udb80\udc7c",
+            "\udb80\udc7d",
+            "\udb80\udc7e",
+            "\udb80\udc7f",
+            "\udb80\udc80",
+            "\udb80\udc81",
+            "\udb80\udc82",
+            "\udb80\udc79"
         ]
     },
     "custom/power": {

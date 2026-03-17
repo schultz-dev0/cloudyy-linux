@@ -8,40 +8,40 @@
        ===================================================================== */
     
     /* Solid reference colors (for borders, accents) */
-    primary: #d8bafb;
-    primary-fixed: #eedcff;
-    primary-fixed-dim: #d8bafb;
-    on-primary: #3c245a;
-    on-primary-fixed: #260d44;
-    on-primary-fixed-variant: #533b72;
-    primary-container: #533b72;
-    on-primary-container: #eedcff;
+    primary: #96d5a6;
+    primary-fixed: #b1f1c1;
+    primary-fixed-dim: #96d5a6;
+    on-primary: #00391c;
+    on-primary-fixed: #00210e;
+    on-primary-fixed-variant: #11512e;
+    primary-container: #11512e;
+    on-primary-container: #b1f1c1;
     
     /* =====================================================================
        SECONDARY COLORS
        ===================================================================== */
     
-    secondary: #cfc1da;
-    secondary-fixed: #ecddf7;
-    secondary-fixed-dim: #cfc1da;
-    on-secondary: #352d40;
-    on-secondary-fixed: #20182a;
-    on-secondary-fixed-variant: #4c4357;
-    secondary-container: #4c4357;
-    on-secondary-container: #ecddf7;
+    secondary: #b6ccb9;
+    secondary-fixed: #d2e8d4;
+    secondary-fixed-dim: #b6ccb9;
+    on-secondary: #223527;
+    on-secondary-fixed: #0d1f13;
+    on-secondary-fixed-variant: #384b3c;
+    secondary-container: #384b3c;
+    on-secondary-container: #d2e8d4;
     
     /* =====================================================================
        TERTIARY COLORS
        ===================================================================== */
     
-    tertiary: #f2b7c1;
-    tertiary-fixed: #ffd9de;
-    tertiary-fixed-dim: #f2b7c1;
-    on-tertiary: #4b252d;
-    on-tertiary-fixed: #321018;
-    on-tertiary-fixed-variant: #653b43;
-    tertiary-container: #653b43;
-    on-tertiary-container: #ffd9de;
+    tertiary: #a2ceda;
+    tertiary-fixed: #beeaf6;
+    tertiary-fixed-dim: #a2ceda;
+    on-tertiary: #023640;
+    on-tertiary-fixed: #001f26;
+    on-tertiary-fixed-variant: #214c57;
+    tertiary-container: #214c57;
+    on-tertiary-container: #beeaf6;
     
     /* =====================================================================
        ERROR COLORS
@@ -56,23 +56,23 @@
        SURFACE COLORS - SOLID (for reference)
        ===================================================================== */
     
-    surface: #151218;
-    on-surface: #e7e0e8;
-    on-surface-variant: #ccc4cf;
-    outline: #958e99;
-    outline-variant: #4a454e;
+    surface: #101510;
+    on-surface: #dfe4dc;
+    on-surface-variant: #c0c9bf;
+    outline: #8b938a;
+    outline-variant: #414942;
     shadow: #000000;
     scrim: #000000;
-    inverse-surface: #e7e0e8;
-    inverse-on-surface: #332f35;
-    inverse-primary: #6c538c;
-    surface-dim: #151218;
-    surface-bright: #3b383e;
-    surface-container-lowest: #100d12;
-    surface-container-low: #1d1a20;
-    surface-container: #211e24;
-    surface-container-high: #2c292f;
-    surface-container-highest: #373339;
+    inverse-surface: #dfe4dc;
+    inverse-on-surface: #2c322d;
+    inverse-primary: #2e6a44;
+    surface-dim: #101510;
+    surface-bright: #353a35;
+    surface-container-lowest: #0a0f0b;
+    surface-container-low: #181d18;
+    surface-container: #1c211c;
+    surface-container-high: #262b27;
+    surface-container-highest: #313631;
     
     /* =====================================================================
        LIQUID GLASS VARIANTS - WITH ALPHA TRANSPARENCY
@@ -80,29 +80,29 @@
        ===================================================================== */
     
     /* Main window background - Very transparent for glass effect */
-    glass-surface: #151218B3;  /* 70% opacity */
+    glass-surface: #101510B3;  /* 70% opacity */
     
     /* Input/search bar - Slightly more opaque for readability */
-    glass-input: #2c292fCC;  /* 80% opacity */
+    glass-input: #262b27CC;  /* 80% opacity */
     
     /* Selected items - Medium opacity */
-    glass-selected: #533b72D9;  /* 85% opacity */
+    glass-selected: #11512eD9;  /* 85% opacity */
     
     /* Hover state - Light opacity */
-    glass-hover: #211e2499;  /* 60% opacity */
+    glass-hover: #1c211c99;  /* 60% opacity */
     
     /* Message boxes */
-    glass-message: #211e24CC;  /* 80% opacity */
+    glass-message: #1c211cCC;  /* 80% opacity */
     
     /* Alternative for even more transparency */
-    glass-surface-light: #15121880;  /* 50% opacity - ultra transparent */
-    glass-surface-medium: #15121899;  /* 60% opacity */
-    glass-surface-heavy: #151218E6;  /* 90% opacity - barely transparent */
+    glass-surface-light: #10151080;  /* 50% opacity - ultra transparent */
+    glass-surface-medium: #10151099;  /* 60% opacity */
+    glass-surface-heavy: #101510E6;  /* 90% opacity - barely transparent */
     
     /* Container variations with transparency */
-    glass-container-low: #1d1a20B3;  /* 70% */
-    glass-container: #211e24CC;  /* 80% */
-    glass-container-high: #2c292fD9;  /* 85% */
-    glass-container-highest: #373339E6;  /* 90% */
+    glass-container-low: #181d18B3;  /* 70% */
+    glass-container: #1c211cCC;  /* 80% */
+    glass-container-high: #262b27D9;  /* 85% */
+    glass-container-highest: #313631E6;  /* 90% */
 }
 

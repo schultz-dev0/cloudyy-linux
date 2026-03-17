@@ -29,7 +29,7 @@ window#waybar {
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
 
 tooltip {
-  background-color: alpha(@surface_container_high, 0.97);
+  background-color: alpha(@surface_container_high, 0.72);
   border:           1px solid alpha(@outline_variant, 0.22);
   border-radius:    10px;
   box-shadow:       none;
