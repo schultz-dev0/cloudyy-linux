@@ -85,20 +85,20 @@
         }
     },
     "custom/temps": {
-        "exec": "~/.config/waybar/scripts/temps.py",
+        "exec": "~/cloudyy_scripts/waybar/temps.py",
         "return-type": "json",
         "format": "{}",
         "interval": 2,
         "tooltip": true
     },
     "custom/timer": {
-        "exec": "~/.config/waybar/scripts/timer.sh",
+        "exec": "~/cloudyy_scripts/waybar/timer.sh",
         "format": "{}",
         "interval": 1,
         "on-click": "echo $(( $(date +%s) + 7200 )) > /tmp/waybar_timer",
         "on-click-right": "rm /tmp/waybar_timer",
-        "on-scroll-up": "~/.config/waybar/scripts/timer.sh add",
-        "on-scroll-down": "~/.config/waybar/scripts/timer.sh sub"
+        "on-scroll-up": "~/cloudyy_scripts/waybar/timer.sh add",
+        "on-scroll-down": "~/cloudyy_scripts/waybar/timer.sh sub"
     },
     "pulseaudio#output": {
         "format": " \udb81\udd7e\n{volume}%",

@@ -12,10 +12,9 @@
 # needed beyond installing the script.
 
 pages:
-
   - id: home
     title: Home
-    icon: 
+    icon:
     layout:
       - type: section
         properties:
@@ -93,7 +92,7 @@ pages:
           - type: label
             properties:
               title: Kernel
-              icon: 
+              icon:
             value:
               type: system
               key: kernel
@@ -110,7 +109,7 @@ pages:
             properties:
               title: Color Scheme
               description: Matugen color variant
-              icon: 
+              icon:
               key: theme/scheme
               options:
                 - neutral
@@ -184,7 +183,7 @@ pages:
             properties:
               title: Preset
               description: Visual style — orientation toggle below switches between horizontal and vertical variants automatically
-              icon: 
+              icon:
               key: waybar/preset
               options:
                 - default
@@ -209,8 +208,8 @@ pages:
             on_change:
               command: >-
                 ([ "$(cat ~/.config/waybar/.current_preset 2>/dev/null | grep -c '^vertical_')" = "1" ]
-                && ~/.config/waybar/scripts/switch_style.sh "vertical_{value}"
-                || ~/.config/waybar/scripts/switch_style.sh "{value}")
+                && ~/cloudyy_scripts/waybar/switch_style.sh "vertical_{value}"
+                || ~/cloudyy_scripts/waybar/set_position.sh "{value}")
 
       - type: section
         properties:
@@ -479,7 +478,7 @@ pages:
             properties:
               title: Theme Manager
               description: Wallpapers, color schemes, contrast
-              icon: 
+              icon:
               button_text: Open
             on_press:
               command: kitty --class theme-ui --title "Theme Manager" theme-ui
@@ -524,3 +523,4 @@ pages:
               button_text: Reload
             on_press:
               command: hyprctl reload
+
