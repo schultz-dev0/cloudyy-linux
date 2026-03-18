@@ -38,7 +38,7 @@
         "tooltip-format": "Application Launcher"
     },
     "custom/temps": {
-        "exec": "~/.config/waybar/scripts/temps.py",
+        "exec": "~/cloudyy_scripts/waybar/temps.py",
         "return-type": "json",
         "format": "{}",
         "rotate": 270,
