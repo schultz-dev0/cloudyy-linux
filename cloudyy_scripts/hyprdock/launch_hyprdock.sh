@@ -3,7 +3,7 @@
 # Description: Robustly restarts hyprdock for Hyprland/UWSM sessions.
 #              Uses systemd-run to spawn from a clean user environment,
 #              avoiding XDG_ACTIVATION_TOKEN inheritance issues.
-# Author: dusk
+# original author: dusk, modified by me
 # -----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -50,7 +50,7 @@ launch_fallback() {
 }
 
 # Get the directory where this script is located
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$HOME/cloudyy_scripts/cloudyy-other/"
 readonly APP_PATH="${SCRIPT_DIR}/${APP_NAME}"
 
 [[ -x "${APP_PATH}" ]] || {

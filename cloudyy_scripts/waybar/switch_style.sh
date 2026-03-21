@@ -103,7 +103,13 @@ echo "${PRESET}" >"${CURRENT_PRESET_FILE}"
 # Horizontal presets: restore saved position, defaulting to top. If a vertical
 # position is recorded but we're switching to a horizontal preset, reset to top.
 
-SET_POS="${WAYBAR_DIR}/scripts/set_position.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SET_POS="${SCRIPT_DIR}/set_position.sh"
+
+# Legacy fallback for older setups that keep helper scripts in ~/.config/waybar/scripts.
+if [[ ! -x "${SET_POS}" ]]; then
+  SET_POS="${WAYBAR_DIR}/scripts/set_position.sh"
+fi
 
 if [[ "$PRESET" == vertical_* ]]; then
   SAVED_SIDE="$(cat "${VERTICAL_SIDE_FILE}" 2>/dev/null || echo "left")"

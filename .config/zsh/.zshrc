@@ -23,6 +23,8 @@ eval "$(starship init zsh)"
 export EDITOR="nvim"
 
 export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/cloudyy_scripts/cloudyy-other/:$PATH"
+
 
 # aliases #
 
@@ -54,6 +56,12 @@ alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -
 
 # personl
 alias remotedesk='~/cloudyy_scripts/ivanti/uni-rdp.sh'
+
+# power utility
+
+alias sleep='systemctl suspend'
+alias poweroff='systemctl poweroff'
+
 
 
 # --- Top Left Startup Logo ---
