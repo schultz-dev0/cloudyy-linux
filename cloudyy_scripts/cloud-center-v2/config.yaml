@@ -209,7 +209,7 @@ pages:
               command: >-
                 ([ "$(cat ~/.config/waybar/.current_preset 2>/dev/null | grep -c '^vertical_')" = "1" ]
                 && ~/cloudyy_scripts/waybar/switch_style.sh "vertical_{value}"
-                || ~/cloudyy_scripts/waybar/set_position.sh "{value}")
+                || ~/cloudyy_scripts/waybar/switch_style.sh "{value}")
 
       - type: section
         properties:
@@ -227,11 +227,11 @@ pages:
               enabled:
                 command: >-
                   BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
-                  ~/.config/waybar/scripts/switch_style.sh "vertical_${BASE}"
+                  ~/cloudyy_scripts/waybar/switch_style.sh "vertical_${BASE}"
               disabled:
                 command: >-
                   BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
-                  ~/.config/waybar/scripts/switch_style.sh "${BASE}"
+                  ~/cloudyy_scripts/waybar/switch_style.sh "${BASE}"
 
           - type: toggle
             properties:
@@ -243,9 +243,9 @@ pages:
               interval: 3
             on_toggle:
               enabled:
-                command: "~/.config/waybar/scripts/set_position.sh right && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
+                command: "~/cloudyy_scripts/waybar/set_position.sh right && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
               disabled:
-                command: "~/.config/waybar/scripts/set_position.sh left && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
+                command: "~/cloudyy_scripts/waybar/set_position.sh left && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
 
       - type: section
         properties:
@@ -523,4 +523,3 @@ pages:
               button_text: Reload
             on_press:
               command: hyprctl reload
-

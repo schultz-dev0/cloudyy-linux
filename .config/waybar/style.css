@@ -1,13 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: pill (HORIZONTAL)
+   PRESET: vertical_compact
    ─────────────────────────────────────────────────────────────────────────
-   macOS-style single-strip bar. One unified pill, time + workspaces left,
-   mpris centre, system info right. Temp shown as a coloured badge.
+   Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
-/* ── Universal Reset ───────────────────────────────────────────────────────── */
+/* ── Universal reset ───────────────────────────────────────────────────────── */
+
 * {
   border:        none;
   border-radius: 0;
@@ -16,132 +18,192 @@
   font-family:   'Monocraft', monospace;
   font-weight:   600;
   font-size:     12px;
-  text-shadow:   none;
-  transition:    background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  transition:    background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
 }
 
-/* ── Bar Window ────────────────────────────────────────────────────────────── */
 window#waybar {
   background: transparent;
-}
-
-/* ── Single pill wrapper ───────────────────────────────────────────────────── */
-.modules-center {
-  background-color: alpha(@on_primary, 0.72);
-  border:           1px solid alpha(@outline_variant, 0.18);
-  border-radius:    18px;
-  margin:           0;
-  padding:          0 6px;
-}
-
-/* ── All modules base ──────────────────────────────────────────────────────── */
-#clock, #workspaces, #mpris,
-#battery, #pulseaudio, #network, #custom-temps {
-  background: transparent;
-  color:      @on_surface_variant;
-  padding:    0 8px;
-  margin:     0;
-}
-
-/* ── Clock ─────────────────────────────────────────────────────────────────── */
-#clock {
-  color:       @on_surface;
-  font-weight: 800;
-  font-size:   13px;
-  padding-left: 10px;
-}
-
-/* ── Workspaces ────────────────────────────────────────────────────────────── */
-#workspaces {
-  padding: 0 4px;
-}
-
-#workspaces button {
-  background:  transparent;
-  color:       alpha(@on_surface_variant, 0.35);
-  padding:     0 5px;
-  margin:      0 2px;
-  min-width:   14px;
-  min-height:  28px;
-  border-radius: 8px;
-  font-size:   12px;
-  font-weight: 600;
-}
-
-#workspaces button.active {
-  background-color: @primary;
-  color:            @on_primary;
-  font-weight:      800;
-  min-width:        22px;
-  border-radius:    10px;
-  box-shadow:       0 1px 6px alpha(@primary, 0.35);
-}
-
-#workspaces button:hover {
-  background-color: alpha(@on_surface, 0.07);
-  color:            @on_surface;
-}
-
-#workspaces button.urgent {
-  color:     @error;
-  animation: blink 1s infinite;
-}
-
-/* ── Mpris ─────────────────────────────────────────────────────────────────── */
-#mpris {
-  color:     alpha(@on_surface_variant, 0.55);
-  font-size: 11px;
-}
-#mpris.paused {
-  color: alpha(@on_surface_variant, 0.3);
-  font-style: italic;
-}
-
-/* ── Battery ───────────────────────────────────────────────────────────────── */
-#battery              { color: @on_surface_variant; }
-#battery.good         { color: @tertiary; }
-#battery.charging     { color: @primary; }
-#battery.warning      { color: @secondary; }
-#battery.critical     { color: @error; animation: blink 0.9s infinite; }
-
-/* ── Audio ─────────────────────────────────────────────────────────────────── */
-#pulseaudio.output       { color: @on_surface_variant; }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.28); }
-
-/* ── Network ───────────────────────────────────────────────────────────────── */
-#network              { color: @on_surface_variant; font-size: 11px; }
-#network.wifi         { color: @on_surface; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.28); }
-
-/* ── Temp badge (the green "80" pill) ──────────────────────────────────────── */
-#custom-temps {
-  background-color: alpha(@tertiary, 0.18);
-  border:           1px solid alpha(@tertiary, 0.25);
-  border-radius:    12px;
-  color:            @tertiary;
-  font-weight:      800;
-  padding:          2px 10px;
-  margin:           5px 4px 5px 2px;
+  box-shadow: none;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
+
 tooltip {
-  background-color: @surface_container_high;
-  border-radius:    12px;
-  border:           1px solid alpha(@outline_variant, 0.15);
-}
-tooltip label {
-  color:   @on_surface;
-  padding: 6px 10px;
+  background-color: alpha(@surface_container_high, 0.72);
+  border:           1px solid alpha(@outline_variant, 0.22);
+  border-radius:    10px;
+  box-shadow:       none;
 }
 
-/* ── Animation ─────────────────────────────────────────────────────────────── */
+tooltip label {
+  padding:   5px 10px;
+  color:     @on_surface;
+  font-size: 12px;
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
 @keyframes blink {
   0%   { opacity: 1;   }
-  50%  { opacity: 0.4; }
+  50%  { opacity: 0.3; }
   100% { opacity: 1;   }
 }
 
-#bluetooth { color: alpha(@on_surface_variant, 0.6); }
+@keyframes blink-urgent {
+  0%   { opacity: 1;    }
+  50%  { opacity: 0.15; }
+  100% { opacity: 1;    }
+}
+
+/* ── compact-modules ─────────────────────────────────────────────────────────── */
+
+/* compact-modules — single floating bar, polished hierarchy */
+
+#custom-launcher {
+  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
+  border-radius:    10px;
+  color:            @on_primary_container;
+  font-size:        17px;
+  font-weight:      800;
+  padding:          5px 9px;
+  margin:           2px 1px;
+  box-shadow:       0 2px 8px alpha(@primary, 0.25);
+  transition:       all 0.18s ease;
+}
+#custom-launcher:hover {
+  background-image: linear-gradient(135deg, @primary_fixed_dim, @primary);
+  box-shadow:       0 3px 14px alpha(@primary, 0.4);
+}
+
+#clock {
+  color:          @on_surface;
+  font-size:      17px;
+  font-weight:    800;
+  letter-spacing: 0.5px;
+}
+
+#workspaces button {
+  background:    transparent;
+  border-radius: 8px;
+  color:         alpha(@on_surface_variant, 0.35);
+  font-size:     12px;
+  min-width:     28px;
+  padding:       3px 0;
+  margin:        1px 3px;
+  transition:    all 0.15s ease;
+}
+#workspaces button.visible { color: @on_surface; }
+#workspaces button.active  {
+  background-image: linear-gradient(135deg, @primary_container, @primary_fixed_dim);
+  color:            @on_primary_container;
+  font-weight:      800;
+  box-shadow:       0 1px 6px alpha(@primary, 0.3);
+}
+#workspaces button.empty   { color: alpha(@on_surface_variant, 0.15); }
+#workspaces button:hover   { background-color: alpha(@surface_container_high, 0.5); color: @on_surface; }
+#workspaces button.urgent  {
+  background-color: @error_container;
+  color:            @on_error;
+  animation:        blink-urgent 1s ease-in-out infinite;
+}
+
+#custom-notification { font-size: 13px; color: @on_surface_variant; }
+#custom-notification:hover { color: @on_surface; }
+#custom-temps  { color: @tertiary;   font-size: 11px; font-weight: 700; }
+#custom-updates { color: @secondary; font-size: 11px; }
+#custom-timer  { color: @secondary;  font-size: 11px; }
+#mpris         { color: alpha(@on_surface_variant, 0.6); font-size: 11px; }
+#mpris.paused  { color: alpha(@on_surface_variant, 0.35); }
+#mpris.stopped { padding: 0; margin: 0; min-width: 0; }
+
+#network              { color: @on_surface; font-size: 11px; }
+#network.wifi         { color: @primary_fixed; }
+#network.ethernet     { color: @tertiary; }
+#network.disconnected { color: alpha(@on_surface_variant, 0.3); }
+#network:hover        { color: @on_surface; }
+
+#pulseaudio.output       { color: @on_surface; font-size: 11px; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.25); }
+
+#cpu, #memory                          { color: @on_surface; font-size: 11px; }
+#cpu.warning, #memory.warning          { color: @tertiary; }
+#cpu.critical, #memory.critical        { color: @error; animation: blink 1.2s ease-in-out infinite; }
+
+#battery                               { color: @on_surface; font-size: 11px; }
+#battery.good                          { color: @tertiary; }
+#battery.charging, #battery.full       { color: @tertiary; }
+#battery.warning:not(.charging)        { color: @primary_fixed; }
+#battery.critical:not(.charging)       { color: @error; animation: blink 0.9s ease-in-out infinite; }
+
+#bluetooth           { color: alpha(@on_surface_variant, 0.5); font-size: 11px; }
 #bluetooth.connected { color: @primary; }
+
+#custom-power         { color: alpha(@on_surface_variant, 0.5); font-size: 13px; transition: all 0.15s ease; }
+#custom-power:hover   { background-color: alpha(@error_container, 0.35); border-radius: 8px; color: @error; }
+
+/* ── Bar container & layout ──────────────────────────────────────────────────── */
+
+window#waybar, window#waybar > box {
+  background: transparent;
+  border:     none;
+  box-shadow: none;
+  margin:     0;
+}
+
+.modules-left {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius:    14px;
+  border:           1px solid alpha(@outline_variant, 0.15);
+  margin:           6px 5px 3px 5px;
+  padding:          8px 0;
+}
+.modules-center {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius:    14px;
+  border:           1px solid alpha(@outline_variant, 0.15);
+  margin:           3px 5px;
+  padding:          8px 0;
+}
+.modules-right {
+  background-color: alpha(@surface_container, 0.80);
+  border-radius:    14px;
+  border:           1px solid alpha(@outline_variant, 0.15);
+  margin:           3px 5px 6px 5px;
+  padding:          8px 0;
+}
+
+/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
+/* share consistent symmetric padding so nothing is misaligned.                 */
+
+#clock {
+  min-width:   42px;
+  padding:     8px 0;
+  font-size:   16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+#workspaces button {
+  padding:   6px 0;
+  margin:    1px 0;
+}
+
+#custom-launcher,
+#custom-power,
+#custom-notification,
+#custom-temps,
+#custom-updates,
+#custom-timer,
+#custom-weather,
+#mpris,
+#network,
+#pulseaudio,
+#bluetooth,
+#cpu,
+#memory,
+#battery {
+  padding: 6px 4px;
+  margin:  2px 4px;
+}
+

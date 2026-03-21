@@ -1,28 +1,40 @@
 # wallpaper
 
 [config]
-variant  = "scheme-rainbow"
+variant = "scheme-rainbow"
 contrast = 0
 
 [config.wallpaper]
-command       = "/usr/bin/swww"
-arguments     = ["img", "--transition-type", "center", "--transition-step", "15", "--transition-fps", "60"]
-set           = false  
+command = "/usr/bin/swww"
+arguments = [
+  "img",
+  "--transition-type",
+  "center",
+  "--transition-step",
+  "15",
+  "--transition-fps",
+  "60",
+]
+set = false
 
 # hyprland config
 
 [templates.hyprland]
-input_path    = '~/.config/matugen/templates/hyprland-colors.conf'
-output_path   = '~/.config/matugen/generated/hyprcolors.conf'
-post_hook     = 'hyprctl reload'
+input_path = '~/.config/matugen/templates/hyprland-colors.conf'
+output_path = '~/.config/matugen/generated/hyprcolors.conf'
+post_hook = 'hyprctl reload'
 
 # waybar config
 
 [templates.waybar]
-input_path    = '~/.config/matugen/templates/colors.css' 
-output_path   = '~/.config/matugen/generated/waybar-colors.css'
-post_hook     = "~/cloudyy_scripts/launch_waybar.sh"
+input_path = '~/.config/matugen/templates/colors.css'
+output_path = '~/.config/matugen/generated/waybar-colors.css'
+post_hook = "~/cloudyy_scripts/launch_waybar.sh"
 
+[templates.hyprdock]
+input_path = "~/.config/matugen/templates/colors.css"
+output_path = "~/.config/matugen/generated/waybar-colors.css"
+post_hook = "~/cloudyy_scripts/hyprdock/launch_hyprdock.sh"
 # --- 
 
 [templates.starship]
@@ -30,60 +42,59 @@ input_path = "~/.config/matugen/templates/starship_preset.tera"
 output_path = "~/.config/starship.toml"
 
 [templates.gtk3]
-input_path    =  '~/.config/matugen/templates/gtk-colors.css'
-output_path   = '~/.config/gtk-3.0/gtk.css'
-post_hook     = 'thunar -q 2>/dev/null; sleep 0.3; thunar --daemon &'
+input_path = '~/.config/matugen/templates/gtk-colors.css'
+output_path = '~/.config/gtk-3.0/gtk.css'
+post_hook = 'thunar -q 2>/dev/null; sleep 0.3; thunar --daemon &'
 
-[templates.gtk4]                                                                                                
-input_path    = '~/.config/matugen/templates/gtk-colors.css'                                                       
-output_path   = '~/.config/gtk-4.0/gtk.css'
+[templates.gtk4]
+input_path = '~/.config/matugen/templates/gtk-colors.css'
+output_path = '~/.config/gtk-4.0/gtk.css'
 
 [templates.kitty]
-input_path    = '~/.config/matugen/templates/kitty-colors.conf'
-output_path   = '~/.config/kitty/kitty-colors.conf'
-post_hook     = '~/.config/kitty/matugen-reload.sh'
+input_path = '~/.config/matugen/templates/kitty-colors.conf'
+output_path = '~/.config/kitty/kitty-colors.conf'
+post_hook = '~/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
-input_path    = '~/.config/matugen/templates/nvimmode.lua'
-output_path   = '~/.config/nvim/lua/current_mode.lua'
-post_hook     = 'sh -c "touch ~/.config/nvim/lua/current_mode.lua"'
+input_path = '~/.config/matugen/templates/nvimmode.lua'
+output_path = '~/.config/nvim/lua/current_mode.lua'
+post_hook = 'sh -c "touch ~/.config/nvim/lua/current_mode.lua"'
 
 [templates.rofi]
-input_path    = '~/.config/matugen/templates/colors.rasi'
-output_path   = '~/.config/matugen/generated/colors-glass.rasi'
+input_path = '~/.config/matugen/templates/colors.rasi'
+output_path = '~/.config/matugen/generated/colors-glass.rasi'
 
 [templates.swaync]
-input_path    = '~/.config/matugen/templates/colors-swaync.css'
-output_path   = '~/.config/matugen/generated/colors-swaync.css'
-post_hook     = 'swaync-client -rs'
+input_path = '~/.config/matugen/templates/colors-swaync.css'
+output_path = '~/.config/matugen/generated/colors-swaync.css'
+post_hook = 'swaync-client -rs'
 
 [templates.swayosd]
-input_path    = '~/.config/matugen/templates/colors-swayosd.css'
-output_path   = '~/.config/matugen/generated/colors-swayosd.css'
-post_hook     = '~/cloudyy_scripts/swayosd/restart_swayosd.sh' 
+input_path = '~/.config/matugen/templates/colors-swayosd.css'
+output_path = '~/.config/matugen/generated/colors-swayosd.css'
+post_hook = '~/cloudyy_scripts/swayosd/restart_swayosd.sh'
 
 [templates.wlogout]
-input_path    = '~/.config/matugen/templates/colors.css'
-output_path   = '~/.config/matugen/generated/colors.css'
+input_path = '~/.config/matugen/templates/colors.css'
+output_path = '~/.config/matugen/generated/colors.css'
 
 [templates.btop]
-input_path    = '~/.config/matugen/templates/btop.theme'
-output_path   = '~/.config/btop/themes/matugen.theme'
-post_hook     = 'pkill -USR2 btop || true'
+input_path = '~/.config/matugen/templates/btop.theme'
+output_path = '~/.config/btop/themes/matugen.theme'
+post_hook = 'pkill -USR2 btop || true'
 
 [templates.yad_volume]
-input_path    = "~/.config/matugen/templates/yad-volume.css"
-output_path   = "~/.config/yad/volume.css"
+input_path = "~/.config/matugen/templates/yad-volume.css"
+output_path = "~/.config/yad/volume.css"
 
 [templates.Obsidian]
-input_path    = '~/.config/matugen/templates/obsidian-theme.css'
-output_path   = '~/MyLife/.obsidian/snippets/matugen-theme.css'
+input_path = '~/.config/matugen/templates/obsidian-theme.css'
+output_path = '~/MyLife/.obsidian/snippets/matugen-theme.css'
 
 [templates.pywalfox]
 input_path = '~/.config/matugen/templates/pywal.json'
 output_path = '~/.cache/wal/colors.json'
 post_hook = 'pywalfox update'
-
 
 [templates.vscodium]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
