@@ -6,10 +6,14 @@ Supports both GTK symbolic icon names and Nerd Font glyph characters.
 from __future__ import annotations
 
 import logging
+import os
 import threading
+from pathlib import Path
 from typing import Any
 
-from gi.repository import Adw, GLib, Gtk
+import gi
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Adw, GLib, GdkPixbuf, Gtk
 
 import lib.utility as utility
 
@@ -357,6 +361,251 @@ class LabelRow(Adw.ActionRow, _ManagedRow):
         Adw.ActionRow.do_unroot(self)
 
 
+# ── Wallpaper picker ──────────────────────────────────────────────────────────
+
+_WALL_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+_THEME_STATE = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
+
+
+def _read_current_wallpaper() -> str:
+    """Parse CURRENT_WALL from theme_state/state.conf."""
+    try:
+        for line in _THEME_STATE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("CURRENT_WALL="):
+                val = line[len("CURRENT_WALL="):].strip().strip('"\'')
+                return val
+    except (FileNotFoundError, OSError):
+        pass
+    return ""
+
+
+class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
+    """A visual wallpaper grid that mimics waypaper, embedded as a preferences row."""
+
+    __gtype_name__ = "CCWallpaperPickerRow"
+
+    def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
+        super().__init__()
+        self._init_sources()
+        self._action = action or {}
+        self._ctx = ctx
+        self._key = props.get("key", "wallpaper/current")
+        raw_dir = props.get("directory", "~/Wallpapers")
+        self._directory = Path(os.path.expandvars(raw_dir)).expanduser()
+        self._thumb_size = int(props.get("thumbnail_size", 160))
+        self._columns = int(props.get("columns", 0))  # 0 = auto
+        self._cmd_template = (
+            self._action.get("command", "")
+            or "~/cloudyy_scripts/theme_controller.sh set-image {path}"
+        )
+        self._current_path = _read_current_wallpaper()
+        self._buttons: dict[str, Gtk.Button] = {}
+
+        self.set_activatable(False)
+        self._build_widget(props)
+
+    def _build_widget(self, props: dict) -> None:
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        outer.add_css_class("wallpaper-picker-box")
+
+        # ── Header row ────────────────────────────────────────────────────────
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        header.add_css_class("wallpaper-picker-header")
+        header.set_margin_start(12)
+        header.set_margin_end(12)
+        header.set_margin_top(10)
+        header.set_margin_bottom(6)
+
+        if icon := props.get("icon"):
+            icon_w = _make_prefix_icon(icon)
+            header.append(icon_w)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_box.set_hexpand(True)
+
+        title_lbl = Gtk.Label(label=props.get("title", "Wallpaper"), xalign=0)
+        title_lbl.add_css_class("wallpaper-picker-title")
+        title_box.append(title_lbl)
+
+        if desc := props.get("description"):
+            desc_lbl = Gtk.Label(label=desc, xalign=0)
+            desc_lbl.add_css_class("wallpaper-picker-desc")
+            desc_lbl.add_css_class("dim-label")
+            title_box.append(desc_lbl)
+
+        header.append(title_box)
+
+        self._current_label = Gtk.Label(label="", xalign=1)
+        self._current_label.add_css_class("wallpaper-current-name")
+        self._current_label.add_css_class("dim-label")
+        self._current_label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+        self._current_label.set_max_width_chars(28)
+        if self._current_path:
+            self._current_label.set_label(Path(self._current_path).name)
+        header.append(self._current_label)
+
+        outer.append(header)
+
+        # ── Separator ─────────────────────────────────────────────────────────
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        outer.append(sep)
+
+        # ── Spinner shown while loading ───────────────────────────────────────
+        self._spinner = Gtk.Spinner()
+        self._spinner.set_spinning(True)
+        self._spinner.set_margin_top(24)
+        self._spinner.set_margin_bottom(24)
+        self._spinner.set_halign(Gtk.Align.CENTER)
+        outer.append(self._spinner)
+
+        # ── Scrolled FlowBox ──────────────────────────────────────────────────
+        self._flow = Gtk.FlowBox()
+        self._flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._flow.set_homogeneous(True)
+        self._flow.set_row_spacing(8)
+        self._flow.set_column_spacing(8)
+        self._flow.add_css_class("wallpaper-grid")
+        if self._columns > 0:
+            self._flow.set_min_children_per_line(self._columns)
+            self._flow.set_max_children_per_line(self._columns)
+        else:
+            self._flow.set_max_children_per_line(20)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        rows_shown = int(props.get("rows", 4))
+        row_h = self._thumb_size + 8  # thumb + row_spacing
+        scroll.set_min_content_height(row_h * rows_shown + 16)
+        scroll.set_max_content_height(row_h * rows_shown + 16)
+        scroll.set_child(self._flow)
+        scroll.add_css_class("wallpaper-scroll")
+        scroll.set_margin_start(10)
+        scroll.set_margin_end(10)
+        scroll.set_margin_top(8)
+        scroll.set_margin_bottom(10)
+
+        outer.append(scroll)
+        self.set_child(outer)
+
+        # Load thumbnails in background thread
+        threading.Thread(target=self._load_thumbnails, daemon=True).start()
+
+    def _load_thumbnails(self) -> None:
+        """Collect image paths and schedule grid population on main thread."""
+        try:
+            paths = sorted(
+                p for p in self._directory.iterdir()
+                if p.is_file() and p.suffix.lower() in _WALL_EXTS
+            )
+        except Exception as exc:
+            log.warning("WallpaperPicker: cannot list %s: %s", self._directory, exc)
+            paths = []
+        GLib.idle_add(self._populate_grid, paths)
+
+    def _populate_grid(self, paths: list[Path]) -> bool:
+        with self._lock:
+            if self._destroyed:
+                return GLib.SOURCE_REMOVE
+
+        # Remove spinner
+        parent = self._spinner.get_parent()
+        if parent:
+            parent.remove(self._spinner)
+
+        if not paths:
+            empty = Gtk.Label(label=f"No wallpapers found in\n{self._directory}")
+            empty.add_css_class("dim-label")
+            empty.set_margin_top(16)
+            empty.set_margin_bottom(16)
+            self._flow.get_parent().get_parent().append(empty)  # outer box
+            return GLib.SOURCE_REMOVE
+
+        # Load each thumbnail in its own thread to avoid blocking UI
+        for path in paths:
+            threading.Thread(
+                target=self._load_one_thumb,
+                args=(path,),
+                daemon=True,
+            ).start()
+
+        return GLib.SOURCE_REMOVE
+
+    def _load_one_thumb(self, path: Path) -> None:
+        """Load a scaled pixbuf in a worker thread, then add button on main thread."""
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                str(path), self._thumb_size, self._thumb_size, True
+            )
+        except Exception as exc:
+            log.debug("WallpaperPicker: skip %s: %s", path.name, exc)
+            return
+        GLib.idle_add(self._add_thumbnail, path, pixbuf)
+
+    def _add_thumbnail(self, path: Path, pixbuf: GdkPixbuf.Pixbuf) -> bool:
+        with self._lock:
+            if self._destroyed:
+                return GLib.SOURCE_REMOVE
+
+        # Build thumbnail button
+        img = Gtk.Picture.new_for_pixbuf(pixbuf)
+        img.set_content_fit(Gtk.ContentFit.COVER)
+        img.set_size_request(self._thumb_size, self._thumb_size)
+
+        overlay = Gtk.Overlay()
+        overlay.set_child(img)
+
+        # Check mark overlay for current wallpaper
+        check = Gtk.Image.new_from_icon_name("object-select-symbolic")
+        check.add_css_class("wallpaper-check")
+        check.set_halign(Gtk.Align.END)
+        check.set_valign(Gtk.Align.START)
+        overlay.add_overlay(check)
+        check.set_visible(str(path) == self._current_path)
+
+        btn = Gtk.Button()
+        btn.set_child(overlay)
+        btn.add_css_class("wallpaper-thumb-btn")
+        btn.set_tooltip_text(path.name)
+        if str(path) == self._current_path:
+            btn.add_css_class("wallpaper-thumb-active")
+
+        btn.connect("clicked", self._on_select, path, check)
+        self._buttons[str(path)] = (btn, check)
+        self._flow.append(btn)
+        return GLib.SOURCE_REMOVE
+
+    def _on_select(self, _btn: Gtk.Button, path: Path, _check: Gtk.Image) -> None:
+        # Deactivate previous
+        if self._current_path and self._current_path in self._buttons:
+            old_btn, old_check = self._buttons[self._current_path]
+            old_btn.remove_css_class("wallpaper-thumb-active")
+            old_check.set_visible(False)
+
+        self._current_path = str(path)
+
+        if self._key:
+            threading.Thread(
+                target=utility.save_setting,
+                args=(self._key, str(path)),
+                daemon=True,
+            ).start()
+
+        # Activate new
+        new_btn, new_check = self._buttons[str(path)]
+        new_btn.add_css_class("wallpaper-thumb-active")
+        new_check.set_visible(True)
+        self._current_label.set_label(path.name)
+
+        # Run command
+        cmd = self._cmd_template.replace("{path}", str(path))
+        ok = utility.execute_command(cmd)
+        self._ctx.toast(f"󱉟 {path.name}" if ok else " Failed to apply wallpaper")
+
+    def do_unroot(self) -> None:
+        self._cleanup()
+        Adw.PreferencesRow.do_unroot(self)
+
+
 # ── Row factory ───────────────────────────────────────────────────────────────
 
 def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
@@ -374,6 +623,8 @@ def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
                 return SelectionRow(props, item.get("on_change"), ctx)
             case "label":
                 return LabelRow(props, item.get("value"), ctx)
+            case "wallpaper_picker":
+                return WallpaperPickerRow(props, item.get("on_select"), ctx)
             case _:
                 log.warning("Unknown row type: %s", itype)
                 return None

@@ -109,3 +109,8 @@ post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
 [templates.vesktop]
 input_path = "~/.config/matugen/templates/vesktop_theme.css"
 output_path = "~/.config/vesktop/themes/matugen_theme.css"
+
+[templates.cloud-center]
+input_path = '~/.config/matugen/templates/colors.css'
+output_path = '~/.config/matugen/generated/waybar-colors.css'
+post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
