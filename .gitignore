@@ -1,7 +1,7 @@
 *.swap
 
 # Ignore user configs
-.config/hypr/user-configs/*
+#.config/hypr/user-configs/*
 !.config/hypr/user-configs/.gitkeep
 
 # Ignore OMZ --- PUT IT IN INSTALL SCRIPT YA LAZY BUM!!!! ---
@@ -25,4 +25,4 @@ cloudyy_scripts/cloudyy-other/folio-gtk
 .config/systemd/user/
 
 # this is private and contains credentials and stuff
-cloudyy_scripts/ivanti/
+#cloudyy_scripts/ivanti/
