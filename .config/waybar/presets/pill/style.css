@@ -51,6 +51,24 @@ window#waybar {
   padding-left: 10px;
 }
 
+#custom-power {
+  padding:          0 12px 0 9px;
+  margin:           5px 6px 5px 2px;
+  border-radius:    10px;
+  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
+  color:            @on_primary_container;
+  font-size:        14px;
+  box-shadow:       0 2px 8px alpha(@error, 0.22);
+  transition:       all 0.2s ease;
+}
+#custom-power:hover {
+  background-color: @error;
+  background-image: none;
+  box-shadow:       0 4px 16px alpha(@error, 0.45);
+}
+
+
+
 /* ── Workspaces ────────────────────────────────────────────────────────────── */
 #workspaces {
   padding: 0 4px;

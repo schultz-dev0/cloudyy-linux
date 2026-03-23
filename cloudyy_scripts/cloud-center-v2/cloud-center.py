@@ -11,7 +11,7 @@ Features (inspired by Dusky Control Center):
   - Structured logging
   - XDG-compliant pycache
   - Nerd Font icon support
-  - Matugen auto-reload: watches colors file, reloads CSS + restarts waybar
+    - Matugen auto-reload: watches colors file and reloads CSS
 """
 from __future__ import annotations
 
@@ -465,6 +465,7 @@ class CloudCenter(Adw.Application):
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
         self._window: CloudCenterWindow | None = None
+        self._start_hidden_once = "--background" in sys.argv
         self.hold()  # prevent GApplication 10s timeout — daemon mode
 
     def do_activate(self) -> None:
@@ -473,6 +474,11 @@ class CloudCenter(Adw.Application):
             self._window.connect("close-request", self._on_close)
             self._load_css()
             self._start_matugen_watcher()
+        if self._start_hidden_once:
+            # Used by restart scripts when we want daemon recovery with no pop-up.
+            self._window.set_visible(False)
+            self._start_hidden_once = False
+            return
         self._window.present()
 
     def _on_close(self, win: CloudCenterWindow) -> bool:
@@ -481,7 +487,7 @@ class CloudCenter(Adw.Application):
         return True  # suppress destroy
 
     def _start_matugen_watcher(self) -> None:
-        """Watch matugen color output; reload CSS + restart waybar when it changes."""
+        """Watch matugen color output and reload CSS when it changes."""
         if not MATUGEN_COLORS.exists():
             log.info("Matugen colors file not found, skipping watcher: %s", MATUGEN_COLORS)
             return
@@ -506,16 +512,11 @@ class CloudCenter(Adw.Application):
         self._matugen_debounce = GLib.timeout_add(600, self._do_matugen_reload)
 
     def _do_matugen_reload(self) -> bool:
-        """Reload CSS and restart waybar after matugen regenerates colors."""
-        import subprocess
+        """Reload CSS after matugen regenerates colors."""
         self._matugen_debounce = 0
         self._load_css()
         if self._window:
             utility.toast(self._window._toast_ov, "Theme updated")
-        launch = Path.home() / "cloudyy_scripts" / "launch_waybar.sh"
-        if launch.exists():
-            subprocess.Popen([str(launch)], start_new_session=True)
-            log.info("Waybar restarted after theme change")
         return GLib.SOURCE_REMOVE
 
     def _load_css(self) -> None:

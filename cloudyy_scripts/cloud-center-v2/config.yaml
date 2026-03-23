@@ -160,15 +160,28 @@ pages:
         properties:
           title: Wallpaper
         items:
-          - type: button
+          - type: wallpaper_picker
             properties:
-              title: Open Theme Manager
-              description: Browse wallpapers and manage theme in TUI
-              icon: 󰇄
-              button_text: Launch
-            on_press:
-              command: kitty --class theme-ui theme-ui
-              terminal: false
+              title: Wallpaper
+              description: Click a wallpaper to apply it
+              icon: 󱥒
+              key: wallpaper/current
+              directory: ~/Wallpapers
+              thumbnail_size: 120
+              columns: 4
+            on_select:
+              command: ~/cloudyy_scripts/theme_controller.sh set-image {path}
+
+          # theme manager TUI has been deprecated in favour of built in picker
+          #- type: button
+          #  properties:
+          #    title: Open Theme Manager
+          #    description: Browse wallpapers and manage theme in TUI
+          #    icon: 󰇄
+          #    button_text: Launch
+          #  on_press:
+          #    command: kitty --class theme-ui theme-ui
+          #    terminal: false
 
   - id: waybar
     title: Waybar
@@ -491,15 +504,6 @@ pages:
               button_text: Open
             on_press:
               command: kitty --class hkbm --title "Keybind Manager" hkbm
-
-          - type: button
-            properties:
-              title: Config Manager
-              description: Browse and edit Hyprland config files
-              icon: 󰦭
-              button_text: Open
-            on_press:
-              command: kitty --class hcm --title "Config Manager" hcm
 
       - type: section
         properties:

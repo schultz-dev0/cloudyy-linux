@@ -85,3 +85,64 @@ row.error {
 searchentry {
   border-radius: 8px;
 }
+
+/* ── Wallpaper picker ────────────────────────────────────────────────────── */
+
+.wallpaper-picker-box {
+  border-radius: 12px;
+}
+
+.wallpaper-picker-header {
+  padding: 2px 0;
+}
+
+.wallpaper-picker-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.wallpaper-picker-desc {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.wallpaper-current-name {
+  font-size: 11px;
+  font-style: italic;
+}
+
+.wallpaper-scroll {
+  border-radius: 0 0 12px 12px;
+}
+
+.wallpaper-grid {
+  padding: 4px;
+}
+
+.wallpaper-thumb-btn {
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  min-width: 0;
+  min-height: 0;
+}
+
+.wallpaper-thumb-btn:hover {
+  border-color: alpha(@accent_color, 0.6);
+}
+
+.wallpaper-thumb-active {
+  border-color: @accent_color;
+  box-shadow: 0 0 0 1px @accent_color;
+}
+
+.wallpaper-check {
+  margin: 4px;
+  -gtk-icon-size: 16px;
+  color: @accent_color;
+  background: alpha(@window_bg_color, 0.85);
+  border-radius: 50%;
+  padding: 2px;
+}

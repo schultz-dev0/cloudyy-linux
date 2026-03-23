@@ -156,7 +156,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰡭 Theme UI\n󰎨 Color Profile")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰎨 Color Profile")
 
   case "$choice" in
   *"Toggle Mode"*)
@@ -169,9 +169,6 @@ show_appearance_menu() {
   *"Next Wallpaper"*)
     run_app "$THEME_CTL" next
     notify-send "Theme" "Loading next wallpaper..." -t 2000
-    ;;
-  *"Theme UI"*)
-    exec kitty --class theme-ui --override background_opacity=1.0 -e theme-ui
     ;;
   *"Color Profile"*)
     show_color_menu
