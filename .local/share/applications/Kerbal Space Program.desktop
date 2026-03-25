@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Kerbal Space Program
+Comment=Play this game on Steam
+Exec=steam steam://rungameid/220200
+Icon=steam_icon_220200
+Terminal=false
+Type=Application
+Categories=Game;

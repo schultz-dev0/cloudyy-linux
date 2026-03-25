@@ -1,0 +1,43 @@
+{
+  // ── Dock geometry ─────────────────────────────────────────────────────────
+  "bar": {
+    "position": "bottom", // dock sits at the bottom, centered
+    "size": 45, // icon row height
+    "autohide": true,
+    "autohide_delay_ms": 1000,
+    "autohide_trigger_size": 8,
+    "margin": {
+      "top": 0,
+      "bottom": 10, // float above the screen edge
+      "left": 0,
+      "right": 0
+    }
+  },
+  // ── Module layout ─────────────────────────────────────────────────────────
+  // The dock is a single centered row — put everything in "center" for the
+  // classic macOS feel, or split across left/center/right for a hybrid bar.
+  "modules": {
+    "center": [],
+    "left": [
+      "apps"
+    ],
+    "right": []
+  },
+  // Pinned launcher apps + recently opened app tracking
+  "apps": {
+    "show_recent": true,
+    "recent_limit": 6,
+    "pinned": [
+      {
+        "name": "Firefox",
+        "command": "firefox",
+        "class": "firefox"
+      },
+      {
+        "name": "Thunar",
+        "command": "thunar",
+        "class": "thunar"
+      }
+    ]
+  }
+}

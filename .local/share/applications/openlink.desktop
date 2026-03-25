@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OpenlinkHub
+Comment=RGB Control for corsair products
+Exec=xdg-open http://127.0.0.1:27003
+Icon=~/.local/share/icons/icue.png
+Terminal=false
+Keywords=icue;openlink;rgb;

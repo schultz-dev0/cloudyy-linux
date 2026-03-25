@@ -1,0 +1,103 @@
+/*
+ * hyprdock - macOS-inspired floating dock
+ * Dynamic colors should come from matugen.css
+ */
+
+@import url("../matugen/generated/waybar-colors.css");
+
+
+/* Outer window */
+
+#bar {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+  transform: translateY(0); /* visible position */
+}
+
+/* When autohidden: slide down and fade out */
+
+#bar.autohide-enabled.autohide-hidden {
+  opacity: 0;
+  transform: translateY(20px); /* tweak distance to taste */
+  pointer-events: none;
+}
+
+/* Visible bar */
+
+#bar-inner {
+  min-height: 40px;
+  margin: 0 10px 6px 10px;
+  padding: 6px 10px;
+  border-radius: 14px;
+
+  background-color: alpha(@on_primary, 0.72);
+  border:           1px solid alpha(@outline_variant, 0.18);
+}
+
+/* Section dividers (use widget IDs, not classes) */
+
+#section-left:not(:empty) ~ #section-center:not(:empty),
+#section-center:not(:empty) ~ #section-right:not(:empty) {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid alpha(@on_surface, 0.12);
+}
+
+.module {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: @on_surface;
+  transition: background-color 160ms ease;
+}
+
+#apps-dock {
+  padding: 0 2px;
+}
+
+#apps-pinned,
+#apps-recent {
+  min-height: 30px;
+}
+
+.apps-separator {
+  margin: 5px 4px;
+  opacity: 0.35;
+}
+
+.apps-button {
+  min-width: 0;
+  min-height: 0;
+  margin: 0 3px;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+}
+
+.apps-button:hover {
+  background-color: alpha(@on_surface, 0.08);
+}
+
+.apps-button-fallback {
+  font-size: 12px;
+  font-weight: 700;
+  color: @on_surface;
+}
+
+#bar.autohide-enabled.autohide-hidden {
+  opacity: 0;
+  pointer-events: none; /* allow the edge trigger and underlying windows to receive input */
+}
+
+#edge-trigger {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  opacity: 0;
+}
