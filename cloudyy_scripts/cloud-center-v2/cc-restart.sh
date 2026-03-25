@@ -104,11 +104,18 @@ start_cloud_center() {
     disown || true
 }
 
+was_running=0
 background_restart=0
 if [[ -n "$(running_pids)" ]]; then
+    was_running=1
     if [[ "$(has_visible_window)" == "0" ]]; then
         background_restart=1
     fi
+fi
+
+if [[ "$was_running" == "0" ]]; then
+    log "Cloud Center is not running — skipping restart."
+    exit 0
 fi
 
 stop_cloud_center

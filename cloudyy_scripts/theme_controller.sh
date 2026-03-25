@@ -81,7 +81,7 @@ run_matugen() {
   [[ -n "$contrast" ]] && extra_args+=(--contrast "$contrast")
 
   log "Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})..."
-  matugen image "$img" -m "$mode" "${extra_args[@]}" || {
+  matugen image "$img" -m "$mode" --source-color-index 0 "${extra_args[@]}" || {
     log "matugen failed — check image validity"
     return 1
   }
