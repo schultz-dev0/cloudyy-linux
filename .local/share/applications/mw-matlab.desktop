@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=MATLAB
-Exec=/home/schultz/.MathWorks/ServiceHost/-mw_shared_installs/v2026.1.0.2/bin/glnxa64/OpenMathWorksDesktopApp %u
+Exec=/home/schultz/.MathWorks/ServiceHost/-mw_shared_installs/v2026.3.0.6/bin/glnxa64/OpenMathWorksDesktopApp %u
 StartupNotify=false
 MimeType=x-scheme-handler/mw-matlab;
 NoDisplay=true

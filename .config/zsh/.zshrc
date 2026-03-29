@@ -9,6 +9,9 @@ plugins=(
 
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
 
+if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" -eq 1 ]; then
+  exec Hyprland
+fi
 
 export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
 
