@@ -66,10 +66,11 @@ get_recent_file_manager_info() {
 # =============================================================================
 
 read_proc_cwd() { [[ -d "/proc/$1" ]] && readlink "/proc/$1/cwd" 2>/dev/null || true; }
-read_proc_comm() { cat "/proc/$1/comm" 2>/dev/null | tr -d '\n' || true; }
+read_proc_comm() { local _c; { IFS= read -r _c < "/proc/$1/comm"; } 2>/dev/null; printf '%s' "${_c:-}"; }
 
 read_proc_env_var() {
-  tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null | grep "^${2}=" | cut -d= -f2- | head -1 || true
+  [[ -r "/proc/$1/environ" ]] || return 0
+  grep -z -m1 "^${2}=" "/proc/$1/environ" 2>/dev/null | cut -z -d= -f2- | tr -d '\0'
 }
 
 is_shell() {
@@ -133,22 +134,23 @@ find_kitty_socket() {
 
   local fd_dir="/proc/${kitty_pid}/fd"
   if [[ -d "$fd_dir" ]]; then
-    for sock_path in "${all_sockets[@]}"; do
-      while IFS= read -r fd_entry; do
-        local resolved
-        resolved=$(readlink "$fd_entry" 2>/dev/null) || continue
+    local fd_entry resolved sock_path
+    for fd_entry in "$fd_dir"/*; do
+      [[ -L "$fd_entry" ]] || continue
+      resolved=$(readlink "$fd_entry" 2>/dev/null) || continue
+      for sock_path in "${all_sockets[@]}"; do
         if [[ "$resolved" == "$sock_path" ]]; then
           echo "unix:$sock_path"
           return
         fi
-      done < <(find "$fd_dir" -maxdepth 1 -type l 2>/dev/null)
+      done
     done
   fi
   echo ""
 }
 
 kitty_api_cwd() {
-  kitty @ --to "$1" ls 2>/dev/null | jq -r '.[].tabs[]? | select(.is_focused==true) | .windows[]? | select(.is_focused==true) | .cwd' | head -1 || true
+  timeout 2s kitty @ --to "$1" ls 2>/dev/null | jq -r '.[].tabs[]? | select(.is_focused==true) | .windows[]? | select(.is_focused==true) | .cwd' | head -1 || true
 }
 
 kitty_windowid_cwd() {
@@ -169,20 +171,20 @@ kitty_windowid_cwd() {
     wid=$(read_proc_env_var "$pid" "KITTY_WINDOW_ID")
     [[ -z "$wid" ]] && continue
 
-    local depth
-    depth=$(tr -cd '/' <<<"$cwd" | wc -c)
+    local _dt="${cwd//[^\/]/}"
+    local depth=${#_dt}
 
     if is_shell "$comm"; then
       local existing="${wid_shell_cwd[$wid]:-}"
       local existing_depth=0
-      [[ -n "$existing" ]] && existing_depth=$(tr -cd '/' <<<"$existing" | wc -c)
+      if [[ -n "$existing" ]]; then local _de="${existing//[^\/]/}"; existing_depth=${#_de}; fi
       if [[ -z "$existing" || $depth -gt $existing_depth ]]; then
         wid_shell_cwd[$wid]="$cwd"
       fi
     else
       local existing="${wid_nonshell_cwd[$wid]:-}"
       local existing_depth=0
-      [[ -n "$existing" ]] && existing_depth=$(tr -cd '/' <<<"$existing" | wc -c)
+      if [[ -n "$existing" ]]; then local _de="${existing//[^\/]/}"; existing_depth=${#_de}; fi
       if [[ -z "$existing" || $depth -gt $existing_depth ]]; then
         wid_nonshell_cwd[$wid]="$cwd"
       fi
@@ -194,8 +196,8 @@ kitty_windowid_cwd() {
     local sc="${wid_shell_cwd[$wid]:-}"
     local nc="${wid_nonshell_cwd[$wid]:-}"
     local sc_depth=0 nc_depth=0
-    [[ -n "$sc" ]] && sc_depth=$(tr -cd '/' <<<"$sc" | wc -c)
-    [[ -n "$nc" ]] && nc_depth=$(tr -cd '/' <<<"$nc" | wc -c)
+    if [[ -n "$sc" ]]; then local _ds="${sc//[^\/]/}"; sc_depth=${#_ds}; fi
+    if [[ -n "$nc" ]]; then local _dn="${nc//[^\/]/}"; nc_depth=${#_dn}; fi
     if [[ -n "$nc" && $nc_depth -ge $sc_depth ]]; then
       wid_to_cwd[$wid]="$nc"
     else
@@ -269,8 +271,8 @@ resolve_terminal_cwd_generic() {
 
     is_ignored_proc "$comm" && continue
 
-    local depth
-    depth=$(tr -cd '/' <<<"$cwd" | wc -c)
+    local _dt="${cwd//[^\/]/}"
+    local depth=${#_dt}
 
     if is_shell "$comm"; then
       if [[ -z "$best_shell" || $depth -gt $best_shell_depth ]]; then
@@ -307,9 +309,14 @@ resolve_terminal_cwd_generic() {
 resolve_file_manager_cwd() {
   local pid="$1" title="$2"
 
-  # Strip suffixes using fast sed
-  local folder_hint
-  folder_hint=$(echo "$title" | sed -E 's/\s*[—-]\s*(Thunar|Files|File Manager)\s*$//i')
+  # Strip known file-manager window title suffixes — pure bash, no forks
+  local folder_hint="$title"
+  folder_hint="${folder_hint% — Thunar}"
+  folder_hint="${folder_hint% - Thunar}"
+  folder_hint="${folder_hint% — Files}"
+  folder_hint="${folder_hint% - Files}"
+  folder_hint="${folder_hint% — File Manager}"
+  folder_hint="${folder_hint% - File Manager}"
 
   log "File manager hint: '${folder_hint}'"
   [[ -z "$folder_hint" ]] && {
@@ -348,13 +355,38 @@ resolve_file_manager_cwd() {
     return
   fi
 
-  # 3. Filesystem search fallback
+  # 3. Open file-descriptor scan — free try; works if Thunar still has the dir open.
+  log "Scanning open FDs for: '${folder_hint}'"
+  local fd_dir_result
+  while IFS= read -r fd_target; do
+    [[ "$fd_target" == "$HOME"* ]] || continue
+    [[ "$(basename "$fd_target")" == "$folder_hint" ]] || continue
+    fd_dir_result="$fd_target"
+    break
+  done < <(find "/proc/$pid/fd" -maxdepth 1 -xtype d -printf "%l\n" 2>/dev/null)
+  if [[ -n "$fd_dir_result" && -d "$fd_dir_result" ]]; then
+    log "FD scan match: $fd_dir_result"
+    echo "$fd_dir_result"
+    return
+  fi
+
+  # We are in the slow fallback path, which means Thunar is NOT showing full paths in
+  # its title. Auto-apply the full-path title style so all future spawns are O(1).
+  # Thunar picks up xfconf changes live — no restart needed.
+  if command -v xfconf-query >/dev/null 2>&1; then
+    xfconf-query --channel thunar --property /misc-window-title-style \
+      --create --type string \
+      --set "THUNAR_WINDOW_TITLE_STYLE_FULL_PATH_WITH_THUNAR_SUFFIX" 2>/dev/null \
+      && log "Auto-applied Thunar full-path title style (future spawns will be O(1))"
+  fi
+
+  # 4. Filesystem search fallback (capped depth + timeout to prevent multi-second hangs)
   log "Searching \$HOME for: '${folder_hint}'"
   local best
   if command -v fd >/dev/null 2>&1; then
-    best=$(fd --max-depth 8 --type d --hidden false "^${folder_hint}$" "$HOME" 2>/dev/null | head -1)
+    best=$(timeout 1s fd --max-depth 5 --max-results 1 --type d --hidden false "^${folder_hint}$" "$HOME" 2>/dev/null | head -1)
   else
-    best=$(find "$HOME" -maxdepth 6 -type d -name "$folder_hint" ! -path "*/.*" -printf "%T@ %p\n" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
+    best=$(timeout 1s find "$HOME" -maxdepth 4 -type d -name "$folder_hint" ! -path "*/.*" -printf "%T@ %p\n" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
   fi
 
   if [[ -n "$best" && -d "$best" ]]; then

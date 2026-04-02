@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ghidra
+Comment=Ghidra
+# Change 'firefox' to 'chromium' or 'google-chrome-stable' if you prefer
+Exec=cd ~/projects/ghidra_12.0.4_PUBLIC/ && ./ghidraRun
+Terminal=false
+
+
