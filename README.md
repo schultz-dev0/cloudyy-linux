@@ -1,4 +1,4 @@
-As of 22nd Feb 2026 the install script is reliable and can be safely used. Although there may be a missing dependency, scripts and apps will install any missing dependency if needed
+Work on the dots is a little slow due to uni, however I am slowly rebuilding to match the name "Cloudyy" more...
 
 ## Install instructions: 
 

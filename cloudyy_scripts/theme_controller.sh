@@ -14,6 +14,8 @@ readonly STATE_FILE="${STATE_DIR}/state.conf"
 readonly PUBLIC_STATE="${STATE_DIR}/state"
 readonly CURRENT_WALLPAPER_DIR="${STATE_DIR}/current_wallpaper"
 readonly CURRENT_WALLPAPER_FILE="${CURRENT_WALLPAPER_DIR}/current.jpg"
+readonly DARK_LAST="${STATE_DIR}/dark_last"
+readonly LIGHT_LAST="${STATE_DIR}/light_last"
 
 # --- LOGGING ---
 log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
@@ -49,27 +51,52 @@ CURRENT_WALL="$CURRENT_WALL"
 EOF
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
   [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
+  # Persist per-mode last wallpaper for toggle memory
+  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+    [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
+  fi
 }
 
 # --- HELPERS ---
 
 get_wallpapers() {
   walls=()
-  local wall_dir="${WALL_DIR/#\~/$HOME}"
-  [[ -d "$wall_dir" ]] || die "Wallpaper directory not found: $wall_dir"
-  [[ -r "$wall_dir" ]] || die "Wallpaper directory not readable: $wall_dir"
-  mapfile -d '' walls < <(find -L "$wall_dir" -type f \
+  local base_dir="${WALL_DIR/#\~/$HOME}"
+  [[ -d "$base_dir" ]] || die "Wallpaper directory not found: $base_dir"
+  [[ -r "$base_dir" ]] || die "Wallpaper directory not readable: $base_dir"
+
+  # Use mode-specific subdir (Dark/Light) if it exists, mirroring rofi's behaviour.
+  # Capitalise first letter to match the dir naming convention.
+  local mode_cap="${THEME_MODE^}"
+  local mode_dir="${base_dir}/${mode_cap}"
+  local wall_dir="$base_dir"
+  local depth_args=()
+  if [[ -d "$mode_dir" && -r "$mode_dir" ]]; then
+    wall_dir="$mode_dir"
+  else
+    # In the flat base dir, stay shallow so Dark/ and Light/ subdirs aren't
+    # accidentally included in the scan.
+    depth_args=(-maxdepth 1)
+  fi
+
+  mapfile -d '' walls < <(find -L "$wall_dir" "${depth_args[@]}" -type f \
     \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
     -print0 2>/dev/null | sort -z)
   ((${#walls[@]} > 0)) || die "No wallpapers found in $wall_dir"
-  log "Found ${#walls[@]} wallpaper(s)"
+  log "Found ${#walls[@]} wallpaper(s) [$(basename "$wall_dir")]"
 }
 
 ensure_swww() {
-  pgrep -x swww-daemon >/dev/null && return 0
-  log "Starting swww-daemon..."
-  swww-daemon --format xrgb >/dev/null 2>&1 &
+  pgrep -x awww-daemon >/dev/null && return 0
+  log "Starting awww-daemon..."
+  awww-daemon --format xrgb >/dev/null 2>&1 &
   sleep 1
+}
+
+pick_transition() {
+  # Keep a conservative allowlist of transitions known to work well.
+  local transitions=(simple grow center outer wipe wave any)
+  echo "${transitions[RANDOM % ${#transitions[@]}]}"
 }
 
 run_matugen() {
@@ -87,12 +114,24 @@ run_matugen() {
   }
 }
 
+sync_current_wallpaper() {
+  local img="$1"
+  local transition="${2:-$(pick_transition)}"
+  [[ -f "$img" ]] || return 0
+
+  ensure_swww
+  awww img "$img" \
+    --transition-type "$transition" \
+    --transition-duration 1 \
+    --transition-fps 60
+}
+
 # --- COMMANDS ---
 
 cmd_apply() {
   local img="$1"
   local mode="${2:-$THEME_MODE}"
-  local transition="${3:-grow}"
+  local transition="${3:-$(pick_transition)}"
 
   img="$(realpath "$img")"
   [[ -f "$img" ]] || die "Image not found: $img"
@@ -102,7 +141,7 @@ cmd_apply() {
   log "Applying: $(basename "$img") [$mode]"
 
   # Generate colors first — post_hooks fire and restart apps
-  run_matugen "$img" "$mode" #|| log "WARNING: Matugen failed, but continuing to wallpaper..."
+  run_matugen "$img" "$mode" || log "WARNING: Matugen failed, but continuing to wallpaper..."
 
   # Save state
   CURRENT_WALL="$img"
@@ -110,7 +149,7 @@ cmd_apply() {
   save_state
 
   # Animate wallpaper after color generation
-  swww img "$img" \
+  awww img "$img" \
     --transition-type "$transition" \
     --transition-duration 2 \
     --transition-fps 60
@@ -124,13 +163,23 @@ cmd_toggle() {
   [[ "$THEME_MODE" == "light" ]] && new_mode="dark"
   log "Toggling → $new_mode"
 
-  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+  # Restore the last wallpaper that was active in the target mode.
+  local last_file
+  [[ "$new_mode" == "light" ]] && last_file="$LIGHT_LAST" || last_file="$DARK_LAST"
+  local last_wall=""
+  [[ -f "$last_file" ]] && last_wall="$(tr -d '[:space:]' <"$last_file")"
+
+  if [[ -n "$last_wall" && -f "$last_wall" ]]; then
+    log "Restoring $(basename "$last_wall") [$new_mode]"
+    cmd_apply "$last_wall" "$new_mode"
+  elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
     run_matugen "$CURRENT_WALL" "$new_mode"
+    sync_current_wallpaper "$CURRENT_WALL"
     THEME_MODE="$new_mode"
     save_state
     notify "Switched to $new_mode mode"
   else
-    log "No current wallpaper — picking random"
+    log "No wallpaper history — picking random"
     cmd_random "$new_mode"
   fi
 }
@@ -149,8 +198,13 @@ cmd_next() {
   get_wallpapers
   local next=0
   if [[ -n "$CURRENT_WALL" ]]; then
+    # Resolve both sides so symlinks in Dark/Light dirs match their realpath targets.
+    local current_real
+    current_real="$(realpath "$CURRENT_WALL" 2>/dev/null || echo "$CURRENT_WALL")"
     for i in "${!walls[@]}"; do
-      [[ "${walls[$i]}" == "$CURRENT_WALL" ]] && {
+      local wall_real
+      wall_real="$(realpath "${walls[$i]}" 2>/dev/null || echo "${walls[$i]}")"
+      [[ "$wall_real" == "$current_real" ]] && {
         next=$((i + 1))
         break
       }
@@ -173,11 +227,35 @@ cmd_refresh() {
   read_state
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
     run_matugen "$CURRENT_WALL" "$THEME_MODE" "$variant" "$contrast"
+    sync_current_wallpaper "$CURRENT_WALL"
     save_state
     notify "Theme refreshed" low
   else
     cmd_random
   fi
+}
+
+cmd_tag() {
+  local img="${1:-}" mode="${2:-}"
+  [[ -z "$img" || -z "$mode" ]] && die "Usage: tag <image> <dark|light>"
+  [[ "$mode" != "dark" && "$mode" != "light" ]] && die "Mode must be 'dark' or 'light'"
+  [[ -f "$img" ]] || die "Image not found: $img"
+  img="$(realpath "$img")"
+  local mode_dir="${WALL_DIR}/${mode^}"
+  mkdir -p "$mode_dir"
+  ln -sf "$img" "${mode_dir}/$(basename "$img")"
+  log "Tagged '$(basename "$img")' → $mode ($mode_dir)"
+}
+
+cmd_untag() {
+  local img="${1:-}" mode="${2:-}"
+  [[ -z "$img" || -z "$mode" ]] && die "Usage: untag <image> <dark|light>"
+  [[ "$mode" != "dark" && "$mode" != "light" ]] && die "Mode must be 'dark' or 'light'"
+  local mode_dir="${WALL_DIR}/${mode^}"
+  local link="${mode_dir}/$(basename "$img")"
+  [[ -L "$link" ]] || die "No tag found for '$(basename "$img")' in $mode"
+  rm "$link"
+  log "Untagged '$(basename "$img")' from $mode"
 }
 
 cmd_set() {
@@ -202,6 +280,7 @@ cmd_set() {
 
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
     run_matugen "$CURRENT_WALL" "$target_mode"
+    sync_current_wallpaper "$CURRENT_WALL"
     THEME_MODE="$target_mode"
     save_state
     notify "Mode set to $target_mode"
@@ -226,26 +305,42 @@ set)
   shift
   cmd_set "$@"
   ;;
+get-mode)
+  read_state
+  echo "$THEME_MODE"
+  ;;
+tag) cmd_tag "${2:-}" "${3:-}" ;;
+untag) cmd_untag "${2:-}" "${3:-}" ;;
 debug)
   read_state
   log "WALL_DIR: $WALL_DIR"
   log "THEME_MODE: $THEME_MODE"
   log "CURRENT_WALL: $CURRENT_WALL"
-  log "Dir exists: $([ -d "${WALL_DIR/#\~/$HOME}" ] && echo YES || echo NO)"
+  log "DARK_LAST:  $(cat "$DARK_LAST" 2>/dev/null || echo '(none)')"
+  log "LIGHT_LAST: $(cat "$LIGHT_LAST" 2>/dev/null || echo '(none)')"
+  log "Dark dir:  $([ -d "${WALL_DIR}/Dark" ] && echo YES || echo NO)"
+  log "Light dir: $([ -d "${WALL_DIR}/Light" ] && echo YES || echo NO)"
   get_wallpapers
-  log "Total wallpapers: ${#walls[@]}"
+  log "Wallpapers in current mode pool: ${#walls[@]}"
   ;;
 *)
   cat <<EOF
-Usage: $(basename "$0") {toggle|random|next|set-image <path>|refresh|set|debug}
+Usage: $(basename "$0") {toggle|random|next|set-image <path>|refresh|set|get-mode|tag|untag|debug}
 
-  toggle        Switch dark/light mode, keep current wallpaper
-  random        Random wallpaper in current mode
-  next          Next wallpaper alphabetically
-  set-image     Apply a specific wallpaper by path
-  refresh       Re-run matugen on current wallpaper
-  set           Set specific parameters (e.g., --mode light)
-  debug         Show diagnostic info
+  toggle            Switch dark/light mode, restoring last wallpaper for that mode
+  random            Random wallpaper from current mode's pool
+  next              Next wallpaper alphabetically in current mode's pool
+  set-image <path>  Apply a specific wallpaper
+  refresh           Re-run matugen on current wallpaper
+  set               Set specific parameters (e.g., --mode light)
+  get-mode          Print current mode (dark/light) — used by rofi/waybar
+  tag <img> <mode>  Symlink a wallpaper into Dark/ or Light/ pool
+  untag <img> <mode> Remove a wallpaper's symlink from a mode pool
+  debug             Show diagnostic info
+
+Mode pools: ~/Wallpapers/Dark/  ~/Wallpapers/Light/
+  Create symlinks here pointing to wallpapers you want for each mode.
+  When a pool dir is absent, falls back to all of ~/Wallpapers/ (current behaviour).
 EOF
   ;;
 esac
