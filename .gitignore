@@ -26,3 +26,7 @@ cloudyy_scripts/cloudyy-other/folio-gtk
 
 # this is private and contains credentials and stuff
 cloudyy_scripts/ivanti/
+
+# stuff
+
+cloudyy_scripts/cloud-border/
