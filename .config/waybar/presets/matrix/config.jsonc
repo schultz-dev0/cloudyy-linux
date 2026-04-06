@@ -43,6 +43,7 @@
     },
     "clock": {
         "format": "{:%H:%M:%S}",
+        "timezone": "Europe/London",
         "format-alt": "{:%Y-%m-%d}",
         "tooltip-format": "<tt><span size='10pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
         "interval": 1,
