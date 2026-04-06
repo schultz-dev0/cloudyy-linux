@@ -13,7 +13,7 @@
 !.vscode-oss/extensions/matugen-them
 
 
-.config/mozilla*
+.config/mozilla/
 
 .config/zsh/.zsh_history
 .config/zsh/.zcompdump*

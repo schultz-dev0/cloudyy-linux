@@ -39,6 +39,7 @@
     },
     "clock": {
         "format": "{:%H\n%M}",
+        "timezone": "Europe/London",
         "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
         "calendar": {
             "mode": "month",

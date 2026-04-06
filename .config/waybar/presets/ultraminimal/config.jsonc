@@ -23,6 +23,7 @@
     ],
     "clock": {
         "format": "{:%H:%M}",
+        "timezone": "Europe/London",
         "format-alt": "\udb80\udced {:%a %d %b}",
         "tooltip-format": "<tt><span size='10pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
         "on-click-right": "uwsm-app -- gnome-clocks",

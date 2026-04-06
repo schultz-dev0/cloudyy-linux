@@ -36,6 +36,7 @@
     },
     "clock": {
         "format": "{:%H\n%M}",
+        "timezone": "Europe/London",
         "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
         "on-click-right": "uwsm-app -- gnome-clocks",
         "calendar": {

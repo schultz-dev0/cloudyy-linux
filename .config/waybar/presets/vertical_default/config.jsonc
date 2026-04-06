@@ -48,6 +48,7 @@
     "clock": {
         "min-width": 44,
         "format": "{:%I\n%M}",
+        "timezone": "Europe/London",
         "calendar": {
             "mode": "month",
             "mode-mon-col": 3,
