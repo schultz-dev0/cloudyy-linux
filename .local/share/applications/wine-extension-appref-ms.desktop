@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=rundll32
+MimeType=application/x-wine-extension-appref-ms;
+Exec=env "WINEPREFIX=/home/schultz/.local/share/Steam/steamapps/compatdata/429530/pfx" wine start /ProgIDOpen "Application.Reference" %f
+NoDisplay=true
+StartupNotify=true
+Icon=5742_rundll32.0

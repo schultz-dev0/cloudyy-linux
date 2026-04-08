@@ -15,6 +15,7 @@ source "${ROFI_DIR}/lib/common.sh"
 readonly AI_CHAT_APP="${HOME}/.local/share/applications/aichat.desktop"
 readonly BROWSER="${BROWSER:-xdg-open}"
 readonly OPEN_WEBUI_URL="http://localhost:8080/"
+readonly OLLAMA_SERVICE_NAME="ollama.service"
 
 # e.g. OLLAMA_RUN_FLAGS="--verbose"  Leave empty if none.
 readonly OLLAMA_RUN_FLAGS=""
@@ -25,7 +26,66 @@ readonly OLLAMA_RUN_FLAGS=""
 
 ollama_is_running() {
   systemctl --user is-active --quiet ollama.service 2>/dev/null ||
+    systemctl is-active --quiet ollama.service 2>/dev/null ||
     pgrep -x ollama &>/dev/null
+}
+
+ollama_user_service_exists() {
+  systemctl --user cat "$OLLAMA_SERVICE_NAME" >/dev/null 2>&1
+}
+
+ollama_system_service_exists() {
+  systemctl cat "$OLLAMA_SERVICE_NAME" >/dev/null 2>&1
+}
+
+ollama_service_scope() {
+  if ollama_system_service_exists; then
+    echo "system"
+  elif ollama_user_service_exists; then
+    echo "user"
+  else
+    echo "none"
+  fi
+}
+
+ollama_wait_until_ready() {
+  local _
+  for _ in {1..10}; do
+    ollama_is_running && return 0
+    sleep 0.3
+  done
+  return 1
+}
+
+start_ollama_direct() {
+  nohup ollama serve >/dev/null 2>&1 &
+  disown
+  ollama_wait_until_ready
+}
+
+ollama_service_action() {
+  local action="$1"
+
+  case "$(ollama_service_scope)" in
+  "user")
+    systemctl --user "$action" "$OLLAMA_SERVICE_NAME" 2>/dev/null
+    ;;
+  "system")
+    sudo -n systemctl "$action" "$OLLAMA_SERVICE_NAME" 2>/dev/null
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+run_service_action_in_terminal() {
+  local action="$1"
+  local title="$2"
+
+  kitty --hold --class "ollama_service" --title "${title}" \
+    -e sh -c "sudo systemctl '${action}' '${OLLAMA_SERVICE_NAME}'; rc=\$?; echo; if [ \$rc -eq 0 ]; then echo 'Done.'; else echo 'Command failed.'; fi; read -rp 'Press Enter to close'" &
+  disown
 }
 
 ollama_status_label() {
@@ -43,7 +103,17 @@ list_models() {
     return
   fi
   # Strip the header line and the size/modified columns — keep just the name
-  ollama list 2>/dev/null | tail -n +2 | awk '{print $1}'
+  ollama list 2>/dev/null | awk 'NR > 1 { print $1 }'
+}
+
+# Returns a newline-separated list of currently loaded models
+list_running_models() {
+  if ! command -v ollama &>/dev/null; then
+    echo ""
+    return
+  fi
+
+  ollama ps 2>/dev/null | awk 'NR > 1 && NF { if (!seen[$1]++) print $1 }'
 }
 
 # Pretty size info for the model detail view
@@ -66,35 +136,56 @@ show_service_menu() {
 
   case "${choice}" in
   "▶ Start Service")
-    if systemctl --user start ollama.service 2>/dev/null; then
+    if ollama_service_action start; then
       notify-send "Ollama" "Service started." -t 2000
+      show_service_menu
+    elif [[ "$(ollama_service_scope)" == "system" ]]; then
+      run_service_action_in_terminal "start" "Ollama Service - Start"
+      exit 0
     else
       # Fallback: launch daemon directly
-      nohup ollama serve >/dev/null 2>&1 &
-      disown
-      notify-send "Ollama" "Daemon launched (fallback)." -t 2000
+      if start_ollama_direct; then
+        notify-send "Ollama" "Daemon launched (fallback)." -t 2000
+      else
+        notify-send "Ollama" "Failed to start daemon." -u critical
+      fi
+      show_service_menu
     fi
-    show_service_menu
     ;;
   "■ Stop Service")
-    systemctl --user stop ollama.service 2>/dev/null ||
+    if ollama_service_action stop; then
+      notify-send "Ollama" "Service stopped." -t 2000
+      show_service_menu
+    elif [[ "$(ollama_service_scope)" == "system" ]]; then
+      run_service_action_in_terminal "stop" "Ollama Service - Stop"
+      exit 0
+    else
       pkill -x ollama 2>/dev/null || true
-    notify-send "Ollama" "Service stopped." -t 2000
-    show_service_menu
+      notify-send "Ollama" "Service stopped." -t 2000
+      show_service_menu
+    fi
     ;;
   " Restart Service")
-    systemctl --user restart ollama.service 2>/dev/null || {
+    if ollama_service_action restart; then
+      notify-send "Ollama" "Service restarted." -t 2000
+      show_service_menu
+    elif [[ "$(ollama_service_scope)" == "system" ]]; then
+      run_service_action_in_terminal "restart" "Ollama Service - Restart"
+      exit 0
+    else
       pkill -x ollama 2>/dev/null || true
-      sleep 1
-      nohup ollama serve >/dev/null 2>&1 &
-      disown
-    }
-    notify-send "Ollama" "Service restarted." -t 2000
-    show_service_menu
+      if start_ollama_direct; then
+        notify-send "Ollama" "Service restarted." -t 2000
+      else
+        notify-send "Ollama" "Failed to restart daemon." -u critical
+      fi
+      show_service_menu
+    fi
     ;;
   "󰋼 Service Status")
     kitty --hold -e sh -c \
-      "systemctl --user status ollama.service 2>/dev/null || \
+      "systemctl --user status '${OLLAMA_SERVICE_NAME}' 2>/dev/null || \
+                 systemctl status '${OLLAMA_SERVICE_NAME}' 2>/dev/null || \
                  pgrep -a ollama || echo 'Ollama not found in process list'" &
     disown
     ;;
@@ -130,9 +221,11 @@ show_run_model_menu() {
 
   if ! ollama_is_running; then
     notify-send "Ollama" "Starting daemon first..." -t 1500
-    nohup ollama serve >/dev/null 2>&1 &
-    disown
-    sleep 1
+    if ! start_ollama_direct; then
+      notify-send "Ollama" "Failed to start daemon." -u critical
+      show_ai_menu
+      return
+    fi
   fi
 
   # Launch model in a kitty terminal
@@ -150,11 +243,12 @@ show_run_model_menu() {
 show_model_management_menu() {
   local choice
   choice=$(menu "Model Management" \
-    "󰇚 Pull / Download Model\n󰋼 Mode Info\n󰆴 Delete Model")
+    "󰇚 Pull / Download Model\n󰋼 Model Info\n󰓩 Stop Running Model\n󰆴 Delete Model")
 
   case "$choice" in
   *"Pull"*) pull_model ;;
   *"Info"*) inspect_model ;;
+  *"Stop Running"*) stop_running_model ;;
   *"Delete"*) delete_model ;;
   *) show_ai_menu ;;
   esac
@@ -210,9 +304,11 @@ pull_model() {
   notify-send "Ollama" "Pulling ${model_name}..." -t 3000
 
   if ! ollama_is_running; then
-    nohup ollama serve >/dev/null 2>&1 &
-    disown
-    sleep 1
+    if ! start_ollama_direct; then
+      notify-send "Ollama" "Failed to start daemon." -u critical
+      show_model_management_menu
+      return
+    fi
   fi
 
   kitty --hold --class "ollama_pull" --title "Pulling ${model_name}" \
@@ -244,6 +340,36 @@ inspect_model() {
   kitty --hold --class "ollama_info" --title "Info — ${choice}" \
     -e sh -c "ollama show '${choice}'; echo; read -rp 'Press Enter to close'" &
   disown
+}
+
+stop_running_model() {
+  local models
+  models=$(list_running_models)
+  [[ -z "$models" ]] && {
+    notify-send "Ollama" "No models are currently loaded." -u normal
+    show_model_management_menu
+    return
+  }
+
+  local choice
+  choice=$(printf "%s\n" "$models" |
+    rofi -dmenu -i -p "Stop Running Model" \
+      -theme-str 'window { width: 35%; }' \
+      -theme-str 'listview { lines: 10; }' \
+      -mesg "Choose a loaded model to stop") || true
+
+  [[ -z "$choice" ]] && {
+    show_model_management_menu
+    return
+  }
+
+  if ollama stop "$choice" >/dev/null 2>&1; then
+    notify-send "Ollama" "Stopped: ${choice}" -t 2000
+  else
+    notify-send "Ollama" "Failed to stop: ${choice}" -u critical
+  fi
+
+  show_model_management_menu
 }
 
 delete_model() {
@@ -296,6 +422,9 @@ show_chat_menu() {
     ### PLACEHOLDER — swap the block below for however your chat app launches
     if [[ "$AI_CHAT_APP" == "__YOUR_CHAT_APP_HERE__" ]]; then
       notify-send "AI Menu" "Chat app not configured — edit ai.sh and set AI_CHAT_APP." -u normal
+    elif [[ "$AI_CHAT_APP" == *.desktop ]]; then
+      # gtk-launch resolves the .desktop Exec line properly
+      run_app gtk-launch "$(basename "$AI_CHAT_APP" .desktop)"
     else
       run_app "$AI_CHAT_APP"
     fi
