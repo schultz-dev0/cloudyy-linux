@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Windows Presentation Foundation Host
+MimeType=application/xaml+xml;
+Exec=env "WINEPREFIX=/home/schultz/.local/share/Steam/steamapps/compatdata/429530/pfx" wine start /ProgIDOpen "Windows.XamlDocument" %f
+NoDisplay=true
+StartupNotify=true
+Icon=0637_PresentationHost.0
