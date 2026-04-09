@@ -17,6 +17,9 @@ readonly CURRENT_WALLPAPER_FILE="${CURRENT_WALLPAPER_DIR}/current.jpg"
 readonly DARK_LAST="${STATE_DIR}/dark_last"
 readonly LIGHT_LAST="${STATE_DIR}/light_last"
 
+WALLPAPER_CMD=()
+WALLPAPER_DAEMON_CMD=()
+
 # --- LOGGING ---
 log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
 notify() { notify-send "Theme Controller" "$1" -u "${2:-normal}" -t 3000 2>/dev/null || true; }
@@ -87,9 +90,21 @@ get_wallpapers() {
 }
 
 ensure_swww() {
-  pgrep -x awww-daemon >/dev/null && return 0
-  log "Starting awww-daemon..."
-  awww-daemon --format xrgb >/dev/null 2>&1 &
+  if ((${#WALLPAPER_CMD[@]} == 0)); then
+    if command -v awww >/dev/null 2>&1 && command -v awww-daemon >/dev/null 2>&1; then
+      WALLPAPER_CMD=(awww)
+      WALLPAPER_DAEMON_CMD=(awww-daemon)
+    elif command -v swww >/dev/null 2>&1 && command -v swww-daemon >/dev/null 2>&1; then
+      WALLPAPER_CMD=(swww)
+      WALLPAPER_DAEMON_CMD=(swww-daemon)
+    else
+      die "No supported wallpaper backend found (need awww or swww)"
+    fi
+  fi
+
+  pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
+  log "Starting ${WALLPAPER_DAEMON_CMD[0]}..."
+  "${WALLPAPER_DAEMON_CMD[@]}" --format xrgb >/dev/null 2>&1 &
   sleep 1
 }
 
@@ -120,7 +135,7 @@ sync_current_wallpaper() {
   [[ -f "$img" ]] || return 0
 
   ensure_swww
-  awww img "$img" \
+  "${WALLPAPER_CMD[@]}" img "$img" \
     --transition-type "$transition" \
     --transition-duration 1 \
     --transition-fps 60
@@ -149,12 +164,29 @@ cmd_apply() {
   save_state
 
   # Animate wallpaper after color generation
-  awww img "$img" \
+  "${WALLPAPER_CMD[@]}" img "$img" \
     --transition-type "$transition" \
     --transition-duration 2 \
     --transition-fps 60
 
   notify "Wallpaper applied" low
+}
+
+cmd_restore() {
+  read_state
+  local img="$CURRENT_WALL"
+
+  [[ -n "$img" && -f "$img" ]] || img="$CURRENT_WALLPAPER_FILE"
+
+  if [[ -f "$img" ]]; then
+    run_matugen "$img" "$THEME_MODE" || log "WARNING: Matugen failed during restore"
+    sync_current_wallpaper "$img"
+    if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+      save_state
+    fi
+  else
+    log "No saved wallpaper to restore"
+  fi
 }
 
 cmd_toggle() {
@@ -300,6 +332,7 @@ toggle) cmd_toggle ;;
 random) cmd_random "${2:-}" ;;
 next) cmd_next ;;
 set-image) cmd_set_image "${2:-}" ;;
+restore) cmd_restore ;;
 refresh) cmd_refresh "${2:-}" "${3:-}" ;;
 set)
   shift
@@ -325,12 +358,13 @@ debug)
   ;;
 *)
   cat <<EOF
-Usage: $(basename "$0") {toggle|random|next|set-image <path>|refresh|set|get-mode|tag|untag|debug}
+Usage: $(basename "$0") {toggle|random|next|set-image <path>|restore|refresh|set|get-mode|tag|untag|debug}
 
   toggle            Switch dark/light mode, restoring last wallpaper for that mode
   random            Random wallpaper from current mode's pool
   next              Next wallpaper alphabetically in current mode's pool
   set-image <path>  Apply a specific wallpaper
+  restore           Restore the last saved wallpaper and theme without notifications
   refresh           Re-run matugen on current wallpaper
   set               Set specific parameters (e.g., --mode light)
   get-mode          Print current mode (dark/light) — used by rofi/waybar

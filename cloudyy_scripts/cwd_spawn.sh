@@ -52,13 +52,21 @@ get_active_window_info() {
   hyprctl activewindow -j 2>/dev/null | jq -r -e 'if . == {} then "||" else "\(.pid)|\(.class | ascii_downcase)|\(.title)" end' || echo "||"
 }
 
+get_active_workspace_id() {
+  hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // empty' || true
+}
+
 get_recent_file_manager_info() {
+  local ws_id="${1:-}"
   hyprctl clients -j 2>/dev/null | jq -r -e '
-        map(select(.class | ascii_downcase | test("thunar|nautilus|nemo|dolphin|pcmanfm|caja")))
+        map(select(
+          (.class | ascii_downcase | test("thunar|nautilus|nemo|dolphin|pcmanfm|caja"))
+          and ($ws == "" or ((.workspace.id // -1 | tostring) == $ws))
+        ))
         | sort_by(.focusHistoryID)
         | .[0]
         | if . == null then "||" else "\(.pid)|\(.class | ascii_downcase)|\(.title)" end
-    ' || echo "||"
+    ' --arg ws "$ws_id" || echo "||"
 }
 
 # =============================================================================
@@ -469,8 +477,11 @@ main() {
   # check if a file manager was recently used in the background.
   if [[ "$mode" == "files" || "$mode" == "yazi" ]] && is_terminal_class "$class"; then
     log "Terminal active. Searching background file managers..."
+    local active_ws
+    active_ws=$(get_active_workspace_id)
+
     local fm_info fm_pid fm_class fm_title
-    fm_info=$(get_recent_file_manager_info)
+    fm_info=$(get_recent_file_manager_info "$active_ws")
     IFS='|' read -r fm_pid fm_class fm_title <<<"$fm_info"
 
     if [[ -n "$fm_pid" && "$fm_pid" != "||" ]]; then
