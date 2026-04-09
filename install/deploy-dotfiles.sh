@@ -188,6 +188,43 @@ link_extra_dirs() {
     fi
 }
 
+# Ensure cloudyy helper scripts are on PATH for interactive shells
+ensure_cloudyy_path() {
+    log_section "Shell PATH"
+
+    local scripts_root="${HOME}/cloudyy_scripts"
+    local scripts_dir="${scripts_root}/cloudyy-other"
+    if [[ -d "${scripts_root}/cloudyy_other" ]]; then
+        scripts_dir="${scripts_root}/cloudyy_other"
+    fi
+
+    local rel_path="${scripts_dir#${HOME}/}"
+    local export_line="export PATH=\"\$PATH:\$HOME/${rel_path}\""
+    local updated=0
+
+    local -a rc_files=("${HOME}/.zshrc" "${HOME}/.bashrc")
+    for rc in "${rc_files[@]}"; do
+        [[ -f "$rc" ]] || touch "$rc"
+
+        if grep -Eq 'cloudyy_scripts/(cloudyy-other|cloudyy_other)' "$rc"; then
+            log_skip "PATH already contains cloudyy scripts in $(basename "$rc")"
+            continue
+        fi
+
+        {
+            printf '\n# cloudyy-linux: include helper scripts\n'
+            printf '%s\n' "$export_line"
+        } >>"$rc"
+
+        log_ok "Updated PATH in $(basename "$rc")"
+        updated=1
+    done
+
+    if (( updated == 0 )); then
+        log_ok "No PATH changes needed."
+    fi
+}
+
 # =============================================================================
 # STEP 5: Post-Deployment Verification
 # =============================================================================
@@ -236,6 +273,7 @@ main() {
     link_home_dotfiles
     link_config_dirs
     link_extra_dirs
+    ensure_cloudyy_path
     verify_deployment
 
     printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
