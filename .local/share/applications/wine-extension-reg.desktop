@@ -2,6 +2,6 @@
 Type=Application
 Name=A Wine application
 MimeType=text/x-ms-regedit;
-Exec=env "WINEPREFIX=/home/schultz/.wine" wine start /ProgIDOpen "regfile" %f
+Exec=env "WINEPREFIX=/home/schultz/.local/share/Steam/steamapps/compatdata/882140/pfx" wine start /ProgIDOpen "regfile" %f
 NoDisplay=true
 StartupNotify=true

@@ -2,7 +2,7 @@
 Type=Application
 Name=winhlp32
 MimeType=application/winhlp;
-Exec=env "WINEPREFIX=/home/schultz/.wine" wine start /ProgIDOpen "hlpfile" %f
+Exec=env "WINEPREFIX=/home/schultz/.local/share/Steam/steamapps/compatdata/882140/pfx" wine start /ProgIDOpen "hlpfile" %f
 NoDisplay=true
 StartupNotify=true
 Icon=C06E_winhlp32.0
