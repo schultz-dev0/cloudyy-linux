@@ -182,7 +182,7 @@ link_extra_dirs() {
     # cloudyy_scripts — also make them executable
     if [[ -d "${REPO_DIR}/cloudyy_scripts" ]]; then
         safe_symlink "${REPO_DIR}/cloudyy_scripts" "${HOME}/cloudyy_scripts"
-        chmod +x "${REPO_DIR}/cloudyy_scripts"/* 2>/dev/null \
+        find "${REPO_DIR}/cloudyy_scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} \; 2>/dev/null \
             && log_ok "cloudyy_scripts made executable." \
             || true
     fi
@@ -254,6 +254,72 @@ verify_deployment() {
 }
 
 # =============================================================================
+# STEP 5.5: Re-apply git skip-worktree on state files
+# =============================================================================
+# These flags live in the local index and are lost on a fresh clone.
+# Re-applying them after every sync keeps the repo clean.
+
+reapply_skip_worktree() {
+    local -a state_files=(
+        ".config/matugen/generated/colors.css"
+        ".config/matugen/generated/colors-glass.rasi"
+        ".config/matugen/generated/colors-swaync.css"
+        ".config/matugen/generated/colors-swayosd.css"
+        ".config/matugen/generated/gtk-3.css"
+        ".config/matugen/generated/gtk-4.css"
+        ".config/matugen/generated/hyprcolors.conf"
+        ".config/matugen/generated/kitty-colors.conf"
+        ".config/matugen/generated/matugen_colors.lua"
+        ".config/matugen/generated/pywalfox-colors.json"
+        ".config/matugen/generated/vscode-colors.json"
+        ".config/matugen/generated/vscode.json"
+        ".config/matugen/generated/vscode-theme.json"
+        ".config/matugen/generated/waybar-colors.css"
+        ".config/kitty/kitty-colors.conf"
+        ".config/btop/themes/matugen.theme"
+        ".config/nvim/lua/current_mode.lua"
+        ".config/hypr/theme_state/state"
+        ".config/hypr/theme_state/state.conf"
+        ".config/hypr/theme_state/dark_last"
+        ".config/hypr/theme_state/light_last"
+        ".config/hypr/theme_state/current_wallpaper/current.jpg"
+        ".config/hypr/.cloud-center-state.json"
+        ".config/hypr/cloudyy-launch.sh"
+        ".config/waybar/.current_position"
+        ".config/waybar/.current_preset"
+        ".config/waybar/.vertical_side"
+        ".config/ncspot/userstate.cbor"
+        ".config/waypaper/config.ini"
+        ".config/btop/btop.conf"
+    )
+    local applied=0
+    for f in "${state_files[@]}"; do
+        git -C "$REPO_DIR" update-index --skip-worktree "$f" 2>/dev/null && ((++applied)) || true
+    done
+    log_ok "State files frozen — ${applied}/${#state_files[@]} flagged (changes won't appear in git)."
+}
+
+# =============================================================================
+# STEP 6: Setup System Theme Integration
+# =============================================================================
+
+setup_system_theme() {
+    log_section "System Theme Integration"
+
+    local setup_script="${REPO_DIR}/install/setup-system-theme.sh"
+    if [[ ! -f "$setup_script" ]]; then
+        log_warn "Theme setup script not found: ${setup_script}"
+        return 0
+    fi
+
+    if bash "$setup_script"; then
+        log_ok "System theme integration configured."
+    else
+        log_warn "System theme setup encountered issues (non-fatal)."
+    fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -270,11 +336,13 @@ main() {
     [[ "${_confirm,,}" == "n" ]] && { log "Cancelled."; exit 0; }
 
     sync_repo
+    reapply_skip_worktree
     link_home_dotfiles
     link_config_dirs
     link_extra_dirs
     ensure_cloudyy_path
     verify_deployment
+    setup_system_theme
 
     printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 

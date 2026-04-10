@@ -186,16 +186,16 @@ phase_finalize() {
 # =============================================================================
 declare -a PHASE_IDS=(
   "preflight"
-  "packages"
   "dotfiles"
+  "packages"
   "services"
   "finalize"
 )
 
 declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
-  [packages]="Hardware & Package Installation"
   [dotfiles]="Dotfiles Deployment"
+  [packages]="Hardware & Package Installation"
   [services]="Service Configuration"
   [finalize]="Finalization"
 )

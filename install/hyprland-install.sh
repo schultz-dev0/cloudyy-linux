@@ -50,6 +50,7 @@ SELECTED_FILEMANAGER=""
 SELECTED_BROWSER=""
 SELECTED_EDITOR=""
 SELECTED_MULTIPLEXER=""
+SELECTED_POWER=""
 
 CHOSEN_GPU_OFFICIAL=()
 CHOSEN_GPU_AUR=()
@@ -60,6 +61,8 @@ CHOSEN_BROWSER_AUR=()
 CHOSEN_EDITOR_OFFICIAL=()
 CHOSEN_EDITOR_AUR=()
 CHOSEN_MULTIPLEXER_OFFICIAL=()
+CHOSEN_POWER_OFFICIAL=()
+CHOSEN_POWER_AUR=()
 
 declare -a OPT_OFFICIAL=()
 declare -a OPT_AUR=()
@@ -433,6 +436,27 @@ make_choices() {
   CHOSEN_MULTIPLEXER_OFFICIAL=()
   [[ "$REPLY_TYPE" == "official" && "$REPLY_PKG" != "none" ]] && CHOSEN_MULTIPLEXER_OFFICIAL=("$REPLY_PKG")
   log_ok "Multiplexer: ${REPLY_LABEL}"
+
+  # Power Management
+  present_choice "Power Management" "$CHOICE_POWER_DEFAULT" "${CHOICE_POWER[@]}"
+  SELECTED_POWER="$REPLY_PKG"
+  CHOSEN_POWER_OFFICIAL=()
+  CHOSEN_POWER_AUR=()
+  if [[ "$SELECTED_POWER" != "none" ]]; then
+    CHOSEN_POWER_OFFICIAL=("$SELECTED_POWER")
+    local _pwr_key="${SELECTED_POWER//-/_}"
+    local _extras_var="CHOICE_POWER_EXTRAS_${_pwr_key}"
+    if [[ -n "${!_extras_var:-}" ]]; then
+      read -ra _pwr_extras <<< "${!_extras_var}"
+      CHOSEN_POWER_OFFICIAL+=("${_pwr_extras[@]}")
+    fi
+    local _aur_var="CHOICE_POWER_EXTRAS_${_pwr_key}_aur"
+    if [[ -n "${!_aur_var:-}" ]]; then
+      read -ra _pwr_aur <<< "${!_aur_var}"
+      CHOSEN_POWER_AUR+=("${_pwr_aur[@]}")
+    fi
+  fi
+  log_ok "Power: ${REPLY_LABEL}"
 }
 
 # =============================================================================
@@ -542,6 +566,7 @@ build_final_lists() {
     "${CHOSEN_BROWSER_OFFICIAL[@]:-}" \
     "${CHOSEN_EDITOR_OFFICIAL[@]:-}" \
     "${CHOSEN_MULTIPLEXER_OFFICIAL[@]:-}" \
+    "${CHOSEN_POWER_OFFICIAL[@]:-}" \
     "${OPT_OFFICIAL[@]:-}"
 
   # File manager + extras
@@ -556,6 +581,7 @@ build_final_lists() {
     "${CHOSEN_GPU_AUR[@]:-}" \
     "${CHOSEN_BROWSER_AUR[@]:-}" \
     "${CHOSEN_EDITOR_AUR[@]:-}" \
+    "${CHOSEN_POWER_AUR[@]:-}" \
     "${OPT_AUR[@]:-}"
 }
 
@@ -583,6 +609,7 @@ show_summary() {
   printf '    Browser      : %s\n' "$browser_name"
   printf '    Editor       : %s\n' "$editor_name"
   printf '    Multiplexer  : %s\n' "${CHOSEN_MULTIPLEXER_OFFICIAL[*]:-none}"
+  printf '    Power        : %s\n' "${SELECTED_POWER:-none}"
   printf '\n  %sPackage counts%s\n' "$BOLD" "$RESET"
   printf '    Official (pacman)  : %d\n' "${#FINAL_OFFICIAL[@]}"
   printf '    AUR (%s)          : %d\n' "${AUR_HELPER:-none}" "${#FINAL_AUR[@]}"
@@ -716,6 +743,8 @@ main() {
   ch_official+=("${CHOSEN_MULTIPLEXER_OFFICIAL[@]:-}")
   ((${#ch_official[@]} > 0)) && pacman_install "Your Choices" "${ch_official[@]}"
 
+  ((${#CHOSEN_POWER_OFFICIAL[@]} > 0)) && pacman_install "Power Management" "${CHOSEN_POWER_OFFICIAL[@]}"
+
   ((${#OPT_OFFICIAL[@]} > 0)) && pacman_install "Optional Groups" "${OPT_OFFICIAL[@]}"
 
   log_section "Installing — AUR Packages"
@@ -725,6 +754,7 @@ main() {
   ((${#CHOSEN_GPU_AUR[@]} > 0)) && aur_install "GPU AUR" "${CHOSEN_GPU_AUR[@]}"
   ((${#CHOSEN_BROWSER_AUR[@]} > 0)) && aur_install "Browser" "${CHOSEN_BROWSER_AUR[@]}"
   ((${#CHOSEN_EDITOR_AUR[@]} > 0)) && aur_install "Editor" "${CHOSEN_EDITOR_AUR[@]}"
+  ((${#CHOSEN_POWER_AUR[@]} > 0)) && aur_install "Power Management" "${CHOSEN_POWER_AUR[@]}"
   ((${#OPT_AUR[@]} > 0)) && aur_install "Optional" "${OPT_AUR[@]}"
 
   log_section "Post-Install"

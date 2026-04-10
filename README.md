@@ -1,20 +1,25 @@
-Work on the dots is a little slow due to uni, however I am slowly rebuilding to match the name "Cloudyy" more...
+A Hyprland rice for Arch Linux — Material-You theming via matugen, dynamic light/dark switching, and a full interactive installer.
 
-## Install instructions: 
+## Install
 
-# Requirements:
 ```bash
-Sudo pacman -S git
+sudo pacman -S git
+git clone https://github.com/schultz-dev0/cloudyy-linux ~/cloudyy-linux
+~/cloudyy-linux/install/install.sh
 ```
-```bash
-git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
-```
-```bash
-./CloudyyOS/install.sh
-```
-* Follow the prompts and it will automatically deploy and symlink all the dotfiles*
 
-## *Waybar presets:*
+Follow the prompts — the installer handles GPU detection, package selection, dotfiles symlinking, and service setup automatically. Resumes from the last checkpoint if interrupted.
+
+## Usage
+
+Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
+
+- **Theme toggle**: `~/cloudyy_scripts/theme_controller.sh toggle`
+- **Rofi launcher**: `Super + Space` — includes app launcher, keybind help, theme picker, and more
+- **Waybar preset switcher**: `~/cloudyy_scripts/waybar/switch_style.sh`
+- **Obsidian vault**: drop your vault in `~/MyLife/` (or any path) — matugen will colour-match it
+
+## Waybar presets
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014835_hyprcap.png)
 
 
@@ -25,19 +30,10 @@ git clone https://github.com/schultz-dev0/cloudyy-linux ~/CloudyyOS
 
 
 
-## to do list:
-
-  - [x] FIX INSTALL SCRIP!!!!
-  - [x] Fix a few other bits and pieces
-  - [x] Provide real install instructions
-  - [x] Organise files more
-  - [ ] Provide documentation
-  - [x] Demo video 
-
 ## Basic usage
 
-  - *Most of the usage can be seen in this video: https://www.youtube.com/watch?v=rspzOLU1LwU*
-  - *Blank obsidian vault folder is where you can place your vault for matugen colors*
+  - Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
+  - Blank obsidian vault folder is where you can place your vault for matugen colors
 
 previews:
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021844_hyprcap.png)
