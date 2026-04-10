@@ -31,3 +31,11 @@ cloudyy_scripts/ivanti/
 
 cloudyy_scripts/cloud-border/
 cloudyy_scripts/IMPROVEMENTS.md
+
+# Python build artifacts
+**/__pycache__/
+*.pyc
+*.pyo
+
+# App runtime/auto-generated cache
+.local/share/applications/mimeinfo.cache
