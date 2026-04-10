@@ -15,9 +15,9 @@ Follow the prompts — the installer handles GPU detection, package selection, d
 Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
 
 - **Theme toggle**: `~/cloudyy_scripts/theme_controller.sh toggle`
-- **Rofi launcher**: `Super + Space` — includes app launcher, keybind help, theme picker, and more
+- **Rofi launcher**: `Super + Alt + Space` — includes app launcher, keybind help, theme picker, and more
 - **Waybar preset switcher**: `~/cloudyy_scripts/waybar/switch_style.sh`
-- **Obsidian vault**: drop your vault in `~/MyLife/` (or any path) — matugen will colour-match it
+- **Obsidian vault**: drop your vault in the blank obsidian vault (or any path) — matugen will colour-match it
 
 ## Waybar presets
 ![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014835_hyprcap.png)

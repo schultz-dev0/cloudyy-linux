@@ -1,6 +1,6 @@
 /* ~/.config/matugen/templates/yad-volume.css */
+/* Optimized for light and dark themes with proper contrast */
 
-/* Use Matugen keywords to grab colors */
 window {
     background-color: {{colors.surface.default.hex}};
     border: 2px solid {{colors.primary.default.hex}};
@@ -9,7 +9,7 @@ window {
 
 scale trough {
     margin: 10px 0;
-    background-color: {{colors.surface_variant.default.hex}};
+    background-color: {{colors.surface_container_high.default.hex}};
     border-radius: 10px;
     min-height: 10px;
 }
@@ -30,4 +30,15 @@ button {
     background: none;
     box-shadow: none;
     color: {{colors.primary.default.hex}};
+    border: 1px solid {{colors.outline_variant.default.hex}};
+    border-radius: 6px;
+    padding: 5px 15px;
+}
+
+button:hover {
+    background-color: {{colors.surface_container_high.default.hex}};
+}
+
+button:active {
+    background-color: {{colors.primary_container.default.hex}};
 }

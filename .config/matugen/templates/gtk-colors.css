@@ -1,6 +1,7 @@
 /*
 * GTK Colors
 * Generated with Matugen
+* Optimized for both light and dark themes with proper contrast
 */
 
 @define-color accent_color {{colors.primary_fixed_dim.default.hex}};
@@ -18,6 +19,16 @@
 @define-color card_fg_color {{colors.on_surface.default.hex}};
 @define-color sidebar_bg_color @window_bg_color;
 @define-color sidebar_fg_color @window_fg_color;
-@define-color sidebar_border_color @window_bg_color;
+@define-color sidebar_border_color {{colors.outline_variant.default.hex}};
 @define-color sidebar_backdrop_color @window_bg_color;
+
+/* Improved contrast colors for text elements */
+@define-color text_primary {{colors.on_surface.default.hex}};
+@define-color text_secondary {{colors.outline.default.hex}};
+@define-color text_disabled {{colors.outline_variant.default.hex}};
+
+/* Button and interactive elements */
+@define-color button_bg_color {{colors.surface_container_high.default.hex}};
+@define-color button_fg_color {{colors.on_surface.default.hex}};
+@define-color button_border_color {{colors.outline_variant.default.hex}};
 

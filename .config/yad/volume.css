@@ -1,27 +1,27 @@
 /* ~/.config/matugen/templates/yad-volume.css */
+/* Optimized for light and dark themes with proper contrast */
 
-/* Use Matugen keywords to grab colors */
 window {
-    background-color: #121318;
-    border: 2px solid #bac3ff;
+    background-color: #fcf8ff;
+    border: 2px solid #5c5891;
     border-radius: 12px;
 }
 
 scale trough {
     margin: 10px 0;
-    background-color: #46464f;
+    background-color: #ebe7ef;
     border-radius: 10px;
     min-height: 10px;
 }
 
 scale highlight {
-    background-color: #bac3ff;
+    background-color: #5c5891;
     border-radius: 10px;
     min-height: 10px;
 }
 
 label {
-    color: #e3e1e9;
+    color: #1c1b20;
     font-weight: bold;
     font-size: 16px;
 }
@@ -29,5 +29,16 @@ label {
 button {
     background: none;
     box-shadow: none;
-    color: #bac3ff;
+    color: #5c5891;
+    border: 1px solid #c8c5d0;
+    border-radius: 6px;
+    padding: 5px 15px;
+}
+
+button:hover {
+    background-color: #ebe7ef;
+}
+
+button:active {
+    background-color: #e3dfff;
 }

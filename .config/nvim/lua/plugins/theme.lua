@@ -4,7 +4,8 @@ return {
     lazy = false,
     priority = 1000,
     opts = {
-      transparent = true, -- Enable transparency by default
+      style = "moon",
+      transparent = true,
       styles = {
         sidebars = "transparent",
         floats = "transparent",

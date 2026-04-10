@@ -3,15 +3,16 @@
 add_newline = true
 palette = "matugen"
 
-# Dynamic Material You Palette
+# Dynamic Material You Palette with optimized contrast for light/dark modes
 [palettes.matugen]
 surface = "{{colors.surface_container_highest.default.hex}}"
 text = "{{colors.on_surface.default.hex}}"
+text_muted = "{{colors.outline.default.hex}}"
 primary = "{{colors.primary.default.hex}}"
 secondary = "{{colors.secondary.default.hex}}"
 tertiary = "{{colors.tertiary.default.hex}}"
 error = "{{colors.error.default.hex}}"
-warning = "{{colors.primary_fixed.default.hex}}"
+warning = "{{colors.tertiary.default.hex}}"
 outline = "{{colors.outline.default.hex}}"
 
 # Left Prompt: Navigation and Version Control
@@ -46,7 +47,7 @@ Ubuntu = " "
 Debian = " "
 
 [directory]
-style = "bg:surface fg:primary"
+style = "bg:surface fg:text"
 format = "[](fg:surface)[ $path]($style)[](fg:surface) "
 truncation_length = 3
 truncation_symbol = "…/"
@@ -61,7 +62,7 @@ format = "[](fg:surface)[$all_status$ahead_behind]($style)[](fg:surface) "
 
 [git_metrics]
 disabled = false
-added_style = "bg:surface fg:warning"
+added_style = "bg:surface fg:primary"
 deleted_style = "bg:surface fg:error"
 format = "[](fg:surface)[+$added]($added_style)[/-$deleted]($deleted_style)[](fg:surface) "
 
@@ -84,13 +85,13 @@ style = "bg:surface fg:secondary"
 format = "[](fg:surface)[ $version]($style)[](fg:surface) "
 
 [cmd_duration]
-style = "bg:surface fg:outline"
-format = "[](fg:surface)[󱎫 $duration]($style)[](fg:surface) "
+style = "bg:surface fg:text_muted"
+format = "[](fg:surface)[󱎫 $duration]($style)[](fg:surface) "
 
 [time]
 disabled = false
 time_format = "%T"
-style = "bg:surface fg:outline"
+style = "bg:surface fg:text_muted"
 format = "[](fg:surface)[ $time]($style)[](fg:surface) "
 
 [character]
