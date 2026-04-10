@@ -1,3 +1,5 @@
+Disclaimer: Some of the things in this projects are written with AI, as this is a work in progress project I will overwrite and fix things as I go, but AI makes my student life easier. Thanks! Enjoy the dotfiles.
+
 A Hyprland rice for Arch Linux — Material-You theming via matugen, dynamic light/dark switching, and a full interactive installer.
 
 ## Install
