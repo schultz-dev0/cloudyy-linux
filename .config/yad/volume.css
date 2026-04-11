@@ -2,26 +2,26 @@
 /* Optimized for light and dark themes with proper contrast */
 
 window {
-    background-color: #fcf8ff;
-    border: 2px solid #5c5891;
+    background-color: #f7fbf2;
+    border: 2px solid #36693d;
     border-radius: 12px;
 }
 
 scale trough {
     margin: 10px 0;
-    background-color: #ebe7ef;
+    background-color: #e5e9e1;
     border-radius: 10px;
     min-height: 10px;
 }
 
 scale highlight {
-    background-color: #5c5891;
+    background-color: #36693d;
     border-radius: 10px;
     min-height: 10px;
 }
 
 label {
-    color: #1c1b20;
+    color: #181d18;
     font-weight: bold;
     font-size: 16px;
 }
@@ -29,16 +29,16 @@ label {
 button {
     background: none;
     box-shadow: none;
-    color: #5c5891;
-    border: 1px solid #c8c5d0;
+    color: #36693d;
+    border: 1px solid #c1c9be;
     border-radius: 6px;
     padding: 5px 15px;
 }
 
 button:hover {
-    background-color: #ebe7ef;
+    background-color: #e5e9e1;
 }
 
 button:active {
-    background-color: #e3dfff;
+    background-color: #b8f1b9;
 }
