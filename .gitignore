@@ -11,6 +11,7 @@
 .vscode-oss/extensions/*
 !.vscode-oss/extensions/matugen-theme
 cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
+.vscode-oss/
 
 .config/mozilla/
 
