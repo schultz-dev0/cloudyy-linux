@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Falcon 4.0
-Comment=Play this game on Steam
-Exec=steam steam://rungameid/429530
-Icon=steam_icon_429530
-Terminal=false
-Type=Application
-Categories=Game;
