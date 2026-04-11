@@ -7,7 +7,7 @@ plugins=(
   zsh-autosuggestions
 )
 
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#888888'
 
 if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" -eq 1 ]; then
   exec Hyprland
