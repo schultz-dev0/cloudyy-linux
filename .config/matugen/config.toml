@@ -96,11 +96,6 @@ input_path = '~/.config/matugen/templates/vscode-theme.json'
 output_path = '~/.config/matugen/generated/vscode.json'
 post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
 
-[templates.vscode]
-input_path = '~/.config/matugen/templates/vscode-theme.json'
-output_path = '~/.config/matugen/generated/vscode.json'
-post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
-
 [templates.vesktop]
 input_path = "~/.config/matugen/templates/vesktop_theme.css"
 output_path = "~/.config/vesktop/themes/matugen_theme.css"
