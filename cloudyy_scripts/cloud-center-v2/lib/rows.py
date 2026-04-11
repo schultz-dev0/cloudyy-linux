@@ -16,6 +16,7 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Adw, GLib, GdkPixbuf, Gtk
 
 import lib.utility as utility
+import lib.wallpaper_browser as wallpaper_browser
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class ButtonRow(Adw.ActionRow, _ManagedRow):
     def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
         super().__init__()
         self._init_sources()
+        self._props = props
         self._action = action or {}
         self._ctx = ctx
 
@@ -101,11 +103,30 @@ class ButtonRow(Adw.ActionRow, _ManagedRow):
         self.connect("activated", self._on_activate)
 
     def _on_activate(self, *_) -> None:
+        # Special built-in actions
+        action_id = self._props.get("action", "")
+        if action_id == "bezier_editor":
+            self._open_bezier_editor()
+            return
+
         cmd = self._action.get("command", "")
         terminal = bool(self._action.get("terminal", False))
         if cmd:
             ok = utility.execute_command(cmd, terminal=terminal)
             self._ctx.toast(" Launched" if ok else " Failed")
+
+    def _open_bezier_editor(self) -> None:
+        try:
+            from lib.bezier_editor import BezierEditorDialog
+        except Exception as exc:
+            self._ctx.toast(f"Bezier editor unavailable: {exc}")
+            return
+        root = self.get_root()
+        if root is None:
+            self._ctx.toast("No parent window")
+            return
+        dialog = BezierEditorDialog(root)
+        dialog.present(root)
 
     def do_unroot(self) -> None:
         self._cleanup()
@@ -114,35 +135,24 @@ class ButtonRow(Adw.ActionRow, _ManagedRow):
 
 # ── Toggle row ────────────────────────────────────────────────────────────────
 
-class ToggleRow(Adw.ActionRow, _ManagedRow):
-    __gtype_name__ = "CCToggleRow"
+class _ToggleManager(_ManagedRow):
+    """Manages state polling and command dispatch for an Adw.SwitchRow."""
 
-    def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
-        super().__init__()
+    def __init__(self, row: Adw.SwitchRow, props: dict, action: dict, ctx: RowContext) -> None:
         self._init_sources()
-        self._action = action or {}
+        self._row = row
+        self._action = action
         self._ctx = ctx
         self._key = props.get("key", "")
         self._state_cmd = props.get("state_command", "")
         self._interval = int(props.get("interval", 5))
 
-        self.set_title(props.get("title", ""))
-        self.set_subtitle(props.get("description", ""))
-
-        if icon := props.get("icon"):
-            self.add_prefix(_make_prefix_icon(icon))
-
-        self._switch = Gtk.Switch(valign=Gtk.Align.CENTER)
-        self.add_suffix(self._switch)
-        self.set_activatable_widget(self._switch)
-
-        # Load persisted state
         if self._key:
-            self._switch.set_active(utility.load_setting(self._key, False))
+            row.set_active(utility.load_setting(self._key, False))
 
-        self._switch.connect("state-set", self._on_toggle)
+        self._handler_id = row.connect("notify::active", self._on_toggle)
+        row.connect("destroy", lambda _: self._cleanup())
 
-        # Poll state_command if defined
         if self._state_cmd:
             self._poll_state()
             sid = GLib.timeout_add_seconds(self._interval, self._poll_state)
@@ -175,12 +185,13 @@ class ToggleRow(Adw.ActionRow, _ManagedRow):
         with self._lock:
             if self._destroyed:
                 return GLib.SOURCE_REMOVE
-        self._switch.handler_block_by_func(self._on_toggle)
-        self._switch.set_active(active)
-        self._switch.handler_unblock_by_func(self._on_toggle)
+        self._row.handler_block(self._handler_id)
+        self._row.set_active(active)
+        self._row.handler_unblock(self._handler_id)
         return GLib.SOURCE_REMOVE
 
-    def _on_toggle(self, switch: Gtk.Switch, state: bool) -> bool:
+    def _on_toggle(self, row: Adw.SwitchRow, _param: object) -> None:
+        state = row.get_active()
         key = "enabled" if state else "disabled"
         act = self._action.get(key, {})
         if cmd := act.get("command", ""):
@@ -189,11 +200,18 @@ class ToggleRow(Adw.ActionRow, _ManagedRow):
             threading.Thread(
                 target=utility.save_setting, args=(self._key, state), daemon=True
             ).start()
-        return False  # allow default visual update
 
-    def do_unroot(self) -> None:
-        self._cleanup()
-        Adw.ActionRow.do_unroot(self)
+
+def ToggleRow(props: dict, action: dict | None, ctx: RowContext) -> Adw.SwitchRow:
+    """Return a configured Adw.SwitchRow with state polling and command dispatch."""
+    row = Adw.SwitchRow()
+    row.set_title(props.get("title", ""))
+    row.set_subtitle(props.get("description", ""))
+    if icon := props.get("icon"):
+        row.add_prefix(_make_prefix_icon(icon))
+    # Keep manager alive by attaching it to the row object
+    row._cc_manager = _ToggleManager(row, props, action or {}, ctx)  # type: ignore[attr-defined]
+    return row
 
 
 # ── Slider row ────────────────────────────────────────────────────────────────
@@ -379,6 +397,23 @@ def _read_current_wallpaper() -> str:
     return ""
 
 
+def _read_theme_mode() -> str:
+    """Read THEME_MODE from theme state, fallback to cloud-center setting."""
+    try:
+        for line in _THEME_STATE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("THEME_MODE="):
+                val = line[len("THEME_MODE="):].strip().strip('"\'').lower()
+                if val in {"light", "dark"}:
+                    return val
+    except (FileNotFoundError, OSError):
+        pass
+
+    try:
+        return "dark" if utility.load_setting("theme/dark_mode", False) else "light"
+    except Exception:
+        return "dark"
+
+
 class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
     """A visual wallpaper grid that mimics waypaper, embedded as a preferences row."""
 
@@ -394,6 +429,7 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
         self._directory = Path(os.path.expandvars(raw_dir)).expanduser()
         self._thumb_size = int(props.get("thumbnail_size", 160))
         self._columns = int(props.get("columns", 0))  # 0 = auto
+        self._max_items = int(props.get("max_items", 500))
         self._cmd_template = (
             self._action.get("command", "")
             or "~/cloudyy_scripts/theme_controller.sh set-image {path}"
@@ -493,10 +529,36 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
     def _load_thumbnails(self) -> None:
         """Collect image paths and schedule grid population on main thread."""
         try:
-            paths = sorted(
-                p for p in self._directory.iterdir()
-                if p.is_file() and p.suffix.lower() in _WALL_EXTS
-            )
+            base = self._directory
+            if not base.exists():
+                # Fallback to the online browser default when the old path was moved.
+                base = Path("~/Wallpapers/Online").expanduser()
+
+            # Mirror theme_controller.sh behavior: prefer mode-specific dir if present.
+            mode = _read_theme_mode()
+            mode_dir = base / mode.capitalize()
+            if mode_dir.is_dir():
+                scan_root = mode_dir
+                use_recursive = True
+            else:
+                scan_root = base
+                use_recursive = False
+
+            if use_recursive:
+                paths = [
+                    p for p in scan_root.rglob("*")
+                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
+                ]
+            else:
+                # Stay shallow in flat dir so Light/ and Dark/ siblings are not mixed.
+                paths = [
+                    p for p in scan_root.iterdir()
+                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
+                ]
+
+            paths.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            paths = paths[: self._max_items]
+            self._directory = scan_root
         except Exception as exc:
             log.warning("WallpaperPicker: cannot list %s: %s", self._directory, exc)
             paths = []
@@ -625,6 +687,8 @@ def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
                 return LabelRow(props, item.get("value"), ctx)
             case "wallpaper_picker":
                 return WallpaperPickerRow(props, item.get("on_select"), ctx)
+            case "online_wallpaper_browser":
+                return wallpaper_browser.OnlineWallpaperBrowserRow(props, item.get("on_search"), ctx)
             case _:
                 log.warning("Unknown row type: %s", itype)
                 return None

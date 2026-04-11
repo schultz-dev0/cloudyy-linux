@@ -9,8 +9,8 @@
 # ignore all extensions in vs code except matugen config
 
 .vscode-oss/extensions/*
-!.vscode-oss/extensions/matugen-them
-
+!.vscode-oss/extensions/matugen-theme
+cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
 
 .config/mozilla/
 
@@ -31,10 +31,11 @@ cloudyy_scripts/ivanti/
 cloudyy_scripts/cloud-border/
 cloudyy_scripts/IMPROVEMENTS.md
 
-# Python build artifacts
+# build artifacts
 **/__pycache__/
 *.pyc
 *.pyo
+
 
 # App runtime/auto-generated cache
 .local/share/applications/mimeinfo.cache

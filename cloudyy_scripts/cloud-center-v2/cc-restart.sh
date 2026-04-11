@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Enabled by default.
+# Set CC_DISABLE_RESTART=1 to temporarily disable this script.
+if [[ "${CC_DISABLE_RESTART:-0}" == "1" ]]; then
+    printf '[cc-restart] disabled (CC_DISABLE_RESTART=1)\n'
+    exit 0
+fi
+
 APP_ID="dev.cloudyy.CloudCenter"
 SCRIPT="$HOME/cloudyy_scripts/cloud-center-v2/cloud-center.py"
 LOG_FILE="/tmp/cloud-center.log"
