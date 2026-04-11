@@ -127,6 +127,7 @@ link_home_dotfiles() {
         ! -name ".git" \
         ! -name ".gitignore" \
         ! -name ".gitmodules" \
+        ! -name ".local" \
         -print0 2>/dev/null)
 
     if (( linked == 0 )); then
@@ -318,6 +319,26 @@ setup_system_theme() {
 }
 
 # =============================================================================
+# STEP 7: Seed Required Desktop Applications
+# =============================================================================
+
+seed_required_applications() {
+    log_section "Seed Required Desktop Applications"
+
+    local seed_script="${REPO_DIR}/install/seed-required-applications.sh"
+    if [[ ! -f "$seed_script" ]]; then
+        log_warn "Required app seed script not found: ${seed_script}"
+        return 0
+    fi
+
+    if bash "$seed_script" "$REPO_DIR"; then
+        log_ok "Required desktop applications seeded."
+    else
+        log_warn "Seeding required desktop applications encountered issues (non-fatal)."
+    fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -341,6 +362,7 @@ main() {
     ensure_cloudyy_path
     verify_deployment
     setup_system_theme
+    seed_required_applications
 
     printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 

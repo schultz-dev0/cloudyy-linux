@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Halo: The Master Chief Collection
-Comment=Play this game on Steam
-Exec=steam steam://rungameid/976730
-Icon=steam_icon_976730
-Terminal=false
-Type=Application
-Categories=Game;

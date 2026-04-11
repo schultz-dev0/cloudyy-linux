@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="AIChat icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="44" fill="url(#bg)"/>
+  <path d="M74 90h108a16 16 0 0 1 16 16v44a16 16 0 0 1-16 16h-52l-26 22a8 8 0 0 1-13-6v-16H74a16 16 0 0 1-16-16v-44a16 16 0 0 1 16-16z" fill="#ccfbf1"/>
+  <circle cx="102" cy="128" r="8" fill="#0f766e"/>
+  <circle cx="128" cy="128" r="8" fill="#0f766e"/>
+  <circle cx="154" cy="128" r="8" fill="#0f766e"/>
+</svg>
