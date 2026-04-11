@@ -3,7 +3,7 @@
 Cloud Center — GTK4/Libadwaita control panel for Hyprland.
 
 Features (inspired by Dusky Control Center):
-  - Daemon mode: hides on close, instant relaunch via single-instance
+    - Standard window lifecycle: close exits app
   - Adw.NavigationSplitView: proper collapsible sidebar
   - Adw.ToastOverlay: action feedback
   - YAML-driven: add pages/items with zero Python
@@ -49,6 +49,11 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 import lib.rows as rows
 from lib.rows import RowContext
 import lib.hcm as hcm
+import lib.keybind_manager as keybind_manager
+import lib.monitor_editor as monitor_editor
+import lib.edit_dialog as edit_dialog
+import lib.bluetooth_page as bluetooth_page
+import lib.wifi_page as wifi_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -60,7 +65,10 @@ except ImportError:
 APP_ID          = "dev.cloudyy.CloudCenter"
 CONFIG_PATH     = SCRIPT_DIR / "config.yaml"
 CSS_PATH        = SCRIPT_DIR / "assets" / "style.css"
-MATUGEN_COLORS  = Path.home() / ".config" / "matugen" / "generated" / "waybar-colors.css"
+MATUGEN_DIR     = Path.home() / ".config" / "matugen" / "generated"
+MATUGEN_GTK_CSS = MATUGEN_DIR / "gtk-4.css"
+MATUGEN_COLORS  = MATUGEN_DIR / "colors.css"
+THEME_STATE     = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
 SEARCH_DEBOUNCE = 200   # ms
 SIDEBAR_WIDTH   = 200   # px
 
@@ -106,6 +114,18 @@ def load_config() -> dict:
     return {"pages": []}
 
 
+def read_theme_mode() -> str:
+    try:
+        for line in THEME_STATE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("THEME_MODE="):
+                val = line.split("=", 1)[1].strip().strip('"\'').lower()
+                if val in {"light", "dark"}:
+                    return val
+    except (FileNotFoundError, OSError):
+        pass
+    return "dark"
+
+
 # =============================================================================
 # MAIN WINDOW
 # =============================================================================
@@ -124,6 +144,10 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._search_index: list[dict] = []
         self._search_debounce: int = 0
 
+        # Sidebar nav state
+        self._nav_rows: dict[str, Gtk.ListBoxRow] = {}
+        self._nav_list: Gtk.ListBox | None = None
+
         self._build_ui()
         self._setup_shortcuts()
         log.info("Window ready")
@@ -131,35 +155,36 @@ class CloudCenterWindow(Adw.ApplicationWindow):
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        # Root: ToastOverlay → NavigationSplitView
-        split = Adw.NavigationSplitView()
-        split.set_min_sidebar_width(SIDEBAR_WIDTH)
-        split.set_max_sidebar_width(SIDEBAR_WIDTH)
+        # Root: ToastOverlay → OverlaySplitView (proper show/hide sidebar support)
+        self._split = Adw.OverlaySplitView()
+        self._split.set_min_sidebar_width(SIDEBAR_WIDTH)
+        self._split.set_max_sidebar_width(SIDEBAR_WIDTH)
+        self._split.set_collapsed(False)
+        self._split.set_pin_sidebar(True)
 
-        # Sidebar
-        sidebar_nav = Adw.NavigationPage(title="Cloud Center")
-        sidebar_nav.set_child(self._build_sidebar())
-        split.set_sidebar(sidebar_nav)
+        # Sidebar and content are plain widgets (no NavigationPage wrappers needed)
+        self._split.set_sidebar(self._build_sidebar())
 
-        # Content stack wrapped in NavigationPage
+        # Content stack
         self._stack = Adw.ViewStack()
-        self._content_nav = Adw.NavigationPage(title="Content")
-        self._content_nav.set_child(self._build_content_area())
-        split.set_content(self._content_nav)
+        self._split.set_content(self._build_content_area())
 
         self._build_search_page()
         self._populate_pages()
 
-        self._toast_ov.set_child(split)
+        self._toast_ov.set_child(self._split)
         self.set_content(self._toast_ov)
 
     def _build_sidebar(self) -> Gtk.Widget:
+        """Build a flat sidebar navigation list."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        box.add_css_class("sidebar-surface")
 
         # Header
         header = Adw.HeaderBar()
         header.set_show_end_title_buttons(False)
         header.add_css_class("flat")
+        header.add_css_class("sidebar-surface")
 
         title_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         icon = make_icon_widget("", ["sidebar-app-icon"])
@@ -172,6 +197,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         # Search entry
         self._search_entry = Gtk.SearchEntry()
+        self._search_entry.add_css_class("sidebar-surface")
         self._search_entry.set_placeholder_text("Search settings…")
         self._search_entry.set_margin_start(10)
         self._search_entry.set_margin_end(10)
@@ -181,19 +207,67 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._search_entry.connect("stop-search", self._on_search_stop)
         box.append(self._search_entry)
 
-        # Nav list
-        self._nav_list = Gtk.ListBox()
-        self._nav_list.add_css_class("navigation-sidebar")
-        self._nav_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self._nav_list.connect("row-selected", self._on_nav_selected)
-
+        # Flat nav list — all pages then built-in manager pages
         scroll = Gtk.ScrolledWindow()
+        scroll.add_css_class("sidebar-surface")
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
+
+        self._nav_list = Gtk.ListBox()
+        self._nav_list.add_css_class("sidebar-surface")
+        self._nav_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self._nav_list.add_css_class("sidebar-nav-list")
+        self._nav_list.connect("row-selected", self._on_nav_row_selected)
+
+        for page in self._config.get("pages", []):
+            self._nav_list.append(self._make_nav_row(page))
+
+        self._nav_list.append(self._make_nav_row(
+            {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"}
+        ))
+        self._nav_list.append(self._make_nav_row(
+            {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"}
+        ))
+        self._nav_list.append(self._make_nav_row(
+            {"id": "__mon__", "title": "Monitors", "icon": "video-display-symbolic"}
+        ))
+        self._nav_list.append(self._make_nav_row(
+            {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"}
+        ))
+
         scroll.set_child(self._nav_list)
         box.append(scroll)
 
         return box
+
+    def _make_nav_row(self, page: dict) -> Gtk.ListBoxRow:
+        """Create a single navigation row."""
+        page_id = page.get("id")
+        title = page.get("title", page_id)
+        icon = page.get("icon", "")
+
+        row = Gtk.ListBoxRow()
+        row._page_id = page_id  # type: ignore[attr-defined]
+        row.set_selectable(True)
+        row.add_css_class("sidebar-nav-row")
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        hbox.set_margin_start(12)
+        hbox.set_margin_end(12)
+        hbox.set_margin_top(8)
+        hbox.set_margin_bottom(8)
+
+        if icon:
+            hbox.append(make_icon_widget(icon))
+
+        title_label = Gtk.Label(label=title)
+        title_label.set_xalign(0)
+        title_label.set_hexpand(True)
+        hbox.append(title_label)
+
+        row.set_child(hbox)
+        self._nav_rows[page_id] = row
+        return row
 
     def _build_content_area(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -201,6 +275,16 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         # Content header bar
         self._content_header = Adw.HeaderBar()
         self._content_header.add_css_class("flat")
+
+        # Sidebar fold/unfold toggle
+        self._sidebar_btn = Gtk.ToggleButton()
+        self._sidebar_btn.set_icon_name("sidebar-show-symbolic")
+        self._sidebar_btn.add_css_class("flat")
+        self._sidebar_btn.set_active(True)
+        self._sidebar_btn.set_tooltip_text("Toggle sidebar")
+        self._sidebar_btn.connect("toggled", self._on_sidebar_toggle)
+        self._content_header.pack_start(self._sidebar_btn)
+
         box.append(self._content_header)
 
         # Stack
@@ -230,67 +314,44 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._stack.add_named(clamp, "__search__")
 
     def _populate_pages(self) -> None:
-        """Build a stack page for each YAML page."""
+        """Build stack pages for each YAML page + hardcoded managers."""
         pages = self._config.get("pages", [])
         if not pages:
             self._show_empty()
             return
 
-        self._nav_rows: dict[str, Gtk.ListBoxRow] = {}
-
+        # Build content pages for YAML pages
         for page_cfg in pages:
-            pid   = page_cfg.get("id", page_cfg.get("title", "").lower())
-            title = page_cfg.get("title", pid)
-            icon  = page_cfg.get("icon", "application-x-executable-symbolic")
-
-            # Sidebar row
-            row = self._make_nav_row(icon, title, pid)
-            self._nav_list.append(row)
-            self._nav_rows[pid] = row
-
-            # Content page
+            pid = page_cfg.get("id", page_cfg.get("title", "").lower())
             content = self._build_page_content(page_cfg)
             self._stack.add_named(content, pid)
 
-        # ── Hardcoded: Config Manager (HCM) page ─────────────────────────────
-        HCM_PID   = "__hcm__"
-        HCM_ICON  = "󰦭"
-        HCM_TITLE = "Config Manager"
+        # Build hardcoded manager pages
+        bt_page = bluetooth_page.BluetoothPage(self._toast_ov)
+        bt_page.set_vexpand(True)
+        self._stack.add_named(bt_page, "__bt__")
 
-        hcm_row = self._make_nav_row(HCM_ICON, HCM_TITLE, HCM_PID)
-        self._nav_list.append(hcm_row)
-        self._nav_rows[HCM_PID] = hcm_row
+        wf_page = wifi_page.WiFiPage(self._toast_ov)
+        wf_page.set_vexpand(True)
+        self._stack.add_named(wf_page, "__wifi__")
 
-        hcm_page = hcm.ConfigManagerPage(self._toast_ov)
-        hcm_page.set_vexpand(True)
-        self._stack.add_named(hcm_page, HCM_PID)
+        mon_page = monitor_editor.MonitorEditorPage(self._toast_ov)
+        mon_page.set_vexpand(True)
+        self._stack.add_named(mon_page, "__mon__")
 
-        # Select first row
-        first = self._nav_list.get_row_at_index(0)
-        if first:
-            self._nav_list.select_row(first)
+        hkbm_page = keybind_manager.KeybindManagerPage(self._toast_ov)
+        hkbm_page.set_vexpand(True)
+        self._stack.add_named(hkbm_page, "__hkbm__")
 
-    def _make_nav_row(self, icon_name: str, title: str, pid: str) -> Gtk.ListBoxRow:
-        row = Gtk.ListBoxRow()
-        row.add_css_class("nav-row")
-
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        box.set_margin_start(12)
-        box.set_margin_end(12)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-
-        icon_widget = make_icon_widget(icon_name, ["nav-icon"])
-        lbl = Gtk.Label(label=title, xalign=0)
-        lbl.set_hexpand(True)
-        box.append(icon_widget)
-        box.append(lbl)
-
-        row.set_child(box)
-        row._page_title = title
-        row._pid = pid
-
-        return row
+        # Select first YAML page if available
+        if pages:
+            first_pid = pages[0].get("id", pages[0].get("title", "").lower())
+            row = self._nav_rows.get(first_pid)
+            if row:
+                parent = row.get_parent()
+                if isinstance(parent, Gtk.ListBox):
+                    parent.select_row(row)
+                self._stack.set_visible_child_name(first_pid)
 
     def _build_page_content(self, page_cfg: dict) -> Gtk.Widget:
         """Build an Adw.PreferencesPage from YAML layout."""
@@ -351,17 +412,35 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
     # ── Navigation ────────────────────────────────────────────────────────────
 
-    def _on_nav_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+    def _on_nav_selected(self, row: Gtk.ListBoxRow, page_id: str) -> None:
+        """Handle sidebar page selection."""
         if row is None:
             return
         # Clear search
         self._search_entry.set_text("")
-        pid = getattr(row, "_pid", None)
-        if pid and self._stack.get_child_by_name(pid):
-            self._stack.set_visible_child_name(pid)
-            self._content_header.set_title_widget(
-                Gtk.Label(label=getattr(row, "_page_title", ""))
-            )
+        if page_id and self._stack.get_child_by_name(page_id):
+            self._stack.set_visible_child_name(page_id)
+            row_child = row.get_child()
+            if row_child and isinstance(row_child, Gtk.Box):
+                children = []
+                child = row_child.get_first_child()
+                while child:
+                    children.append(child)
+                    child = child.get_next_sibling()
+                if children:
+                    self._content_header.set_title_widget(Gtk.Label(label=""))
+    
+    def _on_nav_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
+        """Handle row selection in the sidebar nav list."""
+        if row is None:
+            return
+        page_id = getattr(row, "_page_id", None)
+        if page_id:
+            self._on_nav_selected(row, page_id)
+
+    def _on_sidebar_toggle(self, btn: Gtk.ToggleButton) -> None:
+        """Fold or unfold the sidebar panel."""
+        self._split.set_show_sidebar(btn.get_active())
 
     # ── Search ────────────────────────────────────────────────────────────────
 
@@ -374,17 +453,19 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
     def _on_search_stop(self, entry: Gtk.SearchEntry) -> None:
         self._search_entry.set_text("")
-        # Restore previously selected page
-        row = self._nav_list.get_selected_row()
-        if row:
-            self._on_nav_selected(self._nav_list, row)
+        # Restore previously selected page (just show first page for now)
+        if self._nav_rows:
+            first_row = next(iter(self._nav_rows.values()))
+            page_id = getattr(first_row, "_page_id", None)
+            if page_id:
+                self._stack.set_visible_child_name(page_id)
+            parent = first_row.get_parent()
+            if isinstance(parent, Gtk.ListBox):
+                parent.select_row(first_row)
 
     def _do_search(self, query: str) -> bool:
         self._search_debounce = 0
         if not query:
-            row = self._nav_list.get_selected_row()
-            if row:
-                self._on_nav_selected(self._nav_list, row)
             return GLib.SOURCE_REMOVE
 
         self._stack.set_visible_child_name("__search__")
@@ -432,29 +513,49 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         if keyval == Gdk.KEY_Escape:
             self._on_search_stop(self._search_entry)
             return True
+        focus = self.get_focus()
+        if focus is not None:
+            # Do not hijack typing when the user is editing text in a row widget.
+            if isinstance(focus, (Gtk.Entry, Gtk.SearchEntry, Gtk.SpinButton, Gtk.TextView)):
+                return False
+            editable = getattr(Gtk, "Editable", None)
+            if editable is not None and isinstance(focus, editable):
+                return False
         # Focus search on any printable key
         if not mods and keyval not in (Gdk.KEY_Tab, Gdk.KEY_Return):
             self._search_entry.grab_focus()
         return False
 
-    def _reload(self) -> None:
+    def _reload(self, show_toast: bool = True) -> None:
         log.info("Reloading config…")
-        # Clear everything
-        while child := self._nav_list.get_first_child():
-            self._nav_list.remove(child)
+        
+        # Store current visible page
+        visible_name = self._stack.get_visible_child_name()
+        _manager_ids = {"__search__", "__mon__", "__hkbm__", "__bt__", "__wifi__"}
+        visible_pid = visible_name if visible_name not in _manager_ids else None
+
+        # Clear stack pages
         while page := self._stack.get_first_child():
             self._stack.remove(page)
+        
         self._search_index.clear()
+        self._nav_rows.clear()
 
         self._config = load_config()
         self._build_search_page()
         self._populate_pages()
-        utility.toast(self._toast_ov, " Config reloaded")
+
+        if show_toast:
+            utility.toast(self._toast_ov, "Config reloaded")
         log.info("Reload complete")
+
+    def refresh_theme_ui(self) -> None:
+        """Soft-refresh widget tree to ensure new CSS tokens are applied everywhere."""
+        self._reload(show_toast=False)
 
 
 # =============================================================================
-# APPLICATION (Daemon mode)
+# APPLICATION
 # =============================================================================
 
 class CloudCenter(Adw.Application):
@@ -465,37 +566,61 @@ class CloudCenter(Adw.Application):
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
         self._window: CloudCenterWindow | None = None
-        self._start_hidden_once = "--background" in sys.argv
-        self.hold()  # prevent GApplication 10s timeout — daemon mode
+        self._matugen_monitors: list[Gio.FileMonitor] = []
+        self._matugen_debounce: int = 0
+        self._app_provider: Gtk.CssProvider | None = None
 
     def do_activate(self) -> None:
         if self._window is None:
             self._window = CloudCenterWindow(self)
             self._window.connect("close-request", self._on_close)
+            self._window.connect("destroy", self._on_destroy)
+            self._apply_theme_mode()
             self._load_css()
             self._start_matugen_watcher()
-        if self._start_hidden_once:
-            # Used by restart scripts when we want daemon recovery with no pop-up.
-            self._window.set_visible(False)
-            self._start_hidden_once = False
-            return
         self._window.present()
 
+    def _apply_theme_mode(self) -> None:
+        mode = read_theme_mode()
+        manager = Adw.StyleManager.get_default()
+        manager.set_color_scheme(
+            Adw.ColorScheme.FORCE_LIGHT if mode == "light" else Adw.ColorScheme.FORCE_DARK
+        )
+        log.info("Applied Adw color scheme: %s", mode)
+
     def _on_close(self, win: CloudCenterWindow) -> bool:
-        """Hide instead of destroy — instant relaunch next time."""
-        win.set_visible(False)
-        return True  # suppress destroy
+        """Allow normal close (destroy window and quit app)."""
+        return False
+
+    def _on_destroy(self, _win: CloudCenterWindow) -> None:
+        self._window = None
 
     def _start_matugen_watcher(self) -> None:
-        """Watch matugen color output and reload CSS when it changes."""
-        if not MATUGEN_COLORS.exists():
-            log.info("Matugen colors file not found, skipping watcher: %s", MATUGEN_COLORS)
+        """Watch matugen generated directory/files and hot-reload app theme."""
+        for mon in self._matugen_monitors:
+            try:
+                mon.cancel()
+            except Exception:
+                pass
+        self._matugen_monitors.clear()
+
+        if not MATUGEN_DIR.exists():
+            log.info("Matugen generated dir not found, skipping watcher: %s", MATUGEN_DIR)
             return
-        gfile = Gio.File.new_for_path(str(MATUGEN_COLORS))
-        self._matugen_monitor = gfile.monitor_file(Gio.FileMonitorFlags.NONE, None)
-        self._matugen_monitor.connect("changed", self._on_matugen_changed)
-        self._matugen_debounce: int = 0
-        log.info("Watching matugen colors: %s", MATUGEN_COLORS)
+
+        targets = [MATUGEN_DIR, MATUGEN_GTK_CSS, MATUGEN_COLORS]
+        for target in targets:
+            if not target.exists():
+                continue
+            gfile = Gio.File.new_for_path(str(target))
+            if target.is_dir():
+                mon = gfile.monitor_directory(Gio.FileMonitorFlags.NONE, None)
+            else:
+                mon = gfile.monitor_file(Gio.FileMonitorFlags.NONE, None)
+            mon.connect("changed", self._on_matugen_changed)
+            self._matugen_monitors.append(mon)
+
+        log.info("Watching matugen theme outputs in: %s", MATUGEN_DIR)
 
     def _on_matugen_changed(
         self, monitor: Gio.FileMonitor, file: Gio.File,
@@ -504,6 +629,8 @@ class CloudCenter(Adw.Application):
         if event_type not in (
             Gio.FileMonitorEvent.CHANGED,
             Gio.FileMonitorEvent.CREATED,
+            Gio.FileMonitorEvent.CHANGES_DONE_HINT,
+            Gio.FileMonitorEvent.MOVED_IN,
         ):
             return
         log.info("Matugen colors updated — scheduling reload")
@@ -514,24 +641,88 @@ class CloudCenter(Adw.Application):
     def _do_matugen_reload(self) -> bool:
         """Reload CSS after matugen regenerates colors."""
         self._matugen_debounce = 0
-        self._load_css()
+        self._apply_theme_mode()
+        ok = self._load_css()
+        if self._window is not None:
+            self._window.refresh_theme_ui()
         if self._window:
-            utility.toast(self._window._toast_ov, "Theme updated")
+            utility.toast(self._window._toast_ov, "Theme updated" if ok else "Theme reload failed")
         return GLib.SOURCE_REMOVE
 
-    def _load_css(self) -> None:
-        if not CSS_PATH.exists():
-            return
-        provider = Gtk.CssProvider()
+    def _load_css(self) -> bool:
+        display = Gdk.Display.get_default()
+        if display is None:
+            return False
+
+        if self._app_provider is not None:
+            Gtk.StyleContext.remove_provider_for_display(display, self._app_provider)
+
+        self._app_provider = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_display(
+            display,
+            self._app_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        )
+
         try:
-            provider.load_from_path(str(CSS_PATH))
-            Gtk.StyleContext.add_provider_for_display(
-                Gdk.Display.get_default(),
-                provider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-            )
+            loaded_matugen = False
+            gtk_exists = MATUGEN_GTK_CSS.exists()
+            colors_exists = MATUGEN_COLORS.exists()
+
+            if gtk_exists and colors_exists:
+                gtk_mtime = MATUGEN_GTK_CSS.stat().st_mtime
+                colors_mtime = MATUGEN_COLORS.stat().st_mtime
+                use_gtk = gtk_mtime >= colors_mtime
+            else:
+                use_gtk = gtk_exists
+
+            if use_gtk and gtk_exists:
+                matugen_text = MATUGEN_GTK_CSS.read_text(encoding="utf-8")
+                loaded_matugen = True
+                log.info("Loaded matugen GTK css: %s", MATUGEN_GTK_CSS)
+            elif colors_exists:
+                matugen_text = MATUGEN_COLORS.read_text(encoding="utf-8")
+                loaded_matugen = True
+                log.info("Loaded matugen colors css: %s", MATUGEN_COLORS)
+                alias_text = """
+@define-color window_bg_color @background;
+@define-color window_fg_color @on_background;
+@define-color view_bg_color @surface;
+@define-color view_fg_color @on_surface;
+@define-color card_bg_color @surface_container;
+@define-color card_fg_color @on_surface;
+@define-color headerbar_bg_color @surface;
+@define-color headerbar_fg_color @on_surface;
+@define-color popover_bg_color @surface_container;
+@define-color popover_fg_color @on_surface;
+@define-color accent_color @primary;
+@define-color accent_bg_color @primary;
+@define-color accent_fg_color @on_primary;
+@define-color sidebar_bg_color @surface;
+@define-color sidebar_fg_color @on_surface;
+"""
+                matugen_text = f"{matugen_text}\n{alias_text}\n"
+            else:
+                log.warning("No matugen CSS file found under %s", MATUGEN_DIR)
+                matugen_text = ""
+
+            if CSS_PATH.exists():
+                app_text = CSS_PATH.read_text(encoding="utf-8")
+            else:
+                log.warning("App css not found: %s", CSS_PATH)
+                app_text = ""
+
+            merged_css = f"{matugen_text}\n{app_text}\n"
+            self._app_provider.load_from_data(merged_css.encode("utf-8"))
+
+            if hasattr(Gtk.StyleContext, "reset_widgets"):
+                Gtk.StyleContext.reset_widgets(display)
+            if self._window is not None:
+                self._window.queue_draw()
+            return loaded_matugen
         except Exception as e:
             log.error("CSS load failed: %s", e)
+            return False
 
 
 # =============================================================================

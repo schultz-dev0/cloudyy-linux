@@ -195,6 +195,35 @@ def _rewrite_source_line(original: Path, user_copy: Path) -> None:
     tmp.replace(HYPRLAND_CONF)
 
 
+def revert_to_distro(cf: ConfigFile) -> tuple[bool, str]:
+    """
+    Delete the user override copy and rewrite hyprland.conf to source the
+    original distro file again.  Returns (success, message).
+    """
+    user_name = (
+        cf.filename if cf.filename.startswith("user_")
+        else f"user_{cf.filename}"
+    )
+    user_path = USER_DIR / user_name
+
+    if not user_path.exists():
+        return False, "No user override found — already using distro original"
+
+    try:
+        user_path.unlink()
+        log.info("Deleted user override: %s", user_path)
+    except OSError as e:
+        return False, f"Could not delete user copy: {e}"
+
+    # Rewrite hyprland.conf source line back to the distro original
+    try:
+        _rewrite_source_line(user_path, cf.path)
+    except Exception as e:
+        return False, f"Deleted copy but failed to update hyprland.conf: {e}"
+
+    return True, f"Reverted {cf.filename} to distro original"
+
+
 def _preview_lines(path: Path, max_lines: int = 60) -> str:
     """Return the first max_lines of a file as a plain string."""
     try:
@@ -229,29 +258,41 @@ class ConfigManagerPage(Gtk.Box):
         left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         left.set_size_request(260, -1)
 
-        list_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        # Header row: title + count + refresh
+        list_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         list_header.set_margin_start(12)
-        list_header.set_margin_end(12)
-        list_header.set_margin_top(12)
-        list_header.set_margin_bottom(6)
+        list_header.set_margin_end(8)
+        list_header.set_margin_top(10)
+        list_header.set_margin_bottom(4)
 
         list_title = Gtk.Label(label="Config Files")
         list_title.add_css_class("heading")
         list_title.set_hexpand(True)
         list_title.set_xalign(0)
 
-        refresh_btn = Gtk.Button()
-        refresh_btn.set_icon_name("view-refresh-symbolic")
+        self._file_count = Gtk.Label(label="")
+        self._file_count.add_css_class("dim-label")
+        self._file_count.add_css_class("caption")
+
+        refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic")
         refresh_btn.add_css_class("flat")
         refresh_btn.set_tooltip_text("Reload file list")
         refresh_btn.connect("clicked", lambda _: self.refresh())
 
         list_header.append(list_title)
+        list_header.append(self._file_count)
         list_header.append(refresh_btn)
         left.append(list_header)
 
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        left.append(sep)
+        # Search entry
+        self._file_search = Gtk.SearchEntry()
+        self._file_search.set_placeholder_text("Filter files…")
+        self._file_search.set_margin_start(8)
+        self._file_search.set_margin_end(8)
+        self._file_search.set_margin_bottom(6)
+        self._file_search.connect("search-changed", self._on_file_search_changed)
+        left.append(self._file_search)
+        left.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         self._list_box = Gtk.ListBox()
         self._list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
@@ -268,66 +309,109 @@ class ConfigManagerPage(Gtk.Box):
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         right.set_hexpand(True)
 
-        # Description card
-        desc_frame = Gtk.Frame()
-        desc_frame.set_margin_start(16)
-        desc_frame.set_margin_end(16)
-        desc_frame.set_margin_top(16)
-        desc_frame.set_margin_bottom(8)
-
-        desc_inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        desc_inner.set_margin_start(12)
-        desc_inner.set_margin_end(12)
-        desc_inner.set_margin_top(10)
-        desc_inner.set_margin_bottom(10)
+        # Info card — description + status badge
+        info_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        info_card.add_css_class("card")
+        info_card.set_margin_start(14)
+        info_card.set_margin_end(14)
+        info_card.set_margin_top(14)
+        info_card.set_margin_bottom(8)
 
         self._desc_label = Gtk.Label(label="Select a file to view details.")
         self._desc_label.set_wrap(True)
         self._desc_label.set_xalign(0)
         self._desc_label.set_max_width_chars(60)
 
+        # Status row: icon + text + badge (inline)
+        status_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        status_row.set_margin_top(2)
+
+        self._status_icon = Gtk.Image()
+        self._status_icon.set_icon_size(Gtk.IconSize.NORMAL)
+
         self._status_label = Gtk.Label()
         self._status_label.set_xalign(0)
-        self._status_label.add_css_class("dim-label")
-        self._status_label.set_margin_top(4)
+        self._status_label.set_hexpand(True)
+        self._status_label.add_css_class("caption")
 
-        desc_inner.append(self._desc_label)
-        desc_inner.append(self._status_label)
-        desc_frame.set_child(desc_inner)
-        right.append(desc_frame)
+        self._status_badge = Gtk.Label()
+        self._status_badge.add_css_class("caption")
+        self._status_badge.add_css_class("manager-badge")
 
-        # Action row
-        action_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        action_row.set_margin_start(16)
-        action_row.set_margin_end(16)
-        action_row.set_margin_bottom(8)
+        status_row.append(self._status_icon)
+        status_row.append(self._status_label)
+        status_row.append(self._status_badge)
+
+        info_card.append(self._desc_label)
+        info_card.append(status_row)
+        right.append(info_card)
+
+        # Action toolbar
+        action_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        action_bar.set_margin_start(14)
+        action_bar.set_margin_end(14)
+        action_bar.set_margin_bottom(8)
 
         self._editor = (
             os.environ.get("EDITOR")
             or os.environ.get("VISUAL")
             or "nvim"
         )
-        editor_display = Path(self._editor).name  # strip any path prefix
-        self._edit_btn = Gtk.Button(label=f"Edit in {editor_display}")
+        editor_display = Path(self._editor).name
+
+        self._edit_btn = Gtk.Button()
+        edit_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        edit_btn_box.append(Gtk.Image.new_from_icon_name("document-edit-symbolic"))
+        edit_btn_box.append(Gtk.Label(label=f"Edit in {editor_display}"))
+        self._edit_btn.set_child(edit_btn_box)
         self._edit_btn.add_css_class("suggested-action")
         self._edit_btn.set_sensitive(False)
         self._edit_btn.connect("clicked", self._on_edit_clicked)
 
-        self._reload_btn = Gtk.Button(label="Reload Hyprland")
+        self._revert_btn = Gtk.Button()
+        revert_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        revert_btn_box.append(Gtk.Image.new_from_icon_name("edit-undo-symbolic"))
+        revert_btn_box.append(Gtk.Label(label="Revert to distro"))
+        self._revert_btn.set_child(revert_btn_box)
+        self._revert_btn.add_css_class("flat")
+        self._revert_btn.add_css_class("destructive-action")
+        self._revert_btn.set_sensitive(False)
+        self._revert_btn.set_tooltip_text("Delete user override and restore distro original")
+        self._revert_btn.connect("clicked", self._on_revert_clicked)
+
+        # Spacer pushes reload to the right
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+
+        self._reload_btn = Gtk.Button(icon_name="system-reboot-symbolic")
         self._reload_btn.add_css_class("flat")
+        self._reload_btn.set_tooltip_text("Reload Hyprland")
         self._reload_btn.connect("clicked", self._on_reload_clicked)
 
-        action_row.append(self._edit_btn)
-        action_row.append(self._reload_btn)
-        right.append(action_row)
+        action_bar.append(self._edit_btn)
+        action_bar.append(self._revert_btn)
+        action_bar.append(spacer)
+        action_bar.append(self._reload_btn)
+        right.append(action_bar)
 
-        # Preview
+        # Preview header with line count
+        preview_hdr = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        preview_hdr.set_margin_start(14)
+        preview_hdr.set_margin_end(14)
+        preview_hdr.set_margin_bottom(4)
+
         preview_label = Gtk.Label(label="Preview")
         preview_label.add_css_class("heading")
         preview_label.set_xalign(0)
-        preview_label.set_margin_start(16)
-        preview_label.set_margin_bottom(4)
-        right.append(preview_label)
+        preview_label.set_hexpand(True)
+
+        self._preview_lines_label = Gtk.Label(label="")
+        self._preview_lines_label.add_css_class("dim-label")
+        self._preview_lines_label.add_css_class("caption")
+
+        preview_hdr.append(preview_label)
+        preview_hdr.append(self._preview_lines_label)
+        right.append(preview_hdr)
 
         self._preview_buf = Gtk.TextBuffer()
         self._preview_view = Gtk.TextView(buffer=self._preview_buf)
@@ -341,9 +425,9 @@ class ConfigManagerPage(Gtk.Box):
         preview_scroll = Gtk.ScrolledWindow()
         preview_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         preview_scroll.set_vexpand(True)
-        preview_scroll.set_margin_start(16)
-        preview_scroll.set_margin_end(16)
-        preview_scroll.set_margin_bottom(16)
+        preview_scroll.set_margin_start(14)
+        preview_scroll.set_margin_end(14)
+        preview_scroll.set_margin_bottom(14)
         preview_scroll.set_child(self._preview_view)
         right.append(preview_scroll)
 
@@ -366,17 +450,39 @@ class ConfigManagerPage(Gtk.Box):
     def _apply_refresh(self, files: list[ConfigFile]) -> bool:
         prev_name = self._selected.filename if self._selected else None
         self._files = files
+        self._relist(prev_name)
+        return GLib.SOURCE_REMOVE
 
-        # Rebuild list rows
+    def _on_file_search_changed(self, _entry: Gtk.SearchEntry) -> None:
+        self._relist(self._selected.filename if self._selected else None)
+
+    def _relist(self, reselect_name: str | None = None) -> None:
+        """Rebuild the list box, applying the search filter."""
+        q = self._file_search.get_text().strip().lower()
+        filtered = [
+            cf for cf in self._files
+            if not q or q in cf.filename.lower() or q in cf.description.lower()
+        ]
+
         while row := self._list_box.get_row_at_index(0):
             self._list_box.remove(row)
 
-        for cf in files:
+        for cf in filtered:
             self._list_box.append(self._make_file_row(cf))
 
+        # Update count label
+        total = len(self._files)
+        overrides = sum(1 for cf in self._files if cf.status == FileStatus.USER_OVERRIDE)
+        if q:
+            self._file_count.set_text(f"{len(filtered)}/{total}")
+        else:
+            self._file_count.set_text(
+                f"{total} files  •  {overrides} override{'s' if overrides != 1 else ''}"
+            )
+
         # Re-select previously selected file if still present
-        for i, cf in enumerate(self._files):
-            if cf.filename == prev_name:
+        for i, cf in enumerate(filtered):
+            if cf.filename == reselect_name:
                 row = self._list_box.get_row_at_index(i)
                 if row:
                     self._list_box.select_row(row)
@@ -388,8 +494,6 @@ class ConfigManagerPage(Gtk.Box):
                 "Make sure your Hyprland config uses a source/ directory."
             )
 
-        return GLib.SOURCE_REMOVE
-
     def _make_file_row(self, cf: ConfigFile) -> Gtk.ListBoxRow:
         row = Gtk.ListBoxRow()
         row._cf = cf  # type: ignore[attr-defined]
@@ -397,32 +501,35 @@ class ConfigManagerPage(Gtk.Box):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         box.set_margin_start(12)
         box.set_margin_end(8)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
+        box.set_margin_top(7)
+        box.set_margin_bottom(7)
+
+        is_override = cf.status == FileStatus.USER_OVERRIDE
 
         # Status icon
-        if cf.status == FileStatus.USER_OVERRIDE:
-            icon = Gtk.Image.new_from_icon_name("emblem-default-symbolic")
-            icon.set_tooltip_text("User override active")
-        else:
-            icon = Gtk.Image.new_from_icon_name("document-edit-symbolic")
+        icon_name = "emblem-default-symbolic" if is_override else "text-x-generic-symbolic"
+        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon.set_icon_size(Gtk.IconSize.NORMAL)
+        if not is_override:
             icon.add_css_class("dim-label")
-            icon.set_tooltip_text("Distro original")
+        icon.set_tooltip_text(
+            "User override active" if is_override else "Distro original"
+        )
 
         # Filename label
         lbl = Gtk.Label(label=cf.filename)
         lbl.set_xalign(0)
         lbl.set_hexpand(True)
         lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        if cf.status == FileStatus.USER_OVERRIDE:
+        if is_override:
             lbl.add_css_class("accent")
 
-        # Badge
-        badge = Gtk.Label(
-            label="override" if cf.status == FileStatus.USER_OVERRIDE else "distro"
-        )
+        # Styled badge
+        badge_text = "override" if is_override else "distro"
+        badge = Gtk.Label(label=badge_text)
         badge.add_css_class("caption")
-        badge.add_css_class("dim-label")
+        badge.add_css_class("manager-badge")
+        badge.add_css_class("hcm-badge-override" if is_override else "hcm-badge-distro")
 
         box.append(icon)
         box.append(lbl)
@@ -436,6 +543,7 @@ class ConfigManagerPage(Gtk.Box):
         if row is None:
             self._selected = None
             self._edit_btn.set_sensitive(False)
+            self._revert_btn.set_sensitive(False)
             return
 
         cf = getattr(row, "_cf", None)
@@ -446,13 +554,34 @@ class ConfigManagerPage(Gtk.Box):
         # Update description
         self._desc_label.set_text(cf.description)
 
-        if cf.status == FileStatus.USER_OVERRIDE:
-            self._status_label.set_text("✎  user override active")
+        # Status: icon + text + badge (no emoji)
+        is_override = cf.status == FileStatus.USER_OVERRIDE
+        if is_override:
+            self._status_icon.set_from_icon_name("emblem-default-symbolic")
+            self._status_icon.remove_css_class("hcm-status-distro")
+            self._status_icon.add_css_class("hcm-status-override")
+            self._status_label.set_text("User override is active")
+            self._status_label.remove_css_class("hcm-status-distro")
+            self._status_label.add_css_class("hcm-status-override")
+            self._status_badge.set_label("override")
+            for cls in ("hcm-badge-distro",):
+                self._status_badge.remove_css_class(cls)
+            self._status_badge.add_css_class("hcm-badge-override")
         else:
-            self._status_label.set_text("  distro original — editing will create a user copy")
+            self._status_icon.set_from_icon_name("dialog-information-symbolic")
+            self._status_icon.remove_css_class("hcm-status-override")
+            self._status_icon.add_css_class("hcm-status-distro")
+            self._status_label.set_text("Distro original — edit to create a user copy")
+            self._status_label.remove_css_class("hcm-status-override")
+            self._status_label.add_css_class("hcm-status-distro")
+            self._status_badge.set_label("distro")
+            self._status_badge.remove_css_class("hcm-badge-override")
+            self._status_badge.add_css_class("hcm-badge-distro")
+
+        self._edit_btn.set_sensitive(True)
+        self._revert_btn.set_sensitive(is_override)
 
         # Update preview (read in thread to avoid blocking UI)
-        self._edit_btn.set_sensitive(True)
         threading.Thread(
             target=self._load_preview, args=(cf,), daemon=True
         ).start()
@@ -465,10 +594,15 @@ class ConfigManagerPage(Gtk.Box):
         )
         path = user_path if user_path.exists() else cf.path
         text = _preview_lines(path)
-        GLib.idle_add(self._apply_preview, text, path.name)
+        try:
+            total_lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            total_lines = 0
+        GLib.idle_add(self._apply_preview, text, path.name, total_lines)
 
-    def _apply_preview(self, text: str, filename: str) -> bool:
+    def _apply_preview(self, text: str, filename: str, line_count: int) -> bool:
         self._preview_buf.set_text(text)
+        self._preview_lines_label.set_text(f"{line_count} lines  ·  {filename}")
         return GLib.SOURCE_REMOVE
 
     def _on_edit_clicked(self, _btn: Gtk.Button) -> None:
@@ -523,6 +657,30 @@ class ConfigManagerPage(Gtk.Box):
         utility.toast(self._toast_ov, msg)
         self._edit_btn.set_sensitive(True)
         # Refresh list so badges update
+        self.refresh()
+        return GLib.SOURCE_REMOVE
+
+    def _on_revert_clicked(self, _btn: Gtk.Button) -> None:
+        if self._selected is None or self._selected.status != FileStatus.USER_OVERRIDE:
+            return
+        self._revert_btn.set_sensitive(False)
+        self._edit_btn.set_sensitive(False)
+        threading.Thread(
+            target=self._do_revert, args=(self._selected,), daemon=True
+        ).start()
+
+    def _do_revert(self, cf: ConfigFile) -> None:
+        from lib import utility
+        ok, msg = revert_to_distro(cf)
+        if ok:
+            subprocess.run(["hyprctl", "reload"], capture_output=True)
+            msg += " — Hyprland reloaded"
+        GLib.idle_add(self._revert_done, msg)
+
+    def _revert_done(self, msg: str) -> bool:
+        from lib import utility
+        utility.toast(self._toast_ov, msg)
+        self._edit_btn.set_sensitive(True)
         self.refresh()
         return GLib.SOURCE_REMOVE
 

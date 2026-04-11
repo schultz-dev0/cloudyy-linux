@@ -1,7 +1,7 @@
 # Cloud Center — config.yaml
 # Add pages, sections, and items here. No Python needed.
 # Supported row types: button, toggle, slider, selection, label
-# Icons: use Nerd Font glyphs (any unicode char) OR GTK symbolic icon names
+# Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
 # Every Hyprland setting chains:  hyprctl keyword … && hypr_persist.sh keyword value
@@ -14,7 +14,7 @@
 pages:
   - id: home
     title: Home
-    icon:
+    icon: go-home-symbolic
     layout:
       - type: section
         properties:
@@ -24,7 +24,7 @@ pages:
             properties:
               title: Dark Mode
               description: Switch between dark and light Matugen theme
-              icon: 󰖔
+              icon: weather-clear-night-symbolic
               key: theme/dark_mode
             on_toggle:
               enabled:
@@ -36,7 +36,7 @@ pages:
             properties:
               title: Bluetooth
               description: Bluetooth adapter power
-              icon: 󰂯
+              icon: bluetooth-active-symbolic
               key: hypr/bluetooth
               state_command: "bluetoothctl show 2>/dev/null | grep -c 'Powered: yes' || echo 0"
               interval: 5
@@ -50,7 +50,7 @@ pages:
             properties:
               title: Wi-Fi
               description: Wireless radio
-              icon: 󰤨
+              icon: network-wireless-signal-good-symbolic
               key: hypr/wifi
               state_command: "nmcli radio wifi 2>/dev/null | grep -c '^enabled' || echo 0"
               interval: 5
@@ -62,12 +62,35 @@ pages:
 
       - type: section
         properties:
+          title: Maintenance
+        items:
+          - type: button
+            properties:
+              title: System Update
+              description: Run Arch Linux system updater
+              icon: software-update-available-symbolic
+              button_text: Update
+            on_press:
+              command: ~/cloudyy_scripts/system_update.sh
+              terminal: true
+
+          - type: button
+            properties:
+              title: Reload Hyprland
+              description: Reload Hyprland configuration
+              icon: view-refresh-symbolic
+              button_text: Reload
+            on_press:
+              command: hyprctl reload
+
+      - type: section
+        properties:
           title: System
         items:
           - type: label
             properties:
               title: CPU
-              icon: 󰍛
+              icon: computer-symbolic
             value:
               type: system
               key: cpu
@@ -75,7 +98,7 @@ pages:
           - type: label
             properties:
               title: GPU
-              icon: 󰍹
+              icon: video-display-symbolic
             value:
               type: system
               key: gpu
@@ -83,7 +106,7 @@ pages:
           - type: label
             properties:
               title: Memory Used
-              icon: 󰘚
+              icon: drive-harddisk-symbolic
               interval: 5
             value:
               type: system
@@ -99,7 +122,7 @@ pages:
 
   - id: appearance
     title: Appearance
-    icon: 
+    icon: preferences-desktop-appearance-symbolic
     layout:
       - type: section
         properties:
@@ -109,7 +132,7 @@ pages:
             properties:
               title: Color Scheme
               description: Matugen color variant
-              icon:
+              icon: preferences-color-symbolic
               key: theme/scheme
               options:
                 - neutral
@@ -138,7 +161,7 @@ pages:
             properties:
               title: Contrast
               description: "Matugen contrast adjustment (-1.0 to +1.0)"
-              icon: 󱡓
+              icon: display-brightness-symbolic
               key: theme/contrast
               min: -10
               max: 10
@@ -151,7 +174,7 @@ pages:
             properties:
               title: Apply Theme
               description: Re-run Matugen with current settings
-              icon: 󰑐
+              icon: view-refresh-symbolic
               button_text: Apply
             on_press:
               command: ~/cloudyy_scripts/theme_controller.sh refresh
@@ -164,7 +187,7 @@ pages:
             properties:
               title: Wallpaper
               description: Click a wallpaper to apply it
-              icon: 󱥒
+              icon: preferences-desktop-wallpaper-symbolic
               key: wallpaper/current
               directory: ~/Wallpapers
               thumbnail_size: 120
@@ -172,20 +195,23 @@ pages:
             on_select:
               command: ~/cloudyy_scripts/theme_controller.sh set-image {path}
 
-          # theme manager TUI has been deprecated in favour of built in picker
-          #- type: button
-          #  properties:
-          #    title: Open Theme Manager
-          #    description: Browse wallpapers and manage theme in TUI
-          #    icon: 󰇄
-          #    button_text: Launch
-          #  on_press:
-          #    command: kitty --class theme-ui theme-ui
-          #    terminal: false
+      - type: section
+        properties:
+          title: Online Wallpapers
+          description: Browse and download from online wallpaper sources
+        items:
+          - type: online_wallpaper_browser
+            properties:
+              title: Wallpaper Browser
+              description: Wallhaven API + WallpapersHome scrape
+              light_directory: ~/Wallpapers/Light
+              dark_directory: ~/Wallpapers/Dark
+              wallpapershome_base: https://wallpapershome.com
+              height: 420
 
   - id: waybar
     title: Waybar
-    icon: 󱂬
+    icon: window-minimize-symbolic
     layout:
       - type: section
         properties:
@@ -196,7 +222,7 @@ pages:
             properties:
               title: Preset
               description: Visual style — orientation toggle below switches between horizontal and vertical variants automatically
-              icon:
+              icon: document-page-setup-symbolic
               key: waybar/preset
               options:
                 - default
@@ -232,7 +258,7 @@ pages:
             properties:
               title: Vertical Bar
               description: Switch between a horizontal top bar and a vertical side bar
-              icon: 󰓢
+              icon: pan-up-symbolic
               key: waybar/vertical
               state_command: "grep -c '^vertical_' ~/.config/waybar/.current_preset 2>/dev/null || echo 0"
               interval: 3
@@ -250,7 +276,7 @@ pages:
             properties:
               title: Right Side
               description: Place the vertical bar on the right edge instead of the left
-              icon: 󰓡
+              icon: pan-end-symbolic
               key: waybar/right_side
               state_command: "grep -c '^right' ~/.config/waybar/.current_position 2>/dev/null || echo 0"
               interval: 3
@@ -268,7 +294,7 @@ pages:
             properties:
               title: Reload Waybar
               description: Restart waybar to apply any manual config changes
-              icon: 󰑐
+              icon: view-refresh-symbolic
               button_text: Reload
             on_press:
               command: "pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &"
@@ -277,7 +303,7 @@ pages:
             properties:
               title: Visual Editor
               description: Open the graphical waybar preset editor
-              icon: 󰏘
+              icon: document-edit-symbolic
               button_text: Open
             on_press:
               command: python3 ~/cloudyy_scripts/cloud-center-v2/waybar-editor/main.py
@@ -286,14 +312,14 @@ pages:
             properties:
               title: Edit Style (Raw)
               description: Open the active style.css directly in your editor
-              icon: 󰦭
+              icon: text-editor-symbolic
               button_text: Edit
             on_press:
               command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
 
   - id: hyprland
     title: Hyprland
-    icon: 
+    icon: applications-science-symbolic
     layout:
       - type: section
         properties:
@@ -303,7 +329,7 @@ pages:
             properties:
               title: Border Size
               description: Window border width in pixels
-              icon: 󱂬
+              icon: view-grid-symbolic
               key: hypr/border_size
               min: 0
               max: 10
@@ -318,7 +344,7 @@ pages:
             properties:
               title: Corner Rounding
               description: Window corner radius
-              icon: 󰕰
+              icon: zoom-fit-best-symbolic
               key: hypr/rounding
               min: 0
               max: 20
@@ -333,7 +359,7 @@ pages:
             properties:
               title: Blur
               description: Background blur on transparent windows
-              icon: 󱣴
+              icon: camera-photo-symbolic
               key: hypr/blur
             on_toggle:
               enabled:
@@ -349,7 +375,7 @@ pages:
             properties:
               title: Blur Passes
               description: More passes = stronger blur, more GPU cost
-              icon: 󱣴
+              icon: camera-photo-symbolic
               key: hypr/blur_passes
               min: 1
               max: 6
@@ -364,7 +390,7 @@ pages:
             properties:
               title: Blur Size
               description: Blur kernel size
-              icon: 󱣴
+              icon: zoom-in-symbolic
               key: hypr/blur_size
               min: 1
               max: 20
@@ -379,7 +405,7 @@ pages:
             properties:
               title: Window Opacity (Active)
               description: Active window opacity (100 = fully opaque)
-              icon: 󰗔
+              icon: display-brightness-symbolic
               key: hypr/active_opacity
               min: 50
               max: 100
@@ -396,7 +422,7 @@ pages:
             properties:
               title: Window Opacity (Inactive)
               description: Inactive window opacity
-              icon: 󰗔
+              icon: display-brightness-symbolic
               key: hypr/inactive_opacity
               min: 50
               max: 100
@@ -410,13 +436,13 @@ pages:
 
       - type: section
         properties:
-          title: Layout & Gaps
+          title: Layout &amp; Gaps
         items:
           - type: slider
             properties:
               title: Outer Gaps
               description: Gaps between windows and screen edge
-              icon: 󰫠
+              icon: view-grid-symbolic
               key: hypr/gaps_out
               min: 0
               max: 60
@@ -431,7 +457,7 @@ pages:
             properties:
               title: Inner Gaps
               description: Gaps between windows
-              icon: 󰫠
+              icon: view-grid-symbolic
               key: hypr/gaps_in
               min: 0
               max: 30
@@ -450,7 +476,7 @@ pages:
             properties:
               title: Animations
               description: Enable Hyprland window animations
-              icon: 󰝣
+              icon: media-playback-start-symbolic
               key: hypr/animations
             on_toggle:
               enabled:
@@ -466,7 +492,7 @@ pages:
             properties:
               title: Animation Speed
               description: "Lower = faster (runtime only — bezier curves can't be expressed as a simple conf value)"
-              icon: 󱎫
+              icon: media-playlist-shuffle-symbolic
               key: hypr/anim_speed
               min: 1
               max: 10
@@ -478,52 +504,11 @@ pages:
                 hyprctl keyword animations:bezier "myBezier,0.05,0.9,0.1,1.05" &&
                 hyprctl keyword animations:animation "windows,1,{value},myBezier"
 
-  - id: tools
-    title: Tools
-    icon: 
-    layout:
-      - type: section
-        properties:
-          title: Management TUIs
-          description: Opens in a floating Kitty window
-        items:
           - type: button
             properties:
-              title: Theme Manager
-              description: Wallpapers, color schemes, contrast
-              icon:
+              title: Bezier Curve Editor
+              description: Visually design and apply custom easing curves to Hyprland animations
+              icon: media-playback-start-symbolic
               button_text: Open
-            on_press:
-              command: kitty --class theme-ui --title "Theme Manager" theme-ui
+              action: bezier_editor
 
-          - type: button
-            properties:
-              title: Keybind Manager
-              description: Browse and manage Hyprland keybindings
-              icon: 󰌌
-              button_text: Open
-            on_press:
-              command: kitty --class hkbm --title "Keybind Manager" hkbm
-
-      - type: section
-        properties:
-          title: System
-        items:
-          - type: button
-            properties:
-              title: System Update
-              description: Run Arch Linux system updater
-              icon: 󰚰
-              button_text: Update
-            on_press:
-              command: ~/cloudyy_scripts/system_update.sh
-              terminal: true
-
-          - type: button
-            properties:
-              title: Reload Hyprland
-              description: Reload Hyprland configuration
-              icon: 󰑐
-              button_text: Reload
-            on_press:
-              command: hyprctl reload
