@@ -28,7 +28,6 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 
 ![Preview](extras/Previewpics/waybar/waybar_matrix.png)
 
-![Preview](extras/Previewpics/waybar/waybar_vertical_ghost.png)
 
 ## previews:
 - **Cloud center**
