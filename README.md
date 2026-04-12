@@ -31,14 +31,25 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 
 ## previews:
 - **Cloud center**
+
 ![Preview](extras/Previewpics/general/cloud_center_home.png)
+
 - **Fast fetch**
+
 ![Preview](extras/Previewpics/general/fast_fetch.png)
+
 - **Rofi**
+
 ![Preview](extras/Previewpics/general/rofi.png)
+
 - **Swaync menu**
+
 ![Preview](extras/Previewpics/general/swaync.png)
+
 - **Terminal with starship**
+
 ![Preview](extras/Previewpics/general/terminal.png)
+
 - **Vscode/vscodium theming via matugen**
+
 ![Preview](extras/Previewpics/general/vscode_theming.png)
