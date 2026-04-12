@@ -22,40 +22,24 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 - **Obsidian vault**: drop your vault in the blank obsidian vault (or any path) — matugen will colour-match it
 
 ## Waybar presets
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014835_hyprcap.png)
+![Preview](extras/Previewpics/waybar/waybar_default.png)
 
+![Preview](extras/Previewpics/waybar/waybar_ghost.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014826_hyprcap.png)
+![Preview](extras/Previewpics/waybar/waybar_matrix.png)
 
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/waybar/2026-02-25-014301_hyprcap.png)
+![Preview](extras/Previewpics/waybar/waybar_vertical_ghost.png)
 
-
-
-
-## Basic usage
-
-  - Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
-  - Blank obsidian vault folder is where you can place your vault for matugen colors
-
-previews:
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021844_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021914_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-04-014028_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/general/2026-02-25-014206_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/general/2026-02-25-014226_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021928_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-021944_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Previewpics/2026-02-03-022001_hyprcap.png)
-
-
-Keybind menu preview:
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-06-234046_hyprcap.png)
-
-![](https://github.com/schultz-dev0/cloudyy-linux/blob/main/extras/Preview%20pics/2026-02-06-234104_hyprcap.png)
+## previews:
+- **Cloud center**
+![Preview](extras/Previewpics/general/cloud_center_home.png)
+- **Fast fetch**
+![Preview](extras/Previewpics/general/fast_fetch.png)
+- **Rofi**
+![Preview](extras/Previewpics/general/rofi.png)
+- **Swaync menu**
+![Preview](extras/Previewpics/general/swaync.png)
+- **Terminal with starship**
+![Preview](extras/Previewpics/general/terminal.png)
+- **Vscode/vscodium theming via matugen**
+![Preview](extras/Previewpics/general/vscode_theming.png)

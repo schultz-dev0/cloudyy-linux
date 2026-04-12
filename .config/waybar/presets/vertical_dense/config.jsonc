@@ -29,7 +29,7 @@
         "custom/power"
     ],
     "custom/launcher": {
-        "format": ">_",
+        "format": " \udb80\udd5f ",
         "on-click": "~/cloudyy_scripts/rofi/applications.sh",
         "tooltip-format": "Launch"
     },

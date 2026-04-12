@@ -194,9 +194,19 @@ def get_system_info(key: str) -> str:
                 r = subprocess.run(["lspci", "-mm"], capture_output=True, text=True, timeout=3)
                 for line in r.stdout.splitlines():
                     if '"VGA compatible controller"' in line or '"3D controller"' in line:
-                        parts = line.split('"')
-                        if len(parts) >= 8:
-                            return f"{parts[5]} {parts[7]}".strip()
+                                fields = re.findall(r'"([^"]+)"', line)
+                                # lspci -mm fields: class, vendor, device, [subsystem vendor], [subsystem device]
+                                if len(fields) >= 3:
+                                    vendor = fields[1].strip()
+                                    device = fields[2].strip()
+                                    sub_vendor = fields[3].strip() if len(fields) >= 4 else ""
+
+                                    # Prefer friendly name in brackets: "GB203 [GeForce RTX 5070 Ti]" -> "GeForce RTX 5070 Ti"
+                                    m = re.search(r"\[([^\]]+)\]", device)
+                                    gpu_name = m.group(1).strip() if m else device
+
+                                    manufacturer = sub_vendor or vendor
+                                    return f"{gpu_name} ({manufacturer})".strip()
     except Exception:
         pass
     return "N/A"

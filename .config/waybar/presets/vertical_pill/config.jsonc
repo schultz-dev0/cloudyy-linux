@@ -1,137 +1,137 @@
 {
-    "layer": "top",
-    "exclusive": true,
-    "reload_style_on_change": true,
-    "position": "left",
-    "width": 48,
-    "spacing": 0,
-    "margin-top": 10,
-    "margin-bottom": 10,
-    "margin-left": 8,
-    "margin-right": 0,
-    "modules-center": [
-        "custom/launcher",
-        "hyprland/workspaces",
-        "clock",
-        "mpris",
-        "bluetooth",
-        "battery",
-        "pulseaudio#output",
-        "network",
-        "custom/temps"
-    ],
-    "custom/launcher": {
-        "format": "\udb80\udd5f ",
-        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
-        "tooltip-format": "Application Launcher"
+  "layer": "top",
+  "exclusive": true,
+  "reload_style_on_change": true,
+  "position": "left",
+  "width": 48,
+  "spacing": 0,
+  "margin-top": 10,
+  "margin-bottom": 10,
+  "margin-left": 8,
+  "margin-right": 0,
+  "modules-center": [
+    "custom/launcher",
+    "hyprland/workspaces",
+    "clock",
+    "mpris",
+    "bluetooth",
+    "battery",
+    "pulseaudio#output",
+    "network",
+    "custom/temps"
+  ],
+  "custom/launcher": {
+    "format": " \udb80\udd5f ",
+    "on-click": "~/cloudyy_scripts/rofi/applications.sh",
+    "tooltip-format": "Application Launcher"
+  },
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{name}",
+    "persistent-workspaces": {
+      "*": 5
     },
-    "hyprland/workspaces": {
-        "on-click": "activate",
-        "format": "{name}",
-        "persistent-workspaces": {
-            "*": 5
-        },
-        "on-scroll-up": "hyprctl dispatch workspace e-1",
-        "on-scroll-down": "hyprctl dispatch workspace e+1"
+    "on-scroll-up": "hyprctl dispatch workspace e-1",
+    "on-scroll-down": "hyprctl dispatch workspace e+1"
+  },
+  "clock": {
+    "format": "{:%H\n%M}",
+    "timezone": "Europe/London",
+    "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+    "on-click-right": "uwsm-app -- gnome-clocks",
+    "calendar": {
+      "mode": "month",
+      "on-scroll": 1,
+      "format": {
+        "months": "<span color='#ffb786'><b>{}</b></span>",
+        "days": "<span color='#e2e2e2'>{}</span>",
+        "weekdays": "<span color='#ffb786'><b>{}</b></span>",
+        "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
+      }
+    }
+  },
+  "mpris": {
+    "format": "{player_icon}",
+    "format-paused": "\udb80\udfe4",
+    "format-stopped": "",
+    "status-icons": {
+      "paused": "\udb80\udfe4"
     },
-    "clock": {
-        "format": "{:%H\n%M}",
-        "timezone": "Europe/London",
-        "tooltip-format": "<tt><span size='11pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-        "on-click-right": "uwsm-app -- gnome-clocks",
-        "calendar": {
-            "mode": "month",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
-            }
-        }
+    "tooltip-format": "{player} \u2014 {artist}\n{title}\n{album}",
+    "on-click": "playerctl play-pause",
+    "on-scroll-up": "playerctl next",
+    "on-scroll-down": "playerctl previous"
+  },
+  "bluetooth": {
+    "format": "\udb80\udcaf",
+    "format-disabled": "\udb80\udcb2",
+    "format-connected": "\udb80\udcb1 {num_connections}",
+    "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+    "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
+    "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
+    "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
+    "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
+    "on-click": "uwsm-app -- blueman-manager",
+    "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
+  },
+  "battery": {
+    "states": {
+      "good": 80,
+      "warning": 30,
+      "critical": 15
     },
-    "mpris": {
-        "format": "{player_icon}",
-        "format-paused": "\udb80\udfe4",
-        "format-stopped": "",
-        "status-icons": {
-            "paused": "\udb80\udfe4"
-        },
-        "tooltip-format": "{player} \u2014 {artist}\n{title}\n{album}",
-        "on-click": "playerctl play-pause",
-        "on-scroll-up": "playerctl next",
-        "on-scroll-down": "playerctl previous"
+    "format": " {icon}\n{capacity}%",
+    "format-charging": " \udb80\udc84\n{capacity}%",
+    "format-plugged": " \udb81\udea5\n{capacity}%",
+    "format-full": "\udb80\udc79",
+    "tooltip-format": "{timeTo}\n\udb85\udfe6 Health: {health}%",
+    "format-icons": [
+      "\udb80\udc8e",
+      "\udb80\udc7a",
+      "\udb80\udc7b",
+      "\udb80\udc7c",
+      "\udb80\udc7d",
+      "\udb80\udc7e",
+      "\udb80\udc7f",
+      "\udb80\udc80",
+      "\udb80\udc81",
+      "\udb80\udc82",
+      "\udb80\udc79"
+    ]
+  },
+  "pulseaudio#output": {
+    "format": "{icon}",
+    "format-muted": "\udb81\udd81",
+    "format-icons": {
+      "default": [
+        "\udb81\udd7f",
+        "\udb81\udd80",
+        "\udb81\udd7e"
+      ]
     },
-    "bluetooth": {
-        "format": "\udb80\udcaf",
-        "format-disabled": "\udb80\udcb2",
-        "format-connected": "\udb80\udcb1 {num_connections}",
-        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
-        "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
-        "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
-        "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
-        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
-        "on-click": "uwsm-app -- blueman-manager",
-        "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
-    },
-    "battery": {
-        "states": {
-            "good": 80,
-            "warning": 30,
-            "critical": 15
-        },
-        "format": " {icon}\n{capacity}%",
-        "format-charging": " \udb80\udc84\n{capacity}%",
-        "format-plugged": " \udb81\udea5\n{capacity}%",
-        "format-full": "\udb80\udc79",
-        "tooltip-format": "{timeTo}\n\udb85\udfe6 Health: {health}%",
-        "format-icons": [
-            "\udb80\udc8e",
-            "\udb80\udc7a",
-            "\udb80\udc7b",
-            "\udb80\udc7c",
-            "\udb80\udc7d",
-            "\udb80\udc7e",
-            "\udb80\udc7f",
-            "\udb80\udc80",
-            "\udb80\udc81",
-            "\udb80\udc82",
-            "\udb80\udc79"
-        ]
-    },
-    "pulseaudio#output": {
-        "format": "{icon}",
-        "format-muted": "\udb81\udd81",
-        "format-icons": {
-            "default": [
-                "\udb81\udd7f",
-                "\udb81\udd80",
-                "\udb81\udd7e"
-            ]
-        },
-        "on-click": "uwsm-app -- pavucontrol",
-        "on-click-middle": "swayosd-client --output-volume mute-toggle",
-        "on-scroll-up": "swayosd-client --output-volume raise",
-        "on-scroll-down": "swayosd-client --output-volume lower",
-        "tooltip-format": "Volume: {volume}%\n MMB  Mute"
-    },
-    "network": {
-        "format-wifi": "\udb82\udd28",
-        "format-ethernet": "\udb80\ude00",
-        "format-disconnected": "\udb81\uddaa",
-        "tooltip-format-wifi": "\udb82\udd28 {essid}  {signalStrength}%\n\udb82\ude5f {ipaddr}",
-        "tooltip-format-ethernet": "\udb80\ude00 Ethernet\n\udb82\ude5f {ipaddr}",
-        "tooltip-format-disconnected": "Not connected",
-        "on-click": "uwsm-app nm-connection-editor",
-        "interval": 5
-    },
-    "custom/temps": {
-        "exec": "~/cloudyy_scripts/waybar/temps.py",
-        "return-type": "json",
-        "format": "{}",
-        "interval": 2,
-        "tooltip": true
-    },
-    "modules-left": [],
-    "modules-right": []
+    "on-click": "uwsm-app -- pavucontrol",
+    "on-click-middle": "swayosd-client --output-volume mute-toggle",
+    "on-scroll-up": "swayosd-client --output-volume raise",
+    "on-scroll-down": "swayosd-client --output-volume lower",
+    "tooltip-format": "Volume: {volume}%\n MMB  Mute"
+  },
+  "network": {
+    "format-wifi": "\udb82\udd28",
+    "format-ethernet": "\udb80\ude00",
+    "format-disconnected": "\udb81\uddaa",
+    "tooltip-format-wifi": "\udb82\udd28 {essid}  {signalStrength}%\n\udb82\ude5f {ipaddr}",
+    "tooltip-format-ethernet": "\udb80\ude00 Ethernet\n\udb82\ude5f {ipaddr}",
+    "tooltip-format-disconnected": "Not connected",
+    "on-click": "uwsm-app nm-connection-editor",
+    "interval": 5
+  },
+  "custom/temps": {
+    "exec": "~/cloudyy_scripts/waybar/temps.py",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "tooltip": true
+  },
+  "modules-left": [],
+  "modules-right": []
 }
