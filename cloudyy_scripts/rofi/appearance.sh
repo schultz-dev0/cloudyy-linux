@@ -73,13 +73,14 @@ select_wallpaper() {
   }
 
   local selection
-  selection=$(rofi -dmenu -i -p "Select Wallpaper" \
-    -theme-str 'window { width: 60%; }' \
-    -theme-str 'listview { columns: 4; lines: 3; flow: horizontal; }' \
-    -theme-str 'element { orientation: vertical; padding: 20px; spacing: 10px; }' \
-    -theme-str 'element-icon { size: 150px; horizontal-align: 0.5; }' \
-    -theme-str 'element-text { horizontal-align: 0.5; }' \
-    -show-icons <"$TEMP_INPUT")
+  selection=$(
+    rofi -dmenu -i -p "Select Wallpaper" \
+      -theme-str 'window { width: 60%; }' \
+      -theme-str 'listview { columns: 4; lines: 3; flow: horizontal; }' \
+      -theme-str 'element { orientation: vertical; padding: 20px; spacing: 10px; children: [ element-icon ]; }' \
+      -theme-str 'element-icon { size: 150px; horizontal-align: 0.5; }' \
+      -show-icons <"$TEMP_INPUT"
+  )
 
   if [[ -n "$selection" && -n "${wallpaper_paths[$selection]:-}" ]]; then
     run_app "$THEME_CTL" set-image "${wallpaper_paths[$selection]}"

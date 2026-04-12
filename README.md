@@ -22,6 +22,7 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 - **Obsidian vault**: drop your vault in the blank obsidian vault (or any path) — matugen will colour-match it
 
 ## Waybar presets
+**You can change orientation top and bottom | left and right**
 ![Preview](extras/Previewpics/waybar/waybar_default.png)
 
 ![Preview](extras/Previewpics/waybar/waybar_ghost.png)

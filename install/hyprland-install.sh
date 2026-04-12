@@ -205,8 +205,9 @@ write_gpu_launcher() {
   local launcher_dir="${HOME}/.config/hypr"
   local launcher="${launcher_dir}/cloudyy-launch.sh"
   local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
+  local env_d="${HOME}/.config/environment.d"
 
-  mkdir -p "$launcher_dir"
+  mkdir -p "$launcher_dir" "$env_d"
 
   # ── Build the launcher script ─────────────────────────────────────────────
   cat >"$launcher" <<'LAUNCHER_EOF'
@@ -228,6 +229,10 @@ _drm_node="$(ls /dev/dri/card* 2>/dev/null | head -1)"
 export LIBVA_DRIVER_NAME=nvidia
 export GBM_BACKEND=nvidia-drm
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
+# Note: __EGL_VENDOR_LIBRARY_FILENAMES must NOT be set — GLVND expects a JSON
+# vendor config path, not a .so path. Setting it breaks EGL vendor discovery
+# and causes Hyprland/Aquamarine to abort. Auto-discovery via
+# /usr/share/glvnd/egl_vendor.d/10_nvidia.json works without any override.
 export __GL_GSYNC_ALLOWED=0
 export __GL_VRR_ALLOWED=0
 export WLR_NO_HARDWARE_CURSORS=1
@@ -275,6 +280,41 @@ COMMON_EOF
   chmod +x "$launcher"
   log_ok "GPU launcher written: ${launcher}"
 
+  # ── Write environment.d file (NVIDIA only) ───────────────────────────────
+  # The session desktop file runs start-hyprland, which launches Hyprland
+  # directly without sourcing cloudyy-launch.sh.  Hyprland initialises EGL
+  # before reading hyprland.conf, so `env =` directives arrive too late.
+  # environment.d entries are loaded by systemd-logind at session start and
+  # are the only reliable way to get these vars into Hyprland's own process.
+  # AMD and Intel use Mesa, which enumerates EGL devices correctly without
+  # any overrides; this block is NVIDIA-specific.
+  local env_d_file="${env_d}/nvidia-wayland.conf"
+  if [[ "$vendor" == "nvidia" ]]; then
+    cat >"$env_d_file" <<'ENV_D_EOF'
+# nvidia-wayland.conf — written by cloudyy-linux installer
+# Loaded by systemd-logind before start-hyprland runs so that Hyprland's
+# own EGL initialisation sees the correct backend and vendor library.
+# Without these, eglQueryDevicesEXT fails (EGL_BAD_ALLOC) and Hyprland
+# falls back to Mesa DRI2, which has no NVIDIA driver and aborts.
+LIBVA_DRIVER_NAME=nvidia
+GBM_BACKEND=nvidia-drm
+__GLX_VENDOR_LIBRARY_NAME=nvidia
+# __EGL_VENDOR_LIBRARY_FILENAMES is intentionally omitted — GLVND expects a
+# JSON vendor config path here, not a .so path.  Auto-discovery via
+# /usr/share/glvnd/egl_vendor.d/10_nvidia.json is correct and sufficient.
+WLR_NO_HARDWARE_CURSORS=1
+NVD_BACKEND=direct
+XDG_SESSION_TYPE=wayland
+ENV_D_EOF
+    log_ok "NVIDIA environment.d entry written: ${env_d_file}"
+  else
+    # Remove a stale nvidia file if the user is reinstalling with a different GPU
+    if [[ -f "$env_d_file" ]]; then
+      rm -f "$env_d_file"
+      log_ok "Removed stale NVIDIA environment.d entry (GPU changed to ${vendor})."
+    fi
+  fi
+
   # ── Inject env block into hyprland.conf (idempotent) ─────────────────────
   # Hyprland re-exports these for child processes (portals, apps launched from
   # keybinds, etc.).  We guard with a sentinel comment so re-running install
@@ -290,6 +330,7 @@ COMMON_EOF
 env = LIBVA_DRIVER_NAME,nvidia
 env = GBM_BACKEND,nvidia-drm
 env = __GLX_VENDOR_LIBRARY_NAME,nvidia
+# __EGL_VENDOR_LIBRARY_FILENAMES is intentionally omitted — see fixes.md
 env = WLR_NO_HARDWARE_CURSORS,1
 env = NVD_BACKEND,direct
 HYPR_NVIDIA
