@@ -24,7 +24,7 @@
         "custom/power"
     ],
     "custom/launcher": {
-        "format": "\udb80\udd5f ",
+        "format": " \udb80\udd5f ",
         "on-click": "~/cloudyy_scripts/rofi/applications.sh",
         "tooltip-format": "Application Launcher"
     },

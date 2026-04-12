@@ -344,6 +344,10 @@ class LabelRow(Adw.ActionRow, _ManagedRow):
 
         self._label = Gtk.Label(label="…", valign=Gtk.Align.CENTER)
         self._label.add_css_class("dim-label")
+        self._label.set_single_line_mode(True)
+        self._label.set_wrap(False)
+        self._label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+        self._label.set_max_width_chars(40)
         self.add_suffix(self._label)
 
         self._refresh()

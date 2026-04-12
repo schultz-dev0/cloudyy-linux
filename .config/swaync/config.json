@@ -38,7 +38,7 @@
           "command": "uwsm-app -- nm-connection-editor"
         },
         {
-          "label": "󰂯",
+          "label": "",
           "type": "toggle",
           "command": "uwsm-app -- blueman-manager"
         },
@@ -47,16 +47,24 @@
           "command": "uwsm-app -- python3 $HOME/cloudyy_scripts/sliders/cloudyy_sliders.py"
         },
         {
-          "label": "󰸉 ",
+          "label": "󰸉",
           "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi/appearance.sh --select"
         },
         {
-          "label": " ",
+          "label": "",
           "command": "hyprpicker"
         },
         {
-          "label": "󰔎 ",
+          "label": "󱩌",
           "command": "$HOME/cloudyy_scripts/theme_controller.sh toggle"
+        },
+        {
+          "label": "󰘴",
+          "command": "uwsmp-app -- python3 $HOME/cloudyy_scripts/cloud-center-v2/cloud-center.py"
+        },
+        {
+          "label": "󰐥",
+          "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi/power-menu.sh"
         }
       ]
     }
