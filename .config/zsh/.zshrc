@@ -63,7 +63,9 @@ alias remotedesk='~/cloudyy_scripts/ivanti/uni-rdp.sh'
 # power utility
 
 alias sleep='systemctl suspend'
-alias poweroff='systemctl poweroff'
+alias poweroff='sudo shutdown now'
+alias reboot='sudo shutdown -r now'
+alias seeya='hyprctl dispatch exit'
 
 
 
