@@ -646,11 +646,45 @@ class BezierEditorWidget(Gtk.Box):
 
     def _apply_worker(self, name: str, bezier_str: str) -> None:
         try:
-            subprocess.run(
+            bezier_run = subprocess.run(
                 ["hyprctl", "keyword", "animations:bezier", bezier_str],
-                capture_output=True, timeout=5,
+                capture_output=True, text=True, timeout=5,
             )
-            GLib.idle_add(self._toast, f'Applied "{name}" to Hyprland')
+            if bezier_run.returncode != 0:
+                err = (bezier_run.stderr or bezier_run.stdout or "hyprctl failed").strip()
+                GLib.idle_add(self._toast, f"Apply failed: {err}")
+                return
+
+            # Make the applied curve active for the main windows animation profile.
+            try:
+                from lib import utility
+                speed = int(float(utility.load_setting("hypr/anim_speed", 4)))
+            except Exception:
+                speed = 4
+            anim_value = f"windows,1,{speed},{name}"
+
+            anim_run = subprocess.run(
+                ["hyprctl", "keyword", "animations:animation", anim_value],
+                capture_output=True, text=True, timeout=5,
+            )
+            if anim_run.returncode != 0:
+                err = (anim_run.stderr or anim_run.stdout or "hyprctl failed").strip()
+                GLib.idle_add(self._toast, f"Curve saved, but activation failed: {err}")
+                return
+
+            # Persist both keywords via the shared persistence script.
+            persist_script = Path(__file__).resolve().parent.parent / "hypr_persist.sh"
+            if persist_script.exists():
+                subprocess.run(
+                    [str(persist_script), "animations:bezier", bezier_str],
+                    capture_output=True, text=True, timeout=5,
+                )
+                subprocess.run(
+                    [str(persist_script), "animations:animation", anim_value],
+                    capture_output=True, text=True, timeout=5,
+                )
+
+            GLib.idle_add(self._toast, f'Applied "{name}" to Hyprland windows animation')
         except Exception as exc:
             GLib.idle_add(self._toast, f"Apply failed: {exc}")
 

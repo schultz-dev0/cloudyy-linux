@@ -194,6 +194,14 @@ def _write_monitor_line(name: str, line: str) -> None:
         f.flush()
         os.fsync(f.fileno())
     Path(tmp_path).replace(MONITORS_CONF)
+
+    # Ensure this user config is actually sourced by hyprland.conf.
+    try:
+        from lib import hcm
+        hcm.ensure_user_config_sourced(MONITORS_CONF)
+    except Exception as exc:
+        log.warning("Could not ensure source for %s: %s", MONITORS_CONF, exc)
+
     log.info("Wrote monitor config for %s: %s", name, line)
 
 
