@@ -6,10 +6,13 @@
 # ── Hyprland persistence ──────────────────────────────────────────────────────
 # Every Hyprland setting chains:  hyprctl keyword … && hypr_persist.sh keyword value
 #
-# hypr_persist.sh writes to ~/.config/hypr/user-configs/user_cloud-center.conf
-# using the same convention as the hcm config manager TUI.  It also injects a
-# source line into hyprland.conf the first time it runs, so no manual setup is
-# needed beyond installing the script.
+# hypr_persist.sh copies ~/.config/hypr/source/lookandfeel.conf →
+# user-configs/user_lookandfeel.conf, source/animations.conf →
+# user_animations.conf, and source/input.conf → user_input.conf,
+# then appends Cloud Center overrides at the bottom of each file.
+# It replaces the existing "source = .../source/<name>.conf" line in
+# hyprland.conf with the user-configs/ path — never adding a duplicate.
+# Uses the same convention as the hcm config manager TUI.
 
 pages:
   - id: home
@@ -120,6 +123,24 @@ pages:
               type: system
               key: kernel
 
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Home page preferences to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Clear Cloud Center Home toggles and local overrides
+              icon: edit-clear-symbolic
+              button_text: Reset
+            on_press:
+              command: >-
+                rm -f ~/.config/cloud-center/settings/hypr/bluetooth
+                ~/.config/cloud-center/settings/hypr/wifi
+                ~/.config/cloud-center/settings/theme/dark_mode &&
+                hyprctl reload
+
   - id: appearance
     title: Appearance
     icon: preferences-desktop-appearance-symbolic
@@ -203,11 +224,27 @@ pages:
           - type: online_wallpaper_browser
             properties:
               title: Wallpaper Browser
-              description: Wallhaven API + WallpapersHome scrape
+              description: Browse and download wallpapers
               light_directory: ~/Wallpapers/Light
               dark_directory: ~/Wallpapers/Dark
               wallpapershome_base: https://wallpapershome.com
               height: 420
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Appearance page to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Clear saved theme choices and regenerate from defaults
+              icon: edit-clear-symbolic
+              button_text: Reset
+            on_press:
+              command: >-
+                rm -rf ~/.config/cloud-center/settings/theme &&
+                ~/cloudyy_scripts/theme_controller.sh refresh neutral 0
 
   - id: waybar
     title: Waybar
@@ -316,6 +353,311 @@ pages:
               button_text: Edit
             on_press:
               command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Waybar page to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Reset style, position, and Cloud Center Waybar toggles
+              icon: edit-clear-symbolic
+              button_text: Reset
+            on_press:
+              command: >-
+                rm -f ~/.config/cloud-center/settings/waybar/preset
+                ~/.config/cloud-center/settings/waybar/vertical
+                ~/.config/cloud-center/settings/waybar/right_side &&
+                ~/cloudyy_scripts/waybar/switch_style.sh default &&
+                ~/cloudyy_scripts/waybar/set_position.sh left &&
+                (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)
+
+  - id: input
+    title: Input
+    icon: input-keyboard-symbolic
+    layout:
+      - type: section
+        properties:
+          title: Keyboard
+          description: Layout and repeat behavior
+        items:
+          - type: selection
+            properties:
+              title: Keyboard Layout
+              description: XKB layout
+              icon: input-keyboard-symbolic
+              key: input/kb_layout
+              options:
+                - us
+                - gb
+                - de
+                - fr
+                - es
+                - it
+            on_change:
+              command: >-
+                hyprctl keyword input:kb_layout {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:kb_layout {value}
+
+          - type: selection
+            properties:
+              title: Keyboard Variant
+              description: XKB variant
+              icon: preferences-desktop-keyboard-symbolic
+              key: input/kb_variant
+              options:
+                - basic
+                - intl
+                - altgr-intl
+                - dvorak
+                - colemak
+              options_map:
+                basic: ""
+                intl: intl
+                altgr-intl: altgr-intl
+                dvorak: dvorak
+                colemak: colemak
+            on_change:
+              command: >-
+                V="{value}"; [ "$V" = "basic" ] && V="";
+                hyprctl keyword input:kb_variant "$V" &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:kb_variant "$V"
+
+          - type: slider
+            properties:
+              title: Repeat Delay
+              description: Delay before key repeat starts (ms)
+              icon: media-playback-pause-symbolic
+              key: input/repeat_delay
+              min: 150
+              max: 1000
+              step: 10
+              default: 300
+            on_change:
+              command: >-
+                hyprctl keyword input:repeat_delay {value_i} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:repeat_delay {value_i}
+
+          - type: slider
+            properties:
+              title: Repeat Rate
+              description: Key repeats per second
+              icon: media-playback-start-symbolic
+              key: input/repeat_rate
+              min: 10
+              max: 80
+              step: 1
+              default: 30
+            on_change:
+              command: >-
+                hyprctl keyword input:repeat_rate {value_i} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:repeat_rate {value_i}
+
+          - type: toggle
+            properties:
+              title: NumLock by Default
+              description: Enable NumLock on session start
+              icon: preferences-desktop-keyboard-symbolic
+              key: input/numlock_by_default
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword input:numlock_by_default true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:numlock_by_default true
+              disabled:
+                command: >-
+                  hyprctl keyword input:numlock_by_default false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:numlock_by_default false
+
+      - type: section
+        properties:
+          title: Mouse
+          description: Pointer behavior and acceleration
+        items:
+          - type: slider
+            properties:
+              title: Sensitivity
+              description: Pointer sensitivity (-1.00 to 1.00)
+              icon: input-mouse-symbolic
+              key: input/sensitivity
+              min: -100
+              max: 100
+              step: 1
+              default: 0
+            on_change:
+              command: >-
+                V=$(echo "scale=2; {value}/100" | bc) &&
+                hyprctl keyword input:sensitivity $V &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:sensitivity $V
+
+          - type: selection
+            properties:
+              title: Acceleration Profile
+              description: Mouse acceleration profile
+              icon: input-mouse-symbolic
+              key: input/accel_profile
+              options:
+                - adaptive
+                - flat
+            on_change:
+              command: >-
+                hyprctl keyword input:accel_profile {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:accel_profile {value}
+
+          - type: selection
+            properties:
+              title: Follow Mouse
+              description: Focus follows mouse behavior
+              icon: focus-windows-symbolic
+              key: input/follow_mouse
+              options:
+                - disabled
+                - enabled
+                - always
+              options_map:
+                disabled: 0
+                enabled: 1
+                always: 2
+            on_change:
+              command: >-
+                hyprctl keyword input:follow_mouse {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:follow_mouse {value}
+
+      - type: section
+        properties:
+          title: Touchpad
+          description: Touchpad scrolling and click behavior
+          requires_touchpad: true
+        items:
+          - type: toggle
+            properties:
+              title: Natural Scroll
+              description: Reverse scroll direction
+              icon: input-touchpad-symbolic
+              key: input/touchpad_natural_scroll
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword input:touchpad:natural_scroll true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:natural_scroll true
+              disabled:
+                command: >-
+                  hyprctl keyword input:touchpad:natural_scroll false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:natural_scroll false
+
+          - type: toggle
+            properties:
+              title: Disable While Typing
+              description: Prevent accidental palm movement while typing
+              icon: input-touchpad-symbolic
+              key: input/touchpad_disable_while_typing
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword input:touchpad:disable_while_typing true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:disable_while_typing true
+              disabled:
+                command: >-
+                  hyprctl keyword input:touchpad:disable_while_typing false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:disable_while_typing false
+
+          - type: toggle
+            properties:
+              title: Tap to Click
+              description: Tap the touchpad to click
+              icon: input-touchpad-symbolic
+              key: input/touchpad_tap_to_click
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword input:touchpad:tap-to-click true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:tap-to-click true
+              disabled:
+                command: >-
+                  hyprctl keyword input:touchpad:tap-to-click false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:tap-to-click false
+
+          - type: selection
+            properties:
+              title: Clickfinger Behavior
+              description: Multi-finger click mapping
+              icon: input-touchpad-symbolic
+              key: input/touchpad_clickfinger_behavior
+              options:
+                - disabled
+                - enabled
+              options_map:
+                disabled: false
+                enabled: true
+            on_change:
+              command: >-
+                hyprctl keyword input:touchpad:clickfinger_behavior {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:clickfinger_behavior {value}
+
+          - type: toggle
+            properties:
+              title: Middle Button Emulation
+              description: Emulate middle click with combined tap
+              icon: input-touchpad-symbolic
+              key: input/touchpad_middle_button_emulation
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword input:touchpad:middle_button_emulation true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:middle_button_emulation true
+              disabled:
+                command: >-
+                  hyprctl keyword input:touchpad:middle_button_emulation false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:middle_button_emulation false
+
+          - type: slider
+            properties:
+              title: Scroll Factor
+              description: Touchpad scroll multiplier (0.50 to 2.00)
+              icon: input-touchpad-symbolic
+              key: input/touchpad_scroll_factor
+              min: 50
+              max: 200
+              step: 1
+              default: 100
+            on_change:
+              command: >-
+                V=$(echo "scale=2; {value}/100" | bc) &&
+                hyprctl keyword input:touchpad:scroll_factor $V &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:scroll_factor $V
+
+      - type: section
+        properties:
+          title: Input Config
+          description: Advanced options and raw config access
+        items:
+          - type: button
+            properties:
+              title: Edit input.conf (Raw)
+              description: Open Cloud Center generated input overrides file
+              icon: text-editor-symbolic
+              button_text: Edit
+            on_press:
+              command: >-
+                mkdir -p ~/.config/hypr/user-configs &&
+                touch ~/.config/hypr/user-configs/user_input.conf &&
+                kitty --class hypr-input-editor -e $EDITOR ~/.config/hypr/user-configs/user_input.conf
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Input page to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Remove Cloud Center input overrides from Hyprland
+              icon: edit-clear-symbolic
+              button_text: Reset
+            on_press:
+              command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page input
 
   - id: hyprland
     title: Hyprland
@@ -511,4 +853,18 @@ pages:
               icon: media-playback-start-symbolic
               button_text: Open
               action: bezier_editor
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Hyprland page overrides to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Remove all Cloud Center Hyprland visual overrides
+              icon: edit-clear-symbolic
+              button_text: Reset
+            on_press:
+              command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page hyprland
 

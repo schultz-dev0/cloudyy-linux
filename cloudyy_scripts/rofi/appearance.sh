@@ -157,7 +157,7 @@ show_appearance_menu() {
 
   local choice
   choice=$(menu "Theme: $DISPLAY_MODE" \
-    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰎨 Color Profile")
+    "󰔎 Toggle Mode\n󰸉 Select Wallpaper\n󰑕 Next Wallpaper\n󰎨 Color Profile\n󰔄 Theme Cycle")
 
   case "$choice" in
   *"Toggle Mode"*)
@@ -173,6 +173,9 @@ show_appearance_menu() {
     ;;
   *"Color Profile"*)
     show_color_menu
+    ;;
+  *"Theme Cycle"*)
+    exec "${ROFI_DIR}/cycle.sh"
     ;;
   *) back_to_main ;;
   esac

@@ -18,6 +18,8 @@ from __future__ import annotations
 import logging
 import sys
 import os
+import json
+import subprocess
 from pathlib import Path
 
 # ── XDG pycache before any local imports ─────────────────────────────────────
@@ -126,6 +128,49 @@ def read_theme_mode() -> str:
     return "dark"
 
 
+def detect_touchpad() -> bool:
+    """Best-effort touchpad detection across Hyprland/libinput/kernel sources."""
+    # 1) Hyprland JSON devices (preferred when compositor is running).
+    try:
+        r = subprocess.run(
+            ["hyprctl", "devices", "-j"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            data = json.loads(r.stdout)
+            for dev in data.get("mice", []):
+                name = str(dev.get("name", "")).lower()
+                if "touchpad" in name:
+                    return True
+    except Exception:
+        pass
+
+    # 2) libinput listing.
+    try:
+        r = subprocess.run(
+            ["libinput", "list-devices"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if r.returncode == 0 and "touchpad" in r.stdout.lower():
+            return True
+    except Exception:
+        pass
+
+    # 3) Kernel input devices fallback.
+    try:
+        txt = Path("/proc/bus/input/devices").read_text(encoding="utf-8", errors="ignore")
+        if "touchpad" in txt.lower():
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
 # =============================================================================
 # MAIN WINDOW
 # =============================================================================
@@ -139,6 +184,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._config   = load_config()
         self._toast_ov = Adw.ToastOverlay()
         self._ctx      = RowContext(self._toast_ov)
+        self._has_touchpad = detect_touchpad()
 
         # All searchable items: (title, subtitle, widget_builder)
         self._search_index: list[dict] = []
@@ -301,6 +347,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         """Build the search results page (empty until user types)."""
         self._search_group = Adw.PreferencesGroup()
         self._search_group.set_title("Search Results")
+        self._search_rows: list[Gtk.Widget] = []
 
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         page_box.set_margin_start(16)
@@ -356,17 +403,25 @@ class CloudCenterWindow(Adw.ApplicationWindow):
     def _build_page_content(self, page_cfg: dict) -> Gtk.Widget:
         """Build an Adw.PreferencesPage from YAML layout."""
         pref_page = Adw.PreferencesPage()
+        page_id = page_cfg.get("id", "")
         pref_page.set_title(page_cfg.get("title", ""))
 
         for section_cfg in page_cfg.get("layout", []):
-            group = self._build_section(section_cfg)
+            group = self._build_section(section_cfg, page_id)
             if group:
                 pref_page.add(group)
 
         return pref_page
 
-    def _build_section(self, section_cfg: dict) -> Adw.PreferencesGroup | None:
+    def _build_section(self, section_cfg: dict, page_id: str = "") -> Adw.PreferencesGroup | None:
         props = section_cfg.get("properties", {})
+
+        # Hide touchpad controls when no touchpad is present.
+        if props.get("requires_touchpad", False) and not self._has_touchpad:
+            return None
+        if page_id == "input" and str(props.get("title", "")).strip().lower() == "touchpad" and not self._has_touchpad:
+            return None
+
         group = Adw.PreferencesGroup()
 
         if title := props.get("title"):
@@ -473,9 +528,13 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             Gtk.Label(label=f'Results for "{query}"')
         )
 
-        # Clear previous results
-        while child := self._search_group.get_first_child():
-            self._search_group.remove(child)
+        # Clear previous results (only rows we actually added).
+        for row in self._search_rows:
+            try:
+                self._search_group.remove(row)
+            except Exception:
+                pass
+        self._search_rows.clear()
 
         ql = query.lower()
         matched = 0
@@ -484,6 +543,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
                 widget = rows.build_row(entry["item"], self._ctx)
                 if widget:
                     self._search_group.add(widget)
+                    self._search_rows.append(widget)
                     matched += 1
                 if matched >= 50:
                     break
@@ -495,6 +555,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             )
             placeholder.add_css_class("dim-label")
             self._search_group.add(placeholder)
+            self._search_rows.append(placeholder)
 
         return GLib.SOURCE_REMOVE
 

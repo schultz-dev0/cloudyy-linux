@@ -322,13 +322,20 @@ class SelectionRow(Adw.ComboRow, _ManagedRow):
         value = self._options[idx]
         mapped = self._options_map.get(value, value)
 
+        # YAML mappings may provide ints/bools; command templates need strings.
+        if isinstance(mapped, bool):
+            mapped_text = "true" if mapped else "false"
+        else:
+            mapped_text = str(mapped)
+        value_text = str(value)
+
         if self._key:
             threading.Thread(
                 target=utility.save_setting, args=(self._key, value), daemon=True
             ).start()
 
         if self._cmd_template:
-            cmd = self._cmd_template.replace("{value}", mapped).replace("{option}", value)
+            cmd = self._cmd_template.replace("{value}", mapped_text).replace("{option}", value_text)
             utility.execute_command(cmd)
 
     def do_unroot(self) -> None:
@@ -457,6 +464,8 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
     def _build_widget(self, props: dict) -> None:
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         outer.add_css_class("wallpaper-picker-box")
+        self._outer = outer
+        self._empty_label: Gtk.Label | None = None
 
         # ── Header row ────────────────────────────────────────────────────────
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -588,12 +597,18 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
         if parent:
             parent.remove(self._spinner)
 
+        # Remove any previous empty-state label when repopulating.
+        if self._empty_label is not None and self._empty_label.get_parent() is self._outer:
+            self._outer.remove(self._empty_label)
+            self._empty_label = None
+
         if not paths:
             empty = Gtk.Label(label=f"No wallpapers found in\n{self._directory}")
             empty.add_css_class("dim-label")
             empty.set_margin_top(16)
             empty.set_margin_bottom(16)
-            self._flow.get_parent().get_parent().append(empty)  # outer box
+            self._outer.append(empty)
+            self._empty_label = empty
             return GLib.SOURCE_REMOVE
 
         # Load each thumbnail in its own thread to avoid blocking UI

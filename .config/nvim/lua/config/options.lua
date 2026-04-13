@@ -3,6 +3,7 @@
 -- Add any additional options here
 --
 -- Load Matugen-generated mode (sets vim.opt.background to light/dark) when available.
+-- vim.opt.clipboard = "unnamedplus"
 pcall(require, "current_mode")
 
 -- Remove default float/window borders for a cleaner look.
