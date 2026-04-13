@@ -195,6 +195,16 @@ def _rewrite_source_line(original: Path, user_copy: Path) -> None:
     tmp.replace(HYPRLAND_CONF)
 
 
+def ensure_user_config_sourced(user_conf: Path) -> bool:
+    """Ensure hyprland.conf sources a file from ~/.config/hypr/user-configs/."""
+    try:
+        _rewrite_source_line(user_conf, user_conf)
+        return True
+    except Exception as e:
+        log.warning("Could not ensure source line for %s: %s", user_conf, e)
+        return False
+
+
 def revert_to_distro(cf: ConfigFile) -> tuple[bool, str]:
     """
     Delete the user override copy and rewrite hyprland.conf to source the

@@ -266,7 +266,17 @@ class SliderRow(Adw.ActionRow, _ManagedRow):
                 target=utility.save_setting, args=(self._key, value), daemon=True
             ).start()
         if self._cmd_template:
-            cmd = self._cmd_template.replace("{value}", str(int(value))).replace("{value_f}", f"{value:.2f}")
+            # Keep integer-like values compact, but preserve decimals for fine sliders.
+            if float(value).is_integer():
+                value_text = str(int(value))
+            else:
+                value_text = f"{value:.3f}".rstrip("0").rstrip(".")
+            cmd = (
+                self._cmd_template
+                .replace("{value}", value_text)
+                .replace("{value_i}", str(int(round(value))))
+                .replace("{value_f}", f"{value:.2f}")
+            )
             utility.execute_command(cmd)
         return GLib.SOURCE_REMOVE
 
