@@ -1,6 +1,10 @@
-# Path to your Oh My Zsh installation.
+ZSH_DISABLE_COMPFIX=true
+
 export ZSH="$HOME/.config/zsh/oh-my-zsh"
+export ZSH_COMPDUMP="$HOME/.config/zsh/.zcompdump"
 HISTFILE="$HOME/.config/zsh/.zsh_history"
+
+DISABLE_AUTO_UPDATE=true
 
 plugins=(
   git
@@ -9,25 +13,22 @@ plugins=(
 
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#888888'
 
-if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" -eq 1 ]; then
-  exec Hyprland
-fi
-
-export ZSH_COMPDUMP="$ZDOTDIR/.zcompdump"
-
 source $ZSH/oh-my-zsh.sh
+
+STARSHIP_CACHE="$HOME/.cache/starship_init.zsh"
+if [[ ! -f "$STARSHIP_CACHE" ]]; then
+  starship init zsh > "$STARSHIP_CACHE"
+fi
+source "$STARSHIP_CACHE"
+
+# Path management
+
+typeset -U path
+path=("$HOME/.local/bin" "$HOME/cloudyy_scripts/cloudyy-other/" "$HOME/cloudyy_scripts/" $path)
 
 # personlisation
 
-eval "$(starship init zsh)"
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f $ZDOTDIR/.p10k.zsh ]] || source $ZDOTDIR/.p10k.zsh
 export EDITOR="nvim"
-
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/cloudyy_scripts/cloudyy-other/:$PATH"
-
 
 # aliases #
 
@@ -44,8 +45,6 @@ alias hyprbinds='nvim ~/dots/.config/hypr/source/bindings.conf'
 alias windows='~/cloudyy_scripts/offtowindows.sh'
 alias gparted='sudo -E gparted'
 alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
-
-
 
 # browser tabs #
 
@@ -68,16 +67,14 @@ alias reboot='sudo shutdown -r now'
 alias seeya='hyprctl dispatch exit'
 
 
-
 # --- Top Left Startup Logo ---
-if [[ "$TERM" == "xterm-kitty" ]]; then
+if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" ]]; then
     IMG_H=$((LINES / 3))
-    IMG_W=$((IMG_H / 1))
-
-    printf '\n%.0s' $(seq 1 $IMG_H)
+    # Removed the 'seq' call and used zsh brace expansion for speed
+    printf '\n%.0s' {1..$IMG_H}
     printf "\033[${IMG_H}A\033[0G"
     kitty +kitten icat \
-        --place "${IMG_W}x${IMG_H}@0x0" \
+        --place "${IMG_H}x${IMG_H}@0x0" \
         --scale-up \
         --transfer-mode file \
         --silent \
@@ -88,7 +85,6 @@ fi
 if uwsm check may-start && uwsm select; then
     exec uwsm start default
 fi
-
 
 
 

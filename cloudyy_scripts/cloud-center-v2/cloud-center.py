@@ -56,6 +56,7 @@ import lib.monitor_editor as monitor_editor
 import lib.edit_dialog as edit_dialog
 import lib.bluetooth_page as bluetooth_page
 import lib.wifi_page as wifi_page
+import lib.audio_page as audio_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -73,6 +74,21 @@ MATUGEN_COLORS  = MATUGEN_DIR / "colors.css"
 THEME_STATE     = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
 SEARCH_DEBOUNCE = 200   # ms
 SIDEBAR_WIDTH   = 200   # px
+
+CLI_PAGE_ALIASES: dict[str, str] = {
+    "home": "home",
+    "appearance": "appearance",
+    "waybar": "waybar",
+    "hyprland": "hyprland",
+    "input": "input",
+    "wifi": "__wifi__",
+    "bluetooth": "__bt__",
+    "monitors": "__mon__",
+    "monitor": "__mon__",
+    "audio": "__audio__",
+    "keybind-manager": "__hkbm__",
+    "keybinds": "__hkbm__",
+}
 
 
 # ── Nerd Font icon helper ─────────────────────────────────────────────────────
@@ -222,7 +238,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self.set_content(self._toast_ov)
 
     def _build_sidebar(self) -> Gtk.Widget:
-        """Build a flat sidebar navigation list."""
+        """Build sidebar navigation with category headers."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         box.add_css_class("sidebar-surface")
 
@@ -253,7 +269,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._search_entry.connect("stop-search", self._on_search_stop)
         box.append(self._search_entry)
 
-        # Flat nav list — all pages then built-in manager pages
+        # Categorized nav list
         scroll = Gtk.ScrolledWindow()
         scroll.add_css_class("sidebar-surface")
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -265,26 +281,50 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._nav_list.add_css_class("sidebar-nav-list")
         self._nav_list.connect("row-selected", self._on_nav_row_selected)
 
-        for page in self._config.get("pages", []):
-            self._nav_list.append(self._make_nav_row(page))
+        yaml_pages = {
+            p.get("id"): p for p in self._config.get("pages", []) if p.get("id")
+        }
+        builtins = {
+            "__mon__": {"id": "__mon__", "title": "Monitors", "icon": "video-display-symbolic"},
+            "__bt__": {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"},
+            "__wifi__": {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"},
+            "__audio__": {"id": "__audio__", "title": "Audio", "icon": "audio-speakers-symbolic"},
+            "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
+        }
+        categories: list[tuple[str, list[str]]] = [
+            ("Home", ["home"]),
+            ("Visuals", ["appearance", "waybar", "hyprland"]),
+            ("System", ["input", "__mon__", "__bt__", "__wifi__", "__audio__"]),
+            ("Tools", ["__hkbm__"]),
+        ]
 
-        self._nav_list.append(self._make_nav_row(
-            {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"}
-        ))
-        self._nav_list.append(self._make_nav_row(
-            {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"}
-        ))
-        self._nav_list.append(self._make_nav_row(
-            {"id": "__mon__", "title": "Monitors", "icon": "video-display-symbolic"}
-        ))
-        self._nav_list.append(self._make_nav_row(
-            {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"}
-        ))
+        for title, ids in categories:
+            self._nav_list.append(self._make_nav_category_row(title))
+            for page_id in ids:
+                page = yaml_pages.get(page_id) or builtins.get(page_id)
+                if page:
+                    self._nav_list.append(self._make_nav_row(page))
 
         scroll.set_child(self._nav_list)
         box.append(scroll)
 
         return box
+
+    def _make_nav_category_row(self, title: str) -> Gtk.ListBoxRow:
+        row = Gtk.ListBoxRow()
+        row.set_selectable(False)
+        row.set_activatable(False)
+        row.add_css_class("sidebar-category-row")
+
+        label = Gtk.Label(label=title)
+        label.set_xalign(0)
+        label.add_css_class("sidebar-category-label")
+        label.set_margin_start(12)
+        label.set_margin_end(12)
+        label.set_margin_top(12)
+        label.set_margin_bottom(4)
+        row.set_child(label)
+        return row
 
     def _make_nav_row(self, page: dict) -> Gtk.ListBoxRow:
         """Create a single navigation row."""
@@ -390,6 +430,10 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         hkbm_page.set_vexpand(True)
         self._stack.add_named(hkbm_page, "__hkbm__")
 
+        au_page = audio_page.AudioPage(self._toast_ov)
+        au_page.set_vexpand(True)
+        self._stack.add_named(au_page, "__audio__")
+
         # Select first YAML page if available
         if pages:
             first_pid = pages[0].get("id", pages[0].get("title", "").lower())
@@ -484,6 +528,19 @@ class CloudCenterWindow(Adw.ApplicationWindow):
                     child = child.get_next_sibling()
                 if children:
                     self._content_header.set_title_widget(Gtk.Label(label=""))
+
+    def navigate_to_page(self, page_id: str) -> bool:
+        """Navigate to a page id and keep sidebar selection in sync."""
+        if not page_id:
+            return False
+        if self._stack.get_child_by_name(page_id) is None:
+            return False
+        self._search_entry.set_text("")
+        self._stack.set_visible_child_name(page_id)
+        row = self._nav_rows.get(page_id)
+        if row and self._nav_list is not None:
+            self._nav_list.select_row(row)
+        return True
     
     def _on_nav_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
         """Handle row selection in the sidebar nav list."""
@@ -592,7 +649,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         
         # Store current visible page
         visible_name = self._stack.get_visible_child_name()
-        _manager_ids = {"__search__", "__mon__", "__hkbm__", "__bt__", "__wifi__"}
+        _manager_ids = {"__search__", "__mon__", "__hkbm__", "__bt__", "__wifi__", "__audio__"}
         visible_pid = visible_name if visible_name not in _manager_ids else None
 
         # Clear stack pages
@@ -630,6 +687,52 @@ class CloudCenter(Adw.Application):
         self._matugen_monitors: list[Gio.FileMonitor] = []
         self._matugen_debounce: int = 0
         self._app_provider: Gtk.CssProvider | None = None
+        self._requested_page: str | None = None
+        self._register_cli_options()
+
+    def _register_cli_options(self) -> None:
+        self.add_main_option(
+            "page", ord("p"), GLib.OptionFlags.NONE, GLib.OptionArg.STRING,
+            "Open a specific Cloud Center page", "PAGE",
+        )
+        flag_specs = [
+            ("home", "Open Home page"),
+            ("appearance", "Open Appearance page"),
+            ("waybar", "Open Waybar page"),
+            ("hyprland", "Open Hyprland page"),
+            ("input", "Open Input page"),
+            ("wifi", "Open Wi-Fi page"),
+            ("bluetooth", "Open Bluetooth page"),
+            ("monitors", "Open Monitors page"),
+            ("audio", "Open Audio page"),
+            ("keybind-manager", "Open Keybind Manager page"),
+            ("keybinds", "Open Keybind Manager page"),
+        ]
+        for opt, desc in flag_specs:
+            self.add_main_option(
+                opt,
+                0,
+                GLib.OptionFlags.NONE,
+                GLib.OptionArg.NONE,
+                desc,
+                None,
+            )
+
+    def do_handle_local_options(self, options: GLib.VariantDict) -> int:
+        page_variant = options.lookup_value("page", GLib.VariantType.new("s"))
+        if page_variant is not None:
+            requested = page_variant.get_string().strip().lower()
+            self._requested_page = CLI_PAGE_ALIASES.get(requested, requested)
+
+        for flag in (
+            "home", "appearance", "waybar", "hyprland", "input",
+            "wifi", "bluetooth", "monitors", "audio", "keybind-manager", "keybinds",
+        ):
+            if options.contains(flag):
+                self._requested_page = CLI_PAGE_ALIASES.get(flag, flag)
+
+        # Continue normal activation.
+        return -1
 
     def do_activate(self) -> None:
         if self._window is None:
@@ -639,6 +742,8 @@ class CloudCenter(Adw.Application):
             self._apply_theme_mode()
             self._load_css()
             self._start_matugen_watcher()
+        if self._requested_page and not self._window.navigate_to_page(self._requested_page):
+            log.warning("Unknown page target requested: %s", self._requested_page)
         self._window.present()
 
     def _apply_theme_mode(self) -> None:

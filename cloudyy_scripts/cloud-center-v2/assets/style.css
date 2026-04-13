@@ -87,6 +87,27 @@ list.sidebar-surface {
   background: alpha(@accent_color, 0.22);
 }
 
+.sidebar-category-row {
+  background: transparent;
+  border-radius: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.sidebar-category-row:hover,
+.sidebar-category-row:selected,
+.sidebar-category-row:active {
+  background: transparent;
+}
+
+.sidebar-category-label {
+  color: alpha(@window_fg_color, 0.45);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* ── Nerd Font icons ─────────────────────────────────────────────────────── */
 
 .nerd-icon {
