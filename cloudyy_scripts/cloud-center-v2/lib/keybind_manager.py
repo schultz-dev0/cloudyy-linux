@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import tempfile
 import subprocess
 import threading
@@ -26,8 +27,13 @@ log = logging.getLogger(__name__)
 
 HYPR_DIR = Path.home() / ".config" / "hypr"
 HYPRLAND_CONF = HYPR_DIR / "hyprland.conf"
-KEYBINDS_CONF = HYPR_DIR / "hyprland-keybinds-cloud-center.conf"
-_KEYBINDS_TILDE = "~/.config/hypr/hyprland-keybinds-cloud-center.conf"
+KEYBINDS_CONF = hcm.USER_DIR / "user_bindings.conf"
+_KEYBINDS_TILDE = "~/.config/hypr/user-configs/user_bindings.conf"
+_SOURCE_BINDINGS = hcm.SOURCE_DIR / "bindings.conf"
+
+# Marker lines that delimit the Cloud Center-managed section within user_bindings.conf
+_CC_BEGIN = "# --- Cloud Center Additions (managed by Cloud Center) ---"
+_CC_END   = "# --- End Cloud Center Additions ---"
 
 
 # ── Dispatcher categories (HyprMod-inspired) ──────────────────────────────
@@ -333,63 +339,78 @@ def _scan_file(
 
 
 def _ensure_keybinds_conf() -> None:
-    """Create hyprland-keybinds-cloud-center.conf if it doesn't exist."""
+    """Ensure user_bindings.conf exists and hyprland.conf sources it.
+
+    If source/bindings.conf exists, uses hcm.switch_to_user_copy() which:
+      - Copies source/bindings.conf → user-configs/user_bindings.conf
+      - Replaces the 'source = .../source/bindings.conf' line in hyprland.conf
+        with 'source = ~/.config/hypr/user-configs/user_bindings.conf'
+    Then appends the CC marker section if not yet present.
+    If no source file, creates a minimal stub and appends a source line.
+    """
     if KEYBINDS_CONF.exists():
+        # Ensure the marker section exists even in pre-existing files
+        text = KEYBINDS_CONF.read_text(encoding="utf-8")
+        if _CC_BEGIN not in text:
+            with open(KEYBINDS_CONF, "a", encoding="utf-8") as f:
+                f.write(f"\n{_CC_BEGIN}\n{_CC_END}\n")
+        # Still make sure it is sourced in hyprland.conf
+        hcm.ensure_user_config_sourced(KEYBINDS_CONF)
         return
-    KEYBINDS_CONF.parent.mkdir(parents=True, exist_ok=True)
-    KEYBINDS_CONF.write_text(
-        "# Cloud Center — managed keybind overrides\n"
-        "# Original keybinds remain in your own config files.\n"
-        "# This file only stores unbind/bind lines for overrides.\n",
-        encoding="utf-8",
-    )
-    log.info("Created %s", KEYBINDS_CONF)
+
+    hcm.USER_DIR.mkdir(parents=True, exist_ok=True)
+
+    if _SOURCE_BINDINGS.exists():
+        # Use hcm to copy source file and rewrite the source line atomically
+        fake_cf = hcm.ConfigFile(
+            filename=_SOURCE_BINDINGS.name,
+            path=_SOURCE_BINDINGS,
+            description="Hyprland keybindings",
+            status=hcm.FileStatus.DISTRO,
+        )
+        hcm.switch_to_user_copy(fake_cf)
+        log.info("Created user_bindings.conf from source/bindings.conf")
+    else:
+        # No source file — create a minimal stub
+        KEYBINDS_CONF.write_text(
+            "# Cloud Center — user keybind additions\n"
+            "# Original keybinds remain in your hyprland source configs.\n",
+            encoding="utf-8",
+        )
+        hcm.ensure_user_config_sourced(KEYBINDS_CONF)
+        log.info("Created stub %s (no source/bindings.conf found)", KEYBINDS_CONF)
+
+    # Append the CC marker section
+    with open(KEYBINDS_CONF, "a", encoding="utf-8") as f:
+        f.write(f"\n{_CC_BEGIN}\n{_CC_END}\n")
 
 
 def _ensure_source_line() -> None:
-    """Ensure hyprland.conf sources hyprland-keybinds-cloud-center.conf.
-
-    Uses the same atomic-write pattern as hcm._rewrite_source_line so the
-    hyprland.conf is never left in a half-written state.
-    """
+    """Compatibility shim — delegate to _ensure_keybinds_conf."""
     _ensure_keybinds_conf()
-    if not HYPRLAND_CONF.exists():
-        return
-    try:
-        # Check if already sourced (resolve symlinks so dotfile repos work)
-        active = hcm._active_source_paths()
-        try:
-            resolved = KEYBINDS_CONF.resolve()
-        except OSError:
-            resolved = KEYBINDS_CONF
-        if resolved in active:
-            return
 
-        # Append a new source line — atomic write via .tmp rename
-        lines = HYPRLAND_CONF.read_text(encoding="utf-8").splitlines(keepends=True)
-        lines.append(f"\n# Cloud Center — managed keybinds\nsource = {_KEYBINDS_TILDE}\n")
 
-        tmp = Path(str(HYPRLAND_CONF) + ".tmp")
-        tmp.write_text("".join(lines), encoding="utf-8")
-        tmp.replace(HYPRLAND_CONF)
-        log.info("Added source line for %s to hyprland.conf", KEYBINDS_CONF.name)
-    except Exception as e:
-        log.warning("Could not ensure source line in hyprland.conf: %s", e)
+def _read_cc_section(text: str) -> str:
+    """Extract the text between the CC marker lines (exclusive of markers)."""
+    m = re.search(
+        re.escape(_CC_BEGIN) + r"\n(.*?)" + re.escape(_CC_END),
+        text,
+        re.DOTALL,
+    )
+    return m.group(1) if m else ""
 
 
 def scan_keybinds() -> list[KeybindEntry]:
     """Load keybinds with variable expansion and proper bindd handling.
 
     Sources:
-    - KEYBINDS_CONF (hyprland-keybinds-cloud-center.conf) → owned
-    - user_keybinds.conf (manual user file)               → locked (visible, not editable)
-    - source/ config files (distro / user overrides)      → locked
+    - Lines AFTER _CC_BEGIN marker in user_bindings.conf  → owned (CC-managed)
+    - Lines BEFORE _CC_BEGIN marker in user_bindings.conf → locked (distro base copy)
+    - Other source/ config files (not bindings.conf)      → locked
     """
     _ensure_keybinds_conf()
-    _ensure_source_line()
 
-    # Build variable map; also pass user_bindings.conf so inline vars like
-    # $scripts are resolved too.
+    # Build variable map; pass all user conf files so $vars resolve.
     extra_var_files: list[Path] = []
     for cf in hcm.scan_config_files():
         user_name = cf.filename if cf.filename.startswith("user_") else f"user_{cf.filename}"
@@ -398,27 +419,48 @@ def scan_keybinds() -> list[KeybindEntry]:
     variables = _load_variables(extra_var_files)
 
     keybinds_resolved = KEYBINDS_CONF.resolve() if KEYBINDS_CONF.exists() else KEYBINDS_CONF
-    owned = _scan_file(KEYBINDS_CONF, owned=True, variables=variables)
-    owned_combos = {e.combo for e in owned}
-
-    locked: list[KeybindEntry] = []
     seen_paths: set[Path] = {keybinds_resolved}
 
-    # user_keybinds.conf — manually managed, show as locked reference
-    user_keybinds = hcm.USER_DIR / "user_keybinds.conf"
-    if user_keybinds.exists():
-        try:
-            resolved = user_keybinds.resolve()
-        except OSError:
-            resolved = user_keybinds
-        if resolved not in seen_paths:
-            seen_paths.add(resolved)
-            for e in _scan_file(user_keybinds, owned=False, variables=variables):
-                if e.combo not in owned_combos:
-                    locked.append(e)
+    owned: list[KeybindEntry] = []
+    locked_from_base: list[KeybindEntry] = []
 
-    # source/ config files (distro originals / user overrides)
+    if KEYBINDS_CONF.exists():
+        full_text = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace")
+        cc_section = _read_cc_section(full_text)
+
+        # Owned = bind lines inside the CC section
+        for raw in cc_section.splitlines():
+            parsed = _parse_bind_line(raw, variables=variables)
+            if parsed is None:
+                continue
+            mods, key, combo, bind_type, dispatcher, args = parsed
+            owned.append(KeybindEntry(
+                mods=mods, key=key, combo=combo, bind_type=bind_type,
+                dispatcher=dispatcher, args=args, raw_line=raw.strip(),
+                owned=True, source_name=KEYBINDS_CONF.name,
+            ))
+
+        # Locked = bind lines before the CC BEGIN marker (distro base)
+        before_marker = full_text.split(_CC_BEGIN)[0]
+        for raw in before_marker.splitlines():
+            parsed = _parse_bind_line(raw, variables=variables)
+            if parsed is None:
+                continue
+            mods, key, combo, bind_type, dispatcher, args = parsed
+            locked_from_base.append(KeybindEntry(
+                mods=mods, key=key, combo=combo, bind_type=bind_type,
+                dispatcher=dispatcher, args=args, raw_line=raw.strip(),
+                owned=False, source_name=KEYBINDS_CONF.name,
+            ))
+
+    owned_combos = {e.combo for e in owned}
+    locked: list[KeybindEntry] = list(locked_from_base)
+    locked_combos = {e.combo for e in locked_from_base}
+
+    # Additional source/ config files (excluding user_bindings.conf itself)
     for cf in hcm.scan_config_files():
+        if cf.filename in ("bindings.conf", "user_bindings.conf"):
+            continue
         user_name = cf.filename if cf.filename.startswith("user_") else f"user_{cf.filename}"
         user_path = hcm.USER_DIR / user_name
         parse_path = user_path if user_path.exists() else cf.path
@@ -430,7 +472,7 @@ def scan_keybinds() -> list[KeybindEntry]:
             continue
         seen_paths.add(resolved)
         for e in _scan_file(parse_path, owned=False, variables=variables):
-            if e.combo not in owned_combos:
+            if e.combo not in owned_combos and e.combo not in locked_combos:
                 locked.append(e)
 
     merged = owned + locked
@@ -438,52 +480,69 @@ def scan_keybinds() -> list[KeybindEntry]:
     return merged
 
 
-def add_keybind(entry: KeybindEntry) -> tuple[bool, str]:
-    """Append a new keybind to user_keybinds.conf."""
+def _write_cc_section(lines_to_write: list[str]) -> None:
+    """Replace the CC-managed section in user_bindings.conf with new lines."""
     _ensure_keybinds_conf()
-    existing = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace")
-    line = _entry_to_line(entry)
-    text = existing.rstrip() + "\n" + line + "\n"
-
+    text = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace")
+    cc_content = "\n".join(lines_to_write)
+    if cc_content:
+        cc_content += "\n"
+    if _CC_BEGIN in text:
+        pattern = re.escape(_CC_BEGIN) + r".*?" + re.escape(_CC_END)
+        replacement = f"{_CC_BEGIN}\n{cc_content}{_CC_END}"
+        new_text = re.sub(pattern, replacement, text, flags=re.DOTALL)
+    else:
+        new_text = text.rstrip() + f"\n{_CC_BEGIN}\n{cc_content}{_CC_END}\n"
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(KEYBINDS_CONF.parent))
     with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-        f.write(text)
+        f.write(new_text)
         f.flush()
         os.fsync(f.fileno())
     Path(tmp_path).replace(KEYBINDS_CONF)
+
+
+def _get_cc_lines() -> list[str]:
+    """Return the bind lines currently in the CC-managed section."""
+    if not KEYBINDS_CONF.exists():
+        return []
+    text = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace")
+    cc_text = _read_cc_section(text)
+    return [ln for ln in cc_text.splitlines() if ln.strip()]
+
+
+def add_keybind(entry: KeybindEntry) -> tuple[bool, str]:
+    """Append a new keybind to the CC section of user_bindings.conf."""
+    _ensure_keybinds_conf()
+    lines = _get_cc_lines()
+    lines.append(_entry_to_line(entry))
+    _write_cc_section(lines)
     return True, "keybind added"
 
 
 def remove_keybind(entry: KeybindEntry) -> tuple[bool, str]:
-    """Remove a keybind from user_keybinds.conf."""
+    """Remove a keybind from the CC section of user_bindings.conf."""
     if not KEYBINDS_CONF.exists():
         return False, "keybind config not found"
 
-    lines = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace").splitlines()
-    combo_line = _entry_to_line(entry)
-    out = [line for line in lines if line.strip() != combo_line.strip()]
+    combo_line = _entry_to_line(entry).strip()
+    lines = _get_cc_lines()
+    out = [ln for ln in lines if ln.strip() != combo_line]
 
     if len(out) == len(lines):
         return False, "keybind not found"
 
-    text = "\n".join(out).rstrip() + "\n"
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(KEYBINDS_CONF.parent))
-    with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-        f.write(text)
-        f.flush()
-        os.fsync(f.fileno())
-    Path(tmp_path).replace(KEYBINDS_CONF)
+    _write_cc_section(out)
     return True, "keybind removed"
 
 
 def update_keybind(old_entry: KeybindEntry, new_entry: KeybindEntry) -> tuple[bool, str]:
-    """Replace an existing keybind line in user_keybinds.conf."""
+    """Replace an existing keybind line in the CC section of user_bindings.conf."""
     if not KEYBINDS_CONF.exists():
         return False, "keybind config not found"
 
-    lines = KEYBINDS_CONF.read_text(encoding="utf-8", errors="replace").splitlines()
     old_line = _entry_to_line(old_entry).strip()
     new_line = _entry_to_line(new_entry)
+    lines = _get_cc_lines()
 
     replaced = False
     out: list[str] = []
@@ -497,13 +556,7 @@ def update_keybind(old_entry: KeybindEntry, new_entry: KeybindEntry) -> tuple[bo
     if not replaced:
         return False, "keybind not found"
 
-    text = "\n".join(out).rstrip() + "\n"
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(KEYBINDS_CONF.parent))
-    with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-        f.write(text)
-        f.flush()
-        os.fsync(f.fileno())
-    Path(tmp_path).replace(KEYBINDS_CONF)
+    _write_cc_section(out)
     return True, "keybind updated"
 
 
