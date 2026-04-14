@@ -57,33 +57,18 @@ HYPRLAND_CONF="${HYPR_DIR}/hyprland.conf"
 STATE_FILE="${HYPR_DIR}/.cloud-center-state.json"
 
 python3 - "$MODE" "$ARG1" "$ARG2" "$STATE_FILE" "$USER_CONF" "$ANIM_CONF" "$INPUT_CONF" "$HYPRLAND_CONF" <<'PYEOF'
-import sys, json, os, re, shutil
+import sys, json, os, re
 from pathlib import Path
 from collections import defaultdict
 
-mode            = sys.argv[1]
-arg1            = sys.argv[2]
-arg2            = sys.argv[3]
-state_path      = sys.argv[4]
-conf_path       = sys.argv[5]   # user_lookandfeel.conf
-anim_conf_path  = sys.argv[6]   # user_animations.conf
-input_conf_path = sys.argv[7]   # user_input.conf
-hyprland_path   = sys.argv[8]
-
-HYPR_DIR   = Path(hyprland_path).parent
-SOURCE_DIR = HYPR_DIR / "source"
-USER_DIR   = HYPR_DIR / "user-configs"
-home       = str(Path.home())
-
-# Maps each user-conf path → its counterpart filename in source/
-CONF_SOURCE_MAP = {
-    conf_path:       "lookandfeel.conf",
-    anim_conf_path:  "animations.conf",
-    input_conf_path: "input.conf",
-}
-
-_CC_BEGIN = "# --- Cloud Center Overrides (managed by hypr_persist.sh) ---"
-_CC_END   = "# --- End Cloud Center Overrides ---"
+mode           = sys.argv[1]
+arg1           = sys.argv[2]
+arg2           = sys.argv[3]
+state_path     = sys.argv[4]
+conf_path      = sys.argv[5]
+anim_conf_path = sys.argv[6]
+input_conf_path = sys.argv[7]
+hyprland_path  = sys.argv[8]
 
 # ── Keyword → Hyprland section layout ────────────────────────────────────────
 
@@ -208,10 +193,14 @@ for k, v in state.items():
     else:
         top[section][conf_key] = v
 
+def build_lines(title: str, sections: list[str]) -> list[str]:
+    lines = [
+        title,
+        "# Managed automatically by hypr_persist.sh — do not edit by hand.",
+        "# This file is sourced by hyprland.conf and overrides distro defaults.",
+        "",
+    ]
 
-def build_override_block(sections: list[str]) -> str:
-    """Build the Cloud Center override block (between markers) for given sections."""
-    lines: list[str] = []
     for section in sections:
         if not top.get(section) and not nested.get(section):
             continue
@@ -225,148 +214,98 @@ def build_override_block(sections: list[str]) -> str:
             lines.append("    }")
         lines.append("}")
         lines.append("")
-    return "\n".join(lines)
+    return lines
 
 
-def strip_cc_block(text: str) -> str:
-    """Remove the existing Cloud Center override block (including markers) from text."""
-    pattern = (
-        r"\n?" + re.escape(_CC_BEGIN) + r".*?" + re.escape(_CC_END) + r"[ \t]*\n?"
-    )
-    return re.sub(pattern, "", text, flags=re.DOTALL)
+def write_conf(path: str, lines: list[str]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    if not Path(path).exists():
+        Path(path).touch()
+        print(f"[hypr_persist] created {path}")
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w") as f:
+        f.write("\n".join(lines))
+    os.replace(tmp_path, path)
 
 
-def write_conf(user_path_str: str, sections: list[str]) -> None:
-    """Write (or update) a user conf file: source copy + CC override block."""
-    user_path = Path(user_path_str)
-    USER_DIR.mkdir(parents=True, exist_ok=True)
+main_lines = build_lines(
+    "# Cloud Center — user-configs/user_cloud-center.conf",
+    ["general", "decoration"],
+)
+anim_lines = build_lines(
+    "# Cloud Center — user-configs/user_animations.conf",
+    ["animations"],
+)
+input_lines = build_lines(
+    "# Cloud Center — user-configs/user_input.conf",
+    ["input"],
+)
 
-    source_name = CONF_SOURCE_MAP.get(user_path_str)
-    source_path = SOURCE_DIR / source_name if source_name else None
+write_conf(conf_path, main_lines)
+write_conf(anim_conf_path, anim_lines)
+write_conf(input_conf_path, input_lines)
 
-    # Build override block (may be empty if all settings were reset)
-    override_content = build_override_block(sections)
+print(f"[hypr_persist] wrote {conf_path}")
+print(f"[hypr_persist] wrote {anim_conf_path}")
+print(f"[hypr_persist] wrote {input_conf_path}")
 
-    if source_path and source_path.exists():
-        # First run: copy the source file as the base
-        if not user_path.exists():
-            shutil.copy2(source_path, user_path)
-            print(f"[hypr_persist] copied {source_path} → {user_path}")
-        base = strip_cc_block(user_path.read_text(encoding="utf-8"))
-    else:
-        # No source file — standalone override file
-        if user_path.exists():
-            base = strip_cc_block(user_path.read_text(encoding="utf-8"))
-        else:
-            base = ""
+# ── Ensure hyprland.conf sources user_cloud-center.conf ──────────────────────
+# Mirror the hcm TUI pattern: scan for an existing source line pointing at
+# this file (in either ~ or absolute form); append one if absent.
 
-    if override_content.strip():
-        new_text = base.rstrip() + f"\n{_CC_BEGIN}\n{override_content}{_CC_END}\n"
-    else:
-        # Nothing to override — write clean base (or empty file)
-        new_text = base.rstrip() + "\n" if base.strip() else ""
-
-    tmp_path = user_path_str + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(new_text)
-    os.replace(tmp_path, user_path_str)
-    print(f"[hypr_persist] wrote {user_path_str}")
-
-
-write_conf(conf_path,       ["general", "decoration"])
-write_conf(anim_conf_path,  ["animations"])
-write_conf(input_conf_path, ["input"])
-
-# ── Source-line management in hyprland.conf ───────────────────────────────────
-# For each user conf, find the existing "source = .../source/<name>.conf" line
-# and REPLACE it with "source = ~/.config/hypr/user-configs/user_<name>.conf".
-# If no such line exists, append a new source line.
-# Also handle migration from the old user_cloud-center.conf name.
+source_specs = [
+    ("~/.config/hypr/user-configs/user_cloud-center.conf", conf_path, "Cloud Center managed overrides"),
+    ("~/.config/hypr/user-configs/user_animations.conf", anim_conf_path, "Cloud Center animation overrides"),
+    ("~/.config/hypr/user-configs/user_input.conf", input_conf_path, "Cloud Center input overrides"),
+]
+home = str(Path.home())
 
 hyprland = Path(hyprland_path)
 if not hyprland.exists():
-    print(f"[hypr_persist] WARNING: {hyprland_path} not found — cannot manage source lines")
+    print(f"[hypr_persist] WARNING: {hyprland_path} not found — cannot inject source line")
     sys.exit(0)
 
-def _norm(p_str: str) -> str:
-    """Normalise a path string: expand ~ and resolve to str for comparison."""
-    return str(Path(p_str.replace("~", home)))
-
-
-def _source_tilde(p: Path) -> str:
-    return "~/.config/hypr/" + str(p.relative_to(HYPR_DIR))
-
-
-def rewrite_source_lines(hyprland_text: str) -> str:
-    """
-    For each managed user conf, scan hyprland.conf lines:
-    - If a source line points at the original source/<name>.conf → replace it
-      with the user-configs/ path.
-    - If a source line points at user_cloud-center.conf (old name) → replace
-      with user_lookandfeel.conf.
-    - If no existing source line found at all → append one.
-    Already-correct lines are left untouched.
-    """
-    # Build lookup: normalised source-file path → user-conf tilde path
-    replacements: dict[str, str] = {}
-    for user_str, src_name in CONF_SOURCE_MAP.items():
-        src_full = SOURCE_DIR / src_name
-        user_tilde = _source_tilde(Path(user_str))
-        # Map source/<name>.conf → user tilde
-        for variant in [str(src_full), _source_tilde(src_full),
-                        user_str, user_tilde]:
-            replacements[_norm(variant)] = user_tilde
-
-    # Legacy: user_cloud-center.conf → user_lookandfeel.conf
-    old_uc_path = USER_DIR / "user_cloud-center.conf"
-    new_uc_tilde = _source_tilde(Path(conf_path))
-    for variant in [str(old_uc_path), _source_tilde(old_uc_path)]:
-        replacements[_norm(variant)] = new_uc_tilde
-
-    lines = hyprland_text.splitlines(keepends=True)
-    out: list[str] = []
-    replaced_confs: set[str] = set()   # user-conf tilde paths already handled
-
-    for line in lines:
-        m = re.match(r"^(\s*source\s*=\s*)(.+)", line.rstrip())
-        if m:
-            prefix, raw = m.group(1), m.group(2).strip()
-            target = replacements.get(_norm(raw))
-            if target:
-                if target not in replaced_confs:
-                    out.append(f"{prefix}{target}\n")
-                    replaced_confs.add(target)
-                    print(f"[hypr_persist] replaced source line: {raw} → {target}")
-                else:
-                    # Duplicate — drop it
-                    print(f"[hypr_persist] removed duplicate source line: {raw}")
-                continue
-        out.append(line)
-
-    # Append source lines for any user conf not yet referenced
-    for user_str in [conf_path, anim_conf_path, input_conf_path]:
-        user_tilde = _source_tilde(Path(user_str))
-        if user_tilde not in replaced_confs:
-            out.append(f"\n# Cloud Center managed config — added by hypr_persist.sh\nsource = {user_tilde}\n")
-            print(f"[hypr_persist] appended source line: {user_tilde}")
-
-    return "".join(out)
-
-
 content = hyprland.read_text(encoding="utf-8")
-updated = rewrite_source_lines(content)
-if updated != content:
+updated = content
+injected_any = False
+
+for source_tilde, source_abs, comment in source_specs:
+    already = any(
+        re.search(r"^\s*source\s*=\s*" + re.escape(v), updated, re.MULTILINE)
+        for v in [source_tilde, source_abs, source_tilde.replace("~", home)]
+    )
+    if already:
+        print(f"[hypr_persist] source line already present: {source_tilde}")
+        continue
+    updated += (
+        f"\n# {comment} — added by hypr_persist.sh\n"
+        f"source = {source_tilde}\n"
+    )
+    injected_any = True
+
+# Also ensure every existing user_*.conf file is sourced.
+user_dir = Path(conf_path).parent
+for p in sorted(user_dir.glob("user_*.conf")):
+    source_tilde = f"~/.config/hypr/user-configs/{p.name}"
+    source_abs = str(p)
+    already = any(
+        re.search(r"^\s*source\s*=\s*" + re.escape(v), updated, re.MULTILINE)
+        for v in [source_tilde, source_abs, source_tilde.replace("~", home)]
+    )
+    if already:
+        continue
+    updated += (
+        "\n# Cloud Center auto-sourced user config — added by hypr_persist.sh\n"
+        f"source = {source_tilde}\n"
+    )
+    injected_any = True
+
+if injected_any:
     tmp = hyprland_path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(updated)
     os.replace(tmp, hyprland_path)
-    print(f"[hypr_persist] updated source lines in {hyprland_path}")
-
-# ── Migration: delete stale user_cloud-center.conf if now replaced ────────────
-old_uc = USER_DIR / "user_cloud-center.conf"
-if old_uc.exists() and Path(conf_path).name == "user_lookandfeel.conf":
-    old_uc.unlink()
-    print(f"[hypr_persist] removed legacy {old_uc}")
+    print(f"[hypr_persist] injected source line(s) into {hyprland_path}")
 PYEOF
 
 # Reload so the conf file takes effect immediately alongside hyprctl keyword

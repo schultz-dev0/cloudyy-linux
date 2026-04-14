@@ -5,6 +5,7 @@ import logging
 import re
 import subprocess
 import threading
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -61,7 +62,7 @@ def set_bt_power(on: bool) -> bool:
 
 
 def get_devices() -> list[BluetoothDevice]:
-    _, paired_out = _run_bt(["paired-devices"])
+    _, paired_out = _run_bt(["devices", "Paired"])
     paired_addrs: set[str] = set()
     for line in paired_out.splitlines():
         m = re.match(r"Device\s+([\w:]+)", line)
@@ -423,16 +424,27 @@ class BluetoothPage(Gtk.Box):
 
     def _do_scan(self) -> None:
         try:
-            subprocess.run(
-                ["bluetoothctl", "scan", "on"],
-                capture_output=True, timeout=8,
+            # Run scan for 8 seconds, then explicitly turn it off
+            proc = subprocess.Popen(
+                ["bluetoothctl"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
-        except subprocess.TimeoutExpired:
-            pass
-        except FileNotFoundError:
-            pass
-        self._scanning = False
-        GLib.idle_add(self.refresh)
+            proc.stdin.write("scan on\n")
+            proc.stdin.flush()
+            time.sleep(8)
+            proc.stdin.write("scan off\n")
+            proc.stdin.flush()
+            time.sleep(1)  # Give it a moment to process
+            proc.terminate()
+            proc.wait(timeout=2)
+        except Exception as e:
+            log.debug(f"Scan error: {e}")
+        finally:
+            self._scanning = False
+            GLib.idle_add(self.refresh)
 
     def _action_connect(self, device: BluetoothDevice) -> None:
         self._status_label.set_text(f"Connecting to {device.display_name}…")
