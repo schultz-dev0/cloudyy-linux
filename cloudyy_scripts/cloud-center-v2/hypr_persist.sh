@@ -35,7 +35,6 @@ if [[ "${ARG1}" == "reset-page" ]]; then
   MODE="reset-page"
   ARG1="${2:-}"
   ARG2=""
-fi
 
 if [[ "$MODE" == "set" ]]; then
     if [[ -z "$ARG1" ]]; then
