@@ -22,9 +22,13 @@ paste) KEY="v" ;;
 *) die "unknown action: $ACTION" ;;
 esac
 
-ACTIVE_CLASS=$(hyprctl activewindow -j | jq -r '.class // empty')
+WINDOW_INFO=$(hyprctl activewindow -j)
+ACTIVE_CLASS=$(echo "$WINDOW_INFO" | jq -r '.class // empty')
+ACTIVE_ADDRESS=$(echo "$WINDOW_INFO" | jq -r '.address // empty')
+IS_XWAYLAND=$(echo "$WINDOW_INFO" | jq -r '.xwayland // false')
 
 [[ -z "$ACTIVE_CLASS" ]] && die "could not determine active window class"
+[[ -z "$ACTIVE_ADDRESS" ]] && die "could not determine active window address"
 
 is_terminal() {
   local class="$1"
@@ -35,9 +39,20 @@ is_terminal() {
 }
 
 if is_terminal "$ACTIVE_CLASS"; then
-  MODS="CTRL_SHIFT"
+  HYPR_MODS="CTRL_SHIFT"
+  XDOTOOL_MODS="ctrl+shift"
 else
-  MODS="CTRL"
+  HYPR_MODS="CTRL"
+  XDOTOOL_MODS="ctrl"
 fi
 
-hyprctl dispatch sendshortcut "${MODS}, ${KEY^^}, class:${ACTIVE_CLASS}"
+# XWayland apps (e.g. Obsidian, Firefox without MOZ_ENABLE_WAYLAND) cannot receive
+# synthetic input from Hyprland's sendshortcut — it uses Wayland protocols that don't
+# cross the XWayland boundary. xdotool injects via X11 directly and works for these.
+# Native Wayland apps use sendshortcut, which is reliable when dispatched by Hyprland.
+if [[ "$IS_XWAYLAND" == "true" ]]; then
+  command -v xdotool &>/dev/null || die "xdotool is not installed (required for XWayland windows like Obsidian/Firefox)"
+  xdotool key "${XDOTOOL_MODS}+${KEY}"
+else
+  hyprctl dispatch sendshortcut "${HYPR_MODS}, ${KEY^^}, address:${ACTIVE_ADDRESS}"
+fi
