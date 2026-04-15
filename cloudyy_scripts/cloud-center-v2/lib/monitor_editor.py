@@ -164,7 +164,7 @@ def _write_monitor_line(name: str, line: str) -> None:
     if MONITORS_CONF.exists():
         existing = MONITORS_CONF.read_text(encoding="utf-8").splitlines(keepends=True)
     else:
-        existing = list(header)
+        existing = header.splitlines(keepends=True)
 
     out_lines: list[str] = []
     replaced = False
