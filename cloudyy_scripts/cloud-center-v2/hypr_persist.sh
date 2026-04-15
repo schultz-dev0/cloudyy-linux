@@ -35,6 +35,7 @@ if [[ "${ARG1}" == "reset-page" ]]; then
   MODE="reset-page"
   ARG1="${2:-}"
   ARG2=""
+fi
 
 if [[ "$MODE" == "set" ]]; then
     if [[ -z "$ARG1" ]]; then
@@ -141,13 +142,70 @@ PAGE_KEYS = {
     },
 }
 
-# ── Load and mutate persisted state ──────────────────────────────────────────
+TRIPLE_TO_KEY = {v: k for k, v in LAYOUT.items()}
 
-state = {}
-try:
-    state = json.loads(Path(state_path).read_text(encoding="utf-8"))
-except (FileNotFoundError, json.JSONDecodeError):
-    pass
+
+def parse_state_from_conf(path: Path) -> dict[str, str]:
+    """Parse managed keys from an existing Hyprland conf file."""
+    result: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return result
+    except OSError:
+        return result
+
+    section: str | None = None
+    subsection: str | None = None
+
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        m_open = re.match(r"^([A-Za-z0-9_\-:]+)\s*\{$", line)
+        if m_open:
+            name = m_open.group(1)
+            if section is None:
+                section = name
+            elif subsection is None:
+                subsection = name
+            continue
+
+        if line == "}":
+            if subsection is not None:
+                subsection = None
+            else:
+                section = None
+            continue
+
+        m_kv = re.match(r"^([A-Za-z0-9_\-:]+)\s*=\s*(.+)$", line)
+        if not m_kv or section is None:
+            continue
+
+        conf_key = m_kv.group(1)
+        conf_val = m_kv.group(2).strip()
+        lookup = (section, subsection, conf_key)
+        key = TRIPLE_TO_KEY.get(lookup)
+        if key:
+            result[key] = conf_val
+
+    return result
+
+# ── Load and mutate persisted state (conf files are source-of-truth) ─────────
+
+state: dict[str, str] = {}
+
+# Read existing managed overrides from user config files.
+for cfg in (Path(conf_path), Path(anim_conf_path), Path(input_conf_path)):
+    state.update(parse_state_from_conf(cfg))
+
+# For input keys, preserve distro/source values when user_input.conf is sparse.
+hypr_dir = Path(input_conf_path).parents[1]
+source_input_conf = hypr_dir / "source" / "input.conf"
+for k, v in parse_state_from_conf(source_input_conf).items():
+    if k.startswith("input:") and k not in state:
+        state[k] = v
 
 if mode == "set":
     key = arg1
@@ -171,6 +229,7 @@ else:
     print(f"[hypr_persist] ERROR: unknown mode '{mode}'")
     sys.exit(1)
 
+# Keep JSON state as a compatibility/debug mirror of current conf-derived state.
 Path(state_path).parent.mkdir(parents=True, exist_ok=True)
 tmp = state_path + ".tmp"
 with open(tmp, "w") as f:

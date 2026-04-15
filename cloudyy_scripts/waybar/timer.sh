@@ -2,7 +2,6 @@
 
 TIMER_FILE="/tmp/waybar_timer"
 
-# Function to get current remaining time
 get_remaining() {
     if [ -f "$TIMER_FILE" ]; then
         echo $(( $(cat "$TIMER_FILE") - $(date +%s) ))
@@ -11,7 +10,6 @@ get_remaining() {
     fi
 }
 
-# Handle input arguments
 case "$1" in
     add) # Add 5 minutes (300 seconds)
         REMAINING=$(get_remaining)
@@ -25,7 +23,6 @@ case "$1" in
         ;;
 esac
 
-# Display Logic
 REMAINING=$(get_remaining)
 if [ "$REMAINING" -gt 0 ]; then
     printf "󱎫 %02d:%02d:%02d\n" $((REMAINING/3600)) $((REMAINING%3600/60)) $((REMAINING%60))

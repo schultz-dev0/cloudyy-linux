@@ -1,6 +1,6 @@
 # Cloud Center — config.yaml
 # Add pages, sections, and items here. No Python needed.
-# Supported row types: button, toggle, slider, selection, label
+# Supported row types: button, toggle, slider, selection, label, battery_monitor
 # Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
@@ -63,6 +63,12 @@ pages:
               disabled:
                 command: nmcli radio wifi off
 
+          - type: battery_monitor
+            properties:
+              title: Peripheral Batteries
+              description: Wireless keyboard, mouse, headset
+              icon: 
+
       - type: section
         properties:
           title: Maintenance
@@ -122,24 +128,6 @@ pages:
             value:
               type: system
               key: kernel
-
-      - type: section
-        properties:
-          title: Distro Defaults
-          description: Reset Home page preferences to distro defaults
-        items:
-          - type: button
-            properties:
-              title: Use Distro Defaults
-              description: Clear Cloud Center Home toggles and local overrides
-              icon: edit-clear-symbolic
-              button_text: Reset
-            on_press:
-              command: >-
-                rm -f ~/.config/cloud-center/settings/hypr/bluetooth
-                ~/.config/cloud-center/settings/hypr/wifi
-                ~/.config/cloud-center/settings/theme/dark_mode &&
-                hyprctl reload
 
   - id: appearance
     title: Appearance
@@ -345,15 +333,6 @@ pages:
             on_press:
               command: python3 ~/cloudyy_scripts/cloud-center-v2/waybar-editor/main.py
 
-          - type: button
-            properties:
-              title: Edit Style (Raw)
-              description: Open the active style.css directly in your editor
-              icon: text-editor-symbolic
-              button_text: Edit
-            on_press:
-              command: "kitty --class waybar-editor -e $EDITOR ~/.config/waybar/style.css"
-
       - type: section
         properties:
           title: Distro Defaults
@@ -383,10 +362,10 @@ pages:
           title: Keyboard
           description: Layout and repeat behavior
         items:
-          - type: selection
+          - type: multi_selection
             properties:
               title: Keyboard Layout
-              description: XKB layout
+              description: XKB layouts (select one or more)
               icon: input-keyboard-symbolic
               key: input/kb_layout
               options:
@@ -396,6 +375,32 @@ pages:
                 - fr
                 - es
                 - it
+                - ru
+                - ua
+                - pl
+                - cz
+                - sk
+                - tr
+                - se
+                - no
+                - fi
+                - dk
+                - nl
+                - be
+                - pt
+                - br
+                - ro
+                - hu
+                - hr
+                - rs
+                - bg
+                - gr
+                - il
+                - ara
+                - in
+                - jp
+                - kr
+                - cn
             on_change:
               command: >-
                 hyprctl keyword input:kb_layout {value} &&
@@ -488,7 +493,7 @@ pages:
               default: 0
             on_change:
               command: >-
-                V=$(echo "scale=2; {value}/100" | bc) &&
+                V=$(awk 'BEGIN { printf "%.2f", ({value}) / 100 }') &&
                 hyprctl keyword input:sensitivity $V &&
                 ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:sensitivity $V
 
@@ -627,23 +632,6 @@ pages:
                 V=$(echo "scale=2; {value}/100" | bc) &&
                 hyprctl keyword input:touchpad:scroll_factor $V &&
                 ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:scroll_factor $V
-
-      - type: section
-        properties:
-          title: Input Config
-          description: Advanced options and raw config access
-        items:
-          - type: button
-            properties:
-              title: Edit input.conf (Raw)
-              description: Open Cloud Center generated input overrides file
-              icon: text-editor-symbolic
-              button_text: Edit
-            on_press:
-              command: >-
-                mkdir -p ~/.config/hypr/user-configs &&
-                touch ~/.config/hypr/user-configs/user_input.conf &&
-                kitty --class hypr-input-editor -e $EDITOR ~/.config/hypr/user-configs/user_input.conf
 
       - type: section
         properties:

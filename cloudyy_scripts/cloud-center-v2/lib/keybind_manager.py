@@ -144,9 +144,7 @@ def _categorize_dispatcher(dispatcher: str) -> str:
     return "other"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Data Model
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Data Model ────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -163,9 +161,7 @@ class KeybindEntry:
     line_no: int = 0
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Variable resolution
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Variable resolution ───────────────────────────────────────────────────────
 
 # bind types that carry an extra description field before the dispatcher
 _BINDD_TYPES = frozenset({"bindd", "bindde", "binddl", "binddel", "binddm"})
@@ -232,9 +228,7 @@ def _normalise_mods(mods: str) -> str:
     return " ".join(seen)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Parsing and I/O
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Parsing and I/O ───────────────────────────────────────────────────────────
 
 
 def _strip_inline_comment(line: str) -> str:
@@ -560,9 +554,7 @@ def update_keybind(old_entry: KeybindEntry, new_entry: KeybindEntry) -> tuple[bo
     return True, "keybind updated"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Edit Dialog (placeholder for HyprMod-style UI)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Edit Dialog (placeholder for HyprMod-style UI) ────────────────────────────
 
 
 class KeybindEditDialog(Adw.Dialog):
@@ -854,9 +846,7 @@ CATEGORY_META: dict[str, tuple[str, str]] = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main Page
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Main Page ─────────────────────────────────────────────────────────────────
 
 
 class KeybindManagerPage(Gtk.Box):

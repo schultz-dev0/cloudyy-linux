@@ -43,7 +43,8 @@ window#waybar > box {
 /* ── Modules (Transparent) ─────────────────────────────────────────────────── */
 
 #custom-launcher, #workspaces, #clock, #custom-temps, #custom-updates,
-#pulseaudio, #network, #battery, #custom-power, #custom-notification, #cpu, #mpris {
+#pulseaudio, #network, #battery, #custom-power, #custom-notification, #cpu, #mpris,
+#bluetooth, #custom-peripheral-batteries {
   background: transparent;
   color: @on_surface;
   padding: 0 4px;
@@ -167,3 +168,24 @@ tooltip label {
 
 #bluetooth { color: alpha(@on_surface_variant, 0.6); }
 #bluetooth.connected { color: @primary; }
+
+/* peripheral-battery-monitor */
+
+/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+#custom-peripheral-batteries {
+  color:      alpha(@on_surface_variant, 0.7);
+  font-size:  11px;
+  transition: color 0.2s ease;
+}
+#custom-peripheral-batteries.warning {
+  color: @primary_fixed;
+}
+#custom-peripheral-batteries.critical {
+  color: @error;
+}
+#custom-peripheral-batteries.charging {
+  color: @tertiary;
+}
+#custom-peripheral-batteries.unavailable {
+  color: alpha(@on_surface_variant, 0.3);
+}

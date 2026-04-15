@@ -14,9 +14,7 @@ from gi.repository import Adw, GLib, Gtk, Pango
 log = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Data model
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Data model ────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -33,9 +31,7 @@ class BluetoothDevice:
         return self.name if self.name and self.name != self.address else self.address
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# bluetoothctl helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# ── bluetoothctl helpers ──────────────────────────────────────────────────────
 
 
 def _run_bt(args: list[str], timeout: int = 6) -> tuple[bool, str]:
@@ -121,9 +117,7 @@ def _icon_for_type(device_type: str) -> str:
     }.get(device_type, "bluetooth-active-symbolic")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Page
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Page ──────────────────────────────────────────────────────────────────────
 
 
 class BluetoothPage(Gtk.Box):

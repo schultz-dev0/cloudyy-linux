@@ -51,24 +51,9 @@
     },
     "clock": {
         "format": "{:%H\n%M}",
-        "timezone": "Europe/London",
-        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-        "calendar": {
-            "mode": "month",
-            "mode-mon-col": 3,
-            "weeks-pos": "right",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weeks": "<span color='#c9ca93'>W{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-            }
-        },
-        "actions": {
-            "on-click-right": "mode"
-        }
+        "on-click": "uwsm-app -- gnome-clocks",
+        "on-click-right": "uwsm-app -- gnome-clocks",
+        "tooltip-format": "{:%A, %d %b %Y}"
     },
     "battery": {
         "states": {

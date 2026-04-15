@@ -343,6 +343,128 @@ class SelectionRow(Adw.ComboRow, _ManagedRow):
         Adw.ComboRow.do_unroot(self)
 
 
+class MultiSelectionRow(Adw.ExpanderRow, _ManagedRow):
+    __gtype_name__ = "CCMultiSelectionRow"
+
+    def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
+        super().__init__()
+        self._init_sources()
+        self._action = action or {}
+        self._ctx = ctx
+        self._key = props.get("key", "")
+        self._options = props.get("options", [])
+        self._options_map = props.get("options_map", {})
+        self._cmd_template: str = self._action.get("command", "")
+        self._selected_set: set[str] = set()
+        self._switches: dict[str, Adw.SwitchRow] = {}
+        self._updating = False
+
+        self.set_title(props.get("title", ""))
+        self.set_subtitle(props.get("description", ""))
+
+        if icon := props.get("icon"):
+            self.add_prefix(_make_prefix_icon(icon))
+
+        self.set_show_enable_switch(False)
+
+        saved_raw = utility.load_setting(self._key, "") if self._key else ""
+        self._selected_set = self._parse_saved_values(saved_raw)
+
+        if not self._selected_set and self._options:
+            self._selected_set.add(str(self._options[0]))
+
+        for option in self._options:
+            opt = str(option)
+            sw = Adw.SwitchRow()
+            sw.set_title(opt)
+            sw.set_active(opt in self._selected_set)
+            sw.connect("notify::active", self._on_toggle, opt)
+            self._switches[opt] = sw
+            self.add_row(sw)
+
+        self._update_summary_subtitle()
+
+    def _parse_saved_values(self, saved_raw: Any) -> set[str]:
+        if isinstance(saved_raw, list):
+            parsed = {str(v).strip() for v in saved_raw if str(v).strip()}
+        else:
+            parsed = {
+                part.strip()
+                for part in str(saved_raw).split(",")
+                if part.strip()
+            }
+        return {v for v in parsed if v in {str(o) for o in self._options}}
+
+    def _selected_in_order(self) -> list[str]:
+        return [str(o) for o in self._options if str(o) in self._selected_set]
+
+    def _mapped_selected_text(self) -> str:
+        mapped: list[str] = []
+        for value in self._selected_in_order():
+            mv = self._options_map.get(value, value)
+            if isinstance(mv, bool):
+                mapped.append("true" if mv else "false")
+            else:
+                mapped.append(str(mv))
+        return ",".join(mapped)
+
+    def _selected_text(self) -> str:
+        return ",".join(self._selected_in_order())
+
+    def _update_summary_subtitle(self) -> None:
+        selected = self._selected_in_order()
+        if not selected:
+            self.set_subtitle("No selection")
+            return
+        if len(selected) <= 4:
+            self.set_subtitle(", ".join(selected))
+            return
+        self.set_subtitle(f"{', '.join(selected[:4])} +{len(selected) - 4} more")
+
+    def _persist_and_apply(self) -> None:
+        selected_text = self._selected_text()
+        mapped_text = self._mapped_selected_text()
+
+        if self._key:
+            threading.Thread(
+                target=utility.save_setting, args=(self._key, selected_text), daemon=True
+            ).start()
+
+        if self._cmd_template:
+            cmd = (
+                self._cmd_template
+                .replace("{value}", mapped_text)
+                .replace("{option}", selected_text)
+            )
+            utility.execute_command(cmd)
+
+        self._update_summary_subtitle()
+
+    def _on_toggle(self, row: Adw.SwitchRow, _param: object, option: str) -> None:
+        if self._updating:
+            return
+
+        active = row.get_active()
+        if active:
+            self._selected_set.add(option)
+            self._persist_and_apply()
+            return
+
+        if option in self._selected_set:
+            if len(self._selected_set) == 1:
+                self._updating = True
+                row.set_active(True)
+                self._updating = False
+                self._ctx.toast("At least one layout must stay enabled")
+                return
+            self._selected_set.remove(option)
+            self._persist_and_apply()
+
+    def do_unroot(self) -> None:
+        self._cleanup()
+        Adw.ExpanderRow.do_unroot(self)
+
+
 # ── Label (info display) row ──────────────────────────────────────────────────
 
 class LabelRow(Adw.ActionRow, _ManagedRow):
@@ -394,6 +516,99 @@ class LabelRow(Adw.ActionRow, _ManagedRow):
         except Exception:
             val = "Error"
         GLib.idle_add(self._label.set_label, val)
+
+    def do_unroot(self) -> None:
+        self._cleanup()
+        Adw.ActionRow.do_unroot(self)
+
+
+# ── Battery Monitor row (Waybar integration) ──────────────────────────────────
+
+class BatteryMonitorRow(Adw.ActionRow, _ManagedRow):
+    """Display wireless peripheral battery levels from Waybar peripheral_battery.py."""
+    __gtype_name__ = "CCBatteryMonitorRow"
+
+    def __init__(self, props: dict, _: Any, ctx: RowContext) -> None:
+        super().__init__()
+        self._init_sources()
+        self._ctx = ctx
+        
+        self.set_title(props.get("title", "Battery Status"))
+        
+        if icon := props.get("icon"):
+            self.add_prefix(_make_prefix_icon(icon))
+        
+        # Value box: will contain icon + text from the Waybar script
+        self._value_box = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        self._value_label = Gtk.Label(label="…")
+        self._value_label.set_single_line_mode(True)
+        self._value_label.add_css_class("battery-monitor-label")
+        self._value_label.add_css_class("normal")
+        self._value_box.append(self._value_label)
+        self.add_suffix(self._value_box)
+        
+        # Tooltip support
+        self.set_tooltip_text("")
+        
+        # Auto-refresh every 30 seconds
+        self._refresh()
+        sid = GLib.timeout_add_seconds(30, self._refresh)
+        self._add_source(sid)
+
+    def _refresh(self) -> bool:
+        """Query peripheral_battery.py and update display."""
+        threading.Thread(target=self._fetch_battery_data, daemon=True).start()
+        return GLib.SOURCE_CONTINUE
+
+    def _fetch_battery_data(self) -> None:
+        """Execute peripheral_battery.py and parse output."""
+        import subprocess
+        import json
+        
+        try:
+            script_path = Path.home() / "cloudyy_scripts" / "waybar" / "peripheral_battery.py"
+            if not script_path.exists():
+                GLib.idle_add(self._set_error, "Script not found")
+                return
+            
+            r = subprocess.run(
+                ["python3", str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if r.returncode != 0:
+                GLib.idle_add(self._set_error, "Script error")
+                return
+            
+            data = json.loads(r.stdout.strip())
+            GLib.idle_add(self._update_display, data)
+        except json.JSONDecodeError:
+            GLib.idle_add(self._set_error, "JSON parse error")
+        except Exception as e:
+            GLib.idle_add(self._set_error, f"Error: {str(e)[:30]}")
+
+    def _set_error(self, msg: str) -> None:
+        """Display error state."""
+        self._value_label.set_label(msg)
+        for cls in ["normal", "warning", "critical"]:
+            self._value_label.remove_css_class(cls)
+        self._value_label.add_css_class("critical")
+
+    def _update_display(self, data: dict) -> None:
+        """Update row from Waybar JSON output."""
+        text = data.get("text", "?")
+        tooltip = data.get("tooltip", "")
+        css_class = data.get("class", "normal")
+        
+        self._value_label.set_label(text)
+        self.set_tooltip_text(tooltip)
+        
+        # Remove old class, add new one
+        for cls in ["normal", "warning", "critical", "unavailable", "charging"]:
+            self._value_label.remove_css_class(cls)
+        self._value_label.add_css_class(css_class)
 
     def do_unroot(self) -> None:
         self._cleanup()
@@ -712,8 +927,12 @@ def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
                 return SliderRow(props, item.get("on_change"), ctx)
             case "selection":
                 return SelectionRow(props, item.get("on_change"), ctx)
+            case "multi_selection":
+                return MultiSelectionRow(props, item.get("on_change"), ctx)
             case "label":
                 return LabelRow(props, item.get("value"), ctx)
+            case "battery_monitor":
+                return BatteryMonitorRow(props, item.get("value"), ctx)
             case "wallpaper_picker":
                 return WallpaperPickerRow(props, item.get("on_select"), ctx)
             case "online_wallpaper_browser":

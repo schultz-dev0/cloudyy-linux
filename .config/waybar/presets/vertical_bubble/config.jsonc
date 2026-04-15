@@ -20,6 +20,9 @@
         "pulseaudio#output",
         "network",
         "bluetooth",
+        "custom/peripheral_battery_icon",
+
+        "custom/peripheral_battery_pct",
         "battery",
         "custom/power"
     ],
@@ -39,24 +42,9 @@
     },
     "clock": {
         "format": "{:%H\n%M}",
-        "timezone": "Europe/London",
-        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-        "calendar": {
-            "mode": "month",
-            "mode-mon-col": 3,
-            "weeks-pos": "right",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weeks": "<span color='#c9ca93'>W{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-            }
-        },
-        "actions": {
-            "on-click-right": "mode"
-        }
+        "on-click": "uwsm-app -- gnome-clocks",
+        "on-click-right": "uwsm-app -- gnome-clocks",
+        "tooltip-format": "{:%A, %d %b %Y}"
     },
     "custom/temps": {
         "exec": "~/cloudyy_scripts/waybar/temps.py",
@@ -78,19 +66,18 @@
         "format-ethernet": "\udb80\ude00",
         "format-disconnected": "\udb81\uddaa",
         "tooltip-format-wifi": "{essid} ({signalStrength}%)",
-        "on-click": "uwsm-app nm-connection-editor",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi",
         "interval": 5
     },
     "bluetooth": {
         "format": " \udb80\udcaf",
         "format-disabled": "\udb80\udcb2",
         "format-connected": "\udb80\udcb1",
-        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+        "format-connected-battery": "\udb80\udcb1",
         "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
         "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
         "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
-        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
-        "on-click": "uwsm-app -- blueman-manager",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --bluetooth",
         "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
     "battery": {
@@ -117,6 +104,24 @@
             "\udb80\udc82",
             "\udb80\udc79"
         ]
+    },
+    "custom/peripheral_battery_icon": {
+        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --icon",
+        "return-type": "json",
+        "format": "{text}",
+        "align": 0.5,
+        "justify": "center",
+        "interval": 60,
+        "tooltip": true
+    },
+    "custom/peripheral_battery_pct": {
+        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",
+        "return-type": "json",
+        "format": "{text}",
+        "align": 0.5,
+        "justify": "center",
+        "interval": 60,
+        "tooltip": false
     },
     "custom/power": {
         "format": "\u23fb",

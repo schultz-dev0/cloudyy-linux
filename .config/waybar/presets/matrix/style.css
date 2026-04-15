@@ -172,3 +172,20 @@ window#waybar > box {
   box-shadow:       none;
   margin-top: 0; margin-left: 0; margin-right: 0;
 }
+
+/* peripheral-battery-monitor */
+
+/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+#custom-peripheral_batteries {
+  color: rgba(0, 255, 65, 1.0);
+  font-size:  11px;
+  padding:    6px 4px;
+  margin:     2px 4px;
+  transition: color 0.2s ease;
+}
+#custom-peripheral-batteries.warning {
+  color: rgba(0, 255, 65, 1.0);
+}
+#custom-peripheral-batteries.unavailable {
+  color: rgba(3, 8, 3, 0.96);
+}

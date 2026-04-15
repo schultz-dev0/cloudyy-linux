@@ -9,9 +9,7 @@ from gi.repository import Adw, Gtk, GLib
 log = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Status Badge Widget
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Status Badge Widget ───────────────────────────────────────────────────────
 
 
 class StatusBadge(Gtk.Box):
@@ -91,9 +89,7 @@ class StatusBadge(Gtk.Box):
         self._current_state = ""
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Card Wrapper for Rows (Future)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Card Wrapper for Rows (Future) ────────────────────────────────────────────
 
 
 class CardRow(Gtk.Box):
@@ -136,9 +132,7 @@ class CardRow(Gtk.Box):
             self.status_badge.show_error(message or "✗ Failed", duration_ms)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Visual State Helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Visual State Helpers ──────────────────────────────────────────────────────
 
 
 def add_card_styling(widget: Gtk.Widget) -> None:

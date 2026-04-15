@@ -20,9 +20,7 @@ CONFIG_DIR = Path.home() / ".config" / "cloud-center"
 AUTO_SWITCH_FILE = CONFIG_DIR / "auto_switch.json"
 
 
-# ──────────────────────────────────────────────────────────────────
-# Data classes
-# ──────────────────────────────────────────────────────────────────
+# ── Data classes ──────────────────────────────────────────────────────────────
 
 @dataclass
 class PortInfo:
@@ -83,9 +81,7 @@ class Card:
     profile_descriptions: dict[str, str] = field(default_factory=dict)
 
 
-# ──────────────────────────────────────────────────────────────────
-# Auto-switch config helpers
-# ──────────────────────────────────────────────────────────────────
+# ── Auto-switch config helpers ────────────────────────────────────────────────
 
 def load_auto_switch_config() -> dict[str, Any]:
     if not AUTO_SWITCH_FILE.exists():
@@ -107,9 +103,7 @@ def save_auto_switch_config(cfg: dict[str, Any]) -> None:
         log.error("Failed to save auto-switch config: %s", e)
 
 
-# ──────────────────────────────────────────────────────────────────
-# Backend helpers
-# ──────────────────────────────────────────────────────────────────
+# ── Backend helpers ───────────────────────────────────────────────────────────
 
 def _run_cmd(
     args: list[str], timeout: int = 8, stderr_to_stdout: bool = False
@@ -253,9 +247,7 @@ def _extract_ports(entry: dict[str, Any]) -> list[PortInfo]:
     return result
 
 
-# ──────────────────────────────────────────────────────────────────
-# Device query functions
-# ──────────────────────────────────────────────────────────────────
+# ── Device query functions ────────────────────────────────────────────────────
 
 def list_sinks() -> list[Sink]:
     default_name = _get_default("sink")
@@ -418,9 +410,7 @@ def list_cards() -> list[Card]:
     return cards
 
 
-# ──────────────────────────────────────────────────────────────────
-# Control functions
-# ──────────────────────────────────────────────────────────────────
+# ── Control functions ─────────────────────────────────────────────────────────
 
 def set_sink_volume(name: str, value: int) -> tuple[bool, str]:
     return _run_cmd(["pactl", "set-sink-volume", name, f"{value}%"])
@@ -459,9 +449,7 @@ def set_source_port(source_name: str, port_name: str) -> tuple[bool, str]:
     return _run_cmd(["pactl", "set-source-port", source_name, port_name])
 
 
-# ──────────────────────────────────────────────────────────────────
-# Auto-switch monitor
-# ──────────────────────────────────────────────────────────────────
+# ── Auto-switch monitor ───────────────────────────────────────────────────────
 
 class _AutoSwitchMonitor:
     """Background thread: watches pactl subscribe and switches on sink events."""
@@ -544,9 +532,7 @@ class _AutoSwitchMonitor:
                 GLib.idle_add(self._on_switch, best)
 
 
-# ──────────────────────────────────────────────────────────────────
-# AudioPage
-# ──────────────────────────────────────────────────────────────────
+# ── AudioPage ─────────────────────────────────────────────────────────────────
 
 class AudioPage(Gtk.Box):
     """Two-panel Audio manager page."""

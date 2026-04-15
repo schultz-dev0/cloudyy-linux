@@ -16,9 +16,7 @@ from gi.repository import Adw, Gtk, GLib
 log = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Generic Edit Dialog
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Generic Edit Dialog ───────────────────────────────────────────────────────
 
 
 class SettingEditDialog(Adw.Dialog):
@@ -105,9 +103,7 @@ class SettingEditDialog(Adw.Dialog):
         return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Specialized Dialogs
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Specialized Dialogs ───────────────────────────────────────────────────────
 
 
 class ToggleEditDialog(SettingEditDialog):
@@ -262,9 +258,7 @@ class TextEditDialog(SettingEditDialog):
         return self._entry.get_text()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Dialog Factory
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Dialog Factory ────────────────────────────────────────────────────────────
 
 
 def create_edit_dialog(

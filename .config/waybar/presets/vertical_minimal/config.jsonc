@@ -3,7 +3,7 @@
     "exclusive": true,
     "reload_style_on_change": true,
     "position": "left",
-    "width": 56,
+    "width": 34,
     "spacing": 0,
     "margin-top": 6,
     "margin-bottom": 6,
@@ -21,7 +21,8 @@
         "custom/updates",
         "network",
         "pulseaudio#output",
-        "bluetooth",
+        "custom/peripheral_battery_icon",
+        "custom/peripheral_battery_pct",
         "battery",
         "custom/power"
     ],
@@ -31,30 +32,10 @@
         "tooltip-format": "Application Launcher"
     },
     "clock": {
-        "min-width": 46,
         "format": "{:%H\n%M}",
-        "timezone": "Europe/London",
-        "tooltip-format": "<tt><span size='12pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
-        "calendar": {
-            "mode": "month",
-            "mode-mon-col": 3,
-            "weeks-pos": "right",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weeks": "<span color='#c9ca93'>W{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b> {} </b></span>"
-            }
-        },
-        "actions": {
-            "on-click-right": "mode",
-            "on-click-forward": "tz_up",
-            "on-click-backward": "tz_down",
-            "on-scroll-up": "shift_up",
-            "on-scroll-down": "shift_down"
-        }
+        "on-click": "uwsm-app -- gnome-clocks",
+        "on-click-right": "uwsm-app -- gnome-clocks",
+        "tooltip-format": "{:%A, %d %b %Y}"
     },
     "custom/notification": {
         "format": "{icon}",
@@ -99,7 +80,7 @@
         "tooltip-format-wifi": "\udb82\udd28 {essid}\n\udb85\udc7d {signalStrength}%\n\udb82\ude5f {ipaddr}",
         "tooltip-format-ethernet": "\udb80\ude00 Ethernet\n\udb82\ude5f {ipaddr}",
         "tooltip-format-disconnected": "Disconnected",
-        "on-click": "uwsm-app nm-connection-editor",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi",
         "interval": 5
     },
     "pulseaudio#output": {
@@ -112,7 +93,7 @@
                 "\udb81\udd7e"
             ]
         },
-        "on-click": "uwsm-app -- pavucontrol",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --audio",
         "on-click-middle": "swayosd-client --output-volume mute-toggle",
         "on-click-right": "uwsm-app -- kitty --class cava -e cava",
         "on-scroll-up": "swayosd-client --output-volume raise",
@@ -123,12 +104,11 @@
         "format": "\udb80\udcaf",
         "format-disabled": "\udb80\udcb2",
         "format-connected": "\udb80\udcb1 {num_connections}",
-        "format-connected-battery": " \udb80\udcb1\n{device_battery_percentage}%",
+        "format-connected-battery": "\udb80\udcb1",
         "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
         "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
         "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
-        "tooltip-format-enumerate-connected-battery": "\udb80\udcb1 {device_alias} ({device_battery_percentage}%)",
-        "on-click": "uwsm-app -- blueman-manager",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --bluetooth",
         "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
     "battery": {
@@ -137,7 +117,6 @@
             "warning": 30,
             "critical": 15
         },
-        "on-click": "uwsm-app -- kitty --class power_saver.sh --hold -e $HOME/user_scripts/battery/power_saving/power_saver.sh",
         "on-click-right": "uwsm-app -- kitty --class timeout.sh -e $HOME/user_scripts/hypridle/timeout.sh",
         "format": " {icon}\n{capacity}",
         "format-charging": "\udb80\udc84\n{capacity}",
@@ -157,6 +136,24 @@
             "\udb80\udc82",
             "\udb80\udc79"
         ]
+    },
+    "custom/peripheral_battery_icon": {
+        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --icon",
+        "return-type": "json",
+        "format": "{text}",
+        "align": 0.5,
+        "justify": "center",
+        "interval": 60,
+        "tooltip": true
+    },
+    "custom/peripheral_battery_pct": {
+        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",
+        "return-type": "json",
+        "format": "{text}",
+        "align": 0.5,
+        "justify": "center",
+        "interval": 60,
+        "tooltip": false
     },
     "custom/power": {
         "format": "\udb81\udc25",

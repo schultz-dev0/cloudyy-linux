@@ -64,7 +64,7 @@ tooltip label {
 
 #custom-launcher,
 #custom-notification, #custom-timer, #custom-pycharm, #memory, #custom-updates,
-#clock, #network, #pulseaudio, #battery, #cpu, #custom-power, #mpris {
+#clock, #network, #pulseaudio, #battery, #cpu, #custom-power, #mpris, #custom-peripheral_batteries, #bluetooth {
   background-color: alpha(@surface, 0.22);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    10px;
@@ -163,3 +163,19 @@ window#waybar > box {
 
 #bluetooth { color: alpha(@on_surface_variant, 0.6); }
 #bluetooth.connected { color: @primary; }
+
+/* peripheral-battery-monitor */
+
+/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+#custom-peripheral-batteries {
+  color:      alpha(@on_surface_variant, 0.7);
+}
+#custom-peripheral-batteries.warning {
+  color: @primary_fixed;
+}
+#custom-peripheral-batteries.critical {
+  color: @error;
+}
+#custom-peripheral-batteries.unavailable {
+  color: alpha(@on_surface_variant, 0.3);
+}
