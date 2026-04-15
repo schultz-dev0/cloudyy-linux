@@ -41,7 +41,6 @@ cloudyy_scripts/IMPROVEMENTS.md
 
 # App runtime/auto-generated cache
 .local/share/applications/mimeinfo.cache
-.config/yad/volume.css
 .config/hypr/theme_state/system_theme.env
 
 .claude*

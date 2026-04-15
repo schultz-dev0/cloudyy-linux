@@ -1,0 +1,43 @@
+@import url("../matugen/generated/colors.css");
+
+window {
+    background-color: @surface;
+    border: 2px solid @primary;
+    border-radius: 12px;
+}
+
+scale trough {
+    margin: 10px 0;
+    background-color: @surface_container_high;
+    border-radius: 10px;
+    min-height: 10px;
+}
+
+scale highlight {
+    background-color: @primary;
+    border-radius: 10px;
+    min-height: 10px;
+}
+
+label {
+    color: @on_surface;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+button {
+    background: none;
+    box-shadow: none;
+    color: @primary;
+    border: 1px solid @outline_variant;
+    border-radius: 6px;
+    padding: 5px 15px;
+}
+
+button:hover {
+    background-color: @surface_container_high;
+}
+
+button:active {
+    background-color: @primary_container;
+}
