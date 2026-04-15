@@ -34,6 +34,7 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/theme_state/current_wallpaper
 .config/hypr/theme_state/cycle.conf
 cloudyy_scripts/gpu-powerd.py
+cloudyy_scripts/launch-matlab.sh
 
 # hyprland theme state
 
