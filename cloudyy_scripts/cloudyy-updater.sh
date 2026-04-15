@@ -10,8 +10,11 @@ set -euo pipefail
 # Edit these to match your setup
 readonly AUR_HELPER="${AUR_HELPER:-yay}" # yay | paru | trizen
 readonly REPO_DIRS=( # Add all your local GitHub repos here
-  "${HOME}/cloudyyOS"
-  # "${HOME}/dots" for my main rig
+  "${HOME}/cloudyy-linux"
+  #"${HOME}/dots" #for my main rig
+)
+readonly PRESERVED_REPO_PATHS=(
+  ".config/hypr/hyprland.conf"
 )
 readonly LOG_DIR="${HOME}/.local/share/system-update"
 readonly LOG_FILE="${LOG_DIR}/update_$(date +%Y%m%d_%H%M%S).log"
@@ -77,6 +80,77 @@ check_aur_helper() {
   return 0
 }
 
+is_preserved_repo_path() {
+  local path="$1"
+  local preserved_path
+  for preserved_path in "${PRESERVED_REPO_PATHS[@]}"; do
+    [[ "$path" == "$preserved_path" ]] && return 0
+  done
+  return 1
+}
+
+repo_has_blocking_changes() {
+  local path
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    if ! is_preserved_repo_path "$path"; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  done < <(
+    {
+      git diff --name-only HEAD --
+      git diff --cached --name-only --
+    } | sort -u
+  )
+  return 1
+}
+
+preserve_repo_files() {
+  local backup_dir="$1"
+  local preserved_path
+  local preserved_any=1
+
+  mkdir -p "$backup_dir"
+
+  for preserved_path in "${PRESERVED_REPO_PATHS[@]}"; do
+    if ! git ls-files --error-unmatch -- "$preserved_path" >/dev/null 2>&1; then
+      continue
+    fi
+
+    if [[ ! -f "$preserved_path" ]]; then
+      continue
+    fi
+
+    mkdir -p "${backup_dir}/$(dirname "$preserved_path")"
+    cp -- "$preserved_path" "${backup_dir}/${preserved_path}"
+    git checkout HEAD -- "$preserved_path" >/dev/null 2>&1
+    log "  Preserving local file during pull: $preserved_path"
+    preserved_any=0
+  done
+
+  return "$preserved_any"
+}
+
+restore_repo_files() {
+  local backup_dir="$1"
+  local preserved_path
+  local restored_any=1
+
+  for preserved_path in "${PRESERVED_REPO_PATHS[@]}"; do
+    if [[ ! -f "${backup_dir}/${preserved_path}" ]]; then
+      continue
+    fi
+
+    mkdir -p "$(dirname "$preserved_path")"
+    cp -- "${backup_dir}/${preserved_path}" "$preserved_path"
+    log "  Restored local file after pull: $preserved_path"
+    restored_any=0
+  done
+
+  return "$restored_any"
+}
+
 # --- UPDATE STEPS ---
 
 update_pacman() {
@@ -122,6 +196,10 @@ update_repos() {
   local failed=0
 
   for repo in "${REPO_DIRS[@]}"; do
+    local blocking_path=""
+    local preserve_dir=""
+    local preserved_files=0
+
     # Expand tilde
     repo="${repo/#\~/$HOME}"
 
@@ -140,9 +218,9 @@ update_repos() {
     log "Pulling: $repo"
     pushd "$repo" >/dev/null
 
-    # Check for uncommitted changes
-    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-      warn "$repo has uncommitted changes — skipping pull to avoid conflicts"
+    # Check for uncommitted changes, but allow preserved files like hyprland.conf.
+    if blocking_path="$(repo_has_blocking_changes)"; then
+      warn "$repo has uncommitted changes in $blocking_path — skipping pull to avoid conflicts"
       skipped=$((skipped + 1))
       popd >/dev/null
       continue
@@ -152,6 +230,11 @@ update_repos() {
     local branch
     branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo 'HEAD')"
     log "  Branch: $branch"
+
+    preserve_dir="$(mktemp -d "${TMPDIR:-/tmp}/cloudyy-updater.XXXXXX")"
+    if preserve_repo_files "$preserve_dir"; then
+      preserved_files=1
+    fi
 
     # Fetch and pull
     if git fetch --all --prune 2>&1 && git pull --ff-only 2>&1; then
@@ -167,6 +250,11 @@ update_repos() {
       err "Pull failed: $repo (may need manual merge)"
       failed=$((failed + 1))
     fi
+
+    if [[ "$preserved_files" == "1" ]]; then
+      restore_repo_files "$preserve_dir"
+    fi
+    rm -rf "$preserve_dir"
 
     popd >/dev/null
   done

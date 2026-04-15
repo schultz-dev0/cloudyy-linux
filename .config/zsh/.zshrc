@@ -40,9 +40,6 @@ alias ic='sudo pacman -S'
 alias ping='ping -c'
 alias iu='sudo pacman -Syu'
 alias zshconfig='nvim ~/.config/zsh/.zshrc'
-alias hyprconfig='nvim ~/dots/.config/hypr/hyprland.conf'
-alias hyprbinds='nvim ~/dots/.config/hypr/source/bindings.conf'
-alias windows='~/cloudyy_scripts/offtowindows.sh'
 alias gparted='sudo -E gparted'
 alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
 
@@ -52,7 +49,7 @@ alias canvas='xdg-open https://herts.instructure.com/'
 alias studynet='xdg-open https://studynet.herts.ac.uk/studynet'
 alias youtube='xdg-open https://www.youtube.com/'
 alias swayncrestart='swaync-client -rs'
-alias cloudyysync='cd ~/dots/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
+alias cloudyysync='cd ~/cloudyy-linux/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 
 # personl

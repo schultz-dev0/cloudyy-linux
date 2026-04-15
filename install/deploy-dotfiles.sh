@@ -124,6 +124,7 @@ link_home_dotfiles() {
     ((++linked))
   done < <(find "$REPO_DIR" -maxdepth 1 \
     -name ".*" \
+    ! -name ".config" \
     ! -name ".git" \
     ! -name ".gitignore" \
     ! -name ".gitmodules" \
