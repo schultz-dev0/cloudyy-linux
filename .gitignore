@@ -36,10 +36,9 @@ cloudyy_scripts/IMPROVEMENTS.md
 
 # hyprland theme state
 
-.config/hypr/theme_state/dark_last
-.config/hypr/theme_state/light_last
-.config/hypr/theme_state/state
-.config/hypr/theme_state/state.conf
+.config/hypr/theme_state/*
+!.config/hypr/theme_state/apply_theme.sh
+.config/hypr/hyprland.conf
 
 
 
