@@ -33,6 +33,7 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/.cloud-center-state.json
 .config/hypr/theme_state/current_wallpaper
 .config/hypr/theme_state/cycle.conf
+cloudyy_scripts/gpu-powerd.py
 
 # hyprland theme state
 
