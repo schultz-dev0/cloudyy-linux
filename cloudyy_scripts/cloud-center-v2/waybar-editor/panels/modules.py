@@ -4,9 +4,12 @@ Left panel: module list grouped by position with toggle + reorder controls.
 """
 from __future__ import annotations
 
+import logging
 from typing import Callable
 
 from gi.repository import Adw, Gtk
+
+log = logging.getLogger(__name__)
 
 from models import Position, Preset, WaybarModule
 

@@ -5,8 +5,11 @@ Parse waybar config.jsonc and style.css into editor models.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from models import (
     CSSProperty, CSSVar, Position, Preset, WaybarModule,
@@ -41,6 +44,39 @@ def strip_jsonc(text: str) -> str:
 _DEFINE_COLOR = re.compile(
     r"@define-color\s+(\w+)\s+(.+?)\s*;"
 )
+
+_IMPORT_URL = re.compile(r'@import\s+url\(["\']?([^"\')\s]+)["\']?\)\s*;')
+
+
+def collect_css_vars(css: str, style_path: Path | None = None) -> dict[str, str]:
+    """
+    Return every @define-color variable visible to this CSS, including those
+    from @import'd files.  Resolves import paths relative to style_path first;
+    falls back to a home-relative lookup for the common `../../.config/…` pattern.
+    """
+    vars_: dict[str, str] = {}
+
+    if style_path is not None:
+        for m in _IMPORT_URL.finditer(css):
+            raw = m.group(1)
+            candidate = (style_path.parent / raw).resolve()
+            if not candidate.exists() and ".config/" in raw:
+                # Common pattern: ../../.config/… — resolve from HOME instead
+                candidate = (Path.home() / raw[raw.find(".config/"):]).resolve()
+            if candidate.exists():
+                try:
+                    for vm in _DEFINE_COLOR.finditer(candidate.read_text(encoding="utf-8")):
+                        vars_[vm.group(1)] = vm.group(2).strip()
+                except OSError as e:
+                    log.debug("Could not load @import %s: %s", raw, e)
+            else:
+                log.debug("@import not found: %s", raw)
+
+    # Main file overrides anything imported
+    for m in _DEFINE_COLOR.finditer(css):
+        vars_[m.group(1)] = m.group(2).strip()
+
+    return vars_
 
 # Properties we expose as structured editors (selector → property)
 KNOWN_PROPS = {
@@ -93,7 +129,8 @@ def parse_config(text: str) -> tuple[list, list, list]:
     """Return (modules_left, modules_center, modules_right) as WaybarModule lists."""
     try:
         cfg = json.loads(strip_jsonc(text))
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        log.warning("Failed to parse config JSON: %s", e)
         return [], [], []
 
     def make_modules(names, position):

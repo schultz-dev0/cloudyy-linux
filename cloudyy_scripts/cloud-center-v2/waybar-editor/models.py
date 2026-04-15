@@ -4,10 +4,12 @@ Data structures shared across all editor modules.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+log = logging.getLogger(__name__)
 
 WAYBAR_DIR   = Path.home() / ".config" / "waybar"
 PRESETS_DIR  = WAYBAR_DIR / "presets"
@@ -25,7 +27,7 @@ class WaybarModule:
     name:     str       # e.g. "clock", "custom/weather", "pulseaudio#output"
     position: Position
     enabled:  bool = True
-    config:   dict = field(default_factory=dict)
+    config:   dict[str, object] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:
@@ -66,21 +68,21 @@ class Preset:
     config_path: Path
     style_path:  Path
 
-    modules_left:   list = field(default_factory=list)
-    modules_center: list = field(default_factory=list)
-    modules_right:  list = field(default_factory=list)
+    modules_left:   list[WaybarModule] = field(default_factory=list)
+    modules_center: list[WaybarModule] = field(default_factory=list)
+    modules_right:  list[WaybarModule] = field(default_factory=list)
 
-    css_vars:   list = field(default_factory=list)
-    css_props:  list = field(default_factory=list)
+    css_vars:  list[CSSVar]      = field(default_factory=list)
+    css_props: list[CSSProperty] = field(default_factory=list)
     css_raw:    str = ""
     config_raw: str = ""
 
     @property
-    def all_modules(self):
+    def all_modules(self) -> list[WaybarModule]:
         return self.modules_left + self.modules_center + self.modules_right
 
 
-def list_presets() -> list:
+def list_presets() -> list[str]:
     if not PRESETS_DIR.exists():
         return []
     return sorted(p.name for p in PRESETS_DIR.iterdir() if p.is_dir())
@@ -89,6 +91,7 @@ def list_presets() -> list:
 def current_preset_name() -> str:
     try:
         return CURRENT_FILE.read_text(encoding="utf-8").strip()
-    except OSError:
+    except OSError as e:
+        log.warning("Could not read %s, using first preset: %s", CURRENT_FILE, e)
         presets = list_presets()
         return presets[0] if presets else ""

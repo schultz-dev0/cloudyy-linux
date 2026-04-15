@@ -26,6 +26,7 @@ cloudyy_scripts/cloudyy-other/keypunch
 
 # this is private and contains credentials and stuff
 cloudyy_scripts/ivanti/
+.config/personal_stuff/
 
 # stuff
 
@@ -40,3 +41,5 @@ cloudyy_scripts/IMPROVEMENTS.md
 
 # App runtime/auto-generated cache
 .local/share/applications/mimeinfo.cache
+
+.claude*

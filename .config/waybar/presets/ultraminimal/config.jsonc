@@ -23,20 +23,9 @@
     ],
     "clock": {
         "format": "{:%H:%M}",
-        "timezone": "Europe/London",
-        "format-alt": "\udb80\udced {:%a %d %b}",
-        "tooltip-format": "<tt><span size='10pt' font='JetBrainsMono Nerd Font'>{calendar}</span></tt>",
+        "on-click": "uwsm-app -- gnome-clocks",
         "on-click-right": "uwsm-app -- gnome-clocks",
-        "calendar": {
-            "mode": "month",
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#ffb786'><b>{}</b></span>",
-                "days": "<span color='#e2e2e2'>{}</span>",
-                "weekdays": "<span color='#ffb786'><b>{}</b></span>",
-                "today": "<span color='#131313' background='#ffb786'><b>{}</b></span>"
-            }
-        }
+        "tooltip-format": "{:%A, %d %b %Y}"
     },
     "custom/notification": {
         "format": "{icon}",
@@ -93,7 +82,6 @@
             "warning": 30,
             "critical": 15
         },
-        "on-click": "uwsm-app -- kitty --class power_saver.sh --hold -e $HOME/user_scripts/battery/power_saving/power_saver.sh",
         "format": "{icon} {capacity}%",
         "format-charging": "\udb80\udc84 {capacity}%",
         "format-plugged": "\udb81\udea5 {capacity}%",

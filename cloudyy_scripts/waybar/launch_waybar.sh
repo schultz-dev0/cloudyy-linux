@@ -80,7 +80,6 @@ if pgrep -x "${APP_NAME}" >/dev/null 2>&1; then
     sleep 0.1
   done
 
-  # Force kill if still resistant
   if pgrep -x "${APP_NAME}" >/dev/null 2>&1; then
     log_err "Process hung. Sending SIGKILL..."
     pkill -9 -x "${APP_NAME}" >/dev/null 2>&1 || true
@@ -99,7 +98,6 @@ if command -v systemd-run >/dev/null 2>&1; then
   # Security: Add $$ (PID) to unit name to prevent collision on rapid re-runs
   unit_name="${APP_NAME}-mgr-${EPOCHSECONDS}-$$"
 
-  # '--' separates options from the command to prevent flag injection
   if systemd-run --user --quiet --unit="${unit_name}" -- "${APP_NAME}" "$@" >/dev/null 2>&1; then
     log_success "${APP_NAME} launched via systemd unit: ${unit_name}"
   else

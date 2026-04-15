@@ -219,3 +219,26 @@ window#waybar > box {
   margin:  2px 4px;
 }
 
+
+/* peripheral-battery-monitor */
+
+/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+#custom-peripheral-batteries {
+  color:      alpha(@on_surface_variant, 0.7);
+  font-size:  11px;
+  padding:    6px 4px;
+  margin:     2px 4px;
+  transition: color 0.2s ease;
+}
+#custom-peripheral-batteries.warning {
+  color: @primary_fixed;
+}
+#custom-peripheral-batteries.critical {
+  color: @error;
+}
+#custom-peripheral-batteries.charging {
+  color: @tertiary;
+}
+#custom-peripheral-batteries.unavailable {
+  color: alpha(@on_surface_variant, 0.3);
+}

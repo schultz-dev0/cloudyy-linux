@@ -4,13 +4,18 @@ Center panel: Colors tab, Spacing tab, Raw CSS tab.
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 from typing import Callable
 
 from gi.repository import Adw, Gdk, GLib, Gtk
 
 from models import CSSVar, Preset
+from parser import parse_css, parse_config, strip_jsonc
 from writer import update_css_property, update_css_var
+
+log = logging.getLogger(__name__)
 
 
 # ── Spacing properties we expose as sliders ───────────────────────────────────
@@ -58,11 +63,17 @@ class PropertiesPanel(Gtk.Box):
       Raw CSS  — full editable text view
     """
 
-    def __init__(self, on_change: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        on_change: Callable[[], None],
+        on_module_config_parsed: Callable[["Preset"], None] | None = None,
+    ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        self._on_change   = on_change
-        self._preset: Preset | None = None
-        self._raw_debounce: int = 0
+        self._on_change               = on_change
+        self._on_module_config_parsed = on_module_config_parsed
+        self._preset: Preset | None   = None
+        self._raw_debounce: int       = 0
+        self._cfg_debounce: int       = 0
         self._build_ui()
 
     # ── Build ─────────────────────────────────────────────────────────────────
@@ -121,6 +132,35 @@ class PropertiesPanel(Gtk.Box):
         raw_page = self._stack.add_titled(raw_scroll, "raw", "Raw CSS")
         raw_page.set_icon_name("text-editor-symbolic")
 
+        # Raw Config tab
+        self._cfg_buf = Gtk.TextBuffer()
+        self._cfg_buf.connect("changed", self._on_cfg_changed)
+        cfg_view = Gtk.TextView(buffer=self._cfg_buf)
+        cfg_view.set_monospace(True)
+        cfg_view.set_left_margin(8)
+        cfg_view.set_right_margin(8)
+        cfg_view.set_top_margin(8)
+        cfg_view.set_bottom_margin(8)
+
+        cfg_scroll = Gtk.ScrolledWindow()
+        cfg_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        cfg_scroll.set_vexpand(True)
+        cfg_scroll.set_child(cfg_view)
+
+        self._cfg_error_bar = Gtk.InfoBar()
+        self._cfg_error_bar.set_message_type(Gtk.MessageType.ERROR)
+        self._cfg_error_label = Gtk.Label(label="")
+        self._cfg_error_label.set_wrap(True)
+        self._cfg_error_bar.add_child(self._cfg_error_label)
+        self._cfg_error_bar.set_revealed(False)
+
+        cfg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        cfg_box.append(self._cfg_error_bar)
+        cfg_box.append(cfg_scroll)
+
+        cfg_page = self._stack.add_titled(cfg_box, "config", "Raw Config")
+        cfg_page.set_icon_name("preferences-system-symbolic")
+
         # Switcher bar above the stack
         switcher = Adw.ViewSwitcherBar()
         switcher.set_stack(self._stack)
@@ -134,6 +174,20 @@ class PropertiesPanel(Gtk.Box):
         self._rebuild_colors()
         self._rebuild_spacing()
         self._raw_buf.set_text(preset.css_raw)
+        self._cfg_buf.handler_block_by_func(self._on_cfg_changed)
+        self._cfg_buf.set_text(preset.config_raw)
+        self._cfg_buf.handler_unblock_by_func(self._on_cfg_changed)
+        self._cfg_error_bar.set_revealed(False)
+
+    def sync_config_raw(self, raw: str) -> None:
+        """Update the Raw Config buffer from external changes (e.g. ModulesPanel)."""
+        if self._preset is None:
+            return
+        self._preset.config_raw = raw
+        self._cfg_buf.handler_block_by_func(self._on_cfg_changed)
+        self._cfg_buf.set_text(raw)
+        self._cfg_buf.handler_unblock_by_func(self._on_cfg_changed)
+        self._cfg_error_bar.set_revealed(False)
 
     # ── Colors tab ────────────────────────────────────────────────────────────
 
@@ -223,24 +277,17 @@ class PropertiesPanel(Gtk.Box):
         scale.set_draw_value(True)
         scale.set_value_pos(Gtk.PositionType.RIGHT)
 
-        val_lbl = Gtk.Label(label=f"{current}px")
-        val_lbl.set_width_chars(5)
-        val_lbl.add_css_class("monospace")
-
-        scale.connect("value-changed", self._on_scale_changed,
-                      selector, prop, val_lbl)
+        scale.connect("value-changed", self._on_scale_changed, selector, prop)
         box.append(scale)
-        box.append(val_lbl)
         row.add_suffix(box)
         return row
 
     def _on_scale_changed(
-        self, scale: Gtk.Scale, selector: str, prop: str, lbl: Gtk.Label
+        self, scale: Gtk.Scale, selector: str, prop: str
     ) -> None:
         if self._preset is None:
             return
         v = int(scale.get_value())
-        lbl.set_label(f"{v}px")
         new_val = f"{v}px"
         self._preset.css_raw = update_css_property(
             self._preset.css_raw, selector, prop, new_val
@@ -265,5 +312,48 @@ class PropertiesPanel(Gtk.Box):
         start = self._raw_buf.get_start_iter()
         end   = self._raw_buf.get_end_iter()
         self._preset.css_raw = self._raw_buf.get_text(start, end, False)
+        # Re-parse so Colors and Spacing tabs reflect the edited text
+        self._preset.css_vars, self._preset.css_props = parse_css(self._preset.css_raw)
+        self._rebuild_colors()
+        self._rebuild_spacing()
+        self._on_change()
+        return GLib.SOURCE_REMOVE
+
+    # ── Raw Config tab ────────────────────────────────────────────────────────
+
+    def _on_cfg_changed(self, buf: Gtk.TextBuffer) -> None:
+        """Debounce raw config edits."""
+        if self._cfg_debounce:
+            GLib.source_remove(self._cfg_debounce)
+        self._cfg_debounce = GLib.timeout_add(600, self._apply_cfg_edit)
+
+    def _apply_cfg_edit(self) -> bool:
+        self._cfg_debounce = 0
+        if self._preset is None:
+            return GLib.SOURCE_REMOVE
+        start = self._cfg_buf.get_start_iter()
+        end   = self._cfg_buf.get_end_iter()
+        text  = self._cfg_buf.get_text(start, end, False)
+
+        # Validate JSON before applying
+        try:
+            json.loads(strip_jsonc(text))
+        except (json.JSONDecodeError, ValueError) as e:
+            self._cfg_error_label.set_label(f"JSON error: {e}")
+            self._cfg_error_bar.set_revealed(True)
+            return GLib.SOURCE_REMOVE
+
+        self._cfg_error_bar.set_revealed(False)
+        self._preset.config_raw = text
+
+        # Re-parse modules so ModulesPanel can be reloaded
+        left, center, right = parse_config(text)
+        self._preset.modules_left   = left
+        self._preset.modules_center = center
+        self._preset.modules_right  = right
+
+        if self._on_module_config_parsed is not None:
+            self._on_module_config_parsed(self._preset)
+
         self._on_change()
         return GLib.SOURCE_REMOVE

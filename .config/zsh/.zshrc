@@ -51,7 +51,6 @@ alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
 alias canvas='xdg-open https://herts.instructure.com/'
 alias studynet='xdg-open https://studynet.herts.ac.uk/studynet'
 alias youtube='xdg-open https://www.youtube.com/'
-alias gemini='xdg-open https://gemini.google.com/app'
 alias swayncrestart='swaync-client -rs'
 alias cloudyysync='cd ~/dots/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'

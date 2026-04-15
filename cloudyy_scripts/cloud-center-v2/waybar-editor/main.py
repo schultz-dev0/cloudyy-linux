@@ -15,6 +15,7 @@ import logging
 import subprocess
 import sys
 import os
+import threading
 from pathlib import Path
 
 # Allow running from any working directory
@@ -55,7 +56,7 @@ from models import (
     current_preset_name, list_presets,
 )
 from parser  import load_preset
-from writer  import save_config, save_css
+from writer  import save_config, save_css, build_config_str
 
 from panels.modules    import ModulesPanel
 from panels.properties import PropertiesPanel
@@ -118,13 +119,16 @@ class WaybarEditorWindow(Adw.ApplicationWindow):
 
         # Left — modules (fixed width)
         left_frame = Gtk.Frame()
-        self._modules_panel = ModulesPanel(on_change=self._on_content_changed)
+        self._modules_panel = ModulesPanel(on_change=self._on_modules_changed)
         left_frame.set_child(self._modules_panel)
         left_frame.set_size_request(240, -1)
 
         # Center — properties
         center_frame = Gtk.Frame()
-        self._props_panel = PropertiesPanel(on_change=self._on_content_changed)
+        self._props_panel = PropertiesPanel(
+            on_change=self._on_content_changed,
+            on_module_config_parsed=self._on_module_config_parsed,
+        )
         center_frame.set_child(self._props_panel)
 
         # Right — preview
@@ -192,6 +196,17 @@ class WaybarEditorWindow(Adw.ApplicationWindow):
         self._save_btn.set_sensitive(True)
         self._preview_panel.schedule_refresh()
 
+    def _on_modules_changed(self) -> None:
+        """Called by ModulesPanel on toggle/reorder — sync raw config buffer."""
+        self._on_content_changed()
+        if self._preset is not None:
+            raw = build_config_str(self._preset)
+            self._props_panel.sync_config_raw(raw)
+
+    def _on_module_config_parsed(self, preset) -> None:
+        """Called by PropertiesPanel after raw config edit updates module lists."""
+        self._modules_panel.load_preset(preset)
+
     # ── Save ──────────────────────────────────────────────────────────────────
 
     def _on_save(self, _btn: Gtk.Button) -> None:
@@ -215,13 +230,15 @@ class WaybarEditorWindow(Adw.ApplicationWindow):
         self._show_toast("Waybar reloaded")
 
     def _reload_waybar(self) -> None:
-        subprocess.Popen(
-            ["bash", "-c",
-             "pkill waybar 2>/dev/null || true; sleep 0.3; "
-             "if command -v uwsm-app &>/dev/null; then uwsm-app -- waybar; "
-             "else waybar; fi"],
-            start_new_session=True,
-        )
+        def _worker() -> None:
+            subprocess.Popen(
+                ["bash", "-c",
+                 "pkill waybar 2>/dev/null || true; sleep 0.3; "
+                 "if command -v uwsm-app &>/dev/null; then uwsm-app -- waybar; "
+                 "else waybar; fi"],
+                start_new_session=True,
+            )
+        threading.Thread(target=_worker, daemon=True).start()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
