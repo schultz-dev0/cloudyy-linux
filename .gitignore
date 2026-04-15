@@ -1,46 +1,44 @@
+# Editor temp files
 *.swap
+
+# User machine-specific dotfiles
 .gitconfig
-# Ignore user configs
-.config/hypr/user-configs/*
-!.config/hypr/user-configs/.gitkeep
 
+# Hyprland local user overrides
+.config/hypr/user-configs/
+
+# Shell runtime state
 .config/zsh/oh-my-zsh
-
-# ignore all extensions in vs code except matugen config
-
-.vscode-oss/extensions/*
-!.vscode-oss/extensions/matugen-theme
-cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
-.vscode-oss/
-
-.config/mozilla/
-
 .config/zsh/.zsh_history
 .config/zsh/.zcompdump*
 .config/zsh/.bash_history
 
+# Browser profile data
+.config/mozilla/
+
+# VS Code OSS local extensions/cache
+.vscode-oss/
+.vscode-oss/extensions/*
+!.vscode-oss/extensions/matugen-theme
+cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
+
+# Local scripts and private data
 cloudyy_scripts/cloudyy-other/folio-gtk
 cloudyy_scripts/cloudyy-other/keypunch
-
+cloudyy_scripts/cloud-border/
+cloudyy_scripts/ivanti/
+cloudyy_scripts/IMPROVEMENTS.md
+.config/personal_stuff/
 .config/systemd/user/
 
-# this is private and contains credentials and stuff
-cloudyy_scripts/ivanti/
-.config/personal_stuff/
-
-# stuff
-
-cloudyy_scripts/cloud-border/
-cloudyy_scripts/IMPROVEMENTS.md
-
-# build artifacts
+# Python build artifacts
 **/__pycache__/
 *.pyc
 *.pyo
 
-
-# App runtime/auto-generated cache
+# Runtime generated state/cache
 .local/share/applications/mimeinfo.cache
 .config/hypr/theme_state/system_theme.env
 
+# Local AI tooling
 .claude*
