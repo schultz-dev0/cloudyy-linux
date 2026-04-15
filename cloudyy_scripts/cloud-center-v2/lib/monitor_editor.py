@@ -9,6 +9,7 @@ and reloads Hyprland on apply.
 """
 from __future__ import annotations
 
+import math
 import json
 import logging
 import os
@@ -36,6 +37,14 @@ TRANSFORM_LABELS = [
     (5, "Flipped 90°"),
     (6, "Flipped 180°"),
     (7, "Flipped 270°"),
+]
+
+HEADLESS_DEFAULT_MODES = [
+    "3840x2160@60.00Hz",
+    "2560x1440@60.00Hz",
+    "1920x1080@60.00Hz",
+    "1600x900@60.00Hz",
+    "1280x720@60.00Hz",
 ]
 
 
@@ -69,6 +78,132 @@ class MonitorInfo:
         return self.model or self.description or self.name
 
 
+def _normalise_mode_label(raw_mode: object) -> str:
+    """Convert a mode value to a canonical '<w>x<h>@<hz>Hz' label when possible."""
+    if raw_mode is None:
+        return ""
+
+    text = str(raw_mode).strip()
+    if not text:
+        return ""
+
+    match = re.search(r"(\d+x\d+)\s*@\s*([\d.]+)", text)
+    if not match:
+        return text
+
+    res = match.group(1)
+    try:
+        hz = float(match.group(2))
+    except ValueError:
+        return f"{res}@{match.group(2)}Hz"
+    return f"{res}@{hz:.2f}Hz"
+
+
+def _mode_is_usable(mode: str) -> bool:
+    norm = _normalise_mode_label(mode)
+    m = re.match(r"^(\d+)x(\d+)@([\d.]+)", norm)
+    if not m:
+        return False
+    try:
+        return int(m.group(1)) > 0 and int(m.group(2)) > 0 and float(m.group(3)) > 0.0
+    except ValueError:
+        return False
+
+
+def _is_headless_name(name: str) -> bool:
+    return "headless" in name.lower()
+
+
+def _extract_available_modes(payload: dict, current_mode: str) -> list[str]:
+    """Read available modes from hyprctl payload across multiple possible shapes."""
+    raw_modes = payload.get("availableModes") or payload.get("modes") or []
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add_mode(label: str) -> None:
+        mode = _normalise_mode_label(label)
+        if not mode or mode in seen:
+            return
+        seen.add(mode)
+        out.append(mode)
+
+    for entry in raw_modes:
+        if isinstance(entry, str):
+            add_mode(entry)
+            continue
+
+        if isinstance(entry, dict):
+            mode_text = entry.get("mode")
+            if mode_text:
+                add_mode(str(mode_text))
+                continue
+
+            width = entry.get("width")
+            height = entry.get("height")
+            refresh = (
+                entry.get("refreshRate")
+                or entry.get("refresh")
+                or entry.get("hz")
+            )
+            if width and height and refresh:
+                try:
+                    add_mode(f"{int(width)}x{int(height)}@{float(refresh):.2f}Hz")
+                    continue
+                except (TypeError, ValueError):
+                    pass
+
+            add_mode(str(entry))
+
+    if _mode_is_usable(current_mode):
+        add_mode(current_mode)
+
+    if not out and _is_headless_name(str(payload.get("name", ""))):
+        for mode in HEADLESS_DEFAULT_MODES:
+            add_mode(mode)
+    return out
+
+
+def _mode_sort_key(mode: str) -> tuple[int, int, float]:
+    """Sort modes by width, then height, then refresh (descending)."""
+    norm = _normalise_mode_label(mode)
+    match = re.match(r"^(\d+)x(\d+)@([\d.]+)", norm)
+    if not match:
+        return (0, 0, 0.0)
+    try:
+        return (int(match.group(1)), int(match.group(2)), float(match.group(3)))
+    except ValueError:
+        return (0, 0, 0.0)
+
+
+def _fetch_modes_from_monitors_all() -> dict[str, list[str]]:
+    """Fallback source for monitor modes using `hyprctl monitors all -j`."""
+    try:
+        out = subprocess.run(
+            ["hyprctl", "monitors", "all", "-j"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        payload = json.loads(out.stdout)
+    except Exception as exc:
+        log.debug("hyprctl monitors all failed: %s", exc)
+        return {}
+
+    result: dict[str, list[str]] = {}
+    for mon in payload if isinstance(payload, list) else []:
+        name = str(mon.get("name", "")).strip()
+        if not name:
+            continue
+        current_mode = _normalise_mode_label(
+            f"{mon.get('width', 0)}x{mon.get('height', 0)}@{mon.get('refreshRate', 60.0)}"
+        )
+        modes = _extract_available_modes(mon, current_mode)
+        if modes:
+            modes.sort(key=_mode_sort_key, reverse=True)
+            result[name] = modes
+    return result
+
+
 def _fetch_monitors() -> list[MonitorInfo]:
     try:
         out = subprocess.run(
@@ -80,10 +215,25 @@ def _fetch_monitors() -> list[MonitorInfo]:
         log.warning("hyprctl monitors failed: %s", e)
         return []
 
+    fallback_modes = _fetch_modes_from_monitors_all()
+
     monitors = []
     for m in data:
+        name = m.get("name", "")
+        current_mode = _normalise_mode_label(
+            f"{m.get('width', 0)}x{m.get('height', 0)}@{m.get('refreshRate', 60.0)}"
+        )
+        modes = _extract_available_modes(m, current_mode)
+        if name in fallback_modes:
+            merged = {mode: None for mode in modes}
+            for mode in fallback_modes[name]:
+                merged.setdefault(mode, None)
+            modes = list(merged.keys())
+
+        modes.sort(key=_mode_sort_key, reverse=True)
+
         monitors.append(MonitorInfo(
-            name          = m.get("name", ""),
+            name          = name,
             description   = m.get("description", ""),
             make          = m.get("make", ""),
             model         = m.get("model", ""),
@@ -97,9 +247,257 @@ def _fetch_monitors() -> list[MonitorInfo]:
             disabled      = m.get("disabled", False),
             mirror_of     = m.get("mirrorOf", "") or "",
             focused       = m.get("focused", False),
-            available_modes = m.get("availableModes", []),
+            available_modes = modes,
         ))
     return monitors
+
+
+class DisplayLayoutPreview(Gtk.Box):
+    """Simple monitor arrangement canvas with drag-and-drop positioning."""
+
+    SNAP_THRESHOLD_PX = 48
+
+    def __init__(
+        self,
+        monitors: list[MonitorInfo],
+        on_monitor_selected,
+        on_monitor_moved,
+    ) -> None:
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.set_hexpand(True)
+
+        self._on_monitor_selected = on_monitor_selected
+        self._on_monitor_moved = on_monitor_moved
+
+        self._positions: dict[str, tuple[int, int]] = {
+            m.name: (m.x, m.y) for m in monitors
+        }
+        self._sizes: dict[str, tuple[int, int]] = {
+            m.name: (max(64, int(m.width)), max(64, int(m.height))) for m in monitors
+        }
+        self._enabled: dict[str, bool] = {m.name: not m.disabled for m in monitors}
+        self._labels: dict[str, str] = {m.name: m.name for m in monitors}
+        self._order: list[str] = [m.name for m in monitors]
+
+        self._selected_name = monitors[0].name if monitors else ""
+        self._drag_name = ""
+        self._drag_start_pos = (0, 0)
+        self._drag_scale = 1.0
+
+        self._area = Gtk.DrawingArea()
+        self._area.set_content_width(620)
+        self._area.set_content_height(280)
+        self._area.set_hexpand(True)
+        self._area.set_vexpand(False)
+        self._area.set_draw_func(self._draw)
+        self.append(self._area)
+
+        click = Gtk.GestureClick.new()
+        click.connect("pressed", self._on_click_pressed)
+        self._area.add_controller(click)
+
+        drag = Gtk.GestureDrag.new()
+        drag.connect("drag-begin", self._on_drag_begin)
+        drag.connect("drag-update", self._on_drag_update)
+        drag.connect("drag-end", self._on_drag_end)
+        self._area.add_controller(drag)
+
+    def set_selected(self, name: str) -> None:
+        if name in self._positions:
+            self._selected_name = name
+            self._area.queue_draw()
+
+    def update_monitor_position(self, name: str, x: int, y: int) -> None:
+        if name not in self._positions:
+            return
+        self._positions[name] = (x, y)
+        self._area.queue_draw()
+
+    def _global_bounds(self) -> tuple[float, float, float, float]:
+        if not self._order:
+            return (0.0, 0.0, 1.0, 1.0)
+
+        min_x = math.inf
+        min_y = math.inf
+        max_x = -math.inf
+        max_y = -math.inf
+
+        for name in self._order:
+            x, y = self._positions.get(name, (0, 0))
+            w, h = self._sizes.get(name, (1920, 1080))
+            min_x = min(min_x, x)
+            min_y = min(min_y, y)
+            max_x = max(max_x, x + w)
+            max_y = max(max_y, y + h)
+
+        if not math.isfinite(min_x) or not math.isfinite(min_y):
+            return (0.0, 0.0, 1.0, 1.0)
+
+        return (min_x, min_y, max_x, max_y)
+
+    def _layout_transform(self, width: int, height: int) -> tuple[float, float, float]:
+        min_x, min_y, max_x, max_y = self._global_bounds()
+        world_w = max(1.0, max_x - min_x)
+        world_h = max(1.0, max_y - min_y)
+
+        pad = 18.0
+        avail_w = max(1.0, width - pad * 2)
+        avail_h = max(1.0, height - pad * 2)
+        scale = min(avail_w / world_w, avail_h / world_h)
+        scale = max(0.05, min(0.35, scale))
+
+        off_x = (width - world_w * scale) / 2.0
+        off_y = (height - world_h * scale) / 2.0
+        return (scale, off_x - min_x * scale, off_y - min_y * scale)
+
+    def _world_to_canvas(self, x: float, y: float, scale: float, ox: float, oy: float) -> tuple[float, float]:
+        return (x * scale + ox, y * scale + oy)
+
+    def _canvas_to_world_delta(self, dx: float, dy: float, scale: float) -> tuple[int, int]:
+        if scale <= 0:
+            return (0, 0)
+        return (int(round(dx / scale)), int(round(dy / scale)))
+
+    def _hit_test(self, x: float, y: float, width: int, height: int) -> str:
+        scale, ox, oy = self._layout_transform(width, height)
+        for name in reversed(self._order):
+            mx, my = self._positions.get(name, (0, 0))
+            mw, mh = self._sizes.get(name, (1920, 1080))
+            cx, cy = self._world_to_canvas(mx, my, scale, ox, oy)
+            cw = mw * scale
+            ch = mh * scale
+            if cx <= x <= cx + cw and cy <= y <= cy + ch:
+                return name
+        return ""
+
+    def _on_click_pressed(self, _gesture: Gtk.GestureClick, _n: int, x: float, y: float) -> None:
+        width = self._area.get_allocated_width()
+        height = self._area.get_allocated_height()
+        hit = self._hit_test(x, y, width, height)
+        if not hit:
+            return
+        self._selected_name = hit
+        self._area.queue_draw()
+        self._on_monitor_selected(hit)
+
+    def _on_drag_begin(self, _gesture: Gtk.GestureDrag, x: float, y: float) -> None:
+        width = self._area.get_allocated_width()
+        height = self._area.get_allocated_height()
+        hit = self._hit_test(x, y, width, height)
+        if not hit:
+            self._drag_name = ""
+            return
+
+        self._selected_name = hit
+        self._drag_name = hit
+        self._drag_start_pos = self._positions.get(hit, (0, 0))
+        self._drag_scale, _, _ = self._layout_transform(width, height)
+        self._on_monitor_selected(hit)
+        self._area.queue_draw()
+
+    def _on_drag_update(self, _gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
+        if not self._drag_name:
+            return
+
+        dx, dy = self._canvas_to_world_delta(offset_x, offset_y, self._drag_scale)
+        nx = self._drag_start_pos[0] + dx
+        ny = self._drag_start_pos[1] + dy
+        nx, ny = self._snap_position(self._drag_name, nx, ny)
+        self._positions[self._drag_name] = (nx, ny)
+        self._area.queue_draw()
+        self._on_monitor_moved(self._drag_name, nx, ny)
+
+    def _on_drag_end(self, _gesture: Gtk.GestureDrag, _offset_x: float, _offset_y: float) -> None:
+        self._drag_name = ""
+
+    def _snap_axis(self, value: int, candidates: list[int], threshold: int) -> int:
+        """Return nearest candidate if within threshold; else return original value."""
+        best = value
+        best_dist = threshold + 1
+        for candidate in candidates:
+            dist = abs(candidate - value)
+            if dist < best_dist:
+                best = candidate
+                best_dist = dist
+        return best if best_dist <= threshold else value
+
+    def _snap_position(self, moving_name: str, x: int, y: int) -> tuple[int, int]:
+        """Snap monitor to nearby edges/corners of other monitors and to origin."""
+        mw, mh = self._sizes.get(moving_name, (1920, 1080))
+
+        x_candidates = [0]
+        y_candidates = [0]
+
+        for other_name in self._order:
+            if other_name == moving_name:
+                continue
+
+            ox, oy = self._positions.get(other_name, (0, 0))
+            ow, oh = self._sizes.get(other_name, (1920, 1080))
+
+            # Horizontal edge alignments:
+            # moving left/right to other's left/right
+            x_candidates.extend([
+                ox,
+                ox + ow,
+                ox - mw,
+                ox + ow - mw,
+            ])
+
+            # Vertical edge alignments:
+            # moving top/bottom to other's top/bottom
+            y_candidates.extend([
+                oy,
+                oy + oh,
+                oy - mh,
+                oy + oh - mh,
+            ])
+
+        snapped_x = self._snap_axis(x, x_candidates, self.SNAP_THRESHOLD_PX)
+        snapped_y = self._snap_axis(y, y_candidates, self.SNAP_THRESHOLD_PX)
+        return (snapped_x, snapped_y)
+
+    def _draw(self, _area: Gtk.DrawingArea, cr, width: int, height: int) -> None:
+        cr.set_source_rgb(0.12, 0.13, 0.16)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+
+        scale, ox, oy = self._layout_transform(width, height)
+        for name in self._order:
+            x, y = self._positions.get(name, (0, 0))
+            w, h = self._sizes.get(name, (1920, 1080))
+            enabled = self._enabled.get(name, True)
+            selected = (name == self._selected_name)
+
+            cx, cy = self._world_to_canvas(x, y, scale, ox, oy)
+            cw = w * scale
+            ch = h * scale
+
+            if enabled:
+                cr.set_source_rgba(0.17, 0.35, 0.57, 0.95)
+            else:
+                cr.set_source_rgba(0.26, 0.26, 0.28, 0.85)
+
+            cr.rectangle(cx, cy, cw, ch)
+            cr.fill_preserve()
+
+            if selected:
+                cr.set_source_rgba(0.98, 0.98, 0.98, 0.95)
+                cr.set_line_width(3.0)
+            else:
+                cr.set_source_rgba(0.82, 0.85, 0.89, 0.9)
+                cr.set_line_width(1.5)
+            cr.stroke()
+
+            label = self._labels.get(name, name)
+            cr.select_font_face("Sans", 0, 0)
+            cr.set_font_size(12)
+            ext = cr.text_extents(label)
+            tx = cx + max(8.0, (cw - ext.width) / 2.0)
+            ty = cy + max(18.0, (ch + ext.height) / 2.0)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.95)
+            cr.move_to(tx, ty)
+            cr.show_text(label)
 
 
 # ── Config I/O ────────────────────────────────────────────────────────────────
@@ -211,9 +609,25 @@ class MonitorEditorPage(Gtk.Box):
         self._toast_ov  = toast_overlay
         self._monitors: list[MonitorInfo] = []
         self._selected: Optional[MonitorInfo] = None
+        self._layout_preview: Optional[DisplayLayoutPreview] = None
+        self._updating_position_widgets = False
+        self._custom_mode_row: Optional[Adw.EntryRow] = None
 
         self._build_ui()
         self.refresh()
+
+    @staticmethod
+    def _set_combo_strings(row: Adw.ComboRow, values: list[str]) -> None:
+        row.set_model(Gtk.StringList.new(values))
+        set_expression = getattr(row, "set_expression", None)
+        prop_expr = getattr(Gtk, "PropertyExpression", None)
+        str_obj = getattr(Gtk, "StringObject", None)
+        if not callable(set_expression) or prop_expr is None or str_obj is None:
+            return
+        try:
+            row.set_expression(prop_expr.new(str_obj, None, "string"))
+        except Exception as exc:
+            log.debug("ComboRow expression setup failed: %s", exc)
 
     # ── Build ─────────────────────────────────────────────────────────────────
 
@@ -336,18 +750,58 @@ class MonitorEditorPage(Gtk.Box):
         # ── Mode (resolution + refresh rate) ──────────────────────────────
         mode_group = Adw.PreferencesGroup(title="Display Mode")
 
-        self._mode_row = Adw.ComboRow(title="Resolution & Refresh Rate")
         mode_labels = mon.available_modes if mon.available_modes else [mon.current_mode_str]
-        self._mode_row.set_model(Gtk.StringList.new(mode_labels))
+        mode_labels = [m for m in mode_labels if _mode_is_usable(m)]
+        if not mode_labels and _is_headless_name(mon.name):
+            mode_labels = list(HEADLESS_DEFAULT_MODES)
+        if not mode_labels:
+            mode_labels = ["1920x1080@60.00Hz"]
+        self._mode_labels = mode_labels
+
+        mode_row = Adw.ActionRow()
+        mode_row.set_title("Resolution & Refresh Rate")
+
+        # Explicit label widget keeps text visible on stacks where ActionRow title
+        # rendering can be theme/version-sensitive.
+        mode_label = Gtk.Label(label="Resolution & Refresh Rate")
+        mode_label.set_xalign(0.0)
+        mode_label.set_hexpand(True)
+        mode_row.add_prefix(mode_label)
+
+        self._mode_dropdown = Gtk.DropDown.new_from_strings(mode_labels)
+        self._mode_dropdown.set_valign(Gtk.Align.CENTER)
+        self._mode_dropdown.set_hexpand(False)
+        mode_row.add_suffix(self._mode_dropdown)
+        mode_row.set_activatable_widget(self._mode_dropdown)
 
         # Pre-select the current mode
         current = mon.current_mode_str
         for i, m in enumerate(mode_labels):
             if self._modes_match(m, current):
-                self._mode_row.set_selected(i)
+                self._mode_dropdown.set_selected(i)
                 break
 
-        mode_group.add(self._mode_row)
+        mode_group.add(mode_row)
+
+        # Some outputs (especially headless) may expose only one mode.
+        # Allow manual override so users can still set a specific mode string.
+        self._custom_mode_row = None
+        if len(mode_labels) <= 1 or _is_headless_name(mon.name):
+            self._custom_mode_row = Adw.EntryRow(
+                title="Custom Mode Override",
+            )
+            self._custom_mode_row.set_text("")
+            set_apply_btn = getattr(self._custom_mode_row, "set_show_apply_button", None)
+            if callable(set_apply_btn):
+                set_apply_btn(False)
+
+            set_placeholder = getattr(self._custom_mode_row, "set_placeholder_text", None)
+            if callable(set_placeholder):
+                set_placeholder("e.g. 1920x1080@60.00Hz")
+            self._custom_mode_row.set_tooltip_text(
+                "Optional. If set, this value is used instead of the dropdown mode."
+            )
+            mode_group.add(self._custom_mode_row)
 
         # Scale
         self._scale_row = Adw.SpinRow(
@@ -365,14 +819,27 @@ class MonitorEditorPage(Gtk.Box):
 
         # Transform / rotation
         self._transform_row = Adw.ComboRow(title="Rotation")
-        self._transform_row.set_model(
-            Gtk.StringList.new([label for _, label in TRANSFORM_LABELS])
-        )
+        self._set_combo_strings(self._transform_row, [label for _, label in TRANSFORM_LABELS])
         self._transform_row.set_selected(
             next((i for i, (v, _) in enumerate(TRANSFORM_LABELS) if v == mon.transform), 0)
         )
         mode_group.add(self._transform_row)
         self._editor_box.append(mode_group)
+
+        # ── Visual arrangement preview ───────────────────────────────────
+        layout_group = Adw.PreferencesGroup(
+            title="Layout Preview",
+            description="Drag displays to rearrange. Nearby edges/corners snap into alignment.",
+        )
+
+        self._layout_preview = DisplayLayoutPreview(
+            monitors=self._monitors,
+            on_monitor_selected=self._on_preview_selected,
+            on_monitor_moved=self._on_preview_moved,
+        )
+        self._layout_preview.set_selected(mon.name)
+        layout_group.add(self._layout_preview)
+        self._editor_box.append(layout_group)
 
         # ── Position ──────────────────────────────────────────────────────
         pos_group = Adw.PreferencesGroup(
@@ -390,6 +857,7 @@ class MonitorEditorPage(Gtk.Box):
             ),
             digits=0,
         )
+        self._pos_x_row.connect("notify::value", self._on_position_spin_changed)
         pos_group.add(self._pos_x_row)
 
         self._pos_y_row = Adw.SpinRow(
@@ -402,6 +870,7 @@ class MonitorEditorPage(Gtk.Box):
             ),
             digits=0,
         )
+        self._pos_y_row.connect("notify::value", self._on_position_spin_changed)
         pos_group.add(self._pos_y_row)
         self._editor_box.append(pos_group)
 
@@ -409,7 +878,7 @@ class MonitorEditorPage(Gtk.Box):
         mirror_group = Adw.PreferencesGroup(title="Mirror")
         other_names = ["(none)"] + [m.name for m in self._monitors if m.name != mon.name]
         self._mirror_row = Adw.ComboRow(title="Mirror of")
-        self._mirror_row.set_model(Gtk.StringList.new(other_names))
+        self._set_combo_strings(self._mirror_row, other_names)
 
         current_mirror = mon.mirror_of if mon.mirror_of and mon.mirror_of.lower() != "none" else ""
         mirror_idx = 0
@@ -460,12 +929,15 @@ class MonitorEditorPage(Gtk.Box):
         return normalise(a) == normalise(b)
 
     def _get_selected_mode(self) -> str:
-        """Return the raw mode string from the combo row."""
-        idx = self._mode_row.get_selected()
-        model = self._mode_row.get_model()
-        if model and idx < model.get_n_items():
-            item = model.get_item(idx)
-            return item.get_string() if item else ""
+        """Return the raw mode string from the dropdown."""
+        if self._custom_mode_row is not None:
+            manual = self._custom_mode_row.get_text().strip()
+            if manual:
+                return _normalise_mode_label(manual)
+
+        idx = int(self._mode_dropdown.get_selected())
+        if 0 <= idx < len(self._mode_labels):
+            return self._mode_labels[idx]
         return ""
 
     def _get_selected_transform(self) -> int:
@@ -572,10 +1044,42 @@ class MonitorEditorPage(Gtk.Box):
         """Grey out editor controls when monitor is disabled."""
         enabled = self._enabled_row.get_active()
         for widget in (
-            self._mode_row, self._scale_row, self._transform_row,
+            self._mode_dropdown, self._scale_row, self._transform_row,
             self._pos_x_row, self._pos_y_row, self._mirror_row,
         ):
             widget.set_sensitive(enabled)
+        if self._custom_mode_row is not None:
+            self._custom_mode_row.set_sensitive(enabled)
+
+    def _on_position_spin_changed(self, *_args) -> None:
+        if self._updating_position_widgets:
+            return
+        if self._selected is None or self._layout_preview is None:
+            return
+
+        x = int(self._pos_x_row.get_value())
+        y = int(self._pos_y_row.get_value())
+        self._layout_preview.update_monitor_position(self._selected.name, x, y)
+
+    def _on_preview_selected(self, monitor_name: str) -> None:
+        for i, mon in enumerate(self._monitors):
+            if mon.name != monitor_name:
+                continue
+            row = self._list.get_row_at_index(i)
+            if row:
+                self._list.select_row(row)
+            break
+
+    def _on_preview_moved(self, monitor_name: str, x: int, y: int) -> None:
+        if self._selected is None:
+            return
+        if monitor_name != self._selected.name:
+            return
+
+        self._updating_position_widgets = True
+        self._pos_x_row.set_value(float(x))
+        self._pos_y_row.set_value(float(y))
+        self._updating_position_widgets = False
 
     def _on_apply_clicked(self, _btn: Gtk.Button) -> None:
         mon = self._selected
@@ -583,7 +1087,7 @@ class MonitorEditorPage(Gtk.Box):
             return
 
         enabled   = self._enabled_row.get_active()
-        mode      = self._get_selected_mode()
+        mode      = self._get_selected_mode() or mon.current_mode_str
         scale     = self._scale_row.get_value()
         transform = self._get_selected_transform()
         pos_x     = int(self._pos_x_row.get_value())

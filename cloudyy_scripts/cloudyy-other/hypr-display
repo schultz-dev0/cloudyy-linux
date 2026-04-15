@@ -12,7 +12,7 @@ Dependencies (all in [extra]):
   wlvncc   — VNC client for Wayland
   avahi    — for mDNS hostname resolution (.local)
 
-Author: generated for CloudyyOS by CLAUDE (Because I am lazy)
+Author: generated for Nick / CloudyyOS
 """
 
 import argparse
@@ -35,7 +35,6 @@ SKIP_IFACE_PREFIXES = ("lo", "docker", "virbr", "veth", "br-", "tun", "tap")
 
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
-
 
 def die(msg: str) -> None:
     """Print an error message to stderr and exit with code 1."""
@@ -65,9 +64,7 @@ def require_binary(*names: str) -> None:
             )
 
 
-def run(
-    cmd: list[str], check: bool = True, capture: bool = True
-) -> subprocess.CompletedProcess:
+def run(cmd: list[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
     """Run a command, returning the CompletedProcess.  Exits on failure when check=True."""
     result = subprocess.run(
         cmd,
@@ -84,7 +81,6 @@ def run(
 
 
 # ─── Network helpers ──────────────────────────────────────────────────────────
-
 
 def get_local_ip() -> str:
     """
@@ -134,7 +130,6 @@ def resolve_mdns(hostname: str) -> str:
 
 
 # ─── Hyprland helpers ─────────────────────────────────────────────────────────
-
 
 def hyprctl(args: list[str], check: bool = True) -> str:
     """Run hyprctl and return stdout."""
@@ -198,7 +193,10 @@ def create_headless_output(width: int, height: int) -> str:
     if not headless_name:
         die("HEADLESS output was not found after creation — something went wrong.")
 
-    hyprctl(["keyword", "monitor", f"{headless_name},{width}x{height}@60,auto,1"])
+    hyprctl([
+        "keyword", "monitor",
+        f"{headless_name},{width}x{height}@60,auto,1"
+    ])
     ok(f"HEADLESS output '{headless_name}' configured at {width}×{height}@60Hz.")
     return headless_name
 
@@ -214,7 +212,6 @@ def remove_headless_output(name: str) -> None:
 
 
 # ─── Host mode ────────────────────────────────────────────────────────────────
-
 
 def mode_host(port: int) -> None:
     """
@@ -245,11 +242,9 @@ def mode_host(port: int) -> None:
     # ── Start wayvnc ──
     wayvnc_cmd = [
         "wayvnc",
-        "--output",
-        headless_name,
-        "--port",
-        str(port),
-        local_ip,  # bind address
+        "--output", headless_name,   # -o / --output is a valid flag
+        local_ip,                    # positional: address
+        str(port),                   # positional: port
     ]
     info(f"Starting wayvnc on {local_ip}:{port} → output '{headless_name}' …")
     wayvnc_proc = subprocess.Popen(wayvnc_cmd)
@@ -259,9 +254,7 @@ def mode_host(port: int) -> None:
     if wayvnc_proc.poll() is not None:
         if created_headless:
             remove_headless_output(headless_name)
-        die(
-            "wayvnc exited immediately — check that no other VNC server is running on this port."
-        )
+        die("wayvnc exited immediately — check that no other VNC server is running on this port.")
 
     print()
     print("┌─────────────────────────────────────────────────────┐")
@@ -303,7 +296,6 @@ def mode_host(port: int) -> None:
 
 
 # ─── Client mode ──────────────────────────────────────────────────────────────
-
 
 def mode_client(host_hostname: str, port: int) -> None:
     """
@@ -349,7 +341,6 @@ def mode_client(host_hostname: str, port: int) -> None:
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(
