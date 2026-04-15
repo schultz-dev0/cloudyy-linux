@@ -30,6 +30,18 @@ cloudyy_scripts/ivanti/
 cloudyy_scripts/IMPROVEMENTS.md
 .config/personal_stuff/
 .config/systemd/user/
+.config/hypr/.cloud-center-state.json
+.config/hypr/theme_state/current_wallpaper
+.config/hypr/theme_state/cycle.conf
+
+# hyprland theme state
+
+.config/hypr/theme_state/dark_last
+.config/hypr/theme_state/light_last
+.config/hypr/theme_state/state
+.config/hypr/theme_state/state.conf
+
+
 
 # Python build artifacts
 **/__pycache__/
