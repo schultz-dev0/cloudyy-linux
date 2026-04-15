@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""
+hypr-display — Turn a second Arch Linux laptop into a wireless monitor.
+Both machines must be running Hyprland.
+
+Usage:
+  Host (main PC):    hypr-display --host
+  Client (laptop):   hypr-display --client <host-hostname>
+
+Dependencies (all in [extra]):
+  wayvnc   — VNC server with Wayland/wlroots support
+  wlvncc   — VNC client for Wayland
+  avahi    — for mDNS hostname resolution (.local)
+
+Author: generated for CloudyyOS by CLAUDE (Because I am lazy)
+"""
+
+import argparse
+import json
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# ─── Constants ────────────────────────────────────────────────────────────────
+
+DEFAULT_VNC_PORT = 5900
+
+# Prefixes/names of interfaces to skip when finding the LAN IP.
+SKIP_IFACE_PREFIXES = ("lo", "docker", "virbr", "veth", "br-", "tun", "tap")
+
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+
+
+def die(msg: str) -> None:
+    """Print an error message to stderr and exit with code 1."""
+    print(f"\033[1;31m[ERROR]\033[0m {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def info(msg: str) -> None:
+    print(f"\033[1;34m[INFO]\033[0m  {msg}")
+
+
+def ok(msg: str) -> None:
+    print(f"\033[1;32m[OK]\033[0m    {msg}")
+
+
+def warn(msg: str) -> None:
+    print(f"\033[1;33m[WARN]\033[0m  {msg}", file=sys.stderr)
+
+
+def require_binary(*names: str) -> None:
+    """Exit if any required binary is not found on PATH."""
+    for name in names:
+        if not shutil.which(name):
+            die(
+                f"'{name}' is not installed or not on PATH.\n"
+                f"  Install with: sudo pacman -S {name}"
+            )
+
+
+def run(
+    cmd: list[str], check: bool = True, capture: bool = True
+) -> subprocess.CompletedProcess:
+    """Run a command, returning the CompletedProcess.  Exits on failure when check=True."""
+    result = subprocess.run(
+        cmd,
+        capture_output=capture,
+        text=True,
+    )
+    if check and result.returncode != 0:
+        die(
+            f"Command failed: {' '.join(cmd)}\n"
+            f"  stdout: {result.stdout.strip()}\n"
+            f"  stderr: {result.stderr.strip()}"
+        )
+    return result
+
+
+# ─── Network helpers ──────────────────────────────────────────────────────────
+
+
+def get_local_ip() -> str:
+    """
+    Return the first non-loopback, non-virtual LAN IPv4 address by inspecting
+    'ip -j addr'.  Filters out docker/virbr/veth/tun bridges.
+    """
+    result = run(["ip", "-j", "addr"])
+    ifaces = json.loads(result.stdout)
+
+    for iface in ifaces:
+        name: str = iface.get("ifname", "")
+        if any(name.startswith(p) for p in SKIP_IFACE_PREFIXES):
+            continue
+        if iface.get("operstate", "").upper() != "UP":
+            continue
+        for addr_info in iface.get("addr_info", []):
+            if addr_info.get("family") == "inet":  # IPv4 only
+                return addr_info["local"]
+
+    die(
+        "Could not detect a valid LAN IP address.\n"
+        "  Make sure you are connected to a network and the interface is UP."
+    )
+
+
+def resolve_mdns(hostname: str) -> str:
+    """
+    Resolve a hostname (with or without .local suffix) to an IPv4 address
+    using the system resolver (which uses avahi/nss-mdns on Arch).
+    """
+    if not hostname.endswith(".local"):
+        hostname_fqdn = hostname + ".local"
+    else:
+        hostname_fqdn = hostname
+
+    info(f"Resolving '{hostname_fqdn}' via mDNS …")
+    try:
+        ip = socket.getaddrinfo(hostname_fqdn, None, socket.AF_INET)[0][4][0]
+        ok(f"Resolved → {ip}")
+        return ip
+    except socket.gaierror as exc:
+        die(
+            f"mDNS resolution failed for '{hostname_fqdn}': {exc}\n"
+            "  Make sure avahi-daemon is running on the host:\n"
+            "    sudo systemctl enable --now avahi-daemon"
+        )
+
+
+# ─── Hyprland helpers ─────────────────────────────────────────────────────────
+
+
+def hyprctl(args: list[str], check: bool = True) -> str:
+    """Run hyprctl and return stdout."""
+    return run(["hyprctl"] + args, check=check).stdout.strip()
+
+
+def get_monitors() -> list[dict]:
+    """Return parsed list of monitors from 'hyprctl monitors -j'."""
+    raw = hyprctl(["monitors", "-j"])
+    return json.loads(raw)
+
+
+def get_native_resolution() -> tuple[int, int]:
+    """
+    Find the resolution of the first non-HEADLESS monitor — that is the
+    laptop's (or client's) native panel resolution.
+    Returns (width, height).
+    """
+    monitors = get_monitors()
+    for mon in monitors:
+        name: str = mon.get("name", "")
+        if "HEADLESS" not in name.upper():
+            return mon["width"], mon["height"]
+
+    # Fallback: if all are headless for some reason, use first monitor.
+    if monitors:
+        warn("All monitors appear to be HEADLESS — using first entry as fallback.")
+        return monitors[0]["width"], monitors[0]["height"]
+
+    die("No monitors detected via 'hyprctl monitors'. Is Hyprland running?")
+
+
+def find_existing_headless() -> str | None:
+    """
+    Return the name of an existing HEADLESS output, or None if there is none.
+    """
+    monitors = get_monitors()
+    for mon in monitors:
+        name: str = mon.get("name", "")
+        if "HEADLESS" in name.upper():
+            return name
+    return None
+
+
+def create_headless_output(width: int, height: int) -> str:
+    """
+    Create a HEADLESS output at the given resolution.
+    Returns the name of the created output (e.g. 'HEADLESS-1').
+    """
+    info(f"Creating HEADLESS output at {width}×{height} …")
+
+    # createheadlessoutput returns something like "Headless output created: HEADLESS-1"
+    result = hyprctl(["output", "create", "headless"])
+    info(f"hyprctl: {result}")
+
+    # Give Hyprland a moment to register the new output.
+    time.sleep(0.5)
+
+    # Set the resolution explicitly.
+    headless_name = find_existing_headless()
+    if not headless_name:
+        die("HEADLESS output was not found after creation — something went wrong.")
+
+    hyprctl(["keyword", "monitor", f"{headless_name},{width}x{height}@60,auto,1"])
+    ok(f"HEADLESS output '{headless_name}' configured at {width}×{height}@60Hz.")
+    return headless_name
+
+
+def remove_headless_output(name: str) -> None:
+    """Remove a HEADLESS output by name."""
+    info(f"Removing HEADLESS output '{name}' …")
+    result = run(["hyprctl", "output", "remove", name], check=False)
+    if result.returncode == 0:
+        ok(f"Removed '{name}'.")
+    else:
+        warn(f"Could not remove '{name}': {result.stderr.strip()}")
+
+
+# ─── Host mode ────────────────────────────────────────────────────────────────
+
+
+def mode_host(port: int) -> None:
+    """
+    Host mode:
+      1. Detect or create a HEADLESS Hyprland output.
+      2. Start wayvnc bound to that output.
+      3. Block until SIGINT, then clean up.
+    """
+    require_binary("wayvnc", "hyprctl", "ip")
+
+    local_ip = get_local_ip()
+    info(f"Host LAN IP: {local_ip}")
+
+    hostname = socket.gethostname()
+    info(f"Hostname:    {hostname}  (client should connect to '{hostname}.local')")
+
+    # ── Headless output ──
+    headless_name = find_existing_headless()
+    created_headless = False
+
+    if headless_name:
+        info(f"Found existing HEADLESS output: '{headless_name}'")
+    else:
+        width, height = get_native_resolution()
+        headless_name = create_headless_output(width, height)
+        created_headless = True
+
+    # ── Start wayvnc ──
+    wayvnc_cmd = [
+        "wayvnc",
+        "--output",
+        headless_name,
+        "--port",
+        str(port),
+        local_ip,  # bind address
+    ]
+    info(f"Starting wayvnc on {local_ip}:{port} → output '{headless_name}' …")
+    wayvnc_proc = subprocess.Popen(wayvnc_cmd)
+
+    # Small grace period for wayvnc to initialise.
+    time.sleep(1)
+    if wayvnc_proc.poll() is not None:
+        if created_headless:
+            remove_headless_output(headless_name)
+        die(
+            "wayvnc exited immediately — check that no other VNC server is running on this port."
+        )
+
+    print()
+    print("┌─────────────────────────────────────────────────────┐")
+    print(f"│  \033[1;32mREADY\033[0m  — wayvnc serving '{headless_name}'           │")
+    print(f"│  Address : {local_ip}:{port}                         │")
+    print(f"│  mDNS    : {hostname}.local:{port}                    │")
+    print("│                                                     │")
+    print("│  On the laptop, run:                                │")
+    print(f"│    hypr-display --client {hostname}                  │")
+    print("│                                                     │")
+    print("│  Press Ctrl-C to stop.                              │")
+    print("└─────────────────────────────────────────────────────┘")
+
+    # ── Cleanup on SIGINT / SIGTERM ──
+    def _cleanup(signum, _frame):
+        print()
+        info("Caught signal — shutting down …")
+        wayvnc_proc.terminate()
+        try:
+            wayvnc_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            wayvnc_proc.kill()
+        if created_headless:
+            remove_headless_output(headless_name)
+        ok("Host cleaned up. Bye.")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _cleanup)
+    signal.signal(signal.SIGTERM, _cleanup)
+
+    # Block indefinitely (wayvnc does not exit on its own).
+    wayvnc_proc.wait()
+
+    # If wayvnc dies on its own, still clean up.
+    warn("wayvnc exited unexpectedly.")
+    if created_headless:
+        remove_headless_output(headless_name)
+    sys.exit(1)
+
+
+# ─── Client mode ──────────────────────────────────────────────────────────────
+
+
+def mode_client(host_hostname: str, port: int) -> None:
+    """
+    Client mode:
+      1. Resolve the host's IP via mDNS.
+      2. Launch wlvncc in fullscreen.
+      3. Block until wlvncc exits or SIGINT is received.
+    """
+    require_binary("wlvncc")
+
+    host_ip = resolve_mdns(host_hostname)
+
+    wlvncc_cmd = [
+        "wlvncc",
+        "--fullscreen",
+        host_ip,
+        str(port),
+    ]
+    info(f"Connecting to {host_ip}:{port} …")
+    wlvncc_proc = subprocess.Popen(wlvncc_cmd)
+
+    def _cleanup(signum, _frame):
+        print()
+        info("Caught signal — closing wlvncc …")
+        wlvncc_proc.terminate()
+        try:
+            wlvncc_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            wlvncc_proc.kill()
+        ok("Client disconnected. Bye.")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _cleanup)
+    signal.signal(signal.SIGTERM, _cleanup)
+
+    ok("wlvncc launched — use Ctrl-C to disconnect.")
+    wlvncc_proc.wait()
+
+    if wlvncc_proc.returncode != 0:
+        die(f"wlvncc exited with code {wlvncc_proc.returncode}.")
+    else:
+        ok("Session ended cleanly.")
+
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="hypr-display",
+        description="Turn a second Arch Linux laptop into a wireless monitor (Hyprland ↔ Hyprland).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # On the main PC (host):
+  hypr-display --host
+
+  # On the laptop (client):
+  hypr-display --client myhostname
+        """,
+    )
+
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        "--host",
+        action="store_true",
+        help="Run in host mode: create HEADLESS output and start wayvnc.",
+    )
+    mode_group.add_argument(
+        "--client",
+        metavar="HOSTNAME",
+        help="Run in client mode: connect to host via mDNS and launch wlvncc.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_VNC_PORT,
+        help=f"VNC port to use (default: {DEFAULT_VNC_PORT}).",
+    )
+
+    args = parser.parse_args()
+
+    if args.host:
+        mode_host(port=args.port)
+    elif args.client:
+        mode_client(host_hostname=args.client, port=args.port)
+
+
+if __name__ == "__main__":
+    main()
