@@ -35,6 +35,10 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 
 ![Preview](extras/Previewpics/general/cloud_center_home.png)
 
+![Preview](extras/Previewpics/general/battery1.png)
+                                                   
+![Preview](extras/Previewpics/general/battery2.png)
+
 - **Fast fetch**
 
 ![Preview](extras/Previewpics/general/fast_fetch.png)
