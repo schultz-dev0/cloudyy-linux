@@ -42,6 +42,7 @@ alias iu='sudo pacman -Syu'
 alias zshconfig='nvim ~/.config/zsh/.zshrc'
 alias gparted='sudo -E gparted'
 alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
+alias systemscommit='cd ~/Uni_stuff/control_systems/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
 
 # browser tabs #
 
