@@ -599,6 +599,34 @@ def _write_monitor_line(name: str, line: str) -> None:
     log.info("Wrote monitor config for %s: %s", name, line)
 
 
+def _apply_monitor_line(line: str) -> tuple[bool, str]:
+    """Apply a monitor rule live via hyprctl without reloading the compositor."""
+    if not line.startswith("monitor="):
+        return False, "Invalid monitor rule"
+
+    rule = line[len("monitor="):]
+    try:
+        result = subprocess.run(
+            ["hyprctl", "keyword", "monitor", rule],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        return False, str(exc)
+
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    response = stdout or stderr
+    lowered = response.lower()
+
+    if result.returncode != 0:
+        return False, response or f"hyprctl exited with status {result.returncode}"
+    if lowered and "ok" not in lowered and any(token in lowered for token in ("error", "failed", "invalid")):
+        return False, response
+    return True, response or "ok"
+
+
 # ── GTK Page ──────────────────────────────────────────────────────────────────
 
 class MonitorEditorPage(Gtk.Box):
@@ -1109,14 +1137,18 @@ class MonitorEditorPage(Gtk.Box):
 
     def _do_apply(self, name: str, line: str) -> None:
         from lib import utility
+        ok, message = _apply_monitor_line(line)
+        if not ok:
+            utility.toast(self._toast_ov, f"Failed to apply monitor rule: {message}")
+            return
+
         try:
             _write_monitor_line(name, line)
         except Exception as exc:
             utility.toast(self._toast_ov, f"Failed to save: {exc}")
             return
 
-        subprocess.run(["hyprctl", "reload"], capture_output=True)
-        utility.toast(self._toast_ov, f"{name} updated — Hyprland reloaded")
+        utility.toast(self._toast_ov, f"{name} updated live and saved")
         GLib.idle_add(self._after_apply)
 
     def _after_apply(self) -> bool:

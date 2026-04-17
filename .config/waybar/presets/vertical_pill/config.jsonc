@@ -19,7 +19,8 @@
         "battery",
         "pulseaudio#output",
         "network",
-        "custom/temps"
+        "custom/temps",
+        "custom/power"
     ],
     "custom/launcher": {
         "format": " \udb80\udd5f ",
@@ -130,6 +131,11 @@
         "justify": "center",
         "interval": 60,
         "tooltip": true
+    },
+    "custom/power": {
+        "format": "\u23fb",
+        "on-click": "~/cloudyy_scripts/wlogout.sh",
+        "tooltip-format": "Power"
     },
     "custom/peripheral_battery_pct": {
         "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",

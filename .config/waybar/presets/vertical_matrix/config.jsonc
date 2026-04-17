@@ -25,7 +25,6 @@
         "memory",
         "bluetooth",
         "custom/peripheral_battery_icon",
-
         "custom/peripheral_battery_pct",
         "battery",
         "custom/power"
