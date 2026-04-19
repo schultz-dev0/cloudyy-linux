@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── ultraminimal-modules ────────────────────────────────────────────────────── */
+/* ── ultraminimal-modules ──────────────────────────────────────────────────── */
 
 /* ultraminimal-modules — absolute minimum presence */
 
@@ -67,13 +67,13 @@ tooltip label {
 }
 
 #workspaces button {
-  background:  transparent;
-  color:       alpha(@on_surface_variant, 0.22);
-  font-size:   9px;
-  min-width:   22px;
-  padding:     2px 0;
-  margin:      1px 3px;
-  transition:  all 0.14s ease;
+  background: transparent;
+  color:      alpha(@on_surface_variant, 0.22);
+  font-size:  9px;
+  min-width:  22px;
+  padding:    2px 0;
+  margin:     1px 3px;
+  transition: all 0.14s ease;
 }
 #workspaces button.visible { color: alpha(@on_surface, 0.5); }
 #workspaces button.active  {
@@ -102,7 +102,7 @@ tooltip label {
 
 
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar, window#waybar > box {
   background: transparent;
@@ -133,21 +133,21 @@ window#waybar, window#waybar > box {
   padding:          5px 0;
 }
 
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* ── Vertical bar module normalization ─────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
 /* share consistent symmetric padding so nothing is misaligned.                 */
 
 #clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
+  min-width:      42px;
+  padding:        8px 0;
+  font-size:      16px;
+  font-weight:    800;
   letter-spacing: 1px;
 }
 
 #workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
+  padding: 6px 0;
+  margin:  1px 0;
 }
 
 #custom-launcher,
@@ -167,4 +167,3 @@ window#waybar, window#waybar > box {
   padding: 6px 4px;
   margin:  2px 4px;
 }
-

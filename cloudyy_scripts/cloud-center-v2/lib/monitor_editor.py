@@ -215,7 +215,11 @@ def _fetch_monitors() -> list[MonitorInfo]:
         log.warning("hyprctl monitors failed: %s", e)
         return []
 
-    fallback_modes = _fetch_modes_from_monitors_all()
+    # Skip `monitors all` when a HEADLESS output is active — that IPC call can
+    # crash Hyprland when wayvnc holds the HEADLESS output (e.g. hypr-display).
+    # HEADLESS monitors already have HEADLESS_DEFAULT_MODES as their fallback.
+    has_headless = any(_is_headless_name(str(m.get("name", ""))) for m in data)
+    fallback_modes = {} if has_headless else _fetch_modes_from_monitors_all()
 
     monitors = []
     for m in data:

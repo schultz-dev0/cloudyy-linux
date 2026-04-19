@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── minimal-modules ─────────────────────────────────────────────────────────── */
+/* ── minimal-modules ───────────────────────────────────────────────────────── */
 
 /* minimal-modules — clean typographic bar */
 
@@ -68,8 +68,8 @@ tooltip label {
 }
 
 #custom-launcher {
-  color:   alpha(@on_primary_container, 0.8);
-  padding: 0 8px;
+  color:      alpha(@on_primary_container, 0.8);
+  padding:    0 8px;
   transition: all 0.15s ease;
 }
 #custom-launcher:hover { color: @primary; }
@@ -138,14 +138,14 @@ tooltip label {
 #custom-power:hover { color: @error; }
 
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar > box {
   background-color: alpha(@surface, 0.92);
   border-radius:    10px;
   border:           1px solid alpha(@outline_variant, 0.1);
   box-shadow:       none;
-  margin-top: 6px; margin-left: 10px; margin-right: 10px;
+  margin-top:       6px; margin-left: 10px; margin-right: 10px;
 }
 
 #workspaces button.active {
@@ -154,7 +154,7 @@ window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

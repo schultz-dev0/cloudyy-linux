@@ -86,3 +86,6 @@ fi
 
 
 
+
+# opencode
+export PATH=/home/schultz/.opencode/bin:$PATH

@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── ghost-modules ───────────────────────────────────────────────────────────── */
+/* ── ghost-modules ─────────────────────────────────────────────────────────── */
 
 /* ghost-modules — every module is a fully independent floating island */
 
@@ -98,26 +98,26 @@ tooltip label {
   background-color: alpha(@surface, 0.82);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    12px;
-  
+
   /* Horizontal margin */
   margin:           4px 4px;
-  
+
   padding:          2px 6px;
 }
 
 /* this set up for workspaces: */
 
 #workspaces button {
-  background:       transparent;
-  border-radius:    6px;
-  font-size:        12px;
-  
+  background:    transparent;
+  border-radius: 6px;
+  font-size:     12px;
+
   /* Button sizing */
-  min-width:        24px;
-  padding:          2px 8px;
-  margin:           2px;
-  
-  transition:       all 0.14s ease;
+  min-width:     24px;
+  padding:       2px 8px;
+  margin:        2px;
+
+  transition:    all 0.14s ease;
 }
 
 #workspaces button.active {
@@ -130,9 +130,9 @@ tooltip label {
 }
 
 #workspaces button.empty {
-  padding:          0 6px;
-  min-width:        20px;
-  color:            alpha(@on_surface_variant, 0.4);
+  padding:   0 6px;
+  min-width: 20px;
+  color:     alpha(@on_surface_variant, 0.4);
 }
 
 #workspaces button.visible { color: @on_surface; }
@@ -186,22 +186,22 @@ tooltip label {
 /* Battery — vivid state coding */
 #battery { font-size: 11px; }
 #battery.good {
-  color: @tertiary; background-color: alpha(@tertiary_container, 0.45);
+  color:  @tertiary; background-color: alpha(@tertiary_container, 0.45);
   border: 1px solid alpha(@tertiary, 0.2);
 }
 #battery.charging, #battery.plugged, #battery.full {
-  color: @tertiary; background-color: alpha(@tertiary_container, 0.45);
+  color:      @tertiary; background-color: alpha(@tertiary_container, 0.45);
   box-shadow: 0 1px 5px alpha(@tertiary, 0.2);
 }
 #battery.warning:not(.charging)  {
-  color: @primary_fixed; background-color: alpha(@primary_container, 0.45);
+  color:  @primary_fixed; background-color: alpha(@primary_container, 0.45);
   border: 1px solid alpha(@primary, 0.2);
 }
 #battery.critical:not(.charging) {
-  color: @error; background-color: alpha(@error_container, 0.6);
-  border: 1px solid alpha(@error, 0.3);
+  color:      @error; background-color: alpha(@error_container, 0.6);
+  border:     1px solid alpha(@error, 0.3);
   box-shadow: 0 1px 8px alpha(@error, 0.35);
-  animation: blink 0.9s ease-in-out infinite;
+  animation:  blink 0.9s ease-in-out infinite;
 }
 
 /* CPU */
@@ -227,7 +227,7 @@ tooltip label {
   border:           1px solid alpha(@error, 0.3);
 }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar, window#waybar > box {
   background: transparent;
@@ -242,21 +242,21 @@ window#waybar, window#waybar > box {
   padding:    0;
 }
 
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* ── Vertical bar module normalization ─────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
 /* share consistent symmetric padding so nothing is misaligned.                 */
 
 #clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
+  min-width:      42px;
+  padding:        8px 0;
+  font-size:      16px;
+  font-weight:    800;
   letter-spacing: 1px;
 }
 
 #workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
+  padding: 6px 0;
+  margin:  1px 0;
 }
 
 #custom-launcher,
@@ -280,7 +280,7 @@ window#waybar, window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

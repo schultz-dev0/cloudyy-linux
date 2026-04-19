@@ -1,6 +1,6 @@
 # Cloud Center — config.yaml
 # Add pages, sections, and items here. No Python needed.
-# Supported row types: button, toggle, slider, selection, label, battery_monitor
+# Supported row types: button, toggle, slider, selection, label
 # Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
@@ -62,12 +62,6 @@ pages:
                 command: nmcli radio wifi on
               disabled:
                 command: nmcli radio wifi off
-
-          - type: battery_monitor
-            properties:
-              title: Peripheral Batteries
-              description: Wireless keyboard, mouse, headset
-              icon: 
 
       - type: section
         properties:
@@ -252,21 +246,21 @@ pages:
               options:
                 - default
                 - pill
+                - macOS
                 - compact
                 - bubble
                 - dense
                 - ghost
-                - matrix
                 - minimal
                 - ultraminimal
               options_map:
                 default: default
                 pill: pill
+                macOS: macOS
                 compact: compact
                 bubble: bubble
                 dense: dense
                 ghost: ghost
-                matrix: matrix
                 minimal: minimal
                 ultraminimal: ultraminimal
             on_change:

@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── ultraminimal-modules ────────────────────────────────────────────────────── */
+/* ── ultraminimal-modules ──────────────────────────────────────────────────── */
 
 /* ultraminimal-modules — absolute minimum presence */
 
@@ -68,13 +68,13 @@ tooltip label {
 }
 
 #workspaces button {
-  background:  transparent;
-  color:       alpha(@on_surface_variant, 0.22);
-  font-size:   9px;
-  min-width:   22px;
-  padding:     2px 0;
-  margin:      1px 3px;
-  transition:  all 0.14s ease;
+  background: transparent;
+  color:      alpha(@on_surface_variant, 0.22);
+  font-size:  9px;
+  min-width:  22px;
+  padding:    2px 0;
+  margin:     1px 3px;
+  transition: all 0.14s ease;
 }
 #workspaces button.visible { color: alpha(@on_surface, 0.5); }
 #workspaces button.active  {
@@ -98,20 +98,20 @@ tooltip label {
 #battery.warning:not(.charging)        { color: @primary_fixed; }
 #battery.critical:not(.charging)       { color: @error; animation: blink 0.9s ease-in-out infinite; }
 
-#custom-power { 
-  color: alpha(@on_surface_variant, 0.4); 
-  font-size: 12px; 
+#custom-power {
+  color:      alpha(@on_surface_variant, 0.4);
+  font-size:  12px;
   transition: color 0.15s ease;
-  margin: 2px 8px;
+  margin:     2px 8px;
 }
 #custom-power:hover { color: @error; }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar > box {
   background-color: alpha(@surface, 0.68);
   border-radius:    10px;
   border:           1px solid alpha(@outline_variant, 0.1);
   box-shadow:       none;
-  margin-top: 2px; margin-left: 0; margin-right: 0;
+  margin-top:       2px; margin-left: 0; margin-right: 0;
 }

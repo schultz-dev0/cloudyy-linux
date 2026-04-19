@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── dense-modules ───────────────────────────────────────────────────────────── */
+/* ── dense-modules ─────────────────────────────────────────────────────────── */
 
 /* dense-modules — high-density monospace, maximum data */
 
@@ -146,14 +146,14 @@ tooltip label {
 #custom-power       { color: alpha(@on_surface_variant, 0.45); font-size: 11px; }
 #custom-power:hover { background-color: alpha(@error_container, 0.3); color: @error; }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar > box {
   background-color: alpha(@surface, 0.97);
   border-radius:    0;
   border:           none;
   box-shadow:       none;
-  margin-top: 0; margin-left: 0; margin-right: 0;
+  margin-top:       0; margin-left: 0; margin-right: 0;
 }
 
 .modules-left   { padding: 0 4px; }
@@ -162,7 +162,7 @@ window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

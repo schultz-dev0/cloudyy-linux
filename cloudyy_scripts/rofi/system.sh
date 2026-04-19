@@ -32,7 +32,7 @@ show_system_menu() {
     ;;
   *killer*)
     command -v kitty &>/dev/null &&
-      kitty -e sh -c "hyprctl kill; read -p 'Click on a window to close it'" &
+      "hyprctl" kill & # this one doesn't open a terminal
     ;;
   *) back_to_main ;;
   esac

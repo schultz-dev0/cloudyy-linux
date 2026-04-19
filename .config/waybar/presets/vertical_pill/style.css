@@ -2,7 +2,7 @@
    PRESET: vertical_pill
    ─────────────────────────────────────────────────────────────────────────
    Vertical companion to pill. Three stacked rounded pills on the left edge.
-   Same design language — muted palette, bold clock, temp badge at bottom.
+Same design language — muted palette, bold clock, temp badge at bottom.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
@@ -30,7 +30,7 @@ window#waybar > box {
 
 /* ── Single centered pill ──────────────────────────────────────────────────── */
 .modules-center {
-  background-color: alpha(@on_primary, 0.72);
+  background-color: alpha(@on_primary, 0.22);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    18px;
   margin:           5px;
@@ -49,14 +49,14 @@ window#waybar > box {
 
 /* ── Launcher ──────────────────────────────────────────────────────────────── */
 #custom-launcher {
-  color:       @primary;
-  font-size:   17px;
-  font-weight: 800;
+  color:          @primary;
+  font-size:      17px;
+  font-weight:    800;
   padding-bottom: 8px;
-  margin-bottom: 2px;
+  margin-bottom:  2px;
 }
 #custom-launcher:hover {
-  color: @on_primary;
+  color:            @on_primary;
   background-color: alpha(@primary, 0.2);
   border-radius:    10px;
 }
@@ -164,7 +164,7 @@ tooltip label {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral_batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

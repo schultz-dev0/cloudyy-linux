@@ -27,9 +27,7 @@
         "pulseaudio#output",
         "cpu",
         "memory",
-        "custom/peripheral_battery_icon",
-
-        "custom/peripheral_battery_pct",
+        "bluetooth",
         "battery",
         "custom/power"
     ],
@@ -70,7 +68,7 @@
         "format": "\udb80\udfd4 {}",
         "exec": "checkupdates 2>/dev/null | wc -l || echo 0",
         "interval": 3600,
-        "on-click": "kitty sh ~/cloudyy_scripts/cloudyy-updater.sh",
+        "on-click": "kitty sh ~/cloudyy_scripts/waybar/cloudyy-updater.sh",
         "tooltip-format": "System Updates"
     },
     "custom/notification": {
@@ -203,20 +201,6 @@
             "\udb80\udc82",
             "\udb80\udc79"
         ]
-    },
-    "custom/peripheral_battery_icon": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --icon",
-        "return-type": "json",
-        "format": "{text}",
-        "interval": 60,
-        "tooltip": true
-    },
-    "custom/peripheral_battery_pct": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",
-        "return-type": "json",
-        "format": "{text}",
-        "interval": 60,
-        "tooltip": false
     },
     "custom/power": {
         "format": "\udb81\udc25",

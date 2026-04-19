@@ -121,7 +121,7 @@ def _decode_cx_rk(buf: bytearray):
 # Then test: $ python3 waybar/peripheral_battery.py
 #
 EVDEV_TARGETS = [
-    (0x3554, 0xFA09, "RK L75",       ICON_KEYBOARD, _decode_cx_rk),
+    # (0x3554, 0xFA09, "RK L75", ICON_KEYBOARD, _decode_cx_rk),  # CX receiver returns static 0x3f — no real battery data
     (0x1B1C, 0x0A97, "Corsair HS80", ICON_HEADSET,  None),
 ]
 
@@ -580,10 +580,15 @@ def main():
             bar     = "░" * 8
         lines.append(f"{icon}  {name:<{name_w}}  {pct_str:>6}  {bar}")
 
-    # Text: rotate through all device icons every 5 minutes
-    current_idx = _get_current_device_index(len(devices))
-    cycled_name, cycled_icon, cycled_pct, cycled_charging = devices[current_idx]
-    
+    # Text: rotate through devices that have battery data (skip unknowns like disconnected headsets)
+    known_devices = [(n, ic, p, ch) for (n, ic, p, ch) in devices if p is not None]
+    if known_devices:
+        current_idx = _get_current_device_index(len(known_devices))
+        cycled_name, cycled_icon, cycled_pct, cycled_charging = known_devices[current_idx]
+    else:
+        current_idx = _get_current_device_index(len(devices))
+        cycled_name, cycled_icon, cycled_pct, cycled_charging = devices[current_idx]
+
     if cycled_pct is not None:
         charge_icon = f" {ICON_CHARGING}" if cycled_charging else ""
         pct_text = f"{cycled_pct}%{charge_icon}"

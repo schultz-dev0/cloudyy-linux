@@ -1,42 +1,77 @@
 {
-  // ── Dock geometry ─────────────────────────────────────────────────────────
+  // Bar geometry
   "bar": {
-    "position": "bottom", // dock sits at the bottom, centered
-    "size": 45, // icon row height
+    "position": "bottom",
+    "size": 90, // tall enough for magnified icons (icon_size * max_scale + padding)
     "autohide": true,
-    "autohide_delay_ms": 1000,
-    "autohide_trigger_size": 8,
+    "autohide_delay_ms": 800,
+    "autohide_trigger_size": 2,
     "margin": {
       "top": 0,
-      "bottom": 10, // float above the screen edge
+      "bottom": 0,
       "left": 0,
       "right": 0
     }
   },
-  // ── Module layout ─────────────────────────────────────────────────────────
-  // The dock is a single centered row — put everything in "center" for the
-  // classic macOS feel, or split across left/center/right for a hybrid bar.
+  // Which modules appear in each section
   "modules": {
-    "center": [],
-    "left": [
-      "apps"
+    "left": [],
+    "center": [
+      "dock"
     ],
     "right": []
   },
-  // Pinned launcher apps + recently opened app tracking
+  "dock": {
+    "icon_size": 45,
+    "max_scale": 1.6,
+    "scale_curve": "gaussian",
+    "spread": 0.4,
+    "kill_button_enabled": true,
+    "opacity": 0.5
+  },
+  // Spotlight search overlay
+  "spotlight": {
+    "exec": "anyrun",
+    "icon": "system-search",
+    "search": {
+      "opacity": 0.20
+    },
+    "menu": {
+      "opacity": 0.45
+    }
+  },
+  // Pinned launcher apps
   "apps": {
-    "show_recent": true,
-    "recent_limit": 6,
     "pinned": [
       {
         "name": "Firefox",
         "command": "firefox",
-        "class": "firefox"
+        "icon": "firefox",
+        "menu": [
+          {
+            "label": "New Tab",
+            "command": "firefox --new-tab"
+          },
+          {
+            "label": "New Private Window",
+            "command": "firefox --private-window"
+          }
+        ]
       },
       {
-        "name": "Thunar",
+        "name": "Terminal",
+        "command": "kitty",
+        "icon": "utilities-terminal"
+      },
+      {
+        "name": "Obsidian",
+        "command": "obsidian daily",
+        "icon": "obsidian"
+      },
+      {
+        "name": "Files",
         "command": "thunar",
-        "class": "thunar"
+        "icon": "system-file-manager"
       }
     ]
   }

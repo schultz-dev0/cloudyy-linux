@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: vertical_pill
+   PRESET: vertical_default
    ─────────────────────────────────────────────────────────────────────────
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── pill-modules ────────────────────────────────────────────────────────────── */
+/* ── pill-modules ──────────────────────────────────────────────────────────── */
 
 /* pill-modules — polished floating pill bar */
 
@@ -138,37 +138,37 @@ tooltip label {
 }
 
 #custom-weather {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @tertiary; font-size: 12px; transition: all 0.2s ease;
+  color:            @tertiary; font-size: 12px; transition: all 0.2s ease;
 }
 #custom-weather:hover { background-color: alpha(@surface_container_high, 0.9); }
 
 #custom-updates {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @secondary; transition: all 0.2s ease;
+  color:            @secondary; transition: all 0.2s ease;
 }
 #custom-updates:hover { background-color: alpha(@surface_container_high, 0.9); }
 
 #custom-notification {
-  padding: 0 12px 0 9px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 12px 0 9px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @on_surface; font-size: 14px; transition: all 0.2s ease;
+  color:            @on_surface; font-size: 14px; transition: all 0.2s ease;
 }
 #custom-notification:hover { background-color: alpha(@surface_container_high, 0.9); }
 
 #tray {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.4);
-  transition: all 0.2s ease;
+  transition:       all 0.2s ease;
 }
 #tray:hover { background-color: alpha(@surface_container_high, 0.9); }
 #tray > .passive      { -gtk-icon-effect: dim; }
 #tray > .needs-attention {
   -gtk-icon-effect: highlight;
   background-color: alpha(@error, 0.2);
-  border-radius: 6px;
+  border-radius:    6px;
 }
 
 #workspaces {
@@ -249,7 +249,7 @@ tooltip label {
 #network:hover      { background-color: alpha(@surface_container_high, 0.9); }
 #network.disconnected { color: alpha(@on_surface_variant, 0.38); }
 #network.linked, #network.ethernet {
-  color: @tertiary;
+  color:            @tertiary;
   background-color: alpha(@tertiary_container, 0.3);
   border:           1px solid alpha(@tertiary, 0.15);
 }
@@ -260,9 +260,9 @@ tooltip label {
 }
 
 #bluetooth {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @on_surface; font-size: 12px; transition: all 0.2s ease;
+  color:            @on_surface; font-size: 12px; transition: all 0.2s ease;
 }
 #bluetooth:hover     { background-color: alpha(@surface_container_high, 0.9); }
 #bluetooth.disabled  { color: alpha(@on_surface_variant, 0.38); }
@@ -281,18 +281,18 @@ tooltip label {
 #pulseaudio.output.muted  { color: alpha(@on_surface_variant, 0.35); }
 
 #cpu {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
+  color:            @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
 }
 #cpu:hover     { background-color: alpha(@surface_container_high, 0.9); }
 #cpu.warning   { color: @tertiary;  background-color: alpha(@tertiary_container, 0.22); }
 #cpu.critical  { color: @error;     background-color: alpha(@error_container, 0.32); animation: blink-urgent 1.5s ease-in-out infinite; }
 
 #memory {
-  padding: 0 8px; margin: 5px 2px; border-radius: 10px;
+  padding:          0 8px; margin: 5px 2px; border-radius: 10px;
   background-color: alpha(@surface_container, 0.6);
-  color: @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
+  color:            @on_surface_variant; font-size: 11px; transition: all 0.2s ease;
 }
 #memory:hover    { background-color: alpha(@surface_container_high, 0.9); }
 #memory.warning  { color: @tertiary; background-color: alpha(@tertiary_container, 0.22); }
@@ -356,7 +356,7 @@ tooltip label { padding: 6px 10px; color: @on_surface; font-size: 12px; }
   100% { opacity: 1;    }
 }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar, window#waybar > box {
   background: transparent;
@@ -389,21 +389,21 @@ window#waybar, window#waybar > box {
 
 #custom-launcher { border-radius: 12px 12px 0 0; }
 
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* ── Vertical bar module normalization ─────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
 /* share consistent symmetric padding so nothing is misaligned.                 */
 
 #clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
+  min-width:      42px;
+  padding:        8px 0;
+  font-size:      16px;
+  font-weight:    800;
   letter-spacing: 1px;
 }
 
 #workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
+  padding: 6px 0;
+  margin:  1px 0;
 }
 
 #custom-launcher,
@@ -427,7 +427,7 @@ window#waybar, window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

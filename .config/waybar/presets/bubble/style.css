@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: bubble (HORIZONTAL)
+   PRESET: bubble
    ─────────────────────────────────────────────────────────────────────────
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -9,14 +9,14 @@
 
 /* ── Universal Reset ───────────────────────────────────────────────────────── */
 * {
-  border: none;
+  border:        none;
   border-radius: 0;
-  min-height: 0;
-  box-shadow: none;
-  font-family: 'Monocraft', monospace;
-  font-weight: 700;
-  font-size: 12px;
-  text-shadow: none;
+  min-height:    0;
+  box-shadow:    none;
+  font-family:   'Monocraft', monospace;
+  font-weight:   700;
+  font-size:     12px;
+  text-shadow:   none;
 }
 
 /* ── Bar Window ────────────────────────────────────────────────────────────── */
@@ -26,18 +26,18 @@ window#waybar {
 
 window#waybar > box {
   background: transparent;
-  margin: 0;
+  margin:     0;
 }
 
 /* ── The "Bubbles" (Containers) ────────────────────────────────────────────── */
 
 .modules-left, .modules-center, .modules-right {
-  background-color: alpha(@on_primary, 0.72);
-  border: 1px solid alpha(@outline_variant, 0.15);
-  border-radius: 24px;
-  margin-left: 6px;
-  margin-right: 6px;
-  padding: 4px 10px;
+  background-color: alpha(@on_primary, 0.42);
+  border:           1px solid alpha(@outline_variant, 0.15);
+  border-radius:    24px;
+  margin-left:      6px;
+  margin-right:     6px;
+  padding:          4px 10px;
 }
 
 /* ── Modules (Transparent) ─────────────────────────────────────────────────── */
@@ -46,25 +46,25 @@ window#waybar > box {
 #pulseaudio, #network, #battery, #custom-power, #custom-notification, #cpu, #mpris,
 #bluetooth, #custom-peripheral-batteries {
   background: transparent;
-  color: @on_surface;
-  padding: 0 4px;
-  margin: 0;
-  font-size: 12px;
+  color:      @on_surface;
+  padding:    0 4px;
+  margin:     0;
+  font-size:  12px;
 }
 
 /* ── Left Bubble Specifics ─────────────────────────────────────────────────── */
 
 #custom-launcher {
-  color: @primary;
-  font-size: 18px;
-  margin-right: 4px;
-  border-right: 1px solid alpha(@outline_variant, 0.1);
+  color:         @primary;
+  font-size:     18px;
+  margin-right:  4px;
+  border-right:  1px solid alpha(@outline_variant, 0.1);
   padding-right: 12px;
 }
 
 #custom-notification {
-  font-size: 16px;
-  color: @on_surface_variant;
+  font-size:    16px;
+  color:        @on_surface_variant;
   padding-left: 8px;
 }
 
@@ -72,24 +72,24 @@ window#waybar > box {
 
 #clock {
   font-weight: 800;
-  color: @on_surface;
+  color:       @on_surface;
 }
 
 #custom-temps {
-  color: @tertiary;
+  color:        @tertiary;
   padding-left: 8px;
 }
 
 #custom-updates {
-  color: @secondary;
-  font-size: 14px;
+  color:        @secondary;
+  font-size:    14px;
   padding-left: 8px;
 }
 
 /* ── Right Bubble Specifics ────────────────────────────────────────────────── */
 
 #cpu {
-  color: @secondary;
+  color:     @secondary;
   font-size: 11px;
 }
 
@@ -102,16 +102,16 @@ window#waybar > box {
 #battery.critical  { color: @error; animation: blink 1s infinite; }
 
 #custom-power {
-  color: @error;
-  font-size: 16px;
-  margin-left: 4px;
-  border-left: 1px solid alpha(@outline_variant, 0.1);
+  color:        @error;
+  font-size:    16px;
+  margin-left:  4px;
+  border-left:  1px solid alpha(@outline_variant, 0.1);
   padding-left: 12px;
 }
 
 #custom-power:hover {
   background-color: alpha(@error, 0.15);
-  border-radius: 20px;
+  border-radius:    20px;
 }
 
 /* ── Workspaces ────────────────────────────────────────────────────────────── */
@@ -121,41 +121,41 @@ window#waybar > box {
 }
 
 #workspaces button {
-  padding: 0;
-  margin: 0 3px; 
-  color: alpha(@on_surface_variant, 0.4);
-  background: transparent;
-  min-width: 12px; 
-  min-height: 24px;
+  padding:       0;
+  margin:        0 3px;
+  color:         alpha(@on_surface_variant, 0.4);
+  background:    transparent;
+  min-width:     12px;
+  min-height:    24px;
   border-radius: 6px;
 }
 
 #workspaces button.active {
-  color: @on_primary;
+  color:            @on_primary;
   background-color: @primary;
-  font-weight: 800;
-  box-shadow: 0 2px 8px alpha(@primary, 0.3);
-  min-width: 28px;
+  font-weight:      800;
+  box-shadow:       0 2px 8px alpha(@primary, 0.3);
+  min-width:        28px;
 }
 
 #workspaces button:hover {
   background-color: alpha(@on_surface, 0.05);
-  color: @on_surface;
+  color:            @on_surface;
 }
 
 #workspaces button.urgent {
-  color: @error;
+  color:     @error;
   animation: blink 1s infinite;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
 tooltip {
   background-color: @surface_container;
-  border-radius: 12px;
-  border: 1px solid alpha(@outline, 0.1);
+  border-radius:    12px;
+  border:           1px solid alpha(@outline, 0.1);
 }
 tooltip label {
-  color: @on_surface;
+  color:   @on_surface;
   padding: 8px;
 }
 
@@ -171,7 +171,7 @@ tooltip label {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;
