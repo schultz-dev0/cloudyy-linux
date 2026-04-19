@@ -23,9 +23,7 @@
         "cpu",
         "pulseaudio#output",
         "network",
-        "custom/peripheral_battery_icon",
-
-        "custom/peripheral_battery_pct",
+        "bluetooth",
         "battery",
         "custom/notification",
         "custom/power"
@@ -175,20 +173,6 @@
             "\udb80\udc82",
             "\udb80\udc79"
         ]
-    },
-    "custom/peripheral_battery_icon": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --icon",
-        "return-type": "json",
-        "format": "{text}",
-        "interval": 60,
-        "tooltip": true
-    },
-    "custom/peripheral_battery_pct": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",
-        "return-type": "json",
-        "format": "{text}",
-        "interval": 60,
-        "tooltip": false
     },
     "custom/power": {
         "format": "\udb81\udc25",

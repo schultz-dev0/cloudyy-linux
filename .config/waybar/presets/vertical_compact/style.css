@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── compact-modules ─────────────────────────────────────────────────────────── */
+/* ── compact-modules ───────────────────────────────────────────────────────── */
 
 /* compact-modules — single floating bar, polished hierarchy */
 
@@ -141,7 +141,7 @@ tooltip label {
 #custom-power         { color: alpha(@on_surface_variant, 0.5); font-size: 13px; transition: all 0.15s ease; }
 #custom-power:hover   { background-color: alpha(@error_container, 0.35); border-radius: 8px; color: @error; }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar, window#waybar > box {
   background: transparent;
@@ -172,21 +172,21 @@ window#waybar, window#waybar > box {
   padding:          8px 0;
 }
 
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* ── Vertical bar module normalization ─────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
 /* share consistent symmetric padding so nothing is misaligned.                 */
 
 #clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
+  min-width:      42px;
+  padding:        8px 0;
+  font-size:      16px;
+  font-weight:    800;
   letter-spacing: 1px;
 }
 
 #workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
+  padding: 6px 0;
+  margin:  1px 0;
 }
 
 #custom-launcher,
@@ -210,7 +210,7 @@ window#waybar, window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

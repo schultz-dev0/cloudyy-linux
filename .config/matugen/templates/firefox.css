@@ -1,0 +1,17 @@
+u/* Matugen Hybrid Template: Supports Light & Dark System Toggles */
+
+@media (prefers-color-scheme: light) {
+    :root {
+    <* for name, value in colors.light *>
+        --{{name}}: {{value.default.hex}};
+    <* endfor *>
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+    <* for name, value in colors.dark *>
+        --{{name}}: {{value.default.hex}};
+    <* endfor *>
+    }
+}

@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -55,7 +55,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── minimal-modules ─────────────────────────────────────────────────────────── */
+/* ── minimal-modules ───────────────────────────────────────────────────────── */
 
 /* minimal-modules — clean typographic bar */
 
@@ -68,8 +68,8 @@ tooltip label {
 }
 
 #custom-launcher {
-  color:   alpha(@on_primary_container, 0.8);
-  padding: 0 8px;
+  color:      alpha(@on_primary_container, 0.8);
+  padding:    0 8px;
   transition: all 0.15s ease;
 }
 #custom-launcher:hover { color: @primary; }
@@ -138,7 +138,7 @@ tooltip label {
 #custom-power:hover { color: @error; }
 
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 
 .modules-left {
@@ -163,21 +163,21 @@ tooltip label {
   padding:          6px 0;
 }
 
-/* ── Vertical bar module normalization ──────────────────────────────────────── */
+/* ── Vertical bar module normalization ─────────────────────────────────────── */
 /* Ensures #clock always renders (GTK size-allocation fix) and all modules      */
 /* share consistent symmetric padding so nothing is misaligned.                 */
 
 #clock {
-  min-width:   42px;
-  padding:     8px 0;
-  font-size:   16px;
-  font-weight: 800;
+  min-width:      42px;
+  padding:        8px 0;
+  font-size:      16px;
+  font-weight:    800;
   letter-spacing: 1px;
 }
 
 #workspaces button {
-  padding:   6px 0;
-  margin:    1px 0;
+  padding: 6px 0;
+  margin:  1px 0;
 }
 
 #custom-launcher,
@@ -200,7 +200,7 @@ tooltip label {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;

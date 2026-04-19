@@ -20,9 +20,6 @@
         "pulseaudio#output",
         "network",
         "bluetooth",
-        "custom/peripheral_battery_icon",
-
-        "custom/peripheral_battery_pct",
         "battery",
         "custom/power"
     ],
@@ -66,7 +63,7 @@
         "format-ethernet": "\udb80\ude00",
         "format-disconnected": "\udb81\uddaa",
         "tooltip-format-wifi": "{essid} ({signalStrength}%)",
-        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/waybar/cloud-center --wifi",
         "interval": 5
     },
     "bluetooth": {
@@ -77,7 +74,7 @@
         "tooltip-format": "{controller_alias}\n{controller_address}\n\n{device_enumerate}",
         "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
         "tooltip-format-enumerate-connected": "\udb80\udcb1 {device_alias}",
-        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --bluetooth",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/waybar/cloud-center --bluetooth",
         "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
     "battery": {
@@ -105,27 +102,9 @@
             "\udb80\udc79"
         ]
     },
-    "custom/peripheral_battery_icon": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --icon",
-        "return-type": "json",
-        "format": "{text}",
-        "align": 0.5,
-        "justify": "center",
-        "interval": 60,
-        "tooltip": true
-    },
-    "custom/peripheral_battery_pct": {
-        "exec": "~/cloudyy_scripts/waybar/peripheral_battery.py --percent",
-        "return-type": "json",
-        "format": "{text}",
-        "align": 0.5,
-        "justify": "center",
-        "interval": 60,
-        "tooltip": false
-    },
     "custom/power": {
         "format": "\u23fb",
-        "on-click": "~/cloudyy_scripts/wlogout.sh",
+        "on-click": "~/cloudyy_scripts/waybar/wlogout.sh",
         "tooltip-format": "Power"
     }
 }

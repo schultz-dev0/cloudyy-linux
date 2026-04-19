@@ -4,7 +4,7 @@
    Self-contained — base, module styles, and layout are all inline here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Matugen colors + base reset ─────────────────────────────────────────────── */
+/* ── Matugen colors + base reset ───────────────────────────────────────────── */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
 
@@ -25,8 +25,8 @@
 window#waybar {
   background: transparent;
   box-shadow: none;
-  border: 1px solid alpha(@outline_variant, 0.15);
-  margin: 4px 0;
+  border:     1px solid alpha(@outline_variant, 0.15);
+  margin:     4px 0;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
@@ -58,7 +58,7 @@ tooltip label {
   100% { opacity: 1;    }
 }
 
-/* ── compact-modules ─────────────────────────────────────────────────────────── */
+/* ── compact-modules ───────────────────────────────────────────────────────── */
 
 /* compact-modules — single floating bar, polished hierarchy */
 
@@ -69,7 +69,7 @@ tooltip label {
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    10px;
   color:            @on_surface_variant;
-  margin:           4px 3px; 
+  margin:           4px 3px;
   padding:          4px 12px;
   transition:       all 0.18s ease;
 }
@@ -83,26 +83,26 @@ tooltip label {
   background-color: alpha(@surface, 0.82);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    12px;
-  
+
   /* Horizontal margin */
   margin:           4px 4px;
-  
+
   padding:          2px 6px;
 }
 
 /* this set up for workspaces: */
 
 #workspaces button {
-  background:       transparent;
-  border-radius:    6px;
-  font-size:        12px;
-  
+  background:    transparent;
+  border-radius: 6px;
+  font-size:     12px;
+
   /* Button sizing */
-  min-width:        24px;
-  padding:          2px 8px;
-  margin:           2px;
-  
-  transition:       all 0.14s ease;
+  min-width:     24px;
+  padding:       2px 8px;
+  margin:        2px;
+
+  transition:    all 0.14s ease;
 }
 
 #workspaces button.active {
@@ -115,9 +115,9 @@ tooltip label {
 }
 
 #workspaces button.empty {
-  padding:          0 6px;
-  min-width:        20px;
-  color:            alpha(@on_surface_variant, 0.4);
+  padding:   0 6px;
+  min-width: 20px;
+  color:     alpha(@on_surface_variant, 0.4);
 }
 
 #workspaces button.visible { color: @on_surface; }
@@ -130,7 +130,7 @@ tooltip label {
 }
 
 #custom-notification {
-  font-size: 13px; color: @on_surface_variant; 
+  font-size: 13px; color: @on_surface_variant;
 }
 
 #network              { color: @on_surface; font-size: 11px; }
@@ -151,14 +151,14 @@ tooltip label {
 #custom-power         { color: alpha(@on_surface_variant, 0.5); font-size: 13px; transition: all 0.15s ease; }
 #custom-power:hover   { background-color: alpha(@error_container, 0.35); border-radius: 8px; color: @error; }
 
-/* ── Bar container & layout ──────────────────────────────────────────────────── */
+/* ── Bar container & layout ────────────────────────────────────────────────── */
 
 window#waybar > box {
   background-color: alpha(@surface_container, 0.82);
   border-radius:    14px;
   border:           1px solid alpha(@outline_variant, 0.15);
   box-shadow:       none;
-  margin-top: 6px; margin-left: 8px; margin-right: 8px;
+  margin-top:       6px; margin-left: 8px; margin-right: 8px;
 }
 
 #bluetooth { color: alpha(@on_surface_variant, 0.6); }
@@ -166,9 +166,9 @@ window#waybar > box {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
-  color:      alpha(@on_surface_variant, 0.7);
+  color: alpha(@on_surface_variant, 0.7);
 }
 #custom-peripheral-batteries.warning {
   color: @primary_fixed;

@@ -32,7 +32,7 @@ init_dirs
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󰧑 Learn\n󰈈 Appearance\n󰀻 Applications\n󰹑 System\n CloudCenter\n󰏖 Packages\n󰚩 AI\n󰐥 Power")
+    "󰧑 Learn\n󰈈 Appearance\n󰀻 Applications\n󰹑 System\n CloudCenter\n󰏖 Packages\n󰚰 Update\n󰚩 AI\n󰐥 Power")
 
   case "$choice" in
   "󰧑 Learn") exec "${ROFI_DIR}/learn.sh" ;;
@@ -41,6 +41,7 @@ show_main_menu() {
   "󰹑 System") exec "${ROFI_DIR}/system.sh" ;;
   " CloudCenter") hyprctl dispatch exec \ "python3 ${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center.py" ;;
   "󰏖 Packages") exec "${ROFI_DIR}/packages.sh" ;;
+  "󰚰 Update") kitty --hold ~/cloudyy_scripts/cloudyy-updater.sh ;;
   "󰚩 AI") exec "${ROFI_DIR}/ai.sh" ;;
   "󰐥 Power") exec "${HOME}/cloudyy_scripts/rofi/power-menu.sh" ;;
   *) exit 0 ;;

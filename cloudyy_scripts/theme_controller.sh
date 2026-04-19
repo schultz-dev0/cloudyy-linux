@@ -97,31 +97,30 @@ set_system_theme() {
 
   # Firefox: keep profile prefs aligned with system mode for "Automatic".
   set_firefox_theme "$mode"
+
+  # pywalfox: tell the Firefox extension which colour variant to use.
+  # "pywalfox dark" / "pywalfox light" switches the extension's palette;
+  # matugen's post_hook already runs "pywalfox update" to push new colours.
+  if command -v pywalfox >/dev/null 2>&1; then
+    pywalfox "$mode" 2>/dev/null || true
+    log "pywalfox switched to $mode"
+  fi
 }
 
 set_gtk_theme() {
   local mode="$1"
-  local scheme="$([[ "$mode" == "light" ]] && echo "default" || echo "prefer-dark")"
+  # "prefer-light" and "prefer-dark" are the valid values Firefox and GTK apps
+  # recognise via the Settings portal. "default" does NOT signal light mode.
+  local scheme="$([[ "$mode" == "light" ]] && echo "prefer-light" || echo "prefer-dark")"
 
-  # Try freedesktop portal first (most compatible)
-  if dbus-send --session --print-reply \
-    --dest="org.freedesktop.portal.Desktop" \
-    --object-path="/org/freedesktop/portal/desktop" \
-    org.freedesktop.portal.Settings.Read \
-    string:"org.freedesktop.appearance" \
-    string:"color-scheme" >/dev/null 2>&1; then
-    log "Found XDG portal settings"
-  fi
-
-  # Try direct gsettings (GNOME)
   if command -v gsettings >/dev/null 2>&1; then
-    # Try multiple schema paths for compatibility
     if gsettings list-schemas 2>/dev/null | grep -q "^org.gnome.desktop.interface$"; then
-      # GNOME 42+ key used by many apps and portals.
+      # GNOME 42+ key — read by xdg-desktop-portal-gtk and propagated to Firefox
+      # and other apps that query org.freedesktop.portal.Settings.
       gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
       gsettings set org.gnome.desktop.interface gtk-application-prefer-dark-mode \
         "$([[ "$mode" == "dark" ]] && echo "true" || echo "false")" 2>/dev/null || true
-      log "Set GNOME color-scheme + gtk-application-prefer-dark-mode"
+      log "Set GNOME color-scheme=$scheme, gtk-application-prefer-dark-mode"
     fi
   fi
 
@@ -225,41 +224,12 @@ set_qt_theme() {
 
 set_xdg_portal_theme() {
   local mode="$1"
-  # XDG portal color scheme: 0 = default, 1 = prefer-dark, 2 = prefer-light
-  local color_scheme="$([[ "$mode" == "light" ]] && echo "2" || echo "1")"
-
-  # Try using dbus-send to update portal settings
-  dbus-send --session --print-reply \
-    --dest="org.freedesktop.impl.portal.desktop" \
-    --object-path="/org/freedesktop/portal/desktop" \
-    org.freedesktop.impl.portal.Settings.Changed \
-    string:"org.freedesktop.appearance" \
-    string:"color-scheme" \
-    variant:"u:${color_scheme}" 2>/dev/null || true
-
-  # Write to XDG portal config file as fallback
-  local portal_dir="${HOME}/.config/xdg-desktop-portal"
-  mkdir -p "$portal_dir"
-  if [[ -f "${portal_dir}/portals.conf" ]]; then
-    local temp_conf
-    temp_conf=$(mktemp)
-    sed "s/^PreferredColorScheme=.*/PreferredColorScheme=${mode}/" \
-      "${portal_dir}/portals.conf" >"$temp_conf"
-    if grep -q "PreferredColorScheme" "${portal_dir}/portals.conf"; then
-      mv "$temp_conf" "${portal_dir}/portals.conf"
-    else
-      rm "$temp_conf"
-      echo "PreferredColorScheme=${mode}" >>"${portal_dir}/portals.conf"
-    fi
-  else
-    mkdir -p "$portal_dir"
-    cat >"${portal_dir}/portals.conf" <<EOF
-[Portal]
-PreferredColorScheme=${mode}
-EOF
-  fi
-
-  log "Updated XDG portal color scheme to: $mode"
+  # XDG portal color scheme values: 1 = prefer-dark, 2 = prefer-light
+  # xdg-desktop-portal-gtk watches org.gnome.desktop.interface color-scheme
+  # (set above in set_gtk_theme) and automatically emits the SettingChanged
+  # signal on org.freedesktop.portal.Settings — Firefox picks that up live.
+  # No manual dbus emission needed; gsettings is the single source of truth.
+  log "XDG portal appearance: $mode (handled by xdg-desktop-portal-gtk via gsettings)"
 }
 
 # --- HELPERS ---

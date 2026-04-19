@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: pill (HORIZONTAL)
+   PRESET: pill
    ─────────────────────────────────────────────────────────────────────────
    macOS-style single-strip bar. One unified pill, time + workspaces left,
-   mpris centre, system info right. Temp shown as a coloured badge.
+mpris centre, system info right. Temp shown as a coloured badge.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
@@ -27,7 +27,7 @@ window#waybar {
 
 /* ── Single pill wrapper ───────────────────────────────────────────────────── */
 .modules-center {
-  background-color: alpha(@on_primary, 0.72);
+  background-color: alpha(@on_primary, 0.22);
   border:           1px solid alpha(@outline_variant, 0.18);
   border-radius:    18px;
   margin:           0;
@@ -37,7 +37,7 @@ window#waybar {
 /* ── All modules base ──────────────────────────────────────────────────────── */
 #clock, #workspaces, #mpris, #custom-launcher, #network,
 #battery, #pulseaudio, #network, #custom-temps, #bluetooth, #custom-peripheral_batteries {
-  font-size: 12px;
+  font-size:  12px;
   background: transparent;
   color:      @on_surface_variant;
   padding:    0 8px;
@@ -46,9 +46,9 @@ window#waybar {
 
 /* ── Clock ─────────────────────────────────────────────────────────────────── */
 #clock {
-  color:       @on_surface;
-  font-weight: 800;
-  font-size:   13px;
+  color:        @on_surface;
+  font-weight:  800;
+  font-size:    13px;
   padding-left: 10px;
 }
 
@@ -76,15 +76,15 @@ window#waybar {
 }
 
 #workspaces button {
-  background:  transparent;
-  color:       alpha(@on_surface_variant, 0.35);
-  padding:     0 5px;
-  margin:      0 2px;
-  min-width:   14px;
-  min-height:  28px;
+  background:    transparent;
+  color:         alpha(@on_surface_variant, 0.35);
+  padding:       0 5px;
+  margin:        0 2px;
+  min-width:     14px;
+  min-height:    28px;
   border-radius: 8px;
-  font-size:   12px;
-  font-weight: 600;
+  font-size:     12px;
+  font-weight:   600;
 }
 
 #workspaces button.active {
@@ -112,7 +112,7 @@ window#waybar {
   font-size: 11px;
 }
 #mpris.paused {
-  color: alpha(@on_surface_variant, 0.3);
+  color:      alpha(@on_surface_variant, 0.3);
   font-style: italic;
 }
 
@@ -167,7 +167,7 @@ tooltip label {
 
 /* peripheral-battery-monitor */
 
-/* ── Peripheral Battery Monitor ─────────────────────────────────────────────── */
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
 #custom-peripheral-batteries {
   color:      alpha(@on_surface_variant, 0.7);
   font-size:  11px;
