@@ -41,7 +41,10 @@ cloudyy_scripts/launch-matlab.sh
 .config/hypr/theme_state/*
 !.config/hypr/theme_state/apply_theme.sh
 .config/hypr/hyprland.conf
+.config/matugen/generated/
 
+config/waybar/.current_position
+.config/waybar/.current_preset
 
 
 # Python build artifacts
@@ -52,6 +55,20 @@ cloudyy_scripts/launch-matlab.sh
 # Runtime generated state/cache
 .local/share/applications/mimeinfo.cache
 .config/hypr/theme_state/system_theme.env
+.config/hypr/cloudyy-launch.sh
+.config/waybar/.current_position
+.config/waybar/.current_preset
+.config/waybar/.vertical_side
+.config/ncspot/userstate.cbor
+.config/waypaper/config.ini
+.config/btop/btop.conf
+.config/Thunar/accels.scm
+.config/gtk-3.0/gtk.css
+.config/gtk-4.0/gtk.css
+.config/starship/starship.toml
+.config/kitty/kitty-colors.conf
+.config/btop/themes/matugen.theme
+.config/nvim/lua/current_mode.lua
 
 # Local AI tooling
 .claude*

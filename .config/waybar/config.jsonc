@@ -4,39 +4,27 @@
     "reload_style_on_change": true,
     "position": "top",
     "spacing": 0,
-    "height": 32,
-    "margin-top": 0,
-    "margin-left": 0,
-    "margin-right": 0,
+    "height": 36,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
     "margin-bottom": 0,
-    "modules-left": [
-        "custom/launcher",
-        "hyprland/workspaces",
-        "mpris"
-    ],
     "modules-center": [
-        "clock"
-    ],
-    "modules-right": [
-        "custom/temps",
-        "cpu",
+        "clock",
+        "hyprland/workspaces",
+        "mpris",
         "bluetooth",
-        "network",
-        "pulseaudio#output",
         "battery",
-        "custom/notification",
+        "pulseaudio#output",
+        "network",
+        "custom/temps",
         "custom/power"
     ],
     "clock": {
-        "format": "{:%a %b %e  %H:%M}",
+        "format": "{:%H:%M}",
         "on-click": "uwsm-app -- gnome-clocks",
         "on-click-right": "uwsm-app -- gnome-clocks",
-        "tooltip-format": "{:%A, %d %B %Y}"
-    },
-    "custom/launcher": {
-        "format": "󰅟",
-        "on-click": "~/cloudyy_scripts/rofi/applications.sh",
-        "tooltip-format": "Application Launcher"
+        "tooltip-format": "{:%A, %d %b %Y}"
     },
     "hyprland/workspaces": {
         "on-click": "activate",
@@ -51,7 +39,7 @@
         "format": "{player_icon} {title}",
         "format-paused": "󰏤 <i>{title}</i>",
         "format-stopped": "",
-        "max-length": 32,
+        "max-length": 28,
         "status-icons": {
             "paused": "󰏤"
         },
@@ -59,22 +47,6 @@
         "on-click": "playerctl play-pause",
         "on-scroll-up": "playerctl next",
         "on-scroll-down": "playerctl previous"
-    },
-    "custom/temps": {
-        "exec": "~/.config/waybar/scripts/temps.py",
-        "return-type": "json",
-        "format": "{}",
-        "interval": 2,
-        "tooltip": true
-    },
-    "cpu": {
-        "interval": 2,
-        "format": "󰍛 {usage}%",
-        "on-click": "kitty -e btop",
-        "states": {
-            "warning": 70,
-            "critical": 90
-        }
     },
     "bluetooth": {
         "format": "󰂯",
@@ -87,41 +59,15 @@
         "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --bluetooth",
         "on-click-right": "uwsm-app -- kitty --class bluetui -e bluetui"
     },
-    "network": {
-        "format-wifi": "{essid} 󰤨",
-        "format-ethernet": "󰈀",
-        "format-disconnected": "󰖪",
-        "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}",
-        "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
-        "tooltip-format-disconnected": "Not connected",
-        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi",
-        "interval": 5
-    },
-    "pulseaudio#output": {
-        "format": "{icon}",
-        "format-muted": "󰖁",
-        "format-icons": {
-            "default": [
-                "󰕿",
-                "󰖀",
-                "󰕾"
-            ]
-        },
-        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --audio",
-        "on-click-middle": "swayosd-client --output-volume mute-toggle",
-        "on-scroll-up": "swayosd-client --output-volume raise",
-        "on-scroll-down": "swayosd-client --output-volume lower",
-        "tooltip-format": "Volume: {volume}%\nMMB — Mute"
-    },
     "battery": {
         "states": {
             "good": 80,
             "warning": 30,
             "critical": 15
         },
-        "format": "{icon} {capacity}%",
-        "format-charging": "󰂄 {capacity}%",
-        "format-plugged": "󰚥 {capacity}%",
+        "format": "{capacity}% {icon}",
+        "format-charging": "{capacity}% 󰂄",
+        "format-plugged": "{capacity}% 󰚥",
         "format-full": "󰁹",
         "tooltip-format": "{timeTo}\n󱟦 Health: {health}%",
         "format-icons": [
@@ -138,24 +84,44 @@
             "󰁹"
         ]
     },
-    "custom/notification": {
-        "exec": "swaync-client -swb",
-        "return-type": "json",
+    "pulseaudio#output": {
         "format": "{icon}",
+        "format-muted": "󰖁",
         "format-icons": {
-            "notification": "󰅞",
-            "none": "󰅝",
-            "dnd-notification": "󰅞",
-            "dnd-none": "󰅝"
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
         },
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
-        "tooltip": false,
-        "escape": true
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --audio",
+        "on-click-middle": "swayosd-client --output-volume mute-toggle",
+        "on-scroll-up": "swayosd-client --output-volume raise",
+        "on-scroll-down": "swayosd-client --output-volume lower",
+        "tooltip-format": "Volume: {volume}%\n MMB  Mute"
+    },
+    "network": {
+        "format-wifi": "{essid} 󰤨",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰖪",
+        "tooltip-format-wifi": "󰤨 {essid}  {signalStrength}%\n󰩟 {ipaddr}",
+        "tooltip-format-ethernet": "󰈀 Ethernet\n󰩟 {ipaddr}",
+        "tooltip-format-disconnected": "Not connected",
+        "on-click": "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi",
+        "interval": 5
+    },
+    "custom/temps": {
+        "exec": "~/cloudyy_scripts/waybar/temps.py",
+        "return-type": "json",
+        "format": "{}",
+        "interval": 2,
+        "tooltip": true
     },
     "custom/power": {
         "format": "󰐥",
         "on-click": "~/cloudyy_scripts/wlogout.sh",
         "tooltip-format": "Power Menu"
-    }
+    },
+    "modules-left": [],
+    "modules-right": []
 }

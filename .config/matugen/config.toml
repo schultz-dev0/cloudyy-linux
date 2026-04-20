@@ -30,30 +30,31 @@ post_hook = 'hyprctl reload'
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/matugen/generated/waybar-colors.css'
 post_hook = "~/cloudyy_scripts/waybar/launch_waybar.sh"
-# --- 
+
+# starship config
 
 [templates.starship]
 input_path = "~/.config/matugen/templates/starship_preset.tera"
-output_path = "~/.config/starship.toml"
+output_path = "~/.config/matugen/generated/starship.toml"
 
 [templates.gtk3]
 input_path = '~/.config/matugen/templates/gtk-colors.css'
-output_path = '~/.config/gtk-3.0/gtk.css'
+output_path = '~/.config/matugen/generated/gtk-3.css'
 post_hook = 'thunar -q 2>/dev/null; sleep 0.3; thunar --daemon &'
 
 [templates.gtk4]
 input_path = '~/.config/matugen/templates/gtk-colors.css'
-output_path = '~/.config/gtk-4.0/gtk.css'
+output_path = '~/.config/matugen/generated/gtk-4.css'
 
 [templates.kitty]
 input_path = '~/.config/matugen/templates/kitty-colors.conf'
-output_path = '~/.config/kitty/kitty-colors.conf'
+output_path = '~/.config/matugen/generated/kitty-colors.conf'
 post_hook = '~/.config/kitty/matugen-reload.sh'
 
 [templates.nvim]
 input_path = '~/.config/matugen/templates/nvimmode.lua'
-output_path = '~/.config/nvim/lua/current_mode.lua'
-post_hook = 'sh -c "touch ~/.config/nvim/lua/current_mode.lua"'
+output_path = '~/.config/matugen/generated/matugen_colors.lua'
+post_hook = 'sh -c "touch ~/.config/matugen/generated/matugen_colors.lua"'
 
 [templates.rofi]
 input_path = '~/.config/matugen/templates/colors.rasi'
@@ -75,16 +76,16 @@ output_path = '~/.config/matugen/generated/colors.css'
 
 [templates.btop]
 input_path = '~/.config/matugen/templates/btop.theme'
-output_path = '~/.config/btop/themes/matugen.theme'
+output_path = '~/.config/matugen/generated/btop.theme'
 post_hook = 'pkill -USR2 btop || true'
 
 [templates.Obsidian]
 input_path = '~/.config/matugen/templates/obsidian-theme.css'
-output_path = '~/MyLife/.obsidian/snippets/matugen-theme.css'
+output_path = '~/.config/matugen/generated/obsidian-theme.css'
 
 [templates.pywalfox]
 input_path = '~/.config/matugen/templates/pywal.json'
-output_path = '~/.cache/wal/colors.json'
+output_path = '~/.config/matugen/generated/pywalfox-colors.json'
 post_hook = 'pywalfox update'
 
 [templates.vscodium]
@@ -94,7 +95,7 @@ post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
 
 [templates.vesktop]
 input_path = "~/.config/matugen/templates/vesktop_theme.css"
-output_path = "~/.config/vesktop/themes/matugen_theme.css"
+output_path = "~/.config/matugen/generated/vesktop_theme.css"
 
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
