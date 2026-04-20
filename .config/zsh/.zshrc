@@ -15,6 +15,7 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#888888'
 
 source $ZSH/oh-my-zsh.sh
 
+export STARSHIP_CONFIG="$HOME/.config/matugen/generated/starship.toml"
 STARSHIP_CACHE="$HOME/.cache/starship_init.zsh"
 if [[ ! -f "$STARSHIP_CACHE" ]]; then
   starship init zsh > "$STARSHIP_CACHE"

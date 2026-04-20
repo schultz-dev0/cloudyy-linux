@@ -43,10 +43,6 @@ cloudyy_scripts/launch-matlab.sh
 .config/hypr/hyprland.conf
 .config/matugen/generated/
 
-config/waybar/.current_position
-.config/waybar/.current_preset
-
-
 # Python build artifacts
 **/__pycache__/
 *.pyc
