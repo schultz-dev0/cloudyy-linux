@@ -68,3 +68,16 @@ cloudyy_scripts/launch-matlab.sh
 
 # Local AI tooling
 .claude*
+
+# User-specific and generated configs
+.config/btop/btop.conf
+.config/btop/themes/matugen.theme
+.config/hypr/cloudyy-launch.sh
+.config/kitty/kitty-colors.conf
+.config/matugen/generated/
+.config/ncspot/userstate.cbor
+.config/nvim/lua/current_mode.lua
+.config/waybar/.current_position
+.config/waybar/.current_preset
+.config/waybar/.vertical_side
+.config/waypaper/config.ini
