@@ -310,7 +310,7 @@ def mode_client(host_hostname: str, port: int) -> None:
 
     wlvncc_cmd = [
         "wlvncc",
-        "--fullscreen",
+        "-a",
         host_ip,
         str(port),
     ]
