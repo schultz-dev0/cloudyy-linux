@@ -1,10 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   PRESET: macos (HORIZONTAL) — macOS 26 Liquid Glass
+   PRESET: pill
    ─────────────────────────────────────────────────────────────────────────
-   Font:   Monocraft + Nerd Font icons (same as all other presets)
-   Colors: matugen dynamic palette
-   Bar:    fully transparent — content floats on wallpaper
-   Self-contained — base, module styles, and layout are all inline here.
+   macOS-style single-strip bar. One unified pill, time + workspaces left,
+mpris centre, system info right. Temp shown as a coloured badge.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url("../../.config/matugen/generated/waybar-colors.css");
@@ -16,176 +14,176 @@
   min-height:    0;
   box-shadow:    none;
   font-family:   'Monocraft', monospace;
-  font-weight:   700;
+  font-weight:   600;
   font-size:     12px;
-  text-shadow:   0 1px 4px rgba(0, 0, 0, 0.6);
+  text-shadow:   none;
   transition:    background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
-/* ── Bar Window — fully transparent ────────────────────────────────────────── */
+/* ── Bar Window ────────────────────────────────────────────────────────────── */
 window#waybar {
   background: transparent;
 }
 
-window#waybar > box {
-  background: transparent;
-  margin:     0;
-  padding:    0;
+/* ── Single pill wrapper ───────────────────────────────────────────────────── */
+.modules-center {
+  background-color: alpha(@on_primary, 0.22);
+  border:           1px solid alpha(@outline_variant, 0.18);
+  border-radius:    18px;
+  margin:           0;
+  padding:          0 6px;
 }
 
-/* ── Section groups ────────────────────────────────────────────────────────── */
-.modules-left,
-.modules-center,
-.modules-right {
-  background: transparent;
-  padding:    0 8px;
-}
-
-/* ── Base module defaults ──────────────────────────────────────────────────── */
-#custom-launcher, #workspaces, #clock, #mpris,
-#custom-temps, #cpu, #bluetooth, #network,
-#pulseaudio, #battery, #custom-notification,
-#custom-peripheral-batteries, #custom-power {
+/* ── All modules base ──────────────────────────────────────────────────────── */
+#clock, #workspaces, #mpris, #custom-launcher, #network,
+#battery, #pulseaudio, #network, #custom-temps, #bluetooth, #custom-peripheral_batteries {
+  font-size:  12px;
   background: transparent;
   color:      @on_surface_variant;
-  padding:    0 10px;
+  padding:    0 8px;
   margin:     0;
-  font-size:  12px;
-}
-
-/* ── Launcher ──────────────────────────────────────────────────────────────── */
-#custom-launcher {
-  color:        @primary;
-  font-size:    16px;
-  padding:      0 12px 0 8px;
-  border-right: 1px solid alpha(@outline_variant, 0.2);
-  margin-right: 4px;
-}
-#custom-launcher:hover {
-  background-color: alpha(@primary, 0.1);
-  border-radius:    5px;
 }
 
 /* ── Clock ─────────────────────────────────────────────────────────────────── */
 #clock {
-  font-weight: 800;
-  font-size:   13px;
-  color:       @on_surface;
-  padding:     0 12px;
+  color:        @on_surface;
+  font-weight:  800;
+  font-size:    13px;
+  padding-left: 10px;
 }
 
+#custom-power {
+  padding:          0 12px 0 9px;
+  margin:           5px 6px 5px 2px;
+  border-radius:    10px;
+  background-image: linear-gradient(135deg, @primary_container 0%, @primary_fixed_dim 100%);
+  color:            @on_primary_container;
+  font-size:        14px;
+  box-shadow:       0 2px 8px alpha(@error, 0.22);
+  transition:       all 0.2s ease;
+}
+#custom-power:hover {
+  background-color: @error;
+  background-image: none;
+  box-shadow:       0 4px 16px alpha(@error, 0.45);
+}
+
+
+
 /* ── Workspaces ────────────────────────────────────────────────────────────── */
-#workspaces { padding: 0 4px; }
+#workspaces {
+  padding: 0 4px;
+}
 
 #workspaces button {
   background:    transparent;
   color:         alpha(@on_surface_variant, 0.35);
-  padding:       0 6px;
-  margin:        0 1px;
-  min-width:     18px;
-  min-height:    32px;
-  border-radius: 5px;
+  padding:       0 5px;
+  margin:        0 2px;
+  min-width:     14px;
+  min-height:    28px;
+  border-radius: 8px;
   font-size:     12px;
-  font-weight:   700;
+  font-weight:   600;
 }
+
 #workspaces button.active {
-  background-color: alpha(@primary, 0.2);
-  color:            @primary;
+  background-color: @primary;
+  color:            @on_primary;
   font-weight:      800;
-  border-radius:    6px;
-  min-width:        24px;
+  min-width:        22px;
+  border-radius:    10px;
+  box-shadow:       0 1px 6px alpha(@primary, 0.35);
 }
+
 #workspaces button:hover {
-  background-color: alpha(@on_surface, 0.08);
+  background-color: alpha(@on_surface, 0.07);
   color:            @on_surface;
 }
+
 #workspaces button.urgent {
   color:     @error;
   animation: blink 1s infinite;
 }
 
 /* ── Mpris ─────────────────────────────────────────────────────────────────── */
-#mpris        { color: alpha(@on_surface_variant, 0.6); font-size: 11px; padding: 0 8px; }
-#mpris.paused { color: alpha(@on_surface_variant, 0.3); font-style: italic; }
-
-/* ── Temps ─────────────────────────────────────────────────────────────────── */
-#custom-temps { color: @tertiary; }
-
-/* ── CPU ───────────────────────────────────────────────────────────────────── */
-#cpu          { color: @secondary; }
-#cpu.warning  { color: @tertiary; }
-#cpu.critical { color: @error; animation: blink 1.2s ease-in-out infinite; }
-
-/* ── Bluetooth ─────────────────────────────────────────────────────────────── */
-#bluetooth           { color: alpha(@on_surface_variant, 0.45); font-size: 14px; }
-#bluetooth.connected { color: @primary; }
-#bluetooth.disabled  { color: alpha(@on_surface_variant, 0.2); }
-
-/* ── Network ───────────────────────────────────────────────────────────────── */
-#network              { color: alpha(@on_surface_variant, 0.6); }
-#network.wifi         { color: @primary_fixed; }
-#network.ethernet     { color: @tertiary; }
-#network.disconnected { color: alpha(@on_surface_variant, 0.25); }
-
-/* ── Audio ─────────────────────────────────────────────────────────────────── */
-#pulseaudio.output       { color: @tertiary; font-size: 14px; }
-#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.25); }
+#mpris {
+  color:     alpha(@on_surface_variant, 0.55);
+  font-size: 11px;
+}
+#mpris.paused {
+  color:      alpha(@on_surface_variant, 0.3);
+  font-style: italic;
+}
 
 /* ── Battery ───────────────────────────────────────────────────────────────── */
-#battery          { color: @on_surface_variant; }
-#battery.good     { color: @tertiary; }
-#battery.charging { color: @primary; }
-#battery.warning  { color: @secondary; }
-#battery.critical { color: @error; animation: blink 0.9s infinite; }
+#battery              { color: @on_surface_variant; }
+#battery.good         { color: @tertiary; }
+#battery.charging     { color: @primary; }
+#battery.warning      { color: @secondary; }
+#battery.critical     { color: @error; animation: blink 0.9s infinite; }
 
-/* ── Notification ──────────────────────────────────────────────────────────── */
-#custom-notification       { color: alpha(@on_surface_variant, 0.5); font-size: 14px; padding: 0 6px; }
-#custom-notification:hover { color: @on_surface; }
+/* ── Audio ─────────────────────────────────────────────────────────────────── */
+#pulseaudio.output       { color: @on_surface_variant; }
+#pulseaudio.output.muted { color: alpha(@on_surface_variant, 0.28); }
 
-/* ── Peripheral battery ────────────────────────────────────────────────────── */
-#custom-peripheral-batteries             { color: alpha(@on_surface_variant, 0.6); font-size: 11px; transition: color 0.2s ease; }
-#custom-peripheral-batteries.warning     { color: @primary_fixed; }
-#custom-peripheral-batteries.critical    { color: @error; }
-#custom-peripheral-batteries.charging    { color: @tertiary; }
-#custom-peripheral-batteries.unavailable { color: alpha(@on_surface_variant, 0.2); }
+/* ── Network ───────────────────────────────────────────────────────────────── */
+#network              { color: @on_surface_variant; font-size: 11px; }
+#network.wifi         { color: @on_surface; }
+#network.ethernet     { color: @tertiary; }
+#network.disconnected { color: alpha(@on_surface_variant, 0.28); }
 
-/* ── Power ─────────────────────────────────────────────────────────────────── */
-#custom-power {
-  color:       alpha(@error, 0.55);
-  font-size:   14px;
-  padding:     0 10px 0 8px;
-  border-left: 1px solid alpha(@outline_variant, 0.2);
-  margin-left: 2px;
-}
-#custom-power:hover {
-  color:            @error;
-  background-color: alpha(@error, 0.1);
-  border-radius:    4px;
-}
-
-/* ── Generic hover ─────────────────────────────────────────────────────────── */
-#cpu:hover, #bluetooth:hover, #network:hover,
-#pulseaudio.output:hover, #battery:hover, #custom-temps:hover {
-  background-color: alpha(@on_surface, 0.06);
-  border-radius:    5px;
+/* ── Temp badge (the green "80" pill) ──────────────────────────────────────── */
+#custom-temps {
+  background-color: alpha(@tertiary, 0.18);
+  border:           1px solid alpha(@tertiary, 0.25);
+  border-radius:    12px;
+  color:            @tertiary;
+  font-weight:      800;
+  padding:          2px 10px;
+  margin:           5px 4px 5px 2px;
 }
 
 /* ── Tooltips ──────────────────────────────────────────────────────────────── */
 tooltip {
-  background-color: alpha(@surface_container_high, 0.92);
-  border-radius:    10px;
+  background-color: @surface_container_high;
+  border-radius:    12px;
   border:           1px solid alpha(@outline_variant, 0.15);
 }
 tooltip label {
-  color:       @on_surface;
-  padding:     6px 12px;
-  font-size:   12px;
-  text-shadow: none;
+  color:   @on_surface;
+  padding: 6px 10px;
 }
 
 /* ── Animation ─────────────────────────────────────────────────────────────── */
 @keyframes blink {
   0%   { opacity: 1;   }
-  50%  { opacity: 0.3; }
+  50%  { opacity: 0.4; }
   100% { opacity: 1;   }
+}
+
+#bluetooth { color: alpha(@on_surface_variant, 0.6); }
+#bluetooth.connected { color: @primary; }
+
+/* peripheral-battery-monitor */
+
+/* ── Peripheral Battery Monitor ────────────────────────────────────────────── */
+#custom-peripheral-batteries {
+  color:      alpha(@on_surface_variant, 0.7);
+  font-size:  11px;
+  padding:    6px 4px;
+  margin:     2px 4px;
+  transition: color 0.2s ease;
+}
+#custom-peripheral-batteries.warning {
+  color: @primary_fixed;
+}
+#custom-peripheral-batteries.critical {
+  color: @error;
+}
+#custom-peripheral-batteries.charging {
+  color: @tertiary;
+}
+#custom-peripheral-batteries.unavailable {
+  color: alpha(@on_surface_variant, 0.3);
 }

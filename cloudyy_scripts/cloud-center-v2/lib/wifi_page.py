@@ -39,6 +39,10 @@ class WifiNetwork:
     def is_open(self) -> bool:
         return not self.security or self.security in ("--", "")
 
+    @property
+    def is_enterprise(self) -> bool:
+        return "802.1X" in self.security
+
 
 # ── nmcli helpers ─────────────────────────────────────────────────────────────
 
@@ -98,35 +102,42 @@ def scan_networks() -> list[WifiNetwork]:
     seen_ssids: set[str] = set()
     current: dict[str, str] = {}
 
+    def _commit(record: dict[str, str]) -> None:
+        ssid = record.get("SSID", "").strip()
+        if not ssid or ssid == "--":
+            return
+        try:
+            sig = int(record.get("SIGNAL", "0").strip())
+        except ValueError:
+            sig = 0
+        if ssid not in seen_ssids:
+            seen_ssids.add(ssid)
+            networks.append(WifiNetwork(
+                ssid=ssid,
+                bssid=record.get("BSSID", "").strip(),
+                signal=sig,
+                security=record.get("SECURITY", "").strip(),
+                connected=record.get("ACTIVE", "").strip().lower() == "yes",
+                frequency=record.get("FREQ", "").strip(),
+            ))
+        else:
+            for n in networks:
+                if n.ssid == ssid and sig > n.signal:
+                    n.signal = sig
+
     for raw_line in out.splitlines():
         stripped = raw_line.strip()
         if not stripped:
-            # End-of-record marker
-            ssid = current.get("SSID", "").strip()
-            if ssid and ssid != "--":
-                try:
-                    sig = int(current.get("SIGNAL", "0").strip())
-                except ValueError:
-                    sig = 0
-                if ssid not in seen_ssids:
-                    seen_ssids.add(ssid)
-                    networks.append(WifiNetwork(
-                        ssid=ssid,
-                        bssid=current.get("BSSID", "").strip(),
-                        signal=sig,
-                        security=current.get("SECURITY", "").strip(),
-                        connected=current.get("ACTIVE", "").strip().lower() == "yes",
-                        frequency=current.get("FREQ", "").strip(),
-                    ))
-                else:
-                    # Keep the highest-signal entry for duplicate SSIDs
-                    for n in networks:
-                        if n.ssid == ssid and sig > n.signal:
-                            n.signal = sig
+            continue
+        key, _, value = stripped.partition(":")
+        key = key.strip()
+        # A repeated key (e.g. SSID appearing again) means a new record starts
+        if key in current:
+            _commit(current)
             current = {}
-        else:
-            key, _, value = stripped.partition(":")
-            current[key.strip()] = value.strip()
+        current[key] = value.strip()
+
+    _commit(current)
 
     # Mark saved connections
     _, saved_out = _run_nmcli(["-t", "-f", "NAME", "connection", "show"])
@@ -141,7 +152,39 @@ def scan_networks() -> list[WifiNetwork]:
 def connect_network(ssid: str, password: str | None = None) -> tuple[bool, str]:
     if password:
         return _run_nmcli(["device", "wifi", "connect", ssid, "password", password], timeout=30)
-    return _run_nmcli(["device", "wifi", "connect", ssid], timeout=30)
+    # For saved connections (including 802.1x), bring up the existing profile directly
+    return _run_nmcli(["connection", "up", ssid], timeout=30)
+
+
+def get_enterprise_identity(ssid: str) -> str:
+    _, out = _run_nmcli(["-t", "-f", "802-1x.identity", "connection", "show", ssid])
+    return out.strip()
+
+
+def connect_enterprise_network(ssid: str, identity: str, password: str) -> tuple[bool, str]:
+    """Connect to a WPA-Enterprise (802.1x/EAP) network like EDUROAM."""
+    _run_nmcli(["connection", "delete", ssid], timeout=10)
+
+    args = [
+        "connection", "add",
+        "type", "wifi",
+        "con-name", ssid,
+        "ssid", ssid,
+        "wifi-sec.key-mgmt", "wpa-eap",
+        "802-1x.eap", "peap",
+        "802-1x.identity", identity,
+        "802-1x.phase2-auth", "mschapv2",
+        "802-1x.password", password,
+    ]
+    dev = _get_wifi_device()
+    if dev:
+        args += ["ifname", dev]
+
+    ok, out = _run_nmcli(args, timeout=15)
+    if not ok:
+        return False, out
+
+    return _run_nmcli(["connection", "up", ssid], timeout=30)
 
 
 def disconnect_network() -> tuple[bool, str]:
@@ -228,6 +271,92 @@ class _PasswordDialog(Adw.Dialog):
         pw = self._pw_row.get_text()
         if self._on_connect:
             self._on_connect(self._ssid, pw)
+        self.close()
+
+
+# ── Enterprise (802.1x) dialog ────────────────────────────────────────────────
+
+
+class _EnterpriseDialog(Adw.Dialog):
+    def __init__(self, ssid: str, on_connect, prefill_identity: str = "") -> None:
+        super().__init__()
+        self._ssid = ssid
+        self._on_connect = on_connect
+        self.set_title(f"Connect to {ssid}")
+        self.set_content_width(420)
+
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda _: self.close())
+        header.pack_start(cancel_btn)
+        self._conn_btn = Gtk.Button(label="Connect")
+        self._conn_btn.add_css_class("suggested-action")
+        self._conn_btn.connect("clicked", self._on_clicked)
+        header.pack_end(self._conn_btn)
+        toolbar.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        content.set_margin_top(16)
+        content.set_margin_bottom(16)
+
+        info = Gtk.Label(label=f'"{ssid}" requires a username and password (WPA Enterprise)')
+        info.set_wrap(True)
+        content.append(info)
+
+        grp = Adw.PreferencesGroup()
+
+        self._id_row = Adw.EntryRow(title="Username (e.g. user@university.edu)")
+        if prefill_identity:
+            self._id_row.set_text(prefill_identity)
+        self._id_row.connect("entry-activated", lambda _: self._pw_row.grab_focus())
+        grp.add(self._id_row)
+
+        self._pw_row = Adw.EntryRow(title="Password")
+        self._pw_row.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        self._vis_btn = Gtk.ToggleButton(icon_name="view-reveal-symbolic")
+        self._vis_btn.add_css_class("flat")
+        self._vis_btn.set_valign(Gtk.Align.CENTER)
+        self._vis_btn.connect("toggled", self._on_vis_toggled)
+        self._pw_row.add_suffix(self._vis_btn)
+        self._pw_row.connect("entry-activated", lambda _: self._on_clicked(None))
+        self._pw_row.connect("realize", self._hide_password_on_realize)
+        grp.add(self._pw_row)
+
+        content.append(grp)
+        toolbar.set_content(content)
+        self.set_child(toolbar)
+
+    def _hide_password_on_realize(self, _widget) -> None:
+        text = self._find_text_child(self._pw_row)
+        if text:
+            text.set_visibility(False)
+
+    def _on_vis_toggled(self, btn: Gtk.ToggleButton) -> None:
+        text_widget = self._find_text_child(self._pw_row)
+        if text_widget:
+            text_widget.set_visibility(btn.get_active())
+
+    def _find_text_child(self, parent: Gtk.Widget) -> Optional[Gtk.Text]:
+        child = parent.get_first_child()
+        while child:
+            if isinstance(child, Gtk.Text):
+                return child
+            found = self._find_text_child(child)
+            if found:
+                return found
+            child = child.get_next_sibling()
+        return None
+
+    def _on_clicked(self, _btn) -> None:
+        identity = self._id_row.get_text().strip()
+        password = self._pw_row.get_text()
+        if not identity or not password:
+            return
+        if self._on_connect:
+            self._on_connect(self._ssid, identity, password)
         self.close()
 
 
@@ -562,7 +691,15 @@ class WiFiPage(Gtk.Box):
         ).start()
 
     def _try_connect(self, network: WifiNetwork) -> None:
-        if network.saved or network.is_open:
+        if network.is_enterprise:
+            prefill = get_enterprise_identity(network.ssid) if network.saved else ""
+            dialog = _EnterpriseDialog(
+                ssid=network.ssid,
+                on_connect=self._action_connect_enterprise,
+                prefill_identity=prefill,
+            )
+            dialog.present(self.get_root())
+        elif network.saved or network.is_open:
             self._action_connect(network.ssid, None)
         else:
             dialog = _PasswordDialog(
@@ -578,6 +715,18 @@ class WiFiPage(Gtk.Box):
 
         def _work() -> None:
             ok, out = connect_network(ssid, password or None)
+            msg = f"Connected to {ssid}" if ok else f"Failed: {out.strip()[:120]}"
+            GLib.idle_add(self._after_action, msg)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _action_connect_enterprise(self, ssid: str, identity: str, password: str) -> None:
+        self._status_label.set_text(f"Connecting to {ssid}…")
+        self._spinner.set_visible(True)
+        self._spinner.start()
+
+        def _work() -> None:
+            ok, out = connect_enterprise_network(ssid, identity, password)
             msg = f"Connected to {ssid}" if ok else f"Failed: {out.strip()[:120]}"
             GLib.idle_add(self._after_action, msg)
 

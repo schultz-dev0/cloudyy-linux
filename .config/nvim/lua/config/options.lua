@@ -3,8 +3,12 @@
 -- Add any additional options here
 --
 -- Load Matugen-generated mode (sets vim.opt.background to light/dark) when available.
--- vim.opt.clipboard = "unnamedplus"
-pcall(require, "current_mode")
+pcall(function()
+  local matugen_path = vim.fn.expand("~/.config/matugen/generated/matugen_colors.lua")
+  if vim.loop.fs_stat(matugen_path) then
+    dofile(matugen_path)
+  end
+end)
 
 -- Remove default float/window borders for a cleaner look.
 vim.o.winborder = "none"
