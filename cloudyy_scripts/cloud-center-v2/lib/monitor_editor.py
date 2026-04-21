@@ -67,6 +67,7 @@ class MonitorInfo:
     mirror_of:       str
     focused:         bool
     available_modes: list[str] = field(default_factory=list)
+    assigned_workspaces: list[str] = field(default_factory=list)
 
     @property
     def current_mode_str(self) -> str:
@@ -221,6 +222,9 @@ def _fetch_monitors() -> list[MonitorInfo]:
     has_headless = any(_is_headless_name(str(m.get("name", ""))) for m in data)
     fallback_modes = {} if has_headless else _fetch_modes_from_monitors_all()
 
+    # Parse config to get workspace assignments
+    _, config_workspaces = _parse_conf()
+
     monitors = []
     for m in data:
         name = m.get("name", "")
@@ -252,8 +256,10 @@ def _fetch_monitors() -> list[MonitorInfo]:
             mirror_of     = m.get("mirrorOf", "") or "",
             focused       = m.get("focused", False),
             available_modes = modes,
+            assigned_workspaces = config_workspaces.get(name, []),
         ))
     return monitors
+
 
 
 class DisplayLayoutPreview(Gtk.Box):
@@ -281,6 +287,7 @@ class DisplayLayoutPreview(Gtk.Box):
         }
         self._enabled: dict[str, bool] = {m.name: not m.disabled for m in monitors}
         self._labels: dict[str, str] = {m.name: m.name for m in monitors}
+        self._workspaces: dict[str, list[str]] = {m.name: getattr(m, "assigned_workspaces", []) for m in monitors}
         self._order: list[str] = [m.name for m in monitors]
 
         self._selected_name = monitors[0].name if monitors else ""
@@ -315,6 +322,12 @@ class DisplayLayoutPreview(Gtk.Box):
         if name not in self._positions:
             return
         self._positions[name] = (x, y)
+        self._area.queue_draw()
+
+    def update_workspaces(self, name: str, workspaces: list[str]) -> None:
+        if name not in self._workspaces:
+            return
+        self._workspaces[name] = list(workspaces)
         self._area.queue_draw()
 
     def _global_bounds(self) -> tuple[float, float, float, float]:
@@ -503,14 +516,28 @@ class DisplayLayoutPreview(Gtk.Box):
             cr.move_to(tx, ty)
             cr.show_text(label)
 
+            # Draw workspaces
+            ws_list = self._workspaces.get(name, [])
+            if ws_list:
+                ws_text = ", ".join(ws_list)
+                cr.set_font_size(10)
+                ext_ws = cr.text_extents(ws_text)
+                twx = cx + max(4.0, (cw - ext_ws.width) / 2.0)
+                twy = ty + 16
+                if twy < cy + ch - 4:
+                    cr.set_source_rgba(1.0, 1.0, 1.0, 0.7)
+                    cr.move_to(twx, twy)
+                    cr.show_text(ws_text)
+
 
 # ── Config I/O ────────────────────────────────────────────────────────────────
 
-def _parse_conf() -> dict[str, str]:
-    """Return {monitor_name: raw_line} from user_monitors.conf."""
-    result: dict[str, str] = {}
+def _parse_conf() -> tuple[dict[str, str], dict[str, list[str]]]:
+    """Return ({monitor_name: raw_line}, {monitor_name: [workspace_ids]}) from user_monitors.conf."""
+    monitors: dict[str, str] = {}
+    workspaces: dict[str, list[str]] = {}
     if not MONITORS_CONF.exists():
-        return result
+        return monitors, workspaces
     try:
         for line in MONITORS_CONF.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
@@ -519,10 +546,18 @@ def _parse_conf() -> dict[str, str]:
                 rest = stripped[len("monitor="):]
                 name = rest.split(",")[0].strip()
                 if name:
-                    result[name] = stripped
+                    monitors[name] = stripped
+            elif stripped.startswith("workspace="):
+                # workspace=ID,monitor:NAME
+                # Also handle optional workspace rules like workspace=ID,monitor:NAME,default:true
+                match = re.match(r"workspace\s*=\s*(.+?)\s*,\s*monitor:(.+)", stripped)
+                if match:
+                    ws_id = match.group(1).strip()
+                    mon_part = match.group(2).split(",")[0].strip()
+                    workspaces.setdefault(mon_part, []).append(ws_id)
     except OSError:
         pass
-    return result
+    return monitors, workspaces
 
 
 def _build_monitor_line(
@@ -552,8 +587,8 @@ def _build_monitor_line(
     return line
 
 
-def _write_monitor_line(name: str, line: str) -> None:
-    """Insert or replace the monitor= line for `name` in user_monitors.conf."""
+def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
+    """Insert or replace the monitor= and workspace= lines for `name` in user_monitors.conf."""
     MONITORS_CONF.parent.mkdir(parents=True, exist_ok=True)
 
     header = (
@@ -569,22 +604,48 @@ def _write_monitor_line(name: str, line: str) -> None:
         existing = header.splitlines(keepends=True)
 
     out_lines: list[str] = []
-    replaced = False
+    replaced_monitor = False
+    
+    # Track workspaces assigned to THIS monitor to avoid re-adding
+    current_ws_set = set(workspaces)
+
     for raw in existing:
         stripped = raw.strip()
         if stripped.startswith("monitor="):
             rest = stripped[len("monitor="):]
             existing_name = rest.split(",")[0].strip()
             if existing_name == name:
-                out_lines.append(line + "\n")
-                replaced = True
+                if not replaced_monitor:
+                    out_lines.append(line + "\n")
+                    for ws in workspaces:
+                        out_lines.append(f"workspace={ws},monitor:{name}\n")
+                    replaced_monitor = True
                 continue
+        elif stripped.startswith("workspace="):
+            # workspace=ID,monitor:MON_NAME
+            match = re.search(r"workspace\s*=\s*(.+?)\s*,\s*monitor:(.+)$", stripped)
+            if match:
+                ws_id = match.group(1).strip()
+                mon_part = match.group(2).split(",")[0].strip()
+                
+                # If this workspace is now assigned to our monitor, 
+                # we skip the old line (even if it was for a different monitor) 
+                # to ensure exclusivity.
+                if ws_id in current_ws_set:
+                    continue
+                    
+                # If this line was for OUR monitor but NOT in the new list, skip it
+                if mon_part == name:
+                    continue
+        
         out_lines.append(raw if raw.endswith("\n") else raw + "\n")
 
-    if not replaced:
+    if not replaced_monitor:
         if not out_lines:
             out_lines = [l for l in header.splitlines(keepends=True)]
         out_lines.append(line + "\n")
+        for ws in workspaces:
+            out_lines.append(f"workspace={ws},monitor:{name}\n")
 
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(MONITORS_CONF.parent))
     with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
@@ -600,7 +661,7 @@ def _write_monitor_line(name: str, line: str) -> None:
     except Exception as exc:
         log.warning("Could not ensure source for %s: %s", MONITORS_CONF, exc)
 
-    log.info("Wrote monitor config for %s: %s", name, line)
+    log.info("Wrote monitor config for %s: %s (workspaces: %s)", name, line, workspaces)
 
 
 def _apply_monitor_line(line: str) -> tuple[bool, str]:
@@ -688,8 +749,14 @@ class MonitorEditorPage(Gtk.Box):
         refresh_btn.set_tooltip_text("Rescan monitors")
         refresh_btn.connect("clicked", lambda _: self.refresh())
 
+        add_headless_btn = Gtk.Button(icon_name="list-add-symbolic")
+        add_headless_btn.add_css_class("flat")
+        add_headless_btn.set_tooltip_text("Create Headless Display")
+        add_headless_btn.connect("clicked", self._on_add_headless_clicked)
+
         hdr.append(title)
         hdr.append(self._count_lbl)
+        hdr.append(add_headless_btn)
         hdr.append(refresh_btn)
         left.append(hdr)
         left.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
@@ -747,201 +814,376 @@ class MonitorEditorPage(Gtk.Box):
 
     def _build_editor(self, mon: MonitorInfo) -> None:
         """Populate the right-panel editor for a given monitor."""
-        # Clear previous widgets
-        while child := self._editor_box.get_first_child():
-            self._editor_box.remove(child)
+        try:
+            # Clear previous widgets
+            while child := self._editor_box.get_first_child():
+                self._editor_box.remove(child)
 
-        # ── Monitor header ────────────────────────────────────────────────
-        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        info_box.set_margin_bottom(4)
+            # ── Monitor header ────────────────────────────────────────────────
+            info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            info_box.set_margin_bottom(4)
 
-        name_lbl = Gtk.Label(label=mon.name)
-        name_lbl.add_css_class("title-2")
-        name_lbl.set_xalign(0)
+            name_lbl = Gtk.Label(label=mon.name)
+            name_lbl.add_css_class("title-2")
+            name_lbl.set_xalign(0)
 
-        desc_lbl = Gtk.Label(label=mon.description)
-        desc_lbl.add_css_class("dim-label")
-        desc_lbl.set_xalign(0)
-        desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            desc_lbl = Gtk.Label(label=mon.description)
+            desc_lbl.add_css_class("dim-label")
+            desc_lbl.set_xalign(0)
+            desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
 
-        info_box.append(name_lbl)
-        info_box.append(desc_lbl)
-        self._editor_box.append(info_box)
+            info_box.append(name_lbl)
+            info_box.append(desc_lbl)
+            
+            header_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            header_hbox.append(info_box)
+            
+            if _is_headless_name(mon.name):
+                remove_btn = Gtk.Button(icon_name="user-trash-symbolic")
+                remove_btn.add_css_class("flat")
+                remove_btn.add_css_class("destructive-action")
+                remove_btn.set_tooltip_text("Remove this headless display")
+                remove_btn.set_valign(Gtk.Align.START)
+                remove_btn.connect("clicked", self._on_remove_headless_clicked, mon.name)
+                header_hbox.append(Gtk.Box(hexpand=True))
+                header_hbox.append(remove_btn)
+                
+            self._editor_box.append(header_hbox)
 
-        # ── Enabled toggle ────────────────────────────────────────────────
-        status_group = Adw.PreferencesGroup()
-        self._enabled_row = Adw.SwitchRow(
-            title="Enabled",
-            subtitle="Turn this display on or off",
-        )
-        self._enabled_row.set_active(not mon.disabled)
-        self._enabled_row.connect("notify::active", self._on_enabled_changed)
-        status_group.add(self._enabled_row)
-        self._editor_box.append(status_group)
-
-        # ── Mode (resolution + refresh rate) ──────────────────────────────
-        mode_group = Adw.PreferencesGroup(title="Display Mode")
-
-        mode_labels = mon.available_modes if mon.available_modes else [mon.current_mode_str]
-        mode_labels = [m for m in mode_labels if _mode_is_usable(m)]
-        if not mode_labels and _is_headless_name(mon.name):
-            mode_labels = list(HEADLESS_DEFAULT_MODES)
-        if not mode_labels:
-            mode_labels = ["1920x1080@60.00Hz"]
-        self._mode_labels = mode_labels
-
-        mode_row = Adw.ActionRow()
-        mode_row.set_title("Resolution & Refresh Rate")
-
-        # Explicit label widget keeps text visible on stacks where ActionRow title
-        # rendering can be theme/version-sensitive.
-        mode_label = Gtk.Label(label="Resolution & Refresh Rate")
-        mode_label.set_xalign(0.0)
-        mode_label.set_hexpand(True)
-        mode_row.add_prefix(mode_label)
-
-        self._mode_dropdown = Gtk.DropDown.new_from_strings(mode_labels)
-        self._mode_dropdown.set_valign(Gtk.Align.CENTER)
-        self._mode_dropdown.set_hexpand(False)
-        mode_row.add_suffix(self._mode_dropdown)
-        mode_row.set_activatable_widget(self._mode_dropdown)
-
-        # Pre-select the current mode
-        current = mon.current_mode_str
-        for i, m in enumerate(mode_labels):
-            if self._modes_match(m, current):
-                self._mode_dropdown.set_selected(i)
-                break
-
-        mode_group.add(mode_row)
-
-        # Some outputs (especially headless) may expose only one mode.
-        # Allow manual override so users can still set a specific mode string.
-        self._custom_mode_row = None
-        if len(mode_labels) <= 1 or _is_headless_name(mon.name):
-            self._custom_mode_row = Adw.EntryRow(
-                title="Custom Mode Override",
+            # ── Enabled toggle ────────────────────────────────────────────────
+            status_group = Adw.PreferencesGroup()
+            self._enabled_row = Adw.SwitchRow(
+                title="Enabled",
+                subtitle="Turn this display on or off",
             )
-            self._custom_mode_row.set_text("")
-            set_apply_btn = getattr(self._custom_mode_row, "set_show_apply_button", None)
-            if callable(set_apply_btn):
-                set_apply_btn(False)
+            self._enabled_row.set_active(not mon.disabled)
+            self._enabled_row.connect("notify::active", self._on_enabled_changed)
+            status_group.add(self._enabled_row)
+            self._editor_box.append(status_group)
 
-            set_placeholder = getattr(self._custom_mode_row, "set_placeholder_text", None)
-            if callable(set_placeholder):
-                set_placeholder("e.g. 1920x1080@60.00Hz")
-            self._custom_mode_row.set_tooltip_text(
-                "Optional. If set, this value is used instead of the dropdown mode."
-            )
-            mode_group.add(self._custom_mode_row)
+            # ── Mode (resolution + refresh rate) ──────────────────────────────
+            mode_group = Adw.PreferencesGroup(title="Display Mode")
 
-        # Scale
-        self._scale_row = Adw.SpinRow(
-            title="Scale",
-            subtitle="Display scaling factor",
-            adjustment=Gtk.Adjustment(
-                value=mon.scale,
-                lower=0.25, upper=4.0,
-                step_increment=0.25,
-                page_increment=0.5,
-            ),
-            digits=2,
-        )
-        mode_group.add(self._scale_row)
+            mode_labels = mon.available_modes if mon.available_modes else [mon.current_mode_str]
+            mode_labels = [m for m in mode_labels if _mode_is_usable(m)]
+            if not mode_labels and _is_headless_name(mon.name):
+                mode_labels = list(HEADLESS_DEFAULT_MODES)
+            if not mode_labels:
+                mode_labels = ["1920x1080@60.00Hz"]
+            self._mode_labels = mode_labels
 
-        # Transform / rotation
-        self._transform_row = Adw.ComboRow(title="Rotation")
-        self._set_combo_strings(self._transform_row, [label for _, label in TRANSFORM_LABELS])
-        self._transform_row.set_selected(
-            next((i for i, (v, _) in enumerate(TRANSFORM_LABELS) if v == mon.transform), 0)
-        )
-        mode_group.add(self._transform_row)
-        self._editor_box.append(mode_group)
+            mode_row = Adw.ActionRow()
+            mode_row.set_title("Resolution & Refresh Rate")
 
-        # ── Visual arrangement preview ───────────────────────────────────
-        layout_group = Adw.PreferencesGroup(
-            title="Layout Preview",
-            description="Drag displays to rearrange. Nearby edges/corners snap into alignment.",
-        )
+            # Explicit label widget keeps text visible on stacks where ActionRow title
+            # rendering can be theme/version-sensitive.
+            mode_label = Gtk.Label(label="Resolution & Refresh Rate")
+            mode_label.set_xalign(0.0)
+            mode_label.set_hexpand(True)
+            mode_row.add_prefix(mode_label)
 
-        self._layout_preview = DisplayLayoutPreview(
-            monitors=self._monitors,
-            on_monitor_selected=self._on_preview_selected,
-            on_monitor_moved=self._on_preview_moved,
-        )
-        self._layout_preview.set_selected(mon.name)
-        layout_group.add(self._layout_preview)
-        self._editor_box.append(layout_group)
+            self._mode_dropdown = Gtk.DropDown.new_from_strings(mode_labels)
+            self._mode_dropdown.set_valign(Gtk.Align.CENTER)
+            self._mode_dropdown.set_hexpand(False)
+            mode_row.add_suffix(self._mode_dropdown)
+            mode_row.set_activatable_widget(self._mode_dropdown)
 
-        # ── Position ──────────────────────────────────────────────────────
-        pos_group = Adw.PreferencesGroup(
-            title="Position",
-            description="Top-left corner of this display in the global layout (pixels)",
-        )
-
-        self._pos_x_row = Adw.SpinRow(
-            title="X",
-            subtitle="Horizontal offset",
-            adjustment=Gtk.Adjustment(
-                value=mon.x,
-                lower=-16384, upper=16384,
-                step_increment=1, page_increment=100,
-            ),
-            digits=0,
-        )
-        self._pos_x_row.connect("notify::value", self._on_position_spin_changed)
-        pos_group.add(self._pos_x_row)
-
-        self._pos_y_row = Adw.SpinRow(
-            title="Y",
-            subtitle="Vertical offset",
-            adjustment=Gtk.Adjustment(
-                value=mon.y,
-                lower=-16384, upper=16384,
-                step_increment=1, page_increment=100,
-            ),
-            digits=0,
-        )
-        self._pos_y_row.connect("notify::value", self._on_position_spin_changed)
-        pos_group.add(self._pos_y_row)
-        self._editor_box.append(pos_group)
-
-        # ── Mirror ────────────────────────────────────────────────────────
-        mirror_group = Adw.PreferencesGroup(title="Mirror")
-        other_names = ["(none)"] + [m.name for m in self._monitors if m.name != mon.name]
-        self._mirror_row = Adw.ComboRow(title="Mirror of")
-        self._set_combo_strings(self._mirror_row, other_names)
-
-        current_mirror = mon.mirror_of if mon.mirror_of and mon.mirror_of.lower() != "none" else ""
-        mirror_idx = 0
-        if current_mirror:
-            for i, n in enumerate(other_names):
-                if n == current_mirror:
-                    mirror_idx = i
+            # Pre-select the current mode
+            current = mon.current_mode_str
+            for i, m in enumerate(mode_labels):
+                if self._modes_match(m, current):
+                    self._mode_dropdown.set_selected(i)
                     break
-        self._mirror_row.set_selected(mirror_idx)
-        mirror_group.add(self._mirror_row)
-        self._editor_box.append(mirror_group)
 
-        # ── Action bar ────────────────────────────────────────────────────
-        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        action_box.set_margin_top(8)
+            mode_group.add(mode_row)
 
-        apply_btn = Gtk.Button(label="Apply")
-        apply_btn.add_css_class("suggested-action")
-        apply_btn.connect("clicked", self._on_apply_clicked)
-        apply_btn.set_hexpand(True)
+            # Some outputs (especially headless) may expose only one mode.
+            # Allow manual override so users can still set a specific mode string.
+            self._custom_mode_row = None
+            if len(mode_labels) <= 1 or _is_headless_name(mon.name):
+                self._custom_mode_row = Adw.EntryRow(
+                    title="Custom Mode Override",
+                )
+                self._custom_mode_row.set_text("")
+                set_apply_btn = getattr(self._custom_mode_row, "set_show_apply_button", None)
+                if callable(set_apply_btn):
+                    set_apply_btn(False)
 
-        reload_btn = Gtk.Button(icon_name="system-reboot-symbolic")
-        reload_btn.add_css_class("flat")
-        reload_btn.set_tooltip_text("Reload Hyprland")
-        reload_btn.connect("clicked", self._on_reload_clicked)
+                set_placeholder = getattr(self._custom_mode_row, "set_placeholder_text", None)
+                if callable(set_placeholder):
+                    set_placeholder("e.g. 1920x1080@60.00Hz")
+                self._custom_mode_row.set_tooltip_text(
+                    "Optional. If set, this value is used instead of the dropdown mode."
+                )
+                mode_group.add(self._custom_mode_row)
 
-        action_box.append(apply_btn)
-        action_box.append(reload_btn)
-        self._editor_box.append(action_box)
+            # Scale
+            self._scale_row = Adw.SpinRow(
+                title="Scale",
+                subtitle="Display scaling factor",
+                adjustment=Gtk.Adjustment(
+                    value=mon.scale,
+                    lower=0.25, upper=4.0,
+                    step_increment=0.25,
+                    page_increment=0.5,
+                ),
+                digits=2,
+            )
+            mode_group.add(self._scale_row)
 
-        self._stack.set_visible_child_name("editor")
+            # Transform / rotation
+            self._transform_row = Adw.ComboRow(title="Rotation")
+            self._set_combo_strings(self._transform_row, [label for _, label in TRANSFORM_LABELS])
+            self._transform_row.set_selected(
+                next((i for i, (v, _) in enumerate(TRANSFORM_LABELS) if v == mon.transform), 0)
+            )
+            mode_group.add(self._transform_row)
+            self._editor_box.append(mode_group)
+
+            # ── Visual arrangement preview ───────────────────────────────────
+            layout_group = Adw.PreferencesGroup(
+                title="Layout Preview",
+                description="Drag displays to rearrange. Nearby edges/corners snap into alignment.",
+            )
+
+            self._layout_preview = DisplayLayoutPreview(
+                monitors=self._monitors,
+                on_monitor_selected=self._on_preview_selected,
+                on_monitor_moved=self._on_preview_moved,
+            )
+            self._layout_preview.set_selected(mon.name)
+            layout_group.add(self._layout_preview)
+            self._editor_box.append(layout_group)
+
+            # ── Position ──────────────────────────────────────────────────────
+            pos_group = Adw.PreferencesGroup(
+                title="Position",
+                description="Top-left corner of this display in the global layout (pixels)",
+            )
+
+            self._pos_x_row = Adw.SpinRow(
+                title="X",
+                subtitle="Horizontal offset",
+                adjustment=Gtk.Adjustment(
+                    value=mon.x,
+                    lower=-16384, upper=16384,
+                    step_increment=1, page_increment=100,
+                ),
+                digits=0,
+            )
+            self._pos_x_row.connect("notify::value", self._on_position_spin_changed)
+            pos_group.add(self._pos_x_row)
+
+            self._pos_y_row = Adw.SpinRow(
+                title="Y",
+                subtitle="Vertical offset",
+                adjustment=Gtk.Adjustment(
+                    value=mon.y,
+                    lower=-16384, upper=16384,
+                    step_increment=1, page_increment=100,
+                ),
+                digits=0,
+            )
+            self._pos_y_row.connect("notify::value", self._on_position_spin_changed)
+            pos_group.add(self._pos_y_row)
+            self._editor_box.append(pos_group)
+
+            # ── Mirror ────────────────────────────────────────────────────────
+            mirror_group = Adw.PreferencesGroup(title="Mirror")
+            other_names = ["(none)"] + [m.name for m in self._monitors if m.name != mon.name]
+            self._mirror_row = Adw.ComboRow(title="Mirror of")
+            self._set_combo_strings(self._mirror_row, other_names)
+
+            current_mirror = mon.mirror_of if mon.mirror_of and mon.mirror_of.lower() != "none" else ""
+            mirror_idx = 0
+            if current_mirror:
+                for i, n in enumerate(other_names):
+                    if n == current_mirror:
+                        mirror_idx = i
+                        break
+            self._mirror_row.set_selected(mirror_idx)
+            mirror_group.add(self._mirror_row)
+            self._editor_box.append(mirror_group)
+
+            # ── Workspaces ───────────────────────────────────────────────────
+            ws_group = Adw.PreferencesGroup(
+                title="Workspaces",
+                description="Assign workspaces to this monitor. Numeric 1-10 are quick-toggle.",
+            )
+
+            # Checkbox grid for 1-10
+            ws_flow = Gtk.FlowBox()
+            ws_flow.set_valign(Gtk.Align.START)
+            ws_flow.set_max_children_per_line(5)
+            ws_flow.set_min_children_per_line(5)
+            ws_flow.set_selection_mode(Gtk.SelectionMode.NONE)
+            ws_flow.set_column_spacing(12)
+            ws_flow.set_row_spacing(8)
+            ws_flow.set_margin_top(8)
+            ws_flow.set_margin_bottom(8)
+            ws_flow.set_margin_start(12)
+            ws_flow.set_margin_end(12)
+
+            self._ws_checks = {}
+            for i in range(1, 11):
+                ws_id = str(i)
+                check = Gtk.CheckButton(label=ws_id)
+                check.set_active(ws_id in mon.assigned_workspaces)
+                check.connect("toggled", self._on_ws_toggled, ws_id)
+                self._ws_checks[ws_id] = check
+                ws_flow.insert(check, -1)
+
+            ws_group.add(ws_flow)
+
+            # Extras list (non-numeric 1-10)
+            self._ws_extras_list = Gtk.ListBox()
+            self._ws_extras_list.add_css_class("boxed-list")
+            self._ws_extras_list.set_selection_mode(Gtk.SelectionMode.NONE)
+
+            extras = [w for w in mon.assigned_workspaces if not (w.isdigit() and 1 <= int(w) <= 10)]
+            for ws in extras:
+                self._ws_extras_list.append(self._make_ws_row(ws))
+
+            ws_group.add(self._ws_extras_list)
+
+            add_ws_row = Adw.EntryRow(title="Add Extra Workspace")
+            # Safely set placeholder text for compatibility
+            if hasattr(add_ws_row, "set_placeholder_text"):
+                add_ws_row.set_placeholder_text("e.g. name or ID > 10")
+            else:
+                try:
+                    add_ws_row.set_property("placeholder-text", "e.g. name or ID > 10")
+                except Exception:
+                    pass
+            add_ws_row.connect("apply", self._on_ws_added)
+            ws_group.add(add_ws_row)
+
+            self._editor_box.append(ws_group)
+
+            # ── Action bar ────────────────────────────────────────────────────
+            action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            action_box.set_margin_top(8)
+
+            apply_btn = Gtk.Button(label="Apply")
+            apply_btn.add_css_class("suggested-action")
+            apply_btn.connect("clicked", self._on_apply_clicked)
+            apply_btn.set_hexpand(True)
+
+            reload_btn = Gtk.Button(icon_name="system-reboot-symbolic")
+            reload_btn.add_css_class("flat")
+            reload_btn.set_tooltip_text("Reload Hyprland")
+            reload_btn.connect("clicked", self._on_reload_clicked)
+
+            action_box.append(apply_btn)
+            action_box.append(reload_btn)
+            self._editor_box.append(action_box)
+
+            self._stack.set_visible_child_name("editor")
+
+        except Exception as e:
+            log.exception("Error in _build_editor: %s", e)
+            from lib import utility
+            utility.toast(self._toast_ov, f"Error building editor: {e}")
+
+    def _make_ws_row(self, ws: str) -> Adw.ActionRow:
+        row = Adw.ActionRow(title=ws)
+        del_btn = Gtk.Button(icon_name="list-remove-symbolic")
+        del_btn.add_css_class("flat")
+        del_btn.set_valign(Gtk.Align.CENTER)
+        del_btn.connect("clicked", lambda _: self._on_ws_removed(row, ws))
+        row.add_suffix(del_btn)
+        return row
+
+    def _on_ws_toggled(self, btn: Gtk.CheckButton, ws: str) -> None:
+        if self._selected is None:
+            return
+        
+        active = btn.get_active()
+        if active and ws not in self._selected.assigned_workspaces:
+            self._selected.assigned_workspaces.append(ws)
+        elif not active and ws in self._selected.assigned_workspaces:
+            self._selected.assigned_workspaces.remove(ws)
+            
+        self._sync_workspaces_live()
+
+    def _on_ws_added(self, entry: Adw.EntryRow) -> None:
+        ws = entry.get_text().strip()
+        if not ws or self._selected is None:
+            return
+        if ws in self._selected.assigned_workspaces:
+            entry.set_text("")
+            return
+
+        self._selected.assigned_workspaces.append(ws)
+        
+        # If it's 1-10, just toggle the checkbox, otherwise add to extras list
+        if ws.isdigit() and 1 <= int(ws) <= 10:
+            if ws in self._ws_checks:
+                self._ws_checks[ws].set_active(True)
+        else:
+            self._ws_extras_list.append(self._make_ws_row(ws))
+            
+        self._sync_workspaces_live()
+        entry.set_text("")
+
+    def _on_ws_removed(self, row: Adw.ActionRow, ws: str) -> None:
+        if self._selected is None:
+            return
+        if ws in self._selected.assigned_workspaces:
+            self._selected.assigned_workspaces.remove(ws)
+            
+        # If it's 1-10, update the checkbox (though extras list shouldn't have them)
+        if ws.isdigit() and 1 <= int(ws) <= 10:
+            if ws in self._ws_checks:
+                self._ws_checks[ws].set_active(False)
+        else:
+            self._ws_extras_list.remove(row)
+            
+        self._sync_workspaces_live()
+
+    def _sync_workspaces_live(self) -> None:
+        """Apply current workspace assignments live and update the config."""
+        if self._selected is None:
+            return
+        
+        mon = self._selected
+        name = mon.name
+        workspaces = list(mon.assigned_workspaces)
+
+        # Update preview
+        if self._layout_preview:
+            self._layout_preview.update_workspaces(name, workspaces)
+
+        def _do_sync():
+            # 1. Live apply via hyprctl
+            # We need to apply ALL workspaces for this monitor.
+            # Hyprland will move them to the specified monitor.
+            for ws in workspaces:
+                subprocess.run(["hyprctl", "keyword", "workspace", f"{ws},monitor:{name}"], capture_output=True)
+
+            # 2. Update the config file
+            # We need the full monitor line to call _write_monitor_line correctly.
+            # We can build it from current UI state or just use the last known one.
+            # Building it ensures we don't write stale data.
+            line = _build_monitor_line(
+                name=mon.name,
+                mode=self._get_selected_mode() or mon.current_mode_str,
+                pos_x=int(self._pos_x_row.get_value()),
+                pos_y=int(self._pos_y_row.get_value()),
+                scale=self._scale_row.get_value(),
+                transform=self._get_selected_transform(),
+                enabled=self._enabled_row.get_active(),
+                mirror_of=self._get_selected_mirror(),
+            )
+            
+            try:
+                _write_monitor_line(name, line, workspaces)
+                # Force a reload so the config changes take effect immediately
+                subprocess.run(["hyprctl", "reload"], capture_output=True)
+            except Exception as exc:
+                log.error("Failed to sync workspaces to config: %s", exc)
+
+        threading.Thread(target=_do_sync, daemon=True).start()
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -1001,10 +1243,11 @@ class MonitorEditorPage(Gtk.Box):
         self._monitors = monitors
         self._rebuild_list()
 
-        # Re-select previously selected monitor
+        # Re-select previously selected monitor and update self._selected reference
         if prev_name:
             for i, mon in enumerate(self._monitors):
                 if mon.name == prev_name:
+                    self._selected = mon  # Update reference to new data
                     row = self._list.get_row_at_index(i)
                     if row:
                         self._list.select_row(row)
@@ -1060,6 +1303,28 @@ class MonitorEditorPage(Gtk.Box):
         return row
 
     # ── Events ────────────────────────────────────────────────────────────────
+
+    def _on_add_headless_clicked(self, _btn: Gtk.Button) -> None:
+        def _do_create():
+            try:
+                subprocess.run(["hyprctl", "output", "create", "headless"], check=True)
+                GLib.idle_add(self.refresh)
+            except Exception as e:
+                from lib import utility
+                utility.toast(self._toast_ov, f"Failed to create headless display: {e}")
+
+        threading.Thread(target=_do_create, daemon=True).start()
+
+    def _on_remove_headless_clicked(self, _btn: Gtk.Button, name: str) -> None:
+        def _do_remove():
+            try:
+                subprocess.run(["hyprctl", "output", "remove", name], check=True)
+                GLib.idle_add(self.refresh)
+            except Exception as e:
+                from lib import utility
+                utility.toast(self._toast_ov, f"Failed to remove headless display: {e}")
+
+        threading.Thread(target=_do_remove, daemon=True).start()
 
     def _on_row_selected(self, _lb: Gtk.ListBox, row: Optional[Gtk.ListBoxRow]) -> None:
         if row is None:
@@ -1125,6 +1390,7 @@ class MonitorEditorPage(Gtk.Box):
         pos_x     = int(self._pos_x_row.get_value())
         pos_y     = int(self._pos_y_row.get_value())
         mirror    = self._get_selected_mirror()
+        workspaces = list(mon.assigned_workspaces)
 
         line = _build_monitor_line(
             name=mon.name, mode=mode,
@@ -1135,19 +1401,23 @@ class MonitorEditorPage(Gtk.Box):
 
         threading.Thread(
             target=self._do_apply,
-            args=(mon.name, line),
+            args=(mon.name, line, workspaces),
             daemon=True,
         ).start()
 
-    def _do_apply(self, name: str, line: str) -> None:
+    def _do_apply(self, name: str, line: str, workspaces: list[str]) -> None:
         from lib import utility
         ok, message = _apply_monitor_line(line)
         if not ok:
             utility.toast(self._toast_ov, f"Failed to apply monitor rule: {message}")
             return
 
+        # Apply workspace rules live
+        for ws in workspaces:
+            subprocess.run(["hyprctl", "keyword", "workspace", f"{ws},monitor:{name}"], capture_output=True)
+
         try:
-            _write_monitor_line(name, line)
+            _write_monitor_line(name, line, workspaces)
         except Exception as exc:
             utility.toast(self._toast_ov, f"Failed to save: {exc}")
             return

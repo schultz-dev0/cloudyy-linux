@@ -116,7 +116,7 @@
   padding: 10px 16px;
   border-radius: 12px;
   border: 1px solid alpha(white, 0.12);
-  background: alpha(@surface, 0.94);
+  background: alpha(@surface, 0.54);
   color: @on_surface;
   caret-color: @primary;
   box-shadow: 0 4px 16px alpha(black, 0.28);
