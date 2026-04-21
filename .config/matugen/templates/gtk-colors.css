@@ -32,3 +32,22 @@
 @define-color button_fg_color {{colors.on_surface.default.hex}};
 @define-color button_border_color {{colors.outline_variant.default.hex}};
 
+/* Thunar Specific Styling */
+.thunar .view {
+    background-color: @view_bg_color;
+    color: @view_fg_color;
+}
+
+.thunar .sidebar {
+    background-color: @sidebar_bg_color;
+    color: @sidebar_fg_color;
+}
+
+.thunar toolbar {
+    background-color: @window_bg_color;
+}
+
+.thunar window {
+    background-color: @window_bg_color;
+}
+
