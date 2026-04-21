@@ -526,6 +526,7 @@ class LabelRow(Adw.ActionRow, _ManagedRow):
 
 _WALL_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 _THEME_STATE = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
+_THUMB_SEMA = threading.BoundedSemaphore(6)
 
 
 def _read_current_wallpaper() -> str:
@@ -572,7 +573,7 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
         self._directory = Path(os.path.expandvars(raw_dir)).expanduser()
         self._thumb_size = int(props.get("thumbnail_size", 160))
         self._columns = int(props.get("columns", 0))  # 0 = auto
-        self._max_items = int(props.get("max_items", 500))
+        self._max_items = int(props.get("max_items", 100))
         self._cmd_template = (
             self._action.get("command", "")
             or "~/cloudyy_scripts/theme_controller.sh set-image {path}"
@@ -745,13 +746,20 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
 
     def _load_one_thumb(self, path: Path) -> None:
         """Load a scaled pixbuf in a worker thread, then add button on main thread."""
+        if not _THUMB_SEMA.acquire(timeout=3):
+            return
         try:
+            with self._lock:
+                if self._destroyed:
+                    return
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                 str(path), self._thumb_size, self._thumb_size, True
             )
         except Exception as exc:
             log.debug("WallpaperPicker: skip %s: %s", path.name, exc)
             return
+        finally:
+            _THUMB_SEMA.release()
         GLib.idle_add(self._add_thumbnail, path, pixbuf)
 
     def _add_thumbnail(self, path: Path, pixbuf: GdkPixbuf.Pixbuf) -> bool:

@@ -88,10 +88,8 @@ def _get_wifi_device() -> str:
     return ""
 
 
-def scan_networks() -> list[WifiNetwork]:
-    """Trigger a rescan and return the current network list."""
-    _run_nmcli(["device", "wifi", "rescan"], timeout=6)
-
+def _list_networks() -> list[WifiNetwork]:
+    """Return the current nmcli network list without forcing a rescan."""
     _, out = _run_nmcli([
         "-m", "multiline",
         "-f", "SSID,BSSID,SIGNAL,SECURITY,ACTIVE,FREQ",
@@ -147,6 +145,12 @@ def scan_networks() -> list[WifiNetwork]:
 
     networks.sort(key=lambda n: (not n.connected, -n.signal))
     return networks
+
+
+def scan_networks() -> list[WifiNetwork]:
+    """Force a Wi-Fi rescan, then return the updated network list."""
+    _run_nmcli(["device", "wifi", "rescan"], timeout=6)
+    return _list_networks()
 
 
 def connect_network(ssid: str, password: str | None = None) -> tuple[bool, str]:
@@ -402,7 +406,7 @@ class WiFiPage(Gtk.Box):
         self._scan_btn = Gtk.Button(icon_name="view-refresh-symbolic")
         self._scan_btn.add_css_class("flat")
         self._scan_btn.set_tooltip_text("Rescan networks")
-        self._scan_btn.connect("clicked", lambda _: self.refresh())
+        self._scan_btn.connect("clicked", lambda _: self.refresh(rescan=True))
 
         self._toggle_btn = Gtk.Button(icon_name="network-wireless-symbolic")
         self._toggle_btn.add_css_class("flat")
@@ -606,17 +610,17 @@ class WiFiPage(Gtk.Box):
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
-    def refresh(self) -> None:
+    def refresh(self, rescan: bool = False) -> None:
         self._spinner.set_visible(True)
         self._spinner.start()
-        self._status_label.set_text("Scanning…")
+        self._status_label.set_text("Scanning…" if rescan else "Loading…")
         self._scan_btn.set_sensitive(False)
-        threading.Thread(target=self._do_refresh, daemon=True).start()
+        threading.Thread(target=self._do_refresh, args=(rescan,), daemon=True).start()
 
-    def _do_refresh(self) -> None:
+    def _do_refresh(self, rescan: bool = False) -> None:
         enabled = get_wifi_enabled()
         if enabled:
-            networks = scan_networks()
+            networks = scan_networks() if rescan else _list_networks()
             active = get_active_ssid()
         else:
             networks = []

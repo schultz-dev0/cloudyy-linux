@@ -1,6 +1,7 @@
 """Cloud Center — Bluetooth manager page using bluetoothctl."""
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import re
 import subprocess
@@ -47,6 +48,11 @@ def _run_bt(args: list[str], timeout: int = 6) -> tuple[bool, str]:
         return False, "bluetoothctl not found"
 
 
+_devices_cache: list[BluetoothDevice] = []
+_devices_cache_time: float = 0.0
+_DEVICES_CACHE_TTL: float = 5.0
+
+
 def get_bt_powered() -> bool:
     _, out = _run_bt(["show"])
     return "Powered: yes" in out
@@ -57,7 +63,11 @@ def set_bt_power(on: bool) -> bool:
     return ok
 
 
-def get_devices() -> list[BluetoothDevice]:
+def get_devices(force: bool = False) -> list[BluetoothDevice]:
+    global _devices_cache, _devices_cache_time
+    if not force and time.monotonic() - _devices_cache_time < _DEVICES_CACHE_TTL:
+        return list(_devices_cache)
+
     _, paired_out = _run_bt(["devices", "Paired"])
     paired_addrs: set[str] = set()
     for line in paired_out.splitlines():
@@ -66,12 +76,13 @@ def get_devices() -> list[BluetoothDevice]:
             paired_addrs.add(m.group(1))
 
     _, devices_out = _run_bt(["devices"])
-    results: list[BluetoothDevice] = []
+    addr_name_pairs: list[tuple[str, str]] = []
     for line in devices_out.splitlines():
         m = re.match(r"Device\s+([\w:]+)\s+(.*)", line)
-        if not m:
-            continue
-        addr, name = m.group(1), m.group(2).strip()
+        if m:
+            addr_name_pairs.append((m.group(1), m.group(2).strip()))
+
+    def _fetch_one(addr: str, name: str) -> BluetoothDevice:
         _, info = _run_bt(["info", addr])
         connected = "Connected: yes" in info
         paired = addr in paired_addrs or "Paired: yes" in info
@@ -81,13 +92,26 @@ def get_devices() -> list[BluetoothDevice]:
             if "Icon:" in ln:
                 dtype = ln.split(":", 1)[1].strip()
                 break
-        results.append(BluetoothDevice(
+        return BluetoothDevice(
             address=addr, name=name,
             paired=paired, connected=connected, trusted=trusted,
             device_type=dtype,
-        ))
+        )
+
+    results: list[BluetoothDevice] = []
+    if addr_name_pairs:
+        max_workers = min(4, len(addr_name_pairs))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futs = {ex.submit(_fetch_one, addr, name): None for addr, name in addr_name_pairs}
+            for fut in concurrent.futures.as_completed(futs):
+                try:
+                    results.append(fut.result())
+                except Exception:
+                    pass
 
     results.sort(key=lambda d: (not d.connected, not d.paired, d.display_name.lower()))
+    _devices_cache = results
+    _devices_cache_time = time.monotonic()
     return results
 
 
@@ -346,15 +370,15 @@ class BluetoothPage(Gtk.Box):
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
-    def refresh(self) -> None:
+    def refresh(self, force: bool = False) -> None:
         self._spinner.set_visible(True)
         self._spinner.start()
         self._status_label.set_text("Refreshing…")
-        threading.Thread(target=self._do_refresh, daemon=True).start()
+        threading.Thread(target=self._do_refresh, args=(force,), daemon=True).start()
 
-    def _do_refresh(self) -> None:
+    def _do_refresh(self, force: bool = False) -> None:
         powered = get_bt_powered()
-        devices = get_devices() if powered else []
+        devices = get_devices(force=force) if powered else []
         GLib.idle_add(self._apply_refresh, powered, devices)
 
     def _apply_refresh(self, powered: bool, devices: list[BluetoothDevice]) -> bool:
@@ -438,7 +462,7 @@ class BluetoothPage(Gtk.Box):
             log.debug(f"Scan error: {e}")
         finally:
             self._scanning = False
-            GLib.idle_add(self.refresh)
+            GLib.idle_add(self.refresh, True)
 
     def _action_connect(self, device: BluetoothDevice) -> None:
         self._status_label.set_text(f"Connecting to {device.display_name}…")

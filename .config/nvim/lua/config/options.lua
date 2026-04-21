@@ -3,12 +3,15 @@
 -- Add any additional options here
 --
 -- Load Matugen-generated mode (sets vim.opt.background to light/dark) when available.
-pcall(function()
-  local matugen_path = vim.fn.expand("~/.config/matugen/generated/matugen_colors.lua")
-  if vim.loop.fs_stat(matugen_path) then
-    dofile(matugen_path)
-  end
-end)
+-- pcall(function()
+--   local matugen_path = vim.fn.expand("~/.config/matugen/generated/matugen_colors.lua")
+--   if vim.loop.fs_stat(matugen_path) then
+--     dofile(matugen_path)
+--   end
+-- end)
+
+-- Force dark mode to fix visibility issues
+vim.opt.background = "dark"
 
 -- Remove default float/window borders for a cleaner look.
 vim.o.winborder = "none"
