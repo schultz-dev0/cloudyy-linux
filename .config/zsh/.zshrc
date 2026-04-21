@@ -90,3 +90,5 @@ fi
 
 # opencode
 export PATH=/home/schultz/.opencode/bin:$PATH
+
+export PATH=$PATH:/home/schultz/.spicetify
