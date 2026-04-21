@@ -210,6 +210,9 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._nav_rows: dict[str, Gtk.ListBoxRow] = {}
         self._nav_list: Gtk.ListBox | None = None
 
+        # Heavy pages deferred until first navigation
+        self._lazy_builders: dict = {}
+
         self._build_ui()
         self._setup_shortcuts()
         log.info("Window ready")
@@ -413,26 +416,14 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             content = self._build_page_content(page_cfg)
             self._stack.add_named(content, pid)
 
-        # Build hardcoded manager pages
-        bt_page = bluetooth_page.BluetoothPage(self._toast_ov)
-        bt_page.set_vexpand(True)
-        self._stack.add_named(bt_page, "__bt__")
-
-        wf_page = wifi_page.WiFiPage(self._toast_ov)
-        wf_page.set_vexpand(True)
-        self._stack.add_named(wf_page, "__wifi__")
-
-        mon_page = monitor_editor.MonitorEditorPage(self._toast_ov)
-        mon_page.set_vexpand(True)
-        self._stack.add_named(mon_page, "__mon__")
-
-        hkbm_page = keybind_manager.KeybindManagerPage(self._toast_ov)
-        hkbm_page.set_vexpand(True)
-        self._stack.add_named(hkbm_page, "__hkbm__")
-
-        au_page = audio_page.AudioPage(self._toast_ov)
-        au_page.set_vexpand(True)
-        self._stack.add_named(au_page, "__audio__")
+        # Register heavy pages as lazy builders — built on first navigation
+        self._lazy_builders = {
+            "__bt__":    lambda: bluetooth_page.BluetoothPage(self._toast_ov),
+            "__wifi__":  lambda: wifi_page.WiFiPage(self._toast_ov),
+            "__mon__":   lambda: monitor_editor.MonitorEditorPage(self._toast_ov),
+            "__hkbm__":  lambda: keybind_manager.KeybindManagerPage(self._toast_ov),
+            "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
+        }
 
         # Select first YAML page if available
         if pages:
@@ -517,6 +508,11 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             return
         # Clear search
         self._search_entry.set_text("")
+        # Build deferred page on first navigation
+        if page_id in self._lazy_builders:
+            page = self._lazy_builders.pop(page_id)()
+            page.set_vexpand(True)
+            self._stack.add_named(page, page_id)
         if page_id and self._stack.get_child_by_name(page_id):
             self._stack.set_visible_child_name(page_id)
             row_child = row.get_child()
@@ -533,6 +529,11 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         """Navigate to a page id and keep sidebar selection in sync."""
         if not page_id:
             return False
+        # Build deferred page on demand (e.g. from CLI --page flag)
+        if page_id in self._lazy_builders:
+            page = self._lazy_builders.pop(page_id)()
+            page.set_vexpand(True)
+            self._stack.add_named(page, page_id)
         if self._stack.get_child_by_name(page_id) is None:
             return False
         self._search_entry.set_text("")

@@ -6,6 +6,7 @@ import logging
 import shutil
 import subprocess
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -484,6 +485,7 @@ class _AutoSwitchMonitor:
         except Exception as e:
             log.error("Failed to start pactl subscribe: %s", e)
             return
+        last_eval: float = 0.0
         try:
             while not self._stop_event.is_set():
                 assert proc.stdout is not None
@@ -493,7 +495,10 @@ class _AutoSwitchMonitor:
                 if "on sink" not in line:
                     continue
                 log.debug("Auto-switch: sink event: %s", line.strip())
-                threading.Thread(target=self._do_evaluate, daemon=True).start()
+                now = time.monotonic()
+                if now - last_eval > 0.5:
+                    last_eval = now
+                    threading.Thread(target=self._do_evaluate, daemon=True).start()
         finally:
             proc.terminate()
             try:
