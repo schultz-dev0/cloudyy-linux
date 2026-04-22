@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Notify all running nvim instances to reload the theme from the matugen-generated mode file.
+for sock in /run/user/${UID}/nvim.*.0; do
+  [[ -S "$sock" ]] || continue
+  nvim --server "$sock" --remote-expr "execute('ThemeReload')" >/dev/null 2>&1 || true
+done

@@ -54,7 +54,7 @@ post_hook = '~/.config/kitty/matugen-reload.sh'
 [templates.nvim]
 input_path = '~/.config/matugen/templates/nvimmode.lua'
 output_path = '~/.config/matugen/generated/matugen_colors.lua'
-post_hook = 'sh -c "touch ~/.config/matugen/generated/matugen_colors.lua"'
+post_hook = '~/cloudyy_scripts/nvim/reload_theme.sh'
 
 [templates.rofi]
 input_path = '~/.config/matugen/templates/colors.rasi'
