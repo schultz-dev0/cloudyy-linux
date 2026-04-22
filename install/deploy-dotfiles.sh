@@ -188,6 +188,13 @@ link_extra_dirs() {
       log_ok "cloudyy_scripts made executable." ||
       true
   fi
+
+  # pywalfox native messaging host — symlink only this file, not the whole mozilla dir
+  local pywalfox_src="${REPO_DIR}/mozilla/native-messaging-hosts/pywalfox.json"
+  if [[ -f "$pywalfox_src" ]]; then
+    mkdir -p "${HOME}/.mozilla/native-messaging-hosts"
+    safe_symlink "$pywalfox_src" "${HOME}/.mozilla/native-messaging-hosts/pywalfox.json"
+  fi
 }
 
 # Ensure cloudyy helper scripts are on PATH for interactive shells
