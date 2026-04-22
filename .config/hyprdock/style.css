@@ -1,6 +1,6 @@
 /* hyprdock — macOS 26-style floating dock */
 
-@import url("../matugen/generated/waybar-colors.css");
+@import url("../matugen/generated/hyprdock-colors.css");
 
 /* ── Outer window ─────────────────────────────────────────────────────── */
 
@@ -56,6 +56,8 @@
   transition: background-color 100ms ease;
 }
 
+/*
+
 .dock-icon:hover {
   background-color: alpha(white, 0.12);
 }
@@ -64,6 +66,7 @@
   background-color: alpha(white, 0.20);
 }
 
+
 .dock-kill:hover {
   background-color: alpha(#ff4040, 0.18);
 }
@@ -71,7 +74,7 @@
 .dock-search:hover {
   background-color: alpha(@primary, 0.18);
 }
-
+*/
 /* ── Running indicator dot ────────────────────────────────────────────── */
 
 .dock-indicator {
