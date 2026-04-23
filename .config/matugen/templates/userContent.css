@@ -1,0 +1,296 @@
+@import "colors.css";
+
+/* ======================================================
+   ROOT — color-scheme:dark triggers:
+     • native dark scrollbars / form controls
+     • prefers-color-scheme:dark media query → sites
+       with their own dark mode switch automatically
+   ====================================================== */
+:root {
+    color-scheme: dark !important;
+}
+
+/* ======================================================
+   GLOBAL — all HTTP/HTTPS pages
+   ====================================================== */
+@-moz-document url-prefix("http://"), url-prefix("https://") {
+
+    /* Base surfaces */
+    html, body {
+        background-color: var(--surface) !important;
+        color: var(--on_surface) !important;
+    }
+
+    /* Semantic structure */
+    main, article, section, nav, header, footer, aside, dialog,
+    [role="main"], [role="navigation"], [role="complementary"],
+    [role="banner"], [role="contentinfo"], [role="dialog"] {
+        background-color: var(--surface) !important;
+        color: var(--on_surface) !important;
+    }
+
+    /* Container bleed — catches hardcoded-white div patterns.
+       User-stylesheet !important beats author !important AND inline styles
+       in the CSS cascade, so this overrides even style="background:white". */
+    div[class*="content"],  div[class*="wrapper"],   div[class*="container"],
+    div[class*="main"],     div[class*="layout"],    div[class*="page"],
+    div[class*="card"],     div[class*="panel"],     div[class*="box"],
+    div[class*="sidebar"],  div[class*="header"],    div[class*="footer"],
+    div[class*="modal"],    div[class*="overlay"],   div[class*="drawer"],
+    div[class*="body"],     div[class*="inner"],     div[class*="section"],
+    div[class*="block"],    div[class*="row"],
+    /* Material UI / MUI */
+    [class*="MuiPaper"],    [class*="MuiCard"],      [class*="MuiDialog"],
+    [class*="MuiDrawer"],   [class*="MuiMenu"],      [class*="MuiPopover"] {
+        background-color: var(--surface_container) !important;
+    }
+
+    /* Nuclear text — forces readability on unlisted sites.
+       Excluded intentionally:
+         i                     — icon-font glyphs (FA, Material)
+         pre/code/kbd/samp     — code blocks; they set their own contrast
+         img/video/canvas/…    — media (color has no visual effect but clarifies intent)
+         [class*="icon"]       — generic icon wrappers
+         [class*="logo"]       — logo/brand containers
+         [class*="emoji"]      — emoji containers
+         [class*="avatar"]     — user avatar images
+         [class*="sprite"]     — CSS sprite images
+         [class*="fa-"]        — Font Awesome icon spans
+         [class*="-icon"]      — suffix-pattern icons (e.g. "close-icon")
+         [class*="material-icon"] — Material icon spans
+         [aria-hidden="true"]  — decorative/screen-reader-hidden elements
+       SVG elements are intentionally NOT excluded: setting color on them
+       correctly themes currentColor icons, and explicit fill= attributes
+       are unaffected by the CSS color property. */
+    *:not(i):not(pre):not(code):not(kbd):not(samp):not(img):not(video):not(canvas):not(iframe):not(embed):not(object):not([class*="icon"]):not([class*="logo"]):not([class*="brand"]):not([class*="emoji"]):not([class*="avatar"]):not([class*="sprite"]):not([class*="fa-"]):not([class*="-icon"]):not([class*="material-icon"]):not([aria-hidden="true"]) {
+        color: var(--on_surface) !important;
+    }
+
+    /* Links */
+    a, a:visited { color: var(--primary) !important; }
+    a:hover      { color: var(--primary_fixed_dim) !important; }
+
+    /* Form inputs — exclude button-type inputs (handled below) */
+    input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="color"]):not([type="range"]),
+    textarea, select {
+        background-color: var(--surface_container_high) !important;
+        color: var(--on_surface) !important;
+        border: 1px solid var(--outline) !important;
+        border-radius: 4px;
+    }
+    input:focus, textarea:focus, select:focus {
+        border-color: var(--primary) !important;
+        outline: 2px solid var(--primary) !important;
+        outline-offset: -1px;
+    }
+
+    /* Buttons */
+    button, [role="button"],
+    input[type="submit"], input[type="button"], input[type="reset"] {
+        background-color: var(--surface_container_high) !important;
+        color: var(--on_surface) !important;
+        border: 1px solid var(--outline_variant) !important;
+    }
+    button:hover, [role="button"]:hover {
+        background-color: var(--surface_container_highest) !important;
+    }
+
+    /* Tables */
+    table { border-color: var(--outline_variant) !important; }
+    thead, th {
+        background-color: var(--surface_container_high) !important;
+        border-color: var(--outline_variant) !important;
+    }
+    tbody tr:nth-child(even) {
+        background-color: var(--surface_container_low) !important;
+    }
+    td { border-color: var(--outline_variant) !important; }
+
+    /* Scrollbars */
+    * {
+        scrollbar-color: var(--outline_variant) var(--surface_container_low) !important;
+        scrollbar-width: thin !important;
+    }
+}
+
+/* ======================================================
+   YOUTUBE
+   Map YT's internal CSS custom properties to Matugen
+   variables so YT's own components do the theming —
+   more reliable than fighting per-element specificity.
+   ====================================================== */
+@-moz-document domain("youtube.com") {
+
+    html, ytd-app, #page-manager,
+    ytd-masthead, ytd-page-manager,
+    #background.ytd-masthead,
+    #contentContainer.tp-yt-app-drawer {
+
+        /* Background tokens */
+        --yt-spec-base-background:          var(--surface) !important;
+        --yt-spec-raised-background:        var(--surface_container) !important;
+        --yt-spec-general-background-a:     var(--surface) !important;
+        --yt-spec-general-background-b:     var(--surface_container_low) !important;
+        --yt-spec-general-background-c:     var(--surface_container) !important;
+        --yt-spec-menu-background:          var(--surface_container_high) !important;
+        --yt-spec-additive-background:      var(--surface_container_highest) !important;
+        --yt-spec-badge-chip-background:    var(--surface_container_high) !important;
+        --yt-spec-10-percent-layer:         rgb(var(--on_surface_rgb) / 0.1) !important;
+
+        /* Text tokens */
+        --yt-spec-text-primary:             var(--on_surface) !important;
+        --yt-spec-text-secondary:           var(--on_surface_variant) !important;
+        --yt-spec-text-disabled:            var(--outline) !important;
+        --yt-spec-wordmark-text:            var(--on_surface) !important;
+        --yt-spec-themed-blue:              var(--primary) !important;
+
+        /* Brand / CTA tokens */
+        --yt-spec-call-to-action:           var(--primary) !important;
+        --yt-spec-call-to-action-inverse:   var(--on_primary) !important;
+
+        /* Icon tokens */
+        --yt-spec-icon-active-other:        var(--on_surface) !important;
+        --yt-spec-icon-inactive:            var(--on_surface_variant) !important;
+        --yt-spec-icon-disabled:            var(--outline) !important;
+
+        /* Outline / border */
+        --yt-spec-outline:                  var(--outline_variant) !important;
+
+        background-color: var(--surface) !important;
+    }
+
+    /* Search box */
+    ytd-searchbox,
+    #container.ytd-searchbox,
+    tp-yt-paper-input-container {
+        background-color: var(--surface_container_high) !important;
+        border: 1px solid var(--outline) !important;
+        box-shadow: none !important;
+    }
+    ytd-searchbox[has-focus] {
+        border-color: var(--primary) !important;
+    }
+
+    /* Filter / category chips */
+    yt-chip-cloud-chip-renderer {
+        background-color: var(--surface_container_low) !important;
+        border-color: var(--outline_variant) !important;
+    }
+    yt-chip-cloud-chip-renderer[chip-style="STYLE_PRIMARY"],
+    yt-chip-cloud-chip-renderer[selected] {
+        background-color: var(--surface_container_highest) !important;
+    }
+
+    /* Thumbnails — keep their natural background */
+    ytd-thumbnail {
+        background-color: var(--surface_container_low) !important;
+    }
+
+    /* Video card metadata (below thumbnail) */
+    #meta.ytd-video-renderer,
+    #meta.ytd-compact-video-renderer,
+    #details.ytd-video-renderer {
+        background-color: var(--surface) !important;
+    }
+
+    /* Watch page sidebar */
+    #secondary.ytd-watch-flexy,
+    ytd-watch-next-secondary-results-renderer {
+        background-color: var(--surface) !important;
+    }
+
+    /* Comments */
+    ytd-comments,
+    ytd-comment-thread-renderer,
+    ytd-comment-replies-renderer {
+        background-color: var(--surface) !important;
+    }
+}
+
+/* ======================================================
+   GOOGLE SEARCH
+   Google respects color-scheme:dark natively — we only
+   need minimal overrides to catch elements that resist.
+   ====================================================== */
+@-moz-document domain("google.com") {
+
+    body, #rcnt, #center_col, #rhs {
+        background-color: var(--surface) !important;
+    }
+
+    /* Search box */
+    .RNNXgb, form[role="search"], .SDkEP {
+        background-color: var(--surface_container_high) !important;
+        border-color: var(--outline) !important;
+    }
+    input[name="q"], .gLFyf {
+        background-color: transparent !important;
+        color: var(--on_surface) !important;
+    }
+
+    /* Result cards */
+    .g, .MjjYud, .Gx5Zad, .tF2Cxc {
+        background-color: var(--surface_container) !important;
+    }
+
+    /* Knowledge / info panels */
+    .kp-wholepage, .kno-fr, .osrp-blk {
+        background-color: var(--surface_container_high) !important;
+    }
+}
+
+/* ======================================================
+   CANVAS LMS / STUDYNET
+   Add your institution's domain to the domain() list.
+   Common Canvas hostnames: instructure.com, canvas.net,
+   canvas.edu.au, <school>.instructure.com
+   ====================================================== */
+@-moz-document domain("instructure.com"), domain("canvas.net"),
+               domain("studynet.sa.edu.au") {
+
+    /* Main layout */
+    .ic-Layout-wrapper,
+    .ic-Layout-contentMain,
+    .ic-app-main-content,
+    #main, #content {
+        background-color: var(--surface) !important;
+        color: var(--on_surface) !important;
+    }
+
+    /* Left navigation rail */
+    #menu, nav#left-side-tabs,
+    .ic-app-nav-toggle-and-crumbs,
+    .ic-app-header,
+    .ic-app-header__menu-list {
+        background-color: var(--surface_container) !important;
+    }
+
+    /* Dashboard course cards */
+    .ic-DashboardCard,
+    .ic-DashboardCard__header,
+    .ic-DashboardCard__box {
+        background-color: var(--surface_container_high) !important;
+        border-color: var(--outline_variant) !important;
+    }
+
+    /* Module item rows */
+    .ig-list, .ig-row, .module-item-content,
+    .context_module_item {
+        background-color: var(--surface_container_low) !important;
+        border-color: var(--outline_variant) !important;
+    }
+
+    /* Primary action buttons (keep brand contrast) */
+    .btn-primary, .Button--primary {
+        background-color: var(--primary) !important;
+        color: var(--on_primary) !important;
+        border-color: var(--primary) !important;
+    }
+
+    /* Danger/warning buttons — preserve semantic color */
+    .btn-danger, .Button--danger {
+        background-color: var(--error_container) !important;
+        color: var(--on_error_container) !important;
+        border-color: var(--error) !important;
+    }
+}
