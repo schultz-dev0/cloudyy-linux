@@ -57,6 +57,7 @@ import lib.edit_dialog as edit_dialog
 import lib.bluetooth_page as bluetooth_page
 import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
+import lib.rgb_page as rgb_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -86,6 +87,8 @@ CLI_PAGE_ALIASES: dict[str, str] = {
     "monitors": "__mon__",
     "monitor": "__mon__",
     "audio": "__audio__",
+    "rgb": "__rgb__",
+    "lighting": "__rgb__",
     "keybind-manager": "__hkbm__",
     "keybinds": "__hkbm__",
 }
@@ -292,12 +295,13 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__bt__": {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"},
             "__wifi__": {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"},
             "__audio__": {"id": "__audio__", "title": "Audio", "icon": "audio-speakers-symbolic"},
+            "__rgb__": {"id": "__rgb__", "title": "RGB Lighting", "icon": "applications-games-symbolic"},
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
             ("Home", ["home"]),
             ("Visuals", ["appearance", "waybar", "hyprland"]),
-            ("System", ["input", "__mon__", "__bt__", "__wifi__", "__audio__"]),
+            ("System", ["input", "__mon__", "__bt__", "__wifi__", "__audio__", "__rgb__"]),
             ("Tools", ["__hkbm__"]),
         ]
 
@@ -423,6 +427,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__mon__":   lambda: monitor_editor.MonitorEditorPage(self._toast_ov),
             "__hkbm__":  lambda: keybind_manager.KeybindManagerPage(self._toast_ov),
             "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
+            "__rgb__":   lambda: rgb_page.RGBPage(self._toast_ov),
         }
 
         # Select first YAML page if available
@@ -706,6 +711,8 @@ class CloudCenter(Adw.Application):
             ("bluetooth", "Open Bluetooth page"),
             ("monitors", "Open Monitors page"),
             ("audio", "Open Audio page"),
+            ("rgb", "Open RGB Lighting page"),
+            ("lighting", "Open RGB Lighting page"),
             ("keybind-manager", "Open Keybind Manager page"),
             ("keybinds", "Open Keybind Manager page"),
         ]
@@ -727,7 +734,8 @@ class CloudCenter(Adw.Application):
 
         for flag in (
             "home", "appearance", "waybar", "hyprland", "input",
-            "wifi", "bluetooth", "monitors", "audio", "keybind-manager", "keybinds",
+            "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
+            "keybind-manager", "keybinds",
         ):
             if options.contains(flag):
                 self._requested_page = CLI_PAGE_ALIASES.get(flag, flag)
