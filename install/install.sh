@@ -139,8 +139,22 @@ phase_preflight() {
   log_ok "Preflight passed."
 }
 
+# --- Phase: Shell Stack ------------------------------------------------------
+# Lets the user pick which user-facing shell components to install (default
+# waybar/swaync stack vs. quickshell, plus reserved slots for future swaps).
+# Selection is persisted to ${STATE_DIR}/shell-stack and consumed by:
+#   • hyprland-install.sh  (extra package list)
+#   • apply-shell-stack.sh (writes ~/.config/hypr/source/shell-stack.conf)
+phase_shell_stack() {
+  STATE_DIR="$STATE_DIR" bash "${SCRIPT_DIR}/select-shell-stack.sh"
+}
+
 # --- Phase: Packages ---------------------------------------------------------
 phase_packages() {
+  # Export the chosen profile so hyprland-install.sh picks up its packages.
+  if [[ -f "${STATE_DIR}/shell-stack" ]]; then
+    export CLOUDYY_SHELL_STACK="$(<"${STATE_DIR}/shell-stack")"
+  fi
   bash "${SCRIPT_DIR}/hyprland-install.sh"
 }
 
@@ -186,6 +200,7 @@ phase_finalize() {
 # =============================================================================
 declare -a PHASE_IDS=(
   "preflight"
+  "shell_stack"
   "dotfiles"
   "packages"
   "services"
@@ -194,6 +209,7 @@ declare -a PHASE_IDS=(
 
 declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
+  [shell_stack]="Shell Stack Selection"
   [dotfiles]="Dotfiles Deployment"
   [packages]="Hardware & Package Installation"
   [services]="Service Configuration"

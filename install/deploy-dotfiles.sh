@@ -295,12 +295,16 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/state.conf"
     ".config/hypr/theme_state/dark_last"
     ".config/hypr/theme_state/light_last"
+    "cloudyy_scripts/theme_controller.sh"
+    "cloudyy_scripts/bridge_scripts/bridge_default.sh"
+    "cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
     ".config/waybar/.current_position"
     ".config/waybar/.current_preset"
     ".config/waybar/.vertical_side"
+    ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"
     ".config/btop/btop.conf"
@@ -380,6 +384,14 @@ main() {
   verify_deployment
   setup_system_theme
   seed_required_applications
+
+  # Materialize shell-stack autostart fragment (~/.config/hypr/source/shell-stack.conf)
+  # using whatever profile was selected in phase_shell_stack (or DEFAULT_PROFILE).
+  local _self_dir
+  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -x "${_self_dir}/apply-shell-stack.sh" ]]; then
+    bash "${_self_dir}/apply-shell-stack.sh" || log_warn "apply-shell-stack.sh failed (non-fatal)"
+  fi
 
   printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 

@@ -29,7 +29,6 @@ post_hook = 'hyprctl reload'
 [templates.waybar]
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/matugen/generated/waybar-colors.css'
-post_hook = "~/cloudyy_scripts/waybar/launch_waybar.sh"
 
 # starship config
 
@@ -63,7 +62,6 @@ output_path = '~/.config/matugen/generated/colors-glass.rasi'
 [templates.swaync]
 input_path = '~/.config/matugen/templates/colors-swaync.css'
 output_path = '~/.config/matugen/generated/colors-swaync.css'
-post_hook = 'swaync-client -rs'
 
 [templates.swayosd]
 input_path = '~/.config/matugen/templates/colors-swayosd.css'
@@ -78,6 +76,11 @@ output_path = '~/.config/matugen/generated/colors.css'
 input_path = '~/.config/matugen/templates/btop.theme'
 output_path = '~/.config/matugen/generated/btop.theme'
 post_hook = 'pkill -USR2 btop || true'
+
+[templates.quickshell]
+input_path = '~/.config/matugen/templates/quickshell-theme.qml'
+output_path = '~/.config/quickshell/Theme.qml'
+# quickshell auto-reloads QML on file change; no post_hook needed
 
 [templates.Obsidian]
 input_path = '~/.config/matugen/templates/obsidian-theme.css'
