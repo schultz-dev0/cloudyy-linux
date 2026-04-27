@@ -48,6 +48,9 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+# --- SHELL STACK WIRING (Updated by installer) ---
+ACTIVE_SHELL_TAB = "quickshell"
+
 import lib.rows as rows
 from lib.rows import RowContext
 import lib.hcm as hcm
@@ -300,7 +303,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         }
         categories: list[tuple[str, list[str]]] = [
             ("Home", ["home"]),
-            ("Visuals", ["appearance", "waybar", "hyprland"]),
+            ("Visuals", ["appearance", ACTIVE_SHELL_TAB, "hyprland"]),
             ("System", ["input", "__mon__", "__bt__", "__wifi__", "__audio__", "__rgb__"]),
             ("Tools", ["__hkbm__"]),
         ]

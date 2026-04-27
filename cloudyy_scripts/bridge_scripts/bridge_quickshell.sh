@@ -25,20 +25,23 @@ if pgrep -x "waybar|swaync" >/dev/null; then
 fi
 
 # Start Quickshell as a daemon only if it's not already running.
-# The -n flag (no-duplicate) ensures that if Quickshell is already active,
-# this command exits silently, allowing the existing instance to hot-reload
-# its colors naturally when matugen updates Theme.qml.
-if command -v qs >/dev/null 2>&1; then
-    PRESET_FILE="${HOME}/.config/quickshell/.current_preset"
-    PRESET="macos"
-    [[ -f "$PRESET_FILE" ]] && PRESET="$(cat "$PRESET_FILE" | tr -d '[:space:]')"
-    
-    qs -c "$PRESET" -n -d
-else
-    # Fallback to pgrep check if using the raw binary name
-    if ! pgrep -x quickshell >/dev/null; then
-        quickshell -d 2>/dev/null || true
-    fi
-fi
+# We use a lockfile to prevent race conditions during rapid wallpaper changes.
+LOCKFILE="/tmp/quickshell_bridge.lock"
+
+(
+  flock -n 9 || exit 0 # If another bridge is already running, just exit.
+
+  if command -v qs >/dev/null 2>&1; then
+      # The -n flag (no-duplicate) ensures that if Quickshell is already active,
+      # this command exits silently.
+      # We explicitly close FD 9 to prevent the daemon from inheriting the lock.
+      qs -n -d 9>&-
+  else
+      # Fallback to pgrep check if using the raw binary name
+      if ! pgrep -x quickshell >/dev/null; then
+          quickshell -d 9>&- 2>/dev/null || true
+      fi
+  fi
+) 9>"$LOCKFILE"
 
 # [Reserved for other quickshell-integrated components or future triggers]

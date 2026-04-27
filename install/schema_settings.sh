@@ -146,7 +146,26 @@ setup_pywalfox() {
 }
 
 # =============================================================================
-# STEP 4: restart xdg-desktop-portal (optional, non-fatal)
+# STEP 4: system font
+# =============================================================================
+
+setup_system_font() {
+  log_section "System Font"
+
+  local current
+  current=$(gsettings get org.gnome.desktop.interface font-name 2>/dev/null || true)
+
+  if [[ "$current" == *"JetBrainsMono Nerd Font"* ]]; then
+    log_skip "font-name already set to JetBrainsMono Nerd Font"
+    return 0
+  fi
+
+  gsettings set org.gnome.desktop.interface font-name 'JetBrainsMono Nerd Font 11'
+  log_ok "Set org.gnome.desktop.interface font-name → JetBrainsMono Nerd Font 11"
+}
+
+# =============================================================================
+# STEP 5: restart xdg-desktop-portal (optional, non-fatal)
 # =============================================================================
 
 restart_portal() {
@@ -176,6 +195,7 @@ main() {
   setup_gsettings_schemas  || ((++errors))
   setup_portal_config      || ((++errors))
   setup_pywalfox           || ((++errors))
+  setup_system_font        || ((++errors))
   restart_portal           || true  # non-fatal; re-login is an acceptable fallback
 
   printf '\n'

@@ -347,6 +347,35 @@ pages:
                 ~/cloudyy_scripts/waybar/set_position.sh left &&
                 (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)
 
+  - id: quickshell
+    title: Shell
+    icon: window-minimize-symbolic
+    layout:
+      - type: section
+        properties:
+          title: Style
+          description: Choose the visual preset for your bar
+        items:
+          - type: selection
+            properties:
+              title: Preset
+              description: Visual style — layout variations
+              icon: document-page-setup-symbolic
+              key: quickshell/preset
+              options:
+                - default
+                - bubble
+                - compact
+                - dense
+              options_map:
+                macos: default
+                bubble: bubble
+                compact: compact
+                dense: dense
+            on_change:
+              command: >-
+                ~/cloudyy_scripts/quickshell/switch_preset.sh "{value}"
+
   - id: input
     title: Input
     icon: input-keyboard-symbolic
@@ -849,4 +878,3 @@ pages:
               button_text: Reset
             on_press:
               command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page hyprland
-

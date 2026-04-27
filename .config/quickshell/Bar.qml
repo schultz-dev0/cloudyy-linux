@@ -1,4 +1,4 @@
-pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -102,7 +102,7 @@ PanelWindow {
                 width:    implicitWidth + bar.pillPadH * 2
                 fg:       Theme.on_primary_container
                 bg:       Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85)
-                onClicked: bar.launch(["bash", "-c", "~/cloudyy_scripts/rofi/applications.sh"])
+                onClicked: bar.launch(["bash", "-c", "~/cloudyy_scripts/rofi/main.sh"])
             }
 
             Pill {
@@ -157,21 +157,19 @@ PanelWindow {
                 Row {
                     id: wsRow
                     anchors.centerIn: parent
-                    spacing: 2
+                    spacing: 6
 
                     Repeater {
-                        model: Hyprland.workspaces.values
-                            .slice()
-                            .filter(w => w.id > 0 && w.id <= 10)
-                            .sort((a, b) => a.id - b.id)
+                        model: Array.from({length: 6}, (_, i) => i + 1)
 
                         delegate: Rectangle {
-                            required property var modelData
-                            readonly property bool focused: modelData.id === (Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1)
-                            readonly property bool empty:   !modelData.active
+                            required property int modelData
+                            readonly property var ws:      Array.from(Hyprland.workspaces.values).find(w => w.id === modelData) ?? null
+                            readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+                            readonly property bool empty:   ws === null
 
                             height: bar.barHeight - bar.pillPadV * 2 - 6
-                            width:  focused ? 28 : (empty ? 20 : 22)
+                            width:  focused ? 26 : (empty ? 20 : 22)
                             radius: 8
                             anchors.verticalCenter: parent.verticalCenter
                             color: focused
@@ -184,7 +182,7 @@ PanelWindow {
 
                             Text {
                                 anchors.centerIn: parent
-                                text:  modelData.name
+                                text:  String(modelData)
                                 color: focused ? Theme.on_primary_container
                                     : (empty ? Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.35)
                                              : Theme.on_surface)
@@ -195,7 +193,7 @@ PanelWindow {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: Hyprland.dispatch("workspace " + modelData.id)
+                                onClicked: Hyprland.dispatch("workspace " + modelData)
                                 onWheel: e => Hyprland.dispatch(e.angleDelta.y > 0 ? "workspace e-1" : "workspace e+1")
                             }
                         }
@@ -268,7 +266,7 @@ PanelWindow {
                         const m = d.match(/[\d.]+/)
                         if (m) {
                             const v = Math.round(parseFloat(m[0]) * 100)
-                            volPill.lbl = muted ? "󰖁" : (v < 33 ? "󰕿 " : v < 66 ? "󰕾 " : "󰕽 ") + v + "%"
+                            volPill.lbl = muted ? "󰖁" : (v < 33 ? "󰕿 " : v < 66 ? "󰕾 " : "󱄠 ") + v + "%"
                         }
                     }}
                 }
@@ -299,7 +297,7 @@ PanelWindow {
             // Memory
             Pill {
                 id: memPill
-                property string lbl: "󰘚 ?"
+                property string lbl: "󰘚"
                 label: lbl
                 width: implicitWidth + bar.pillPadH * 2
                 fg: Theme.on_surface_variant

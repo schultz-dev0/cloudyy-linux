@@ -27,3 +27,18 @@ update_controller() {
 
 update_controller "$THEME_CONTROLLER_HOME"
 update_controller "$THEME_CONTROLLER_REPO"
+
+# --- update cloud-center.py wiring -------------------------------------------
+update_cloud_center() {
+    local py_file="$1"
+    if [[ -f "$py_file" ]]; then
+        local tab="waybar"
+        [[ "$PROFILE" == "quickshell" ]] && tab="quickshell"
+        
+        sed -i "s|^ACTIVE_SHELL_TAB = \".*\"|ACTIVE_SHELL_TAB = \"$tab\"|" "$py_file"
+        echo "[✓] Wired ${PROFILE} tab into $(basename "$py_file")"
+    fi
+}
+
+update_cloud_center "${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center.py"
+update_cloud_center "$(cd "$SCRIPT_DIR/.." && pwd)/cloudyy_scripts/cloud-center-v2/cloud-center.py"
