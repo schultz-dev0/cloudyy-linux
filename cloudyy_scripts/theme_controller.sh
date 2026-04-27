@@ -22,6 +22,7 @@ WALLPAPER_DAEMON_CMD=()
 
 # --- CONFIGURATION (cont.) ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
+WIDGETS_BRIDGE="/home/schultz/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
 readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
 readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
 readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
@@ -299,6 +300,16 @@ run_matugen() {
     log "matugen failed — check image validity"
     return 1
   }
+
+  # Trigger shell-specific reloads (managed by widget_bridge.sh)
+  if [[ -n "$WIDGETS_BRIDGE" ]]; then
+    if [[ -x "$WIDGETS_BRIDGE" ]]; then
+      log "Executing widget bridge: $(basename "$WIDGETS_BRIDGE")"
+      "$WIDGETS_BRIDGE" &
+    else
+      log "WARNING: Bridge script not found or not executable: $WIDGETS_BRIDGE"
+    fi
+  fi
 }
 
 sync_current_wallpaper() {
