@@ -291,17 +291,23 @@ run_matugen() {
   local img="$1" mode="$2"
   local variant="${3:-}" contrast="${4:-}"
   local extra_args=()
+  local lockfile="/tmp/cloudyy_theme_controller.lock"
 
   [[ -n "$variant" ]] && extra_args+=(--type "$variant")
   [[ -n "$contrast" ]] && extra_args+=(--contrast "$contrast")
 
-  log "Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})..."
-  matugen image "$img" -m "$mode" --source-color-index 0 "${extra_args[@]}" || {
+  # --- CRITICAL: Release lock before running background processes ---
+  # We lock ONLY the matugen generation part to prevent corruption.
+  # We close FD 9 (if it was used) and other common FDs to prevent inheritance.
+  flock -x "$lockfile" bash -c "
+    printf '\033[1;34m[THEME]\033[0m Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})...\n'
+    matugen image \"$img\" -m \"$mode\" --source-color-index 0 ${extra_args[*]} 9>&- 8>&- 7>&- 6>&- 5>&- 4>&- 3>&-
+  " || {
     log "matugen failed — check image validity"
     return 1
   }
 
-  # Trigger shell-specific reloads (managed by widget_bridge.sh)
+  # Now that the lock is released, trigger shell-specific reloads
   if [[ -n "$WIDGETS_BRIDGE" ]]; then
     if [[ -x "$WIDGETS_BRIDGE" ]]; then
       log "Executing widget bridge: $(basename "$WIDGETS_BRIDGE")"
