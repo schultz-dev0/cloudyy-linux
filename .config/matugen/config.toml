@@ -110,40 +110,6 @@ if command -v vesktop >/dev/null 2>&1; then
 fi
 '''
 
-[templates.firefox_websites]
-input_path = '~/.config/matugen/templates/firefox_websites.css'
-output_path = '~/.config/matugen/generated/firefox_websites.css'
-# post_hook = '''  # TODO: re-enable once Firefox profile path is resolved
-#     FF_DIR="$HOME/.config/mozilla/firefox"
-#     if [ -d "$FF_DIR" ]; then
-#         for d in "$FF_DIR"/*.*; do
-#             [ -d "$d" ] || continue
-#             case "$(basename "$d")" in
-#                 "Crash Reports"|"Pending Pings"|"Profile Groups"|*mpris*) continue ;;
-#             esac
-#
-#             mkdir -p "$d/chrome"
-#             ln -nfs "$HOME/.config/matugen/generated/firefox_websites.css" "$d/chrome/colors.css"
-#
-#             # Ensure legacyUserProfileCustomizations is set so userContent.css is loaded
-#             if ! grep -q "legacyUserProfileCustomizations" "$d/user.js" 2>/dev/null; then
-#                 echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$d/user.js"
-#             fi
-#
-#             # Update userContent.css (Websites) — source of truth is the template file
-#             cp "$HOME/.config/matugen/templates/userContent.css" "$d/chrome/userContent.css"
-#
-#             # Update userChrome.css (Firefox UI)
-#             if ! grep -q '@import "colors.css";' "$d/chrome/userChrome.css" 2>/dev/null; then
-#                 echo '@import "colors.css";' > "$d/chrome/userChrome.css"
-#                 echo '/* Basic UI coloring example */' >> "$d/chrome/userChrome.css"
-#                 echo ':root { --toolbar-bgcolor: var(--surface_container) !important; --toolbar-color: var(--on_surface) !important; }' >> "$d/chrome/userChrome.css"
-#                 echo '#nav-bar { background-color: var(--surface) !important; }' >> "$d/chrome/userChrome.css"
-#             fi
-#         done
-#     fi
-# '''
-
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/matugen/generated/waybar-colors.css'

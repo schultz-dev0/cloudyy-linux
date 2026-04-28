@@ -103,7 +103,7 @@ set_system_theme() {
   # "pywalfox dark" / "pywalfox light" switches the extension's palette;
   # matugen's post_hook already runs "pywalfox update" to push new colours.
   if command -v pywalfox >/dev/null 2>&1; then
-    pywalfox "$mode" 2>/dev/null || true
+    pywalfox "$mode" 2>/dev/null &
     log "pywalfox switched to $mode"
   fi
 }
@@ -344,7 +344,14 @@ cmd_apply() {
 
   log "Applying: $(basename "$img") [$mode]"
 
-  # Generate colors first — post_hooks fire and restart apps
+  # Fire wallpaper transition immediately — no need to wait for matugen
+  "${WALLPAPER_CMD[@]}" img "$img" \
+    --transition-type "$transition" \
+    --transition-duration 2 \
+    --transition-fps 60 &
+  local swww_pid=$!
+
+  # Generate colors + post_hooks in parallel with the transition
   run_matugen "$img" "$mode" || log "WARNING: Matugen failed, but continuing to wallpaper..."
 
   # Save state
@@ -352,12 +359,7 @@ cmd_apply() {
   THEME_MODE="$mode"
   save_state
 
-  # Animate wallpaper after color generation
-  "${WALLPAPER_CMD[@]}" img "$img" \
-    --transition-type "$transition" \
-    --transition-duration 2 \
-    --transition-fps 60
-
+  wait "$swww_pid" 2>/dev/null || true
   notify "Wallpaper applied" low
 }
 

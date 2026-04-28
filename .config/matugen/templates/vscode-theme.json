@@ -138,7 +138,7 @@
         }
       },
       {
-        "scope": ["variable", "entity.name.variable", "support.variable"],
+        "scope": ["variable", "variable.other", "variable.other.property", "variable.other.object", "entity.name.variable", "support.variable"],
         "settings": {
           "foreground": "{{colors.on_surface.default.hex}}"
         }
@@ -153,6 +153,13 @@
         "scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"],
         "settings": {
           "foreground": "{{colors.tertiary.default.hex}}"
+        }
+      },
+      {
+        "scope": ["keyword.operator", "keyword.operator.assignment", "keyword.operator.logical", "keyword.operator.arithmetic", "keyword.operator.comparison"],
+        "settings": {
+          "foreground": "{{colors.primary.default.hex}}",
+          "fontStyle": "bold"
         }
       },
       {
