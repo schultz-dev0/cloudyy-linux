@@ -121,6 +121,7 @@ PanelWindow {
                 property string n: "0"
                 label: "󰏔 " + n
                 width: implicitWidth + bar.pillPadH * 2
+                onClicked: bar.launch(["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh & sleep 0.5; hyprctl dispatch focuswindow title:cloudyy-updater"])
                 Timer {
                     interval: 3600000; running: true; repeat: true; triggeredOnStart: true
                     onTriggered: updatesProc.running = true
@@ -291,7 +292,7 @@ PanelWindow {
                     command: ["bash", "-c", "python3 -c 'import psutil; print(int(psutil.cpu_percent(0.3)))' 2>/dev/null || cut -d' ' -f1 /proc/loadavg"]
                     stdout: SplitParser { onRead: d => cpuPill.lbl = "󰍛 " + d.trim() + "%" }
                 }
-                onClicked: bar.launch(["bash", "-c", "uwsm-app -- kitty -e btop"])
+                onClicked: bar.launch(["bash", "-c", "kitty --title btop btop & sleep 0.5; hyprctl dispatch focuswindow title:btop"])
             }
 
             // Memory

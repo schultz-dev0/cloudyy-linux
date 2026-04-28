@@ -1,0 +1,22 @@
+-- Autostart — equivalent of exec-once entries
+-- Sources: user-configs/user_autostart.conf + source/shell-stack.conf (quickshell)
+
+hl.on("hyprland.start", function()
+    local home    = os.getenv("HOME")
+    local scripts = home .. "/cloudyy_scripts"
+
+    hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    hl.exec_cmd("hyprlock")
+    hl.exec_cmd("wl-paste --type text --watch cliphist store")
+    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+    hl.exec_cmd("syncthing")
+    hl.exec_cmd(scripts .. "/theme_controller.sh restore")
+    hl.exec_cmd(scripts .. "/cloudyy-other/hyprdock")
+    hl.exec_cmd("ollama")
+    hl.exec_cmd("swayosd-server")
+    hl.exec_cmd("trcc theme-load \"Custom_Grace\"")
+    hl.exec_cmd(scripts .. "/ssh-auth.sh")
+
+    -- Shell stack: quickshell bar (from source/shell-stack.conf, profile: quickshell)
+    hl.exec_cmd("qs -d")
+end)
