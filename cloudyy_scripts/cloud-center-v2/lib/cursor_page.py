@@ -176,12 +176,8 @@ class CursorPage(Gtk.Box):
             size = int(self._size_spin.get_value())
             _run(
                 f"hyprctl setcursor '{theme}' {size}"
-                f" && hyprctl keyword cursor:theme '{theme}'"
-                f" && hyprctl keyword cursor:size {size}"
                 f" && gsettings set org.gnome.desktop.interface cursor-theme '{theme}'"
                 f" && gsettings set org.gnome.desktop.interface cursor-size {size}"
-                f" && {PERSIST} cursor:theme '{theme}'"
-                f" && {PERSIST} cursor:size {size}"
             )
 
         theme_row.connect("notify::selected", apply_theme_size)
