@@ -218,6 +218,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._nav_rows: dict[str, Gtk.ListBoxRow] = {}
         self._nav_list: Gtk.ListBox | None = None
         self._pinned_list: Gtk.ListBox | None = None
+        self._nav_deselecting: bool = False
 
         # Heavy pages deferred until first navigation
         self._lazy_builders: dict = {}
@@ -321,18 +322,18 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         scroll.set_child(self._nav_list)
         box.append(scroll)
 
-        # Pinned bottom: System Overview (home page)
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        box.append(sep)
-
-        self._pinned_list = Gtk.ListBox()
-        self._pinned_list.add_css_class("sidebar-surface")
-        self._pinned_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self._pinned_list.add_css_class("sidebar-nav-list")
-        self._pinned_list.connect("row-selected", self._on_nav_row_selected)
-
+        # Pinned bottom: System Overview (home page) — only if home page exists
         home_page = yaml_pages.get("home")
         if home_page:
+            sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+            box.append(sep)
+
+            self._pinned_list = Gtk.ListBox()
+            self._pinned_list.add_css_class("sidebar-surface")
+            self._pinned_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            self._pinned_list.add_css_class("sidebar-nav-list")
+            self._pinned_list.connect("row-selected", self._on_nav_row_selected)
+
             home_display = dict(home_page)
             home_display["title"] = "System Overview"
             home_row = self._make_nav_row(home_display)
@@ -340,7 +341,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             self._nav_rows["home"] = home_row
             self._pinned_list.append(home_row)
 
-        box.append(self._pinned_list)
+            box.append(self._pinned_list)
 
         return box
 
@@ -584,13 +585,16 @@ class CloudCenterWindow(Adw.ApplicationWindow):
     
     def _on_nav_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
         """Handle row selection in the sidebar nav list."""
-        if row is None:
+        if row is None or self._nav_deselecting:
             return
-        # Deselect the other list so only one item is ever highlighted
-        if listbox is self._nav_list and self._pinned_list is not None:
-            self._pinned_list.unselect_all()
-        elif listbox is self._pinned_list and self._nav_list is not None:
-            self._nav_list.unselect_all()
+        self._nav_deselecting = True
+        try:
+            if listbox is self._nav_list and self._pinned_list is not None:
+                self._pinned_list.unselect_all()
+            elif listbox is self._pinned_list and self._nav_list is not None:
+                self._nav_list.unselect_all()
+        finally:
+            self._nav_deselecting = False
         page_id = getattr(row, "_page_id", None)
         if page_id:
             self._on_nav_selected(row, page_id)
@@ -610,15 +614,11 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
     def _on_search_stop(self, entry: Gtk.SearchEntry) -> None:
         self._search_entry.set_text("")
-        # Restore previously selected page (just show first page for now)
         if self._nav_rows:
             first_row = next(iter(self._nav_rows.values()))
             page_id = getattr(first_row, "_page_id", None)
             if page_id:
-                self._stack.set_visible_child_name(page_id)
-            parent = first_row.get_parent()
-            if isinstance(parent, Gtk.ListBox):
-                parent.select_row(first_row)
+                self.navigate_to_page(page_id)
 
     def _do_search(self, query: str) -> bool:
         self._search_debounce = 0
