@@ -5,7 +5,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gtk
 
 import lib.utility as utility
 
@@ -45,7 +45,8 @@ def _gsettings_get(key: str, fallback: str) -> str:
             ["gsettings", "get", "org.gnome.desktop.interface", key],
             capture_output=True, text=True, timeout=3,
         )
-        return r.stdout.strip().strip("'\"")
+        val = r.stdout.strip().strip("'\"")
+        return val if val else fallback
     except Exception:
         return fallback
 
@@ -151,7 +152,10 @@ class CursorPage(Gtk.Box):
         self._theme_row = theme_row
 
         # Size spin row
-        current_size = int(_gsettings_get("cursor-size", "24") or 24)
+        try:
+            current_size = int(_gsettings_get("cursor-size", "24"))
+        except (ValueError, TypeError):
+            current_size = 24
         size_adj = Gtk.Adjustment(
             value=current_size, lower=8, upper=128,
             step_increment=2, page_increment=8,
