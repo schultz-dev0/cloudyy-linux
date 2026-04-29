@@ -118,8 +118,6 @@ LAYOUT = {
     "cursor:hide_on_tablet":           ("cursor", None, "hide_on_tablet"),
     "cursor:no_break_fs_vrr":          ("cursor", None, "no_break_fs_vrr"),
     "cursor:hotspot_padding":          ("cursor", None, "hotspot_padding"),
-    "cursor:theme":                    ("cursor", None, "theme"),
-    "cursor:size":                     ("cursor", None, "size"),
 }
 
 PAGE_KEYS = {
@@ -171,8 +169,6 @@ PAGE_KEYS = {
         "cursor:hide_on_tablet",
         "cursor:no_break_fs_vrr",
         "cursor:hotspot_padding",
-        "cursor:theme",
-        "cursor:size",
     },
 }
 
