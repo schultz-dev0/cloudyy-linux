@@ -39,14 +39,39 @@ PanelWindow {
     }
     onAnyFullscreenChanged: if (anyFullscreen) dockVisible = false
 
-    // ── App list (pinned only for now, running merge in Task 6) ───────────
-    readonly property var mergedApps: pinnedApps.map(a => ({
-        class:    a.class,
-        exec:     a.exec,
-        icon:     a.icon,
-        isRunning: false,
-        isPinned: true
-    }))
+    // ── App list: pinned + running, deduplicated ───────────────────────────
+    readonly property var mergedApps: {
+        const pinnedClasses = new Set(pinnedApps.map(a => a.class.toLowerCase()))
+        const runningMap = {}
+        HyprlandData.windowList.forEach(w => {
+            const cls = (w.class || "").toLowerCase()
+            if (cls && !runningMap[cls]) runningMap[cls] = w
+        })
+
+        const result = pinnedApps.map(app => ({
+            class:     app.class,
+            exec:      app.exec,
+            icon:      app.icon,
+            isRunning: !!runningMap[app.class.toLowerCase()],
+            isPinned:  true
+        }))
+
+        Object.keys(runningMap).forEach(cls => {
+            if (!pinnedClasses.has(cls)) {
+                const w = runningMap[cls]
+                const rawIcon = (w.class || "").toLowerCase().replace(/\./g, "-")
+                result.push({
+                    class:     w.class,
+                    exec:      w.class.toLowerCase(),
+                    icon:      rawIcon,
+                    isRunning: true,
+                    isPinned:  false
+                })
+            }
+        })
+
+        return result
+    }
 
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockBodyHeight: Math.ceil(iconSize * maxScale) + paddingV * 2 + 6
