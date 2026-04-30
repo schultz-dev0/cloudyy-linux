@@ -202,4 +202,12 @@ PanelWindow {
         repeat: false
         onTriggered: dock.dockVisible = false
     }
+
+    // ── IPC ────────────────────────────────────────────────────────────────
+    IpcHandler {
+        target: "dock"
+        function toggle() { dock.dockVisible = !dock.dockVisible }
+        function show()   { dock.dockVisible = true }
+        function hide()   { dock.dockVisible = false }
+    }
 }
