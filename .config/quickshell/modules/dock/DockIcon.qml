@@ -20,7 +20,7 @@ Item {
 
     // ── Gaussian magnification ─────────────────────────────────────────────
     readonly property real targetScale: {
-        if (dockMouseX < -100) return 1.0
+        if (dockMouseX < -1000) return 1.0
         const d = Math.abs(dockMouseX - iconCenterX)
         const sigma = iconSize * spread
         return 1.0 + (maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma))
@@ -58,8 +58,7 @@ Item {
 
         onStatusChanged: {
             if (status === Image.Error && source.toString().startsWith("file://"))
-                source = Quickshell.iconPath(root.appData.icon,
-                             Quickshell.iconPath("application-x-executable", ""))
+                source = Quickshell.iconPath(root.appData.icon, "image://icon/application-x-executable")
         }
 
         // Glass hover overlay
