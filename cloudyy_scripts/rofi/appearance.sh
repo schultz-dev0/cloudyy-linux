@@ -14,7 +14,10 @@ source "${ROFI_DIR}/lib/common.sh"
 
 gen_thumb() {
   local img="$1"
-  local thumb="${CACHE_DIR}/$(basename "$img").png"
+  # Use a hash of the full path to avoid collisions between identically named files in different dirs
+  local hash
+  hash=$(echo -n "$img" | md5sum | cut -d' ' -f1)
+  local thumb="${CACHE_DIR}/${hash}.png"
   [[ -f "$thumb" ]] && return 0
 
   local converter="convert"
@@ -38,7 +41,16 @@ select_wallpaper() {
   CURRENT_MODE=$(get_current_mode)
   DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<"${CURRENT_MODE:0:1}")${CURRENT_MODE:1}"
   WALL_DIR="${BASE_WALL_DIR}/${DISPLAY_MODE}"
-  [[ ! -d "$WALL_DIR" ]] && WALL_DIR="$BASE_WALL_DIR"
+  
+  local find_args=()
+  if [[ -d "$WALL_DIR" && -r "$WALL_DIR" ]]; then
+    log "Searching wallpapers in: $WALL_DIR"
+  else
+    WALL_DIR="$BASE_WALL_DIR"
+    # When falling back to base dir, don't recurse into Dark/Light subdirs.
+    find_args+=(-maxdepth 1)
+    log "Searching wallpapers in base dir (fallback): $WALL_DIR"
+  fi
 
   [[ ! -d "$WALL_DIR" || ! -r "$WALL_DIR" ]] && {
     notify-send "Error" "Cannot access: $WALL_DIR"
@@ -46,7 +58,7 @@ select_wallpaper() {
   }
 
   # Generate thumbnails in parallel
-  find -L "$WALL_DIR" -type f \
+  find -L "$WALL_DIR" "${find_args[@]}" -type f \
     \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
     -print0 2>/dev/null |
     xargs -0 -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
@@ -57,13 +69,21 @@ select_wallpaper() {
   while IFS= read -r -d '' img; do
     local basename_img
     basename_img="$(basename "$img")"
-    local thumb="${CACHE_DIR}/${basename_img}.png"
+    local hash
+    hash=$(echo -n "$img" | md5sum | cut -d' ' -f1)
+    local thumb="${CACHE_DIR}/${hash}.png"
 
     if [[ -f "$thumb" ]]; then
-      echo -en "${basename_img}\0icon\x1f${thumb}\n" >>"$TEMP_INPUT"
-      wallpaper_paths["$basename_img"]="$img"
+      # If multiple wallpapers have the same basename, append a suffix or use unique label
+      local display_name="$basename_img"
+      if [[ -n "${wallpaper_paths[$display_name]:-}" ]]; then
+         display_name="${display_name} ($(basename "$(dirname "$img")"))"
+      fi
+
+      echo -en "${display_name}\0icon\x1f${thumb}\n" >>"$TEMP_INPUT"
+      wallpaper_paths["$display_name"]="$img"
     fi
-  done < <(find -L "$WALL_DIR" -type f \
+  done < <(find -L "$WALL_DIR" "${find_args[@]}" -type f \
     \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
     -print0 2>/dev/null | sort -z)
 

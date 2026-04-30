@@ -62,9 +62,29 @@ CURRENT_WALL="$CURRENT_WALL"
 EOF
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
   [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
-  # Persist per-mode last wallpaper for toggle memory
+  
+  # Persist per-mode last wallpaper for toggle memory.
+  # Only save if the wallpaper is in the correct mode-specific pool or if no pools exist.
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local mode_cap="${THEME_MODE^}"
+    local mode_dir="${base_dir}/${mode_cap}"
+    local should_save=true
+    
+    if [[ -d "$mode_dir" ]]; then
+      local real_wall
+      real_wall="$(realpath "$CURRENT_WALL")"
+      local real_mode_dir
+      real_mode_dir="$(realpath "$mode_dir")/"
+      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
+        should_save=false
+        log "Not saving to ${THEME_MODE}_last: wallpaper is not in ${mode_cap} pool ($real_wall vs $real_mode_dir)"
+      fi
+    fi
+    
+    if [[ "$should_save" == "true" ]]; then
+      [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
+    fi
   fi
 
   # Apply system-wide theme settings
@@ -236,6 +256,7 @@ set_xdg_portal_theme() {
 # --- HELPERS ---
 
 get_wallpapers() {
+  local mode="${1:-$THEME_MODE}"
   walls=()
   local base_dir="${WALL_DIR/#\~/$HOME}"
   [[ -d "$base_dir" ]] || die "Wallpaper directory not found: $base_dir"
@@ -243,7 +264,7 @@ get_wallpapers() {
 
   # Use mode-specific subdir (Dark/Light) if it exists, mirroring rofi's behaviour.
   # Capitalise first letter to match the dir naming convention.
-  local mode_cap="${THEME_MODE^}"
+  local mode_cap="${mode^}"
   local mode_dir="${base_dir}/${mode_cap}"
   local wall_dir="$base_dir"
   local depth_args=()
@@ -392,18 +413,61 @@ cmd_toggle() {
   local last_wall=""
   [[ -f "$last_file" ]] && last_wall="$(tr -d '[:space:]' <"$last_file")"
 
+  # Validate that last_wall belongs to the correct pool if pools exist
+  if [[ -n "$last_wall" && -f "$last_wall" ]]; then
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local mode_cap="${new_mode^}"
+    local mode_dir="${base_dir}/${mode_cap}"
+    if [[ -d "$mode_dir" ]]; then
+      local real_wall
+      real_wall="$(realpath "$last_wall")"
+      local real_mode_dir
+      real_mode_dir="$(realpath "$mode_dir")"
+      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
+        log "Saved wallpaper for $new_mode is invalid (wrong pool). Ignoring."
+        last_wall=""
+      fi
+    fi
+  fi
+
   if [[ -n "$last_wall" && -f "$last_wall" ]]; then
     log "Restoring $(basename "$last_wall") [$new_mode]"
     cmd_apply "$last_wall" "$new_mode"
-  elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$new_mode"
-    sync_current_wallpaper "$CURRENT_WALL"
-    THEME_MODE="$new_mode"
-    save_state
-    notify "Switched to $new_mode mode"
   else
-    log "No wallpaper history — picking random"
-    cmd_random "$new_mode"
+    # No history for this mode — try to find a matching name in the new mode's pool.
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local new_mode_cap="${new_mode^}"
+    local new_mode_dir="${base_dir}/${new_mode_cap}"
+    
+    if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" && -d "$new_mode_dir" ]]; then
+      local wall_name
+      wall_name="$(basename "$CURRENT_WALL")"
+      # Search recursively for the same filename in the new mode's pool.
+      local matching_wall
+      matching_wall="$(find -L "$new_mode_dir" -type f -name "$wall_name" -print -quit)"
+      
+      if [[ -n "$matching_wall" ]]; then
+        log "Found matching wallpaper in ${new_mode_cap} pool: $wall_name"
+        cmd_apply "$matching_wall" "$new_mode"
+        return 0
+      fi
+    fi
+
+    # Still no wallpaper? If a mode pool exists, pick a random one from it.
+    if [[ -d "$new_mode_dir" ]]; then
+      log "No matching wall or history — picking random from ${new_mode_cap} pool"
+      cmd_random "$new_mode"
+    elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+      # Absolute fallback: keep current wall but change theme mode.
+      run_matugen "$CURRENT_WALL" "$new_mode"
+      sync_current_wallpaper "$CURRENT_WALL"
+      THEME_MODE="$new_mode"
+      save_state
+      notify "Switched to $new_mode mode"
+    else
+      log "No pool or history — picking random"
+      cmd_random "$new_mode"
+    fi
   fi
 }
 
@@ -411,14 +475,14 @@ cmd_random() {
   local force_mode="${1:-}"
   read_state
   [[ -z "$force_mode" ]] && force_mode="$THEME_MODE"
-  get_wallpapers
+  get_wallpapers "$force_mode"
   local rand="${walls[RANDOM % ${#walls[@]}]}"
   cmd_apply "$rand" "$force_mode"
 }
 
 cmd_next() {
   read_state
-  get_wallpapers
+  get_wallpapers "$THEME_MODE"
   local next=0
   if [[ -n "$CURRENT_WALL" ]]; then
     # Resolve both sides so symlinks in Dark/Light dirs match their realpath targets.
@@ -544,7 +608,7 @@ debug)
   log "LIGHT_LAST: $(cat "$LIGHT_LAST" 2>/dev/null || echo '(none)')"
   log "Dark dir:  $([ -d "${WALL_DIR}/Dark" ] && echo YES || echo NO)"
   log "Light dir: $([ -d "${WALL_DIR}/Light" ] && echo YES || echo NO)"
-  get_wallpapers
+  get_wallpapers "$THEME_MODE"
   log "Wallpapers in current mode pool: ${#walls[@]}"
   ;;
 *)

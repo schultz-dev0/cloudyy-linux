@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import Quickshell.Io
+import "overview/services"
 
 PanelWindow {
     id: bar
@@ -146,6 +147,17 @@ PanelWindow {
         Row {
             anchors.centerIn: parent
             spacing: bar.pillGap
+
+            Pill {
+                label:    "󰕣"
+                iconSize: 14
+                width:    implicitWidth + bar.pillPadH * 2
+                fg:       GlobalStates.overviewOpen ? Theme.on_primary_container : Theme.on_surface_variant
+                bg:       GlobalStates.overviewOpen
+                            ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85)
+                            : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                onClicked: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
+            }
 
             Rectangle {
                 height: bar.barHeight - bar.pillPadV * 2
