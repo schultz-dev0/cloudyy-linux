@@ -32,8 +32,12 @@ PanelWindow {
     ]
 
     // ── State ──────────────────────────────────────────────────────────────
-    property bool dockVisible: true  // always visible for now, autohide added in Task 5
+    property bool dockVisible: false
     property real dockMouseX:  -9999
+    readonly property bool anyFullscreen: {
+        return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0)
+    }
+    onAnyFullscreenChanged: if (anyFullscreen) dockVisible = false
 
     // ── App list (pinned only for now, running merge in Task 6) ───────────
     readonly property var mergedApps: pinnedApps.map(a => ({
@@ -72,7 +76,13 @@ PanelWindow {
         width:  dock.dockWidth
         height: dock.dockBodyHeight
         anchors.horizontalCenter: parent.horizontalCenter
-        y: 0  // autohide animation added in Task 5
+        y: dock.dockVisible ? 0 : dock.dockFullHeight
+        Behavior on y {
+            NumberAnimation {
+                duration: 220
+                easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
+            }
+        }
 
         // Glass pill background
         Rectangle {
@@ -136,7 +146,35 @@ PanelWindow {
             onPositionChanged: mouse => {
                 dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
             }
-            onExited: dock.dockMouseX = -9999
+            onEntered: hideTimer.stop()
+            onExited: {
+                dock.dockMouseX = -9999
+                hideTimer.restart()
+            }
         }
+    }
+
+    // ── Autohide trigger strip ─────────────────────────────────────────────
+    MouseArea {
+        id: triggerZone
+        anchors {
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
+        }
+        width:  dock.triggerWidth
+        height: dock.triggerHeight + 2
+        hoverEnabled: true
+        onEntered: {
+            hideTimer.stop()
+            dock.dockVisible = true
+        }
+    }
+
+    // ── Hide delay timer ───────────────────────────────────────────────────
+    Timer {
+        id: hideTimer
+        interval: 350
+        repeat: false
+        onTriggered: dock.dockVisible = false
     }
 }
