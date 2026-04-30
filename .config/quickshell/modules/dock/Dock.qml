@@ -16,11 +16,12 @@ PanelWindow {
     readonly property real  spread:        2.2
     readonly property int   frameMs:       16
     readonly property int   triggerWidth:  320
-    readonly property int   triggerHeight: 4
-    readonly property int   iconSpacing:   10
+    readonly property int   triggerHeight: 0
+    readonly property int   interact:      dockBodyHeight  // clickable zone height = bar height
+    readonly property int   iconSpacing:   25
     readonly property int   paddingH:      14
     readonly property int   paddingV:      12
-    readonly property int   bottomGap:     10
+    readonly property int   bottomGap:     0
 
     // ── Pinned apps — EDIT THIS ────────────────────────────────────────────
     readonly property var pinnedApps: [
@@ -96,10 +97,12 @@ PanelWindow {
         p.running = true
     }
 
-    // ── Full-window hover area — keeps dock open while mouse is anywhere in window ──
+    // ── Interact zone — sized to the bar, registers icon hover/position for magnification ──
     MouseArea {
         id: dockHoverArea
-        anchors.fill: parent
+        width:  dock.implicitWidth
+        height: dock.interact
+        anchors { top: parent.top; horizontalCenter: parent.horizontalCenter }
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
         propagateComposedEvents: true
