@@ -113,7 +113,7 @@ PanelWindow {
                 Layout.fillWidth: true
                 spacing: 8
                 Toggle { icon: "󰖩"; onClicked: panel.launch(["uwsm-app", "--", "nm-connection-editor"]) }
-                Toggle { icon: "";  onClicked: panel.launch(["uwsm-app", "--", "blueman-manager"]) }
+                Toggle { icon: "󰂯";  onClicked: panel.launch(["uwsm-app", "--", "cloud-center bluetooth"]) }
                 Toggle { icon: "󱐋"; onClicked: panel.launch(["bash", "-c", "uwsm-app -- python3 ~/cloudyy_scripts/sliders/cloudyy_sliders.py"]) }
                 Toggle { icon: "󰸉"; onClicked: panel.launch(["bash", "-c", "~/cloudyy_scripts/rofi/appearance.sh --select"]) }
                 Toggle { icon: "󱩌"; onClicked: panel.launch(["bash", "-c", "~/cloudyy_scripts/theme_controller.sh toggle"]) }

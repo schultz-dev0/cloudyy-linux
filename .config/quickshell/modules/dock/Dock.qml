@@ -11,116 +11,132 @@ PanelWindow {
     id: dock
 
     // ── Tunables ───────────────────────────────────────────────────────────
-    readonly property int   iconSize:      48
-    readonly property real  maxScale:      1.8
-    readonly property real  spread:        2.2
-    readonly property int   frameMs:       16
-    readonly property int   triggerWidth:  320
-    readonly property int   triggerHeight: 0
-    readonly property int   interact:      dockBodyHeight  // clickable zone height = bar height
-    readonly property int   iconSpacing:   25
-    readonly property int   paddingH:      14
-    readonly property int   paddingV:      12
-    readonly property int   bottomGap:     0
+    readonly property int iconSize: 48
+    readonly property real maxScale: 1.8
+    readonly property real spread: 1
+    readonly property int frameMs: 16
+    readonly property int triggerHeight: 0
+    readonly property int pillHeight: iconSize + paddingV * 2
+    readonly property int dockBodyHeight: 110
+    readonly property int iconSpacing: 25
+    readonly property int paddingH: 14
+    readonly property int paddingV: 12
+    readonly property int bottomGap: 0
+    readonly property int activationHeight: 16
 
     // ── Pinned apps — EDIT THIS ────────────────────────────────────────────
     readonly property var pinnedApps: [
-        { class: "firefox",        exec: "firefox",     icon: "firefox"   },
-        { class: "dev.zed.Zed",    exec: "zeditor",     icon: "zed"       },
-        { class: "kitty",          exec: "kitty",        icon: "kitty"     },
-        { class: "thunar",         exec: "thunar",       icon: "thunar"    },
-        { class: "spotify",        exec: "spotify",      icon: "spotify"   },
+        {
+            class: "firefox",
+            exec: "firefox",
+            icon: "firefox"
+        },
+        {
+            class: "dev.zed.Zed",
+            exec: "zeditor",
+            icon: "zed"
+        },
+        {
+            class: "kitty",
+            exec: "kitty",
+            icon: "kitty"
+        },
+        {
+            class: "thunar",
+            exec: "thunar",
+            icon: "xfce-filemanager"
+        },
+        {
+            class: "spotify",
+            exec: "spotify",
+            icon: "spotify"
+        }
+        //{
+        //class: "apps",
+        //exec: ["/usr/bin/bash", "-c", "$HOME/cloudyy_scripts/rofi/applications.sh"],
+        //icon: "kitty"
+        //},
+        ,
     ]
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
-    property real dockMouseX:  -9999
+    property real dockMouseX: -9999
     readonly property bool anyFullscreen: {
-        return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0)
+        return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
-    onAnyFullscreenChanged: if (anyFullscreen) dockVisible = false
+    onAnyFullscreenChanged: if (anyFullscreen)
+        dockVisible = false
 
     // ── App list: pinned + running, deduplicated ───────────────────────────
     readonly property var mergedApps: {
-        const pinnedClasses = new Set(pinnedApps.map(a => a.class.toLowerCase()))
-        const runningMap = {}
+        const pinnedClasses = new Set(pinnedApps.map(a => a.class.toLowerCase()));
+        const runningMap = {};
         HyprlandData.windowList.forEach(w => {
-            const cls = (w.class || "").toLowerCase()
-            if (cls && !runningMap[cls]) runningMap[cls] = w
-        })
+            const cls = (w.class || "").toLowerCase();
+            if (cls && !runningMap[cls])
+                runningMap[cls] = w;
+        });
 
         const result = pinnedApps.map(app => ({
-            class:     app.class,
-            exec:      app.exec,
-            icon:      app.icon,
-            isRunning: !!runningMap[app.class.toLowerCase()],
-            isPinned:  true
-        }))
+                    class: app.class,
+                    exec: app.exec,
+                    icon: app.icon,
+                    isRunning: !!runningMap[app.class.toLowerCase()],
+                    isPinned: true
+                }));
 
         Object.keys(runningMap).forEach(cls => {
             if (!pinnedClasses.has(cls)) {
-                const w = runningMap[cls]
-                const rawIcon = (w.class || "").toLowerCase().replace(/\./g, "-")
+                const w = runningMap[cls];
+                const rawIcon = (w.class || "").toLowerCase().replace(/\./g, "-");
                 result.push({
-                    class:     w.class,
-                    exec:      w.class.toLowerCase(),
-                    icon:      rawIcon,
+                    class: w.class,
+                    exec: w.class.toLowerCase(),
+                    icon: rawIcon,
                     isRunning: true,
-                    isPinned:  false
-                })
+                    isPinned: false
+                });
             }
-        })
+        });
 
-        return result
+        return result;
     }
 
     // ── Dimensions ────────────────────────────────────────────────────────
-    readonly property int dockBodyHeight: Math.ceil(iconSize * maxScale) + paddingV * 2 + 6
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
-    readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing)
-                                     - iconSpacing + paddingH * 2
+    readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
 
     // ── Window ────────────────────────────────────────────────────────────
-    anchors { bottom: true }
-    implicitWidth:  Math.max(dockWidth, triggerWidth + paddingH * 2)
+    anchors {
+        bottom: true
+    }
+    implicitWidth: dockWidth
     implicitHeight: dockFullHeight
-    exclusiveZone:  0
-    WlrLayershell.layer:     WlrLayer.Top
+    exclusiveZone: 0
+    WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:dock"
     color: "transparent"
 
     // ── Launch helper ──────────────────────────────────────────────────────
-    Component { id: procProto; Process {} }
-    function launch(cmd) {
-        const p = procProto.createObject(dock, { command: cmd })
-        p.runningChanged.connect(() => { if (!p.running) p.destroy() })
-        p.running = true
+    Component {
+        id: procProto
+        Process {}
     }
-
-    // ── Interact zone — sized to the bar, registers icon hover/position for magnification ──
-    MouseArea {
-        id: dockHoverArea
-        width:  dock.implicitWidth
-        height: dock.interact
-        anchors { top: parent.top; horizontalCenter: parent.horizontalCenter }
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        propagateComposedEvents: true
-        enabled: dock.dockVisible
-        onPositionChanged: mouse => {
-            dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
-        }
-        onEntered: hideTimer.stop()
-        onExited: {
-            dock.dockMouseX = -9999
-            hideTimer.restart()
-        }
+    function launch(cmd) {
+        if (!cmd || cmd.length === 0)
+            return;
+        console.log("Dock Launching:", JSON.stringify(cmd));
+        const p = procProto.createObject(dock, {
+            command: cmd
+        });
+        p.running = true;
     }
 
     // ── Dock body ──────────────────────────────────────────────────────────
     Item {
         id: dockBody
-        width:  dock.dockWidth
+        width: dock.dockWidth
         height: dock.dockBodyHeight
         anchors.horizontalCenter: parent.horizontalCenter
         y: dock.dockVisible ? 0 : dock.dockFullHeight
@@ -133,30 +149,19 @@ PanelWindow {
 
         // Glass pill background
         Rectangle {
-            anchors.fill: parent
+            width: parent.width
+            height: dock.pillHeight
+            anchors.bottom: parent.bottom
             radius: dock.paddingV + dock.iconSize * 0.22
-            color: Qt.rgba(Theme.surface_container.r,
-                           Theme.surface_container.g,
-                           Theme.surface_container.b, 0.72)
-            border.color: Qt.rgba(Theme.outline_variant.r,
-                                  Theme.outline_variant.g,
-                                  Theme.outline_variant.b, 0.18)
-            border.width: 1
-
-            // Top-edge glass shine
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: 1
-                color: Qt.rgba(1, 1, 1, 0.06)
-                radius: parent.radius
-            }
+            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.72)
         }
 
         // Icon row
         Row {
             id: iconsRow
             anchors {
-                verticalCenter: parent.verticalCenter
+                bottom: parent.bottom
+                bottomMargin: dock.paddingV
                 horizontalCenter: parent.horizontalCenter
             }
             spacing: dock.iconSpacing
@@ -164,22 +169,46 @@ PanelWindow {
             Repeater {
                 model: dock.mergedApps
                 DockIcon {
-                    required property var  modelData
-                    required property int  index
-                    appData:      modelData
-                    iconSize:     dock.iconSize
-                    maxScale:     dock.maxScale
-                    spread:       dock.spread
-                    frameMs:      dock.frameMs
-                    dockMouseX:   dock.dockMouseX
-                    iconCenterX:  x + dock.iconSize / 2
+                    required property var modelData
+                    required property int index
+                    appData: modelData
+                    iconSize: dock.iconSize
+                    maxScale: dock.maxScale
+                    spread: dock.spread
+                    frameMs: dock.frameMs
+                    dockMouseX: dock.dockMouseX
+                    iconCenterX: x + dock.iconSize / 2
                     onClicked: {
                         if (modelData.isRunning)
-                            Hyprland.dispatch("focuswindow class:" + modelData.class)
-                        else
-                            dock.launch(["uwsm-app", "--", modelData.exec])
+                            Hyprland.dispatch("focuswindow class:" + modelData.class);
+                        else {
+                            const e = modelData.exec;
+                            if (Array.isArray(e)) {
+                                dock.launch(e);
+                            } else if (e) {
+                                dock.launch(["uwsm-app", "--", e]);
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        // HoverHandler tracks pointer inside dockBody without competing with
+        // child MouseAreas for hover events — fixes hide timer firing on icon hover.
+        HoverHandler {
+            onHoveredChanged: {
+                if (hovered) {
+                    hideTimer.stop();
+                } else {
+                    dock.dockMouseX = -9999;
+                    if (dock.dockVisible)
+                        hideTimer.restart();
+                }
+            }
+            onPointChanged: {
+                if (hovered)
+                    dock.dockMouseX = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
             }
         }
     }
@@ -191,13 +220,12 @@ PanelWindow {
             bottom: parent.bottom
             horizontalCenter: parent.horizontalCenter
         }
-        width:  dock.triggerWidth
-        height: dock.triggerHeight + 2
+        width: dock.dockWidth
+        height: dock.activationHeight
         hoverEnabled: true
-        enabled: !dock.dockVisible
         onEntered: {
-            hideTimer.stop()
-            dock.dockVisible = true
+            hideTimer.stop();
+            dock.dockVisible = true;
         }
     }
 
@@ -212,8 +240,14 @@ PanelWindow {
     // ── IPC ────────────────────────────────────────────────────────────────
     IpcHandler {
         target: "dock"
-        function toggle() { dock.dockVisible = !dock.dockVisible }
-        function show()   { dock.dockVisible = true }
-        function hide()   { dock.dockVisible = false }
+        function toggle() {
+            dock.dockVisible = !dock.dockVisible;
+        }
+        function show() {
+            dock.dockVisible = true;
+        }
+        function hide() {
+            dock.dockVisible = false;
+        }
     }
 }
