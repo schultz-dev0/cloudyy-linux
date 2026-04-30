@@ -96,6 +96,24 @@ PanelWindow {
         p.running = true
     }
 
+    // ── Full-window hover area — keeps dock open while mouse is anywhere in window ──
+    MouseArea {
+        id: dockHoverArea
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        propagateComposedEvents: true
+        enabled: dock.dockVisible
+        onPositionChanged: mouse => {
+            dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
+        }
+        onEntered: hideTimer.stop()
+        onExited: {
+            dock.dockMouseX = -9999
+            hideTimer.restart()
+        }
+    }
+
     // ── Dock body ──────────────────────────────────────────────────────────
     Item {
         id: dockBody
@@ -128,23 +146,6 @@ PanelWindow {
                 height: 1
                 color: Qt.rgba(1, 1, 1, 0.06)
                 radius: parent.radius
-            }
-        }
-
-        // Mouse tracking for Gaussian magnification
-        MouseArea {
-            id: dockHoverArea
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            propagateComposedEvents: true
-            onPositionChanged: mouse => {
-                dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
-            }
-            onEntered: hideTimer.stop()
-            onExited: {
-                dock.dockMouseX = -9999
-                hideTimer.restart()
             }
         }
 
@@ -190,6 +191,7 @@ PanelWindow {
         width:  dock.triggerWidth
         height: dock.triggerHeight + 2
         hoverEnabled: true
+        enabled: !dock.dockVisible
         onEntered: {
             hideTimer.stop()
             dock.dockVisible = true
@@ -199,7 +201,7 @@ PanelWindow {
     // ── Hide delay timer ───────────────────────────────────────────────────
     Timer {
         id: hideTimer
-        interval: 350
+        interval: 500
         repeat: false
         onTriggered: dock.dockVisible = false
     }
