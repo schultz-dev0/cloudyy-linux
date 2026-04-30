@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Notifications
+import "overview/modules/overview" as QuickOverview
+import "modules/dock" as QuickDock
 
 ShellRoot {
     id: root
@@ -30,6 +32,9 @@ ShellRoot {
         }
     }
 
+    // The overview repo manages its own IPC ("overview") inside its modules!
+    // So we don't need the custom IPC handler here anymore.
+
     // ── Components ───────────────────────────────────────────────────────────
     Bar {
         notifOpen: root.notifOpen
@@ -44,4 +49,8 @@ ShellRoot {
         onClose:       root.notifOpen = false
         onDndToggle:   root.dnd = !root.dnd
     }
+
+    QuickOverview.Overview {}
+
+    QuickDock.Dock {}
 }

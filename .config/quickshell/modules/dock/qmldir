@@ -1,0 +1,3 @@
+module QuickDock
+Dock 1.0 Dock.qml
+DockIcon 1.0 DockIcon.qml
