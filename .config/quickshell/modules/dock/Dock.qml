@@ -92,6 +92,7 @@ PanelWindow {
     Component { id: procProto; Process {} }
     function launch(cmd) {
         const p = procProto.createObject(dock, { command: cmd })
+        p.runningChanged.connect(() => { if (!p.running) p.destroy() })
         p.running = true
     }
 
@@ -130,6 +131,23 @@ PanelWindow {
             }
         }
 
+        // Mouse tracking for Gaussian magnification
+        MouseArea {
+            id: dockHoverArea
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            propagateComposedEvents: true
+            onPositionChanged: mouse => {
+                dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
+            }
+            onEntered: hideTimer.stop()
+            onExited: {
+                dock.dockMouseX = -9999
+                hideTimer.restart()
+            }
+        }
+
         // Icon row
         Row {
             id: iconsRow
@@ -158,23 +176,6 @@ PanelWindow {
                             dock.launch(["uwsm-app", "--", modelData.exec])
                     }
                 }
-            }
-        }
-
-        // Mouse tracking for Gaussian magnification
-        MouseArea {
-            id: dockHoverArea
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            propagateComposedEvents: true
-            onPositionChanged: mouse => {
-                dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
-            }
-            onEntered: hideTimer.stop()
-            onExited: {
-                dock.dockMouseX = -9999
-                hideTimer.restart()
             }
         }
     }
