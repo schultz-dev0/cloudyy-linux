@@ -125,5 +125,18 @@ PanelWindow {
                 }
             }
         }
+
+        // Mouse tracking for Gaussian magnification
+        MouseArea {
+            id: dockHoverArea
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            propagateComposedEvents: true
+            onPositionChanged: mouse => {
+                dock.dockMouseX = mapToItem(iconsRow, mouse.x, mouse.y).x
+            }
+            onExited: dock.dockMouseX = -9999
+        }
     }
 }
