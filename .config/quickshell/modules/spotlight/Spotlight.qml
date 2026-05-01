@@ -36,6 +36,7 @@ PanelWindow {
     // ── Launch helper ─────────────────────────────────────────────────────
     Component { id: procProto; Process {} }
     function launch(cmd) {
+        if (!cmd || cmd.length === 0) return
         const p = procProto.createObject(spotlight, { command: cmd })
         p.runningChanged.connect(() => { if (!p.running) p.destroy() })
         p.running = true
@@ -47,6 +48,7 @@ PanelWindow {
 
     Process {
         id: searchProc
+        environment: ({ MAX_FILE_RESULTS: spotlight.maxFileResults.toString() })
         stdout: StdioCollector {
             id: searchOutput
             onStreamFinished: {
@@ -78,6 +80,7 @@ PanelWindow {
                 spotlight.results = []
                 return
             }
+            searchProc.running = false          // kill any in-flight search
             spotlight.results = []
             searchProc.command = ["bash", spotlight.searchScript, spotlight.query]
             searchProc.running = true
