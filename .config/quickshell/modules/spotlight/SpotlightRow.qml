@@ -44,12 +44,26 @@ Item {
                 sourceSize: Qt.size(56, 56)
                 smooth:     true
                 visible: root.resultData.type === "app"
-                source: root.resultData.type === "app"
-                    ? `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.resultData.icon}.svg`
-                    : ""
+                
+                property int fallbackStage: 0
+                property string baseIcon: root.resultData.icon ?? "application-x-executable"
+                onBaseIconChanged: fallbackStage = 0
+
+                source: {
+                    if (root.resultData.type !== "app") return ""
+                    if (baseIcon.startsWith("/")) return "file://" + baseIcon
+                    if (fallbackStage === 0) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
+                    if (fallbackStage === 1) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
+                    if (fallbackStage === 2) return `file:///usr/share/icons/Papirus-Dark/48x48/places/${baseIcon}.svg`
+                    if (fallbackStage === 3) return `file:///usr/share/icons/Papirus-Dark/48x48/categories/${baseIcon}.svg`
+                    if (fallbackStage === 4) return `file:///usr/share/icons/Papirus-Dark/48x48/mimetypes/${baseIcon}.svg`
+                    return `file:///usr/share/icons/Papirus-Dark/48x48/apps/application-x-executable.svg`
+                }
+
                 onStatusChanged: {
-                    if (status === Image.Error)
-                        source = Quickshell.iconPath(root.resultData.icon ?? "", "image://icon/application-x-executable")
+                    if (status === Image.Error && fallbackStage < 5) {
+                        fallbackStage++
+                    }
                 }
             }
 

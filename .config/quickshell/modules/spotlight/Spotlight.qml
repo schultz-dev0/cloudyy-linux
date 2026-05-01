@@ -227,25 +227,78 @@ PanelWindow {
 
             Repeater {
                 model: spotlight.results
-                SpotlightRow {
-                    required property var  modelData
-                    required property int  index
-                    resultData:  modelData
-                    isSelected:  index === spotlight.selectedIndex
-                    rowWidth:    spotlight.overlayWidth
-                    onActivated: spotlight.activateIndex(index)
-                    onHovered:   spotlight.selectedIndex = index
+                delegate: Column {
+                    width: parent.width
+                    required property var modelData
+                    required property int index
+
+                    readonly property bool isFirstOfType: index === 0 || spotlight.results[index].type !== spotlight.results[index-1].type
+
+                    Item {
+                        width: parent.width
+                        height: isFirstOfType ? 28 : 0
+                        visible: isFirstOfType
+                        
+                        Text {
+                            anchors {
+                                left: parent.left
+                                leftMargin: 16
+                                bottom: parent.bottom
+                                bottomMargin: 6
+                            }
+                            text: {
+                                if (modelData.type === "app") return "APPS"
+                                if (modelData.type === "file") return "FILES"
+                                return ""
+                            }
+                            font.pixelSize: 10
+                            font.letterSpacing: 1
+                            font.family: "JetBrainsMono Nerd Font"
+                            color: Theme.outline_variant
+                        }
+                    }
+
+                    SpotlightRow {
+                        resultData:  modelData
+                        isSelected:  index === spotlight.selectedIndex
+                        rowWidth:    spotlight.overlayWidth
+                        onActivated: spotlight.activateIndex(index)
+                        onHovered:   spotlight.selectedIndex = index
+                    }
                 }
             }
 
             // Web row — always last when query is non-empty
-            SpotlightRow {
-                visible:    spotlight.query.length > 0
-                resultData: ({ type: "web", query: spotlight.query })
-                isSelected: spotlight.selectedIndex === spotlight.results.length
-                rowWidth:   spotlight.overlayWidth
-                onActivated: spotlight.activateIndex(spotlight.results.length)
-                onHovered:   spotlight.selectedIndex = spotlight.results.length
+            Column {
+                width: parent.width
+                visible: spotlight.query.length > 0
+
+                Item {
+                    width: parent.width
+                    height: 28
+                    
+                    Text {
+                        anchors {
+                            left: parent.left
+                            leftMargin: 16
+                            bottom: parent.bottom
+                            bottomMargin: 6
+                        }
+                        text: "WEB"
+                        font.pixelSize: 10
+                        font.letterSpacing: 1
+                        font.family: "JetBrainsMono Nerd Font"
+                        color: Theme.outline_variant
+                    }
+                }
+
+                SpotlightRow {
+                    resultData: ({ type: "web", query: spotlight.query })
+                    isSelected: spotlight.selectedIndex === spotlight.results.length
+                    rowWidth:   spotlight.overlayWidth
+                    onActivated: spotlight.activateIndex(spotlight.results.length)
+                    onHovered:   spotlight.selectedIndex = spotlight.results.length
+                }
             }
         }
     }
