@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import "overview/modules/overview" as QuickOverview
 import "modules/dock" as QuickDock
+import "modules/spotlight" as QuickSpotlight
 
 ShellRoot {
     id: root
@@ -53,4 +54,6 @@ ShellRoot {
     QuickOverview.Overview {}
 
     QuickDock.Dock {}
+
+    QuickSpotlight.Spotlight {}
 }
