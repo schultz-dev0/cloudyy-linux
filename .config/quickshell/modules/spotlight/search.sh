@@ -17,9 +17,13 @@ mapfile -t app_dirs < <(
 )
 
 # ── App search ─────────────────────────────────────────────────────────────
-# Find .desktop files whose Name= field contains query (case-insensitive fixed string).
-# Two-pass: first find files with a Name= line, then filter to those containing query.
-while IFS= read -r desktop; do
+mapfile -t desktop_matches < <(
+    grep -rl "^Name=" "${app_dirs[@]}" 2>/dev/null \
+    | xargs grep -lFi -- "$query"      2>/dev/null \
+    | head -8
+)
+
+for desktop in "${desktop_matches[@]}"; do
     name=$(grep -m1    "^Name="           "$desktop" 2>/dev/null | cut -d= -f2-)
     icon=$(grep -m1    "^Icon="           "$desktop" 2>/dev/null | cut -d= -f2-)
     exec_raw=$(grep -m1 "^Exec="         "$desktop" 2>/dev/null | cut -d= -f2-)
@@ -33,14 +37,9 @@ while IFS= read -r desktop; do
       --arg exec    "$exec" \
       --arg wmclass "$wmclass" \
       '{type:"app",name:$name,icon:$icon,exec:$exec,wmclass:$wmclass}'
-done < <(
-    grep -rl "^Name=" "${app_dirs[@]}" 2>/dev/null \
-    | xargs grep -lFi -- "$query"      2>/dev/null \
-    | head -8
-)
+done
 
 # ── File search ─────────────────────────────────────────────────────────────
-# Only runs when query is 4+ chars (matches hyprdock behaviour — avoids noise on short queries).
 if [[ ${#query} -ge 4 ]]; then
     fd --max-depth 2 --max-results "$MAX_FILE" -- "$query" "$HOME" 2>/dev/null \
     | while IFS= read -r path; do

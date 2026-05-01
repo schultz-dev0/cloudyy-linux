@@ -49,24 +49,20 @@ PanelWindow {
     Process {
         id: searchProc
         environment: ({ MAX_FILE_RESULTS: spotlight.maxFileResults.toString() })
-        stdout: StdioCollector {
-            id: searchOutput
-            onStreamFinished: {
-                const runningClasses = new Set(
-                    HyprlandData.windowList.map(w => (w.class || "").toLowerCase())
-                )
-                spotlight.results = searchOutput.text
-                    .trim().split("\n")
-                    .filter(l => l.length > 0)
-                    .flatMap(line => {
-                        try {
-                            const r = JSON.parse(line)
-                            if (r.type === "app")
-                                r.isRunning = runningClasses.has((r.wmclass || "").toLowerCase())
-                            return [r]
-                        } catch (_) { return [] }
-                    })
-                spotlight.selectedIndex = 0
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: function(line) {
+                if (line.trim().length === 0) return
+                try {
+                    const r = JSON.parse(line)
+                    if (r.type === "app") {
+                        const runningClasses = new Set(
+                            HyprlandData.windowList.map(w => (w.class || "").toLowerCase())
+                        )
+                        r.isRunning = runningClasses.has((r.wmclass || "").toLowerCase())
+                    }
+                    spotlight.results = [...spotlight.results, r]
+                } catch (_) {}
             }
         }
     }
@@ -80,7 +76,7 @@ PanelWindow {
                 spotlight.results = []
                 return
             }
-            searchProc.running = false          // kill any in-flight search
+            searchProc.running = false
             spotlight.results = []
             searchProc.command = ["bash", spotlight.searchScript, spotlight.query]
             searchProc.running = true
