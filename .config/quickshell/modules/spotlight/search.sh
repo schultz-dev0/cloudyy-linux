@@ -24,9 +24,9 @@ mapfile -t desktop_matches < <(
 )
 
 for desktop in "${desktop_matches[@]}"; do
-    name=$(grep -m1    "^Name="           "$desktop" 2>/dev/null | cut -d= -f2-)
-    icon=$(grep -m1    "^Icon="           "$desktop" 2>/dev/null | cut -d= -f2-)
-    exec_raw=$(grep -m1 "^Exec="         "$desktop" 2>/dev/null | cut -d= -f2-)
+    name=$(grep -m1 "^Name=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+    icon=$(grep -m1 "^Icon=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+    exec_raw=$(grep -m1 "^Exec=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
     exec=$(printf '%s' "$exec_raw" | sed 's/ %[a-zA-Z]//g')
     wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2-)
     [[ -z "$wmclass" ]] && wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')

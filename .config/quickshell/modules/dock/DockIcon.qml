@@ -51,18 +51,31 @@ Item {
             bottomMargin: 6  // space for running dot
             horizontalCenter: parent.horizontalCenter
         }
-        source: `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.appData.icon}.svg`
+        
+        property int fallbackStage: 0
+        property string baseIcon: root.appData.icon ?? "application-x-executable"
+        onBaseIconChanged: fallbackStage = 0
+
+        source: {
+            if (baseIcon.startsWith("/")) return "file://" + baseIcon
+            if (fallbackStage === 0) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
+            if (fallbackStage === 1) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
+            if (fallbackStage === 2) return `file:///usr/share/icons/Papirus-Dark/48x48/places/${baseIcon}.svg`
+            if (fallbackStage === 3) return `file:///usr/share/icons/Papirus-Dark/48x48/categories/${baseIcon}.svg`
+            if (fallbackStage === 4) return `file:///usr/share/icons/Papirus-Dark/48x48/mimetypes/${baseIcon}.svg`
+            return `file:///usr/share/icons/Papirus-Dark/48x48/apps/application-x-executable.svg`
+        }
+
         sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
         smooth: true
         scale: root.currentScale
         transformOrigin: Item.Bottom
 
         onStatusChanged: {
-            if (status === Image.Error && source.toString().startsWith("file://"))
-                source = Quickshell.iconPath(root.appData.icon, "image://icon/application-x-executable");
+            if (status === Image.Error && fallbackStage < 5) {
+                fallbackStage++
+            }
         }
-
-        // Hover overlay removed cuz its le ugly
     }
 
     // ── Running indicator dot ──────────────────────────────────────────────
