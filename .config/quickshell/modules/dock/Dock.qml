@@ -113,7 +113,7 @@ PanelWindow {
         bottom: true
     }
     implicitWidth: dockWidth
-    implicitHeight: dockFullHeight
+    implicitHeight: dockVisible ? dockFullHeight : activationHeight
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:dock"

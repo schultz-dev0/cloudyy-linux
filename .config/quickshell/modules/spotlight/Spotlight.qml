@@ -24,7 +24,7 @@ PanelWindow {
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors { top: true; left: true; right: true }
-    implicitHeight: contentPanel.implicitHeight + topMargin
+    implicitHeight: spotlightVisible ? contentPanel.implicitHeight + topMargin : 0
     exclusiveZone:  0
     WlrLayershell.layer:         WlrLayer.Top
     WlrLayershell.namespace:     "quickshell:spotlight"
