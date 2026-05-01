@@ -41,23 +41,19 @@ Item {
             Image {
                 id: iconImg
                 anchors.fill: parent
-                visible:    root.resultData.type === "app"
-                source:     root.resultData.type === "app"
-                                ? `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.resultData.icon}.svg`
-                                : ""
                 sourceSize: Qt.size(56, 56)
                 smooth:     true
+                source: {
+                    if (root.resultData.type === "app")
+                        return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.resultData.icon}.svg`
+                    if (root.resultData.type === "file")
+                        return Quickshell.iconPath("text-x-generic", "image://icon/text-x-generic")
+                    return Quickshell.iconPath("internet-web-browser", "image://icon/internet-web-browser")
+                }
                 onStatusChanged: {
-                    if (status === Image.Error && source.toString().startsWith("file://"))
+                    if (status === Image.Error && root.resultData.type === "app")
                         source = Quickshell.iconPath(root.resultData.icon ?? "", "image://icon/application-x-executable")
                 }
-            }
-
-            Text {
-                anchors.centerIn: parent
-                visible:     root.resultData.type !== "app"
-                text:        root.resultData.type === "file" ? "📄" : "🌐"
-                font.pixelSize: 16
             }
         }
 
