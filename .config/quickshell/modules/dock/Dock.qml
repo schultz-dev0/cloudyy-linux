@@ -185,7 +185,7 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: Hyprland.dispatch("global quickshell:spotlight:toggle")
+                    onClicked: Hyprland.dispatch("exec quickshell ipc call spotlight toggle")
                 }
             }
 

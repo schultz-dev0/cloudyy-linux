@@ -30,7 +30,7 @@ PanelWindow {
     WlrLayershell.namespace:     "quickshell:spotlight"
     WlrLayershell.keyboardFocus: spotlightVisible
                                    ? WlrKeyboardFocus.Exclusive
-                                   : WlrKeyboardFocus.None
+                                   : WlrKeyboardFocus.OnDemand
     color: "transparent"
 
     // ── Launch helper ─────────────────────────────────────────────────────
@@ -105,6 +105,17 @@ PanelWindow {
             launch(["xdg-open", webSearchUrl + encodeURIComponent(query)])
         }
         spotlightVisible = false
+    }
+
+    // Click outside to close
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        propagateComposedEvents: true
+        onClicked: {
+            spotlight.spotlightVisible = false
+            mouse.accepted = false
+        }
     }
 
     // ── Content panel ─────────────────────────────────────────────────────
@@ -255,6 +266,7 @@ PanelWindow {
         if (spotlightVisible) {
             searchInput.forceActiveFocus()
         } else {
+            searchInput.text = ""
             query         = ""
             results       = []
             selectedIndex = 0
