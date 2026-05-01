@@ -172,15 +172,12 @@ PanelWindow {
                 height: dock.iconSize
                 anchors.verticalCenter: parent.verticalCenter
 
-                Image {
-                    anchors.fill: parent
-                    source: "file:///usr/share/icons/Papirus-Dark/48x48/apps/system-search.svg"
-                    sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
-                    smooth: true
-                    onStatusChanged: {
-                        if (status === Image.Error)
-                            source = Quickshell.iconPath("system-search", "image://icon/edit-find")
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰍉"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Math.round(dock.iconSize * 0.72)
+                    color: Theme.on_surface
                 }
 
                 MouseArea {
