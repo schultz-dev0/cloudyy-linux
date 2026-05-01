@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Usage: search.sh <query>
+# Outputs newline-delimited JSON to stdout.
+# Each line is one of:
+#   {"type":"app","name":"Firefox","icon":"firefox","exec":"firefox","wmclass":"firefox"}
+#   {"type":"file","name":"notes.md","path":"/home/user/Documents/notes.md"}
+
+query="${1:-}"
+[[ -z "$query" ]] && exit 0
+
+APP_DIR="/usr/share/applications"
+MAX_FILE="${MAX_FILE_RESULTS:-10}"
+
+# ── App search ─────────────────────────────────────────────────────────────
+# Find .desktop files whose Name= field contains query (case-insensitive fixed string).
+# Two-pass: first find files with a Name= line, then filter to those containing query.
+while IFS= read -r desktop; do
+    name=$(grep -m1    "^Name="           "$desktop" 2>/dev/null | cut -d= -f2-)
+    icon=$(grep -m1    "^Icon="           "$desktop" 2>/dev/null | cut -d= -f2-)
+    exec_raw=$(grep -m1 "^Exec="         "$desktop" 2>/dev/null | cut -d= -f2-)
+    exec=$(printf '%s' "$exec_raw" | sed 's/ %[a-zA-Z]//g')
+    wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2-)
+    [[ -z "$wmclass" ]] && wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    [[ -z "$name" || -z "$exec" ]] && continue
+    jq -cn \
+      --arg name    "$name" \
+      --arg icon    "${icon:-application-x-executable}" \
+      --arg exec    "$exec" \
+      --arg wmclass "$wmclass" \
+      '{type:"app",name:$name,icon:$icon,exec:$exec,wmclass:$wmclass}'
+done < <(
+    grep -rl "^Name=" "$APP_DIR" 2>/dev/null \
+    | xargs grep -lFi "$query"   2>/dev/null \
+    | head -8
+)
+
+# ── File search ─────────────────────────────────────────────────────────────
+# Only runs when query is 4+ chars (matches hyprdock behaviour — avoids noise on short queries).
+if [[ ${#query} -ge 4 ]]; then
+    fd --max-depth 2 --max-results "$MAX_FILE" -- "$query" "$HOME" 2>/dev/null \
+    | while IFS= read -r path; do
+        name=$(basename "$path")
+        jq -cn --arg name "$name" --arg path "$path" \
+          '{type:"file",name:$name,path:$path}'
+    done
+fi
