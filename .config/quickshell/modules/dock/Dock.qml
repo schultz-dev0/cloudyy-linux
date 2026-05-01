@@ -105,7 +105,8 @@ PanelWindow {
 
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
-    readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
+    readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing)
+                                     + iconSize + iconSpacing + paddingH * 2
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -156,9 +157,8 @@ PanelWindow {
             color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.72)
         }
 
-        // Icon row
+        // Icon row (search button pinned left + app icons)
         Row {
-            id: iconsRow
             anchors {
                 bottom: parent.bottom
                 bottomMargin: dock.paddingV
@@ -166,27 +166,55 @@ PanelWindow {
             }
             spacing: dock.iconSpacing
 
-            Repeater {
-                model: dock.mergedApps
-                DockIcon {
-                    required property var modelData
-                    required property int index
-                    appData: modelData
-                    iconSize: dock.iconSize
-                    maxScale: dock.maxScale
-                    spread: dock.spread
-                    frameMs: dock.frameMs
-                    dockMouseX: dock.dockMouseX
-                    iconCenterX: x + dock.iconSize / 2
-                    onClicked: {
-                        if (modelData.isRunning)
-                            Hyprland.dispatch("focuswindow class:" + modelData.class);
-                        else {
-                            const e = modelData.exec;
-                            if (Array.isArray(e)) {
-                                dock.launch(e);
-                            } else if (e) {
-                                dock.launch(["uwsm-app", "--", e]);
+            // Search button — always leftmost, never displaced by app list
+            Item {
+                width:  dock.iconSize
+                height: dock.iconSize
+                anchors.verticalCenter: parent.verticalCenter
+
+                Image {
+                    anchors.fill: parent
+                    source: "file:///usr/share/icons/Papirus-Dark/48x48/apps/system-search.svg"
+                    sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
+                    smooth: true
+                    onStatusChanged: {
+                        if (status === Image.Error)
+                            source = Quickshell.iconPath("system-search", "image://icon/edit-find")
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: Hyprland.dispatch("global quickshell:spotlight:toggle")
+                }
+            }
+
+            Row {
+                id: iconsRow
+                spacing: dock.iconSpacing
+
+                Repeater {
+                    model: dock.mergedApps
+                    DockIcon {
+                        required property var modelData
+                        required property int index
+                        appData: modelData
+                        iconSize: dock.iconSize
+                        maxScale: dock.maxScale
+                        spread: dock.spread
+                        frameMs: dock.frameMs
+                        dockMouseX: dock.dockMouseX
+                        iconCenterX: x + dock.iconSize / 2
+                        onClicked: {
+                            if (modelData.isRunning)
+                                Hyprland.dispatch("focuswindow class:" + modelData.class);
+                            else {
+                                const e = modelData.exec;
+                                if (Array.isArray(e)) {
+                                    dock.launch(e);
+                                } else if (e) {
+                                    dock.launch(["uwsm-app", "--", e]);
+                                }
                             }
                         }
                     }
