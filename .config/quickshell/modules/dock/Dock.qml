@@ -106,7 +106,7 @@ PanelWindow {
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing)
-                                     + iconSize + iconSpacing + paddingH * 2
+                                     + iconSize + paddingH * 2
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
