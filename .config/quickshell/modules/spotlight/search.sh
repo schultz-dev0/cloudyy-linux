@@ -8,8 +8,13 @@
 query="${1:-}"
 [[ -z "$query" ]] && exit 0
 
-APP_DIR="/usr/share/applications"
 MAX_FILE="${MAX_FILE_RESULTS:-10}"
+
+mapfile -t app_dirs < <(
+    for d in "/usr/share/applications" "$HOME/.local/share/applications"; do
+        [[ -d "$d" ]] && echo "$d"
+    done
+)
 
 # ── App search ─────────────────────────────────────────────────────────────
 # Find .desktop files whose Name= field contains query (case-insensitive fixed string).
@@ -29,8 +34,8 @@ while IFS= read -r desktop; do
       --arg wmclass "$wmclass" \
       '{type:"app",name:$name,icon:$icon,exec:$exec,wmclass:$wmclass}'
 done < <(
-    grep -rl "^Name=" "$APP_DIR" 2>/dev/null \
-    | xargs grep -lFi "$query"   2>/dev/null \
+    grep -rl "^Name=" "${app_dirs[@]}" 2>/dev/null \
+    | xargs grep -lFi -- "$query"      2>/dev/null \
     | head -8
 )
 
