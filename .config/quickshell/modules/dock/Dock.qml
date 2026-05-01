@@ -169,11 +169,18 @@ PanelWindow {
             // Search button — always leftmost, never displaced by app list
             Item {
                 width:  dock.iconSize
-                height: dock.iconSize
-                anchors.verticalCenter: parent.verticalCenter
+                height: dock.iconSize * dock.maxScale + 6
 
                 Text {
-                    anchors.centerIn: parent
+                    width:  dock.iconSize
+                    height: dock.iconSize
+                    anchors {
+                        bottom: parent.bottom
+                        bottomMargin: 6
+                        horizontalCenter: parent.horizontalCenter
+                    }
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment:   Text.AlignVCenter
                     text: "󰍉"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: Math.round(dock.iconSize * 0.72)
