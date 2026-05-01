@@ -43,17 +43,25 @@ Item {
                 anchors.fill: parent
                 sourceSize: Qt.size(56, 56)
                 smooth:     true
-                source: {
-                    if (root.resultData.type === "app")
-                        return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.resultData.icon}.svg`
-                    if (root.resultData.type === "file")
-                        return Quickshell.iconPath("text-x-generic", "image://icon/text-x-generic")
-                    return Quickshell.iconPath("internet-web-browser", "image://icon/internet-web-browser")
-                }
+                visible: root.resultData.type === "app"
+                source: root.resultData.type === "app"
+                    ? `file:///usr/share/icons/Papirus-Dark/48x48/apps/${root.resultData.icon}.svg`
+                    : ""
                 onStatusChanged: {
-                    if (status === Image.Error && root.resultData.type === "app")
+                    if (status === Image.Error)
                         source = Quickshell.iconPath(root.resultData.icon ?? "", "image://icon/application-x-executable")
                 }
+            }
+
+            Text {
+                anchors.fill: parent
+                visible: root.resultData.type !== "app"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment:   Text.AlignVCenter
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 20
+                color: Theme.on_surface_variant
+                text: root.resultData.type === "file" ? "󰈔" : "󰖟"
             }
         }
 
