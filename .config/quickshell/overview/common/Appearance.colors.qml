@@ -1,40 +1,41 @@
 import QtQuick
+import "../.."
 
 QtObject {
-    property bool darkmode: true
-    
-    readonly property color m3primary: "#81d5cc"
-    readonly property color m3onPrimary: "#003733"
+    property bool darkmode: Theme.background.hslLightness < 0.5
 
-    readonly property color m3primaryContainer: "#00504b"
-    readonly property color m3onPrimaryContainer: "#9df2e8"
+    readonly property color m3primary:              Theme.primary
+    readonly property color m3onPrimary:            Theme.on_primary
 
-    readonly property color m3secondary: "#b1ccc8"
-    readonly property color m3onSecondary: "#1c3532"
+    readonly property color m3primaryContainer:     Theme.primary_container
+    readonly property color m3onPrimaryContainer:   Theme.on_primary_container
 
-    readonly property color m3secondaryContainer: "#324b48"
-    readonly property color m3onSecondaryContainer: "#cce8e4"
+    readonly property color m3secondary:            Theme.secondary
+    readonly property color m3onSecondary:          Theme.on_secondary
 
-    readonly property color m3background: "#0e1514"
-    readonly property color m3onBackground: "#dde4e2"
+    readonly property color m3secondaryContainer:   Theme.secondary_container
+    readonly property color m3onSecondaryContainer: Theme.on_secondary_container
 
-    readonly property color m3surface: "#0e1514"
+    readonly property color m3background:           Theme.background
+    readonly property color m3onBackground:         Theme.on_background
 
-    readonly property color m3surfaceContainerLow: "#161d1c"
-    readonly property color m3surfaceContainer: "#1a2120"
-    readonly property color m3surfaceContainerHigh: "#252b2a"
-    readonly property color m3surfaceContainerHighest: "#303635"
+    readonly property color m3surface:              Theme.surface
 
-    readonly property color m3onSurface: "#dde4e2"
+    readonly property color m3surfaceContainerLow:      Theme.surface_container_low
+    readonly property color m3surfaceContainer:         Theme.surface_container
+    readonly property color m3surfaceContainerHigh:     Theme.surface_container_high
+    readonly property color m3surfaceContainerHighest:  Theme.surface_container_highest
 
-    readonly property color m3surfaceVariant: "#3f4947"
-    readonly property color m3onSurfaceVariant: "#bec9c6"
+    readonly property color m3onSurface:            Theme.on_surface
 
-    readonly property color m3inverseSurface: "#dde4e2"
-    readonly property color m3inverseOnSurface: "#2b3231"
+    readonly property color m3surfaceVariant:       Theme.surface_variant
+    readonly property color m3onSurfaceVariant:     Theme.on_surface_variant
 
-    readonly property color m3outline: "#899391"
-    readonly property color m3outlineVariant: "#3f4947"
+    readonly property color m3inverseSurface:       Theme.inverse_surface
+    readonly property color m3inverseOnSurface:     Theme.inverse_on_surface
 
-    readonly property color m3shadow: "#000000"
+    readonly property color m3outline:              Theme.outline
+    readonly property color m3outlineVariant:       Theme.outline_variant
+
+    readonly property color m3shadow:               Theme.shadow
 }
