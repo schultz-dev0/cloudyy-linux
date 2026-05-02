@@ -9,6 +9,18 @@ import "../../overview/services"
 PanelWindow {
     id: spotlight
 
+    property string systemIconTheme: "Papirus-Dark"
+    Process {
+        command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                const t = line.trim();
+                if (t.length > 0) spotlight.systemIconTheme = t;
+            }
+        }
+    }
+
     // ── Tunables ──────────────────────────────────────────────────────────
     readonly property string webSearchUrl:   "https://duckduckgo.com/?q="
     readonly property int    overlayWidth:   640
@@ -260,6 +272,7 @@ PanelWindow {
 
                     SpotlightRow {
                         resultData:  modelData
+                    property string themeName: spotlight.systemIconTheme
                         isSelected:  index === spotlight.selectedIndex
                         rowWidth:    spotlight.overlayWidth
                         onActivated: spotlight.activateIndex(index)

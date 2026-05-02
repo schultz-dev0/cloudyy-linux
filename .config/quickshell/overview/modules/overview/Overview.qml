@@ -254,6 +254,10 @@ Scope {
     IpcHandler {
         target: "overview"
 
+        function togglefloating() {
+            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+        }
+
         function toggle() {
             GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
         }

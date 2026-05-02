@@ -56,14 +56,20 @@ Item {
         property string baseIcon: root.appData.icon ?? "application-x-executable"
         onBaseIconChanged: fallbackStage = 0
 
-        source: {
+                source: {
             if (baseIcon.startsWith("/")) return "file://" + baseIcon
-            if (fallbackStage === 0) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
-            if (fallbackStage === 1) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
-            if (fallbackStage === 2) return `file:///usr/share/icons/Papirus-Dark/48x48/places/${baseIcon}.svg`
-            if (fallbackStage === 3) return `file:///usr/share/icons/Papirus-Dark/48x48/categories/${baseIcon}.svg`
-            if (fallbackStage === 4) return `file:///usr/share/icons/Papirus-Dark/48x48/mimetypes/${baseIcon}.svg`
-            return `file:///usr/share/icons/Papirus-Dark/48x48/apps/application-x-executable.svg`
+            const theme = parent.themeName || "Papirus-Dark"
+            if (fallbackStage === 0) return `file:///usr/share/icons/${theme}/48x48/apps/${baseIcon}.svg`
+            if (fallbackStage === 1) return `file:///usr/share/icons/${theme}/scalable/apps/${baseIcon}.svg`
+            if (fallbackStage === 2) return `file:///usr/share/icons/${theme}/48x48/devices/${baseIcon}.svg`
+            if (fallbackStage === 3) return `file:///usr/share/icons/${theme}/scalable/devices/${baseIcon}.svg`
+            if (fallbackStage === 4) return `file:///usr/share/icons/${theme}/48x48/places/${baseIcon}.svg`
+            if (fallbackStage === 5) return `file:///usr/share/icons/${theme}/scalable/places/${baseIcon}.svg`
+            if (fallbackStage === 6) return `file:///usr/share/icons/${theme}/48x48/categories/${baseIcon}.svg`
+            if (fallbackStage === 7) return `file:///usr/share/icons/${theme}/scalable/categories/${baseIcon}.svg`
+            if (fallbackStage === 8) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
+            if (fallbackStage === 9) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
+            return `file:///usr/share/icons/${theme}/48x48/apps/application-x-executable.svg`
         }
 
         sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
@@ -72,7 +78,7 @@ Item {
         transformOrigin: Item.Bottom
 
         onStatusChanged: {
-            if (status === Image.Error && fallbackStage < 5) {
+            if (status === Image.Error && fallbackStage < 10) {
                 fallbackStage++
             }
         }

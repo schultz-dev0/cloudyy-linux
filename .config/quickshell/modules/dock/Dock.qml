@@ -10,6 +10,18 @@ import "../../overview/services"
 PanelWindow {
     id: dock
 
+    property string systemIconTheme: "Papirus-Dark"
+    Process {
+        command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                const t = line.trim();
+                if (t.length > 0) dock.systemIconTheme = t;
+            }
+        }
+    }
+
     // ── Tunables ───────────────────────────────────────────────────────────
     readonly property int iconSize: 48
     readonly property real maxScale: 1.8
