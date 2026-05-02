@@ -13,7 +13,7 @@ BaseTile {
     icon:       "󰖙"
     label:      "Night Light"
     statusText: (sliderController && sliderController.nightLightActive)
-        ? ("On · " + (sliderController ? sliderController.nightLightTemp : 3500) + "K")
+        ? ("On · " + sliderController.nightLightTemp + "K")
         : "Off"
     active: sliderController ? sliderController.nightLightActive : false
 
