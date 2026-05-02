@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 // modules/controlcenter/tiles/BaseTile.qml
 import QtQuick
 import QtQuick.Layouts
@@ -15,6 +17,7 @@ Rectangle {
     signal rightClicked()
 
     implicitHeight: 68
+    implicitWidth: 170
     radius: 12
     color: active
         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
