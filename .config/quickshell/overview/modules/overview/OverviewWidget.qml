@@ -429,9 +429,7 @@ Item {
                     id: row
                     property int rowIndex: index
                     spacing: workspaceSpacing
-                    visible: !Config.options.overview.hideEmptyRows ||
-                             (root.rowsWithContent && root.rowsWithContent.has(rowIndex))
-                    height: visible ? implicitHeight : 0
+                    visible: true
 
                     Repeater { // Workspace repeater
                         model: Config.options.overview.columns
@@ -944,6 +942,135 @@ Item {
                                 }
                             }
                         }
+                        
+                        Rectangle { // Focused special workspace indicator (Internal Focus)
+                            id: focusedSpecialWorkspaceIndicator
+                            property string activeSpecialName: panelWindow.focusedSpecialWorkspace
+                            property int activeIndex: root.visibleSpecialWorkspaces.indexOf(activeSpecialName)
+                            property bool isValidIndex: activeIndex !== -1
+                            
+                            visible: isValidIndex
+                            
+                            property int activeRow: isValidIndex ? Math.floor(activeIndex / root.effectiveSpecialColumns) : 0
+                            property int activeCol: isValidIndex ? (activeIndex % root.effectiveSpecialColumns) : 0
+                            
+                            x: specialWorkspaceGrid.x + (root.specialWorkspaceTileWidth + workspaceSpacing) * activeCol
+                            y: specialWorkspaceGrid.y + (root.specialWorkspaceTileHeight + workspaceSpacing) * activeRow
+                            z: 10
+                            width: root.specialWorkspaceTileWidth
+                            height: root.specialWorkspaceTileHeight
+                            color: "transparent"
+                            radius: Appearance.rounding.screenRounding * root.scale
+                            border.width: 2.5
+                            border.color: root.activeBorderColor
+                            opacity: 1.0
+                            Behavior on x {
+                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                            }
+                            Behavior on y {
+                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Keybinds reference ────────────────────────────────────────────────
+        Item {
+            Layout.fillWidth: true
+            implicitWidth: kbColumns.implicitWidth
+            implicitHeight: kbColumns.implicitHeight + 24
+
+            Rectangle {
+                width: parent.width; height: 1
+                anchors { top: parent.top; topMargin: 10 }
+                color: ColorUtils.applyAlpha(Appearance.colors.colLayer0Border, 0.35)
+            }
+
+            Row {
+                id: kbColumns
+                anchors { top: parent.top; topMargin: 20; horizontalCenter: parent.horizontalCenter }
+                spacing: 40
+
+                property var col1: [
+                    ["Super+Tab",  "Toggle overview"],
+                    ["← → / h l", "Navigate workspaces"],
+                    ["↑ ↓ / j k", "Navigate rows"],
+                    ["1–9, 0",     "Jump to workspace"],
+                    ["Scroll",     "Cycle workspaces"],
+                ]
+                property var col2: [
+                    ["Esc / Enter",  "Close overview"],
+                    ["Click ws",     "Switch workspace"],
+                    ["Click window", "Focus window"],
+                    ["Mid-click",    "Close window"],
+                    ["Drag window",  "Move to workspace"],
+                ]
+
+                Column {
+                    spacing: 6
+                    Repeater {
+                        model: kbColumns.col1
+                        Row {
+                            required property var modelData
+                            spacing: 8
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 18; width: kbKey.implicitWidth + 12
+                                radius: 4
+                                color: ColorUtils.applyAlpha(Appearance.colors.colLayer1, 0.7)
+                                border.width: 1
+                                border.color: ColorUtils.applyAlpha(Appearance.colors.colLayer0Border, 0.55)
+                                Text {
+                                    id: kbKey
+                                    anchors.centerIn: parent
+                                    text: modelData[0]
+                                    font.pixelSize: 10
+                                    font.family: Appearance.font.family.monospace
+                                    color: Appearance.colors.colOnLayer1
+                                }
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData[1]
+                                font.pixelSize: 10
+                                color: ColorUtils.applyAlpha(Appearance.colors.colOnLayer1, 0.55)
+                            }
+                        }
+                    }
+                }
+
+                Column {
+                    spacing: 6
+                    Repeater {
+                        model: kbColumns.col2
+                        Row {
+                            required property var modelData
+                            spacing: 8
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 18; width: kbKey2.implicitWidth + 12
+                                radius: 4
+                                color: ColorUtils.applyAlpha(Appearance.colors.colLayer1, 0.7)
+                                border.width: 1
+                                border.color: ColorUtils.applyAlpha(Appearance.colors.colLayer0Border, 0.55)
+                                Text {
+                                    id: kbKey2
+                                    anchors.centerIn: parent
+                                    text: modelData[0]
+                                    font.pixelSize: 10
+                                    font.family: Appearance.font.family.monospace
+                                    color: Appearance.colors.colOnLayer1
+                                }
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData[1]
+                                font.pixelSize: 10
+                                color: ColorUtils.applyAlpha(Appearance.colors.colOnLayer1, 0.55)
+                            }
+                        }
                     }
                 }
             }
@@ -1107,6 +1234,7 @@ Item {
 
             Rectangle { // Focused workspace indicator
                 id: focusedWorkspaceIndicator
+                opacity: panelWindow.focusedSpecialWorkspace !== "" ? 0.3 : 0.8
                 property int activeWorkspaceRowIndex: root.getWorkspaceRow(root.effectiveActiveWorkspaceId)
                 property int activeWorkspaceColIndex: root.getWorkspaceColumn(root.effectiveActiveWorkspaceId)
                 x: (root.workspaceImplicitWidth + workspaceSpacing) * activeWorkspaceColIndex

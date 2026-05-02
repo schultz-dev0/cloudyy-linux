@@ -44,33 +44,9 @@ Item {
                 sourceSize: Qt.size(56, 56)
                 smooth:     true
                 visible: root.resultData.type === "app"
-                
-                property int fallbackStage: 0
-                property string baseIcon: root.resultData.icon ?? "application-x-executable"
-                onBaseIconChanged: fallbackStage = 0
-
-                                source: {
-                    if (root.resultData.type !== "app") return ""
-                    if (baseIcon.startsWith("/")) return "file://" + baseIcon
-                    const theme = parent.themeName || "Papirus-Dark"
-                    if (fallbackStage === 0) return `file:///usr/share/icons/${theme}/48x48/apps/${baseIcon}.svg`
-                    if (fallbackStage === 1) return `file:///usr/share/icons/${theme}/scalable/apps/${baseIcon}.svg`
-                    if (fallbackStage === 2) return `file:///usr/share/icons/${theme}/48x48/devices/${baseIcon}.svg`
-                    if (fallbackStage === 3) return `file:///usr/share/icons/${theme}/scalable/devices/${baseIcon}.svg`
-                    if (fallbackStage === 4) return `file:///usr/share/icons/${theme}/48x48/places/${baseIcon}.svg`
-                    if (fallbackStage === 5) return `file:///usr/share/icons/${theme}/scalable/places/${baseIcon}.svg`
-                    if (fallbackStage === 6) return `file:///usr/share/icons/${theme}/48x48/categories/${baseIcon}.svg`
-                    if (fallbackStage === 7) return `file:///usr/share/icons/${theme}/scalable/categories/${baseIcon}.svg`
-                    if (fallbackStage === 8) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
-                    if (fallbackStage === 9) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
-                    return `file:///usr/share/icons/${theme}/48x48/apps/application-x-executable.svg`
-                }
-
-                onStatusChanged: {
-                    if (status === Image.Error && fallbackStage < 10) {
-                        fallbackStage++
-                    }
-                }
+                source: root.resultData.type === "app"
+                    ? Quickshell.iconPath(root.resultData.icon ?? "", "image://icon/application-x-executable")
+                    : ""
             }
 
             Text {
