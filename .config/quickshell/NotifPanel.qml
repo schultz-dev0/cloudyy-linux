@@ -323,7 +323,7 @@ PanelWindow {
                 delegate: Rectangle {
                     id: card
                     required property var modelData
-                    width:  notifList.width
+                    width:  ListView.view.width
                     height: cardContent.implicitHeight + 28
                     radius: 18
                     color: card.modelData.urgency === 2
