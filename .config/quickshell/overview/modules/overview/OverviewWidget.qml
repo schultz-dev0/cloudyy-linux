@@ -1246,7 +1246,6 @@ Item {
                 radius: Appearance.rounding.screenRounding * root.scale
                 border.width: 1.5
                 border.color: root.activeBorderColor
-                opacity: 0.8
                 Behavior on x {
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
