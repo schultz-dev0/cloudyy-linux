@@ -1,5 +1,4 @@
 // modules/controlcenter/tiles/BluetoothTile.qml
-pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -35,7 +34,7 @@ BaseTile {
 
     Process {
         id: launchProc
-        command: ["bash", "-c", "cloud-center bluetooth"]
+        command: ["cloud-center", "bluetooth"]
         running: false
     }
 
