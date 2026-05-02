@@ -1,5 +1,4 @@
 // modules/controlcenter/tiles/DarkModeTile.qml
-pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -10,7 +9,7 @@ BaseTile {
     icon:       active ? "󰖔" : "󰖙"
     label:      "Dark Mode"
     statusText: active ? "Dark" : "Light"
-    active:     true
+    active:     false
 
     function refresh() {
         readProc.running = false

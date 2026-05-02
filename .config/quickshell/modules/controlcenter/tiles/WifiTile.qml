@@ -66,7 +66,7 @@ Rectangle {
     Process {
         id: wifiProc
         command: ["bash", "-c", "nmcli -t -f active,ssid dev wifi | awk -F: '/^yes/{print $2}'"]
-        running: true
+        running: false
         stdout: SplitParser {
             splitMarker: "\n"
             onRead: line => {
