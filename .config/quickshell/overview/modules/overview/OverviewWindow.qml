@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../../common"
 import "../../common/functions"
@@ -106,6 +107,17 @@ Item { // Window
     property bool dragInProgress: false
     property bool suspendPositionAnimation: false
     property bool animateSize: true
+    property string systemIconTheme: "Papirus-Dark"
+    Process {
+        command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                const t = line.trim();
+                if (t.length > 0) root.systemIconTheme = t;
+            }
+        }
+    }
     
     x: initX
     y: initY
@@ -229,14 +241,20 @@ Item { // Window
                 property string baseIcon: root.iconName ?? "application-x-executable"
                 onBaseIconChanged: fallbackStage = 0
 
-                source: {
+                                source: {
                     if (baseIcon.startsWith("/")) return "file://" + baseIcon
-                    if (fallbackStage === 0) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
-                    if (fallbackStage === 1) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
-                    if (fallbackStage === 2) return `file:///usr/share/icons/Papirus-Dark/48x48/places/${baseIcon}.svg`
-                    if (fallbackStage === 3) return `file:///usr/share/icons/Papirus-Dark/48x48/categories/${baseIcon}.svg`
-                    if (fallbackStage === 4) return `file:///usr/share/icons/Papirus-Dark/48x48/mimetypes/${baseIcon}.svg`
-                    return `file:///usr/share/icons/Papirus-Dark/48x48/apps/application-x-executable.svg`
+                    const theme = root.systemIconTheme || "Papirus-Dark"
+                    if (fallbackStage === 0) return `file:///usr/share/icons/${theme}/48x48/apps/${baseIcon}.svg`
+                    if (fallbackStage === 1) return `file:///usr/share/icons/${theme}/scalable/apps/${baseIcon}.svg`
+                    if (fallbackStage === 2) return `file:///usr/share/icons/${theme}/48x48/devices/${baseIcon}.svg`
+                    if (fallbackStage === 3) return `file:///usr/share/icons/${theme}/scalable/devices/${baseIcon}.svg`
+                    if (fallbackStage === 4) return `file:///usr/share/icons/${theme}/48x48/places/${baseIcon}.svg`
+                    if (fallbackStage === 5) return `file:///usr/share/icons/${theme}/scalable/places/${baseIcon}.svg`
+                    if (fallbackStage === 6) return `file:///usr/share/icons/${theme}/48x48/categories/${baseIcon}.svg`
+                    if (fallbackStage === 7) return `file:///usr/share/icons/${theme}/scalable/categories/${baseIcon}.svg`
+                    if (fallbackStage === 8) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
+                    if (fallbackStage === 9) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
+                    return `file:///usr/share/icons/${theme}/48x48/apps/application-x-executable.svg`
                 }
                 
                 width: iconSize
@@ -244,7 +262,7 @@ Item { // Window
                 sourceSize: Qt.size(Math.max(1, Math.round(iconSize)), Math.max(1, Math.round(iconSize)))
                 opacity: 0.95
                 onStatusChanged: {
-                    if (status === Image.Error && fallbackStage < 5) {
+                    if (status === Image.Error && fallbackStage < 10) {
                         fallbackStage++
                     }
                 }
