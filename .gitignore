@@ -71,6 +71,7 @@ cloudyy_scripts/pin-ksp.sh
 
 # Local AI tooling
 .claude*
+.worktrees/
 
 # User-specific and generated configs
 .config/btop/btop.conf
@@ -85,4 +86,3 @@ cloudyy_scripts/pin-ksp.sh
 .config/waybar/.vertical_side
 .config/waypaper/config.ini
 **/.superpowers/
-
