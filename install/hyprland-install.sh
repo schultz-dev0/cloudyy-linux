@@ -762,28 +762,11 @@ main() {
   select_optional
   show_summary # also calls build_final_lists
 
-  # Resolve shell-stack-specific package list (set by install.sh via env var,
-  # or read directly from state file when running standalone).
-  local -a STACK_OFFICIAL=() STACK_AUR=()
-  local _stack="${CLOUDYY_SHELL_STACK:-}"
-  [[ -z "$_stack" && -f "${HOME}/.local/share/cloudyy/shell-stack" ]] \
-    && _stack="$(<"${HOME}/.local/share/cloudyy/shell-stack")"
-  if [[ -n "$_stack" && -f "$(dirname "${BASH_SOURCE[0]}")/shell-stack.conf" ]]; then
-    # shellcheck disable=SC1091
-    source "$(dirname "${BASH_SOURCE[0]}")/shell-stack.conf"
-    local off_var="PROFILE_${_stack}_OFFICIAL_PACKAGES[@]"
-    local aur_var="PROFILE_${_stack}_AUR_PACKAGES[@]"
-    STACK_OFFICIAL=("${!off_var:-}")
-    STACK_AUR=("${!aur_var:-}")
-    log "Shell stack: ${_stack}"
-  fi
-
   log_section "Installing — Official Packages"
   pacman_install "Compositor" "${MANDATORY_OFFICIAL_COMPOSITOR[@]}"
   pacman_install "Daemons" "${MANDATORY_OFFICIAL_DAEMONS[@]}"
   pacman_install "Audio" "${MANDATORY_OFFICIAL_AUDIO[@]}"
   pacman_install "Interface" "${MANDATORY_OFFICIAL_INTERFACE[@]}"
-  ((${#STACK_OFFICIAL[@]} > 0)) && pacman_install "Shell Stack" "${STACK_OFFICIAL[@]}"
   pacman_install "Screenshot" "${MANDATORY_OFFICIAL_SCREENSHOT[@]}"
   pacman_install "Shell" "${MANDATORY_OFFICIAL_SHELL[@]}"
   pacman_install "System" "${MANDATORY_OFFICIAL_SYSTEM[@]}"
@@ -808,7 +791,6 @@ main() {
   log_section "Installing — AUR Packages"
   aur_install "Core AUR" "${MANDATORY_AUR_DAEMONS[@]}"
   aur_install "Interface" "${MANDATORY_AUR_INTERFACE[@]}"
-  ((${#STACK_AUR[@]} > 0)) && aur_install "Shell Stack" "${STACK_AUR[@]}"
   aur_install "Theming" "${MANDATORY_AUR_THEMING[@]}"
   ((${#CHOSEN_GPU_AUR[@]} > 0)) && aur_install "GPU AUR" "${CHOSEN_GPU_AUR[@]}"
   ((${#CHOSEN_BROWSER_AUR[@]} > 0)) && aur_install "Browser" "${CHOSEN_BROWSER_AUR[@]}"
