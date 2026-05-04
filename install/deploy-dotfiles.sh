@@ -385,6 +385,18 @@ main() {
   setup_system_theme
   seed_required_applications
 
+  # Wire quickshell bridge and restore theme
+  local _self_dir
+  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -x "${_self_dir}/widget_bridge.sh" ]]; then
+    bash "${_self_dir}/widget_bridge.sh" || log_warn "widget_bridge.sh failed (non-fatal)"
+  fi
+
+  if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
+    "${HOME}/cloudyy_scripts/theme_controller.sh" restore >/dev/null 2>&1 || \
+      log_warn "theme_controller restore failed (non-fatal)"
+  fi
+
   printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 
   # Remind user to reload shell
