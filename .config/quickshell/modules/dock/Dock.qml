@@ -43,9 +43,9 @@ PanelWindow {
     // ── Pinned apps — EDIT THIS ────────────────────────────────────────────
     readonly property var pinnedApps: [
         {
-            class: "firefox",
-            exec: "firefox",
-            icon: "firefox"
+            class: "zen",
+            exec: "zen-browser",
+            icon: "zen-browser"
         },
         {
             class: "dev.zed.Zed",
@@ -134,11 +134,14 @@ PanelWindow {
         Object.keys(runningMap).forEach(cls => {
             if (!pinnedClasses.has(cls)) {
                 const w = runningMap[cls];
-                const rawIcon = (w.class || "").toLowerCase().replace(/\./g, "-");
+                // Use DesktopEntries lookup for a proper icon name; fall back to
+                // the raw class only if no desktop entry is found
+                const entry = DesktopEntries.heuristicLookup(w.class || w.initialClass || w.initialTitle);
+                const iconName = entry?.icon || w.class || cls;
                 result.push({
                     class: w.class,
                     exec: w.class.toLowerCase(),
-                    icon: rawIcon,
+                    icon: iconName,
                     isRunning: true,
                     isPinned: false
                 });
