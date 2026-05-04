@@ -1,0 +1,11 @@
+@import "colors.css";
+
+/* 
+   Backtracking on global website coloring.
+   Keeping only the color-scheme hint so sites with native dark modes 
+   still activate them, but we no longer force Matugen colors on 
+   site backgrounds/text.
+*/
+:root {
+    color-scheme: dark !important;
+}

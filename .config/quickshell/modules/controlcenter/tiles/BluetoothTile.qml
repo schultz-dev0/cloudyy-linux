@@ -11,12 +11,14 @@ BaseTile {
     statusText: "Off"
     active:     false
 
+    onClicked: launchProc.running = true
+
     function refresh() {
         btProc.running = false
         btProc.running = true
     }
 
-    onClicked: launchProc.running = true
+    Component.onCompleted: refresh()
 
     Process {
         id: btProc
@@ -37,6 +39,4 @@ BaseTile {
         command: ["cloud-center", "bluetooth"]
         running: false
     }
-
-    Component.onCompleted: refresh()
 }

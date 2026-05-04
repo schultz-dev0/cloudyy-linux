@@ -189,11 +189,11 @@ link_extra_dirs() {
       true
   fi
 
-  # pywalfox native messaging host — symlink only this file, not the whole mozilla dir
-  local pywalfox_src="${REPO_DIR}/mozilla/native-messaging-hosts/pywalfox.json"
+  # pywalfox native messaging host — symlink only this file, not the whole zen dir
+  local pywalfox_src="${REPO_DIR}/zen/native-messaging-hosts/pywalfox.json"
   if [[ -f "$pywalfox_src" ]]; then
-    mkdir -p "${HOME}/.mozilla/native-messaging-hosts"
-    safe_symlink "$pywalfox_src" "${HOME}/.mozilla/native-messaging-hosts/pywalfox.json"
+    mkdir -p "${HOME}/.config/zen/native-messaging-hosts"
+    safe_symlink "$pywalfox_src" "${HOME}/.config/zen/native-messaging-hosts/pywalfox.json"
   fi
 }
 

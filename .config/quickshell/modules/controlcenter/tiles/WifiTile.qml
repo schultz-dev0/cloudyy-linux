@@ -1,5 +1,6 @@
-// modules/controlcenter/tiles/WifiTile.qml
 pragma ComponentBehavior: Bound
+
+// modules/controlcenter/tiles/WifiTile.qml
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
