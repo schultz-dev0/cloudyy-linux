@@ -385,14 +385,6 @@ main() {
   setup_system_theme
   seed_required_applications
 
-  # Materialize shell-stack autostart fragment (~/.config/hypr/source/shell-stack.conf)
-  # using whatever profile was selected in phase_shell_stack (or DEFAULT_PROFILE).
-  local _self_dir
-  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -x "${_self_dir}/apply-shell-stack.sh" ]]; then
-    bash "${_self_dir}/apply-shell-stack.sh" || log_warn "apply-shell-stack.sh failed (non-fatal)"
-  fi
-
   printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 
   # Remind user to reload shell
