@@ -1,3 +1,4 @@
+// modules/spotlight/SpotlightRow.qml
 import QtQuick
 import Quickshell
 import "../.."
@@ -41,12 +42,27 @@ Item {
             Image {
                 id: iconImg
                 anchors.fill: parent
+                property int fallbackStage: 0
+                property string resolvedIconPath: root.resultData.iconPath ?? ""
+                property string baseIcon: root.resultData.icon ?? "application-x-executable"
+                onResolvedIconPathChanged: fallbackStage = 0
+                onBaseIconChanged: fallbackStage = 0
                 sourceSize: Qt.size(56, 56)
                 smooth:     true
                 visible: root.resultData.type === "app"
-                source: root.resultData.type === "app"
-                    ? Quickshell.iconPath(root.resultData.icon ?? "", "image://icon/application-x-executable")
-                    : ""
+                source: {
+                    if (root.resultData.type !== "app")
+                        return "";
+                    if (fallbackStage === 0 && resolvedIconPath.length > 0)
+                        return resolvedIconPath.startsWith("file://") ? resolvedIconPath : `file://${resolvedIconPath}`;
+                    if (fallbackStage <= 1)
+                        return Quickshell.iconPath(baseIcon, "image://icon/application-x-executable");
+                    return "image://icon/application-x-executable";
+                }
+                onStatusChanged: {
+                    if (status === Image.Error && fallbackStage < 2)
+                        fallbackStage++;
+                }
             }
 
             Text {

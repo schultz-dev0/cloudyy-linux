@@ -24,6 +24,7 @@ Scope {
             property real backdropOpacity: Math.max(0, Math.min(1, Config.options.overview.effects.backdropOpacity))
             property bool closeOnFocusLoss: Config.options.overview.closeOnFocusLoss ?? true
             property string tabSelectedAddress: ""
+            property string focusedSpecialWorkspace: ""
             screen: modelData
             visible: GlobalStates.overviewOpen
 
@@ -56,7 +57,10 @@ Scope {
                 function onOverviewOpenChanged() {
                     if (GlobalStates.overviewOpen) {
                         root.tabSelectedAddress = "";
+                        root.focusedSpecialWorkspace = "";
                         delayedGrabTimer.start();
+                    } else {
+                        root.focusedSpecialWorkspace = "";
                     }
                 }
             }
@@ -122,6 +126,9 @@ Scope {
                 Keys.onPressed: event => {
                     // close: Escape or Enter
                     if (event.key === Qt.Key_Escape || event.key === Qt.Key_Return) {
+                        if (event.key === Qt.Key_Return && root.focusedSpecialWorkspace !== "") {
+                            Hyprland.dispatch("togglespecialworkspace " + root.focusedSpecialWorkspace);
+                        }
                         GlobalStates.overviewOpen = false;
                         event.accepted = true;
                         return;
@@ -185,6 +192,34 @@ Scope {
 
                     let targetId = null;
 
+                    const specials = overviewLoader.item ? overviewLoader.item.visibleSpecialWorkspaces : [];
+
+                    if (root.focusedSpecialWorkspace !== "") {
+                        let sIdx = specials.indexOf(root.focusedSpecialWorkspace);
+                        if (sIdx === -1) sIdx = 0;
+                        
+                        if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+                            if (specials.length > 0) {
+                                root.focusedSpecialWorkspace = specials[(sIdx - 1 + specials.length) % specials.length];
+                            }
+                            event.accepted = true;
+                            return;
+                        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+                            if (specials.length > 0) {
+                                root.focusedSpecialWorkspace = specials[(sIdx + 1) % specials.length];
+                            }
+                            event.accepted = true;
+                            return;
+                        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+                            root.focusedSpecialWorkspace = "";
+                            event.accepted = true;
+                            return;
+                        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                            event.accepted = true;
+                            return;
+                        }
+                    }
+
                     // Arrow keys and vim-style hjkl
                     if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
                         targetVisualColumn = (targetVisualColumn - 1 + columns) % columns;
@@ -193,6 +228,11 @@ Scope {
                     } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
                         targetVisualRow = (targetVisualRow - 1 + rows) % rows;
                     } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                        if (targetVisualRow === rows - 1 && specials.length > 0) {
+                            root.focusedSpecialWorkspace = specials[0];
+                            event.accepted = true;
+                            return;
+                        }
                         targetVisualRow = (targetVisualRow + 1) % rows;
                     }
 

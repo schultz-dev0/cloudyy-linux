@@ -12,6 +12,7 @@ import "../common"
  */
 Singleton {
     id: root
+    property string systemIconTheme: "Papirus-Dark"
     property var windowList: []
     property var addresses: []
     property var windowByAddress: ({})
@@ -97,6 +98,125 @@ Singleton {
         }, null);
     }
 
+    function mostRecentWindowForWorkspace(workspaceId) {
+        const windowsInThisWorkspace = root.windowList.filter(win => (win?.workspace?.id ?? -1) === workspaceId);
+        return windowsInThisWorkspace.reduce((mostRecentWin, win) => {
+            const currentHistory = mostRecentWin?.focusHistoryID ?? 999999;
+            const nextHistory = win?.focusHistoryID ?? 999999;
+            return nextHistory < currentHistory ? win : mostRecentWin;
+        }, null);
+    }
+
+    function normalizeIconName(icon) {
+        const raw = `${icon ?? ""}`.trim();
+        const withoutProviderPrefix = raw.replace(/^image:\/\/icon\//, "");
+        return withoutProviderPrefix.split("?")[0].trim();
+    }
+
+    function pushUnique(values, value) {
+        const normalized = normalizeIconName(value);
+        if (normalized.length === 0 || values.includes(normalized))
+            return;
+        values.push(normalized);
+    }
+
+    function iconCandidatesForWindow(window) {
+        const entry = DesktopEntries.heuristicLookup(window?.class || window?.initialClass || window?.initialTitle);
+        const candidates = [];
+        const rawClass = `${window?.class ?? ""}`.trim();
+        const rawInitialClass = `${window?.initialClass ?? ""}`.trim();
+        const lowerClass = rawClass.toLowerCase();
+        const lowerInitialClass = rawInitialClass.toLowerCase();
+
+        pushUnique(candidates, entry?.icon);
+        pushUnique(candidates, rawClass);
+        pushUnique(candidates, rawInitialClass);
+
+        if (rawClass.includes(".")) {
+            const classParts = rawClass.split(".");
+            const lowerClassParts = lowerClass.split(".");
+            pushUnique(candidates, classParts[classParts.length - 1]);
+            pushUnique(candidates, lowerClassParts[lowerClassParts.length - 1]);
+        }
+        if (rawInitialClass.includes(".")) {
+            const initialClassParts = rawInitialClass.split(".");
+            const lowerInitialClassParts = lowerInitialClass.split(".");
+            pushUnique(candidates, initialClassParts[initialClassParts.length - 1]);
+            pushUnique(candidates, lowerInitialClassParts[lowerInitialClassParts.length - 1]);
+        }
+
+        if (lowerClass.includes("firefox"))
+            pushUnique(candidates, "firefox");
+        if (lowerClass.includes("kitty") || lowerClass.includes("terminal"))
+            pushUnique(candidates, "terminal");
+        if (lowerClass.includes("zed") || lowerInitialClass.includes("zed")) {
+            pushUnique(candidates, "dev.zed.Zed");
+            pushUnique(candidates, "zed");
+        }
+        if (lowerClass.includes("code"))
+            pushUnique(candidates, "vscode");
+        if (lowerClass.includes("spotify"))
+            pushUnique(candidates, "spotify");
+        if (lowerClass.includes("discord"))
+            pushUnique(candidates, "discord");
+        if (lowerClass.includes("thunar"))
+            pushUnique(candidates, "thunar");
+
+        pushUnique(candidates, "application-x-executable");
+        return candidates;
+    }
+
+    function iconSourcesForName(iconName) {
+        const normalized = normalizeIconName(iconName);
+        if (normalized.length === 0)
+            return ["image://icon/application-x-executable"];
+
+        if (normalized.startsWith("/"))
+            return [`file://${normalized}`];
+
+        const currentTheme = `${root.systemIconTheme ?? "Papirus-Dark"}`.trim() || "Papirus-Dark";
+        const strippedTheme = currentTheme.replace(/-(Dark|Light)$/i, "");
+        const themeNames = [];
+        [currentTheme, strippedTheme, "Papirus-Dark", "Papirus", "Papirus-Light"].forEach(theme => pushUnique(themeNames, theme));
+
+        const directories = [
+            "48x48/apps",
+            "scalable/apps",
+            "64x64/apps",
+            "32x32/apps",
+            "24x24/apps",
+            "16x16/apps",
+            "48x48/devices",
+            "scalable/devices",
+            "48x48/places",
+            "scalable/places",
+            "48x48/categories",
+            "scalable/categories"
+        ];
+
+        const sources = [];
+        for (const theme of themeNames) {
+            for (const directory of directories) {
+                sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.svg`);
+                sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.png`);
+            }
+        }
+        sources.push(Quickshell.iconPath(normalized, "image://icon/application-x-executable"));
+        sources.push("image://icon/application-x-executable");
+        return sources;
+    }
+
+    function iconSourcesForWindow(window) {
+        const candidates = iconCandidatesForWindow(window);
+        const sources = [];
+        for (const iconName of candidates) {
+            const candidateSources = iconSourcesForName(iconName);
+            for (const source of candidateSources)
+                sources.push(source);
+        }
+        return sources;
+    }
+
     Component.onCompleted: {
         scheduleUpdates(true, true, true, true, true);
         flushPendingUpdates();
@@ -116,7 +236,7 @@ Singleton {
             }
 
             if (eventName === "workspace" || eventName === "workspacev2" || eventName === "focusedmon" || eventName === "focusedmonv2" || eventName === "activewindow" || eventName === "activewindowv2") {
-                scheduleUpdates(false, false, false, true, true);
+                scheduleUpdates(eventName === "activewindow" || eventName === "activewindowv2", false, false, true, true);
                 return;
             }
 
@@ -134,6 +254,19 @@ Singleton {
         interval: Math.max(0, Config.options.hacks.hyprlandEventDebounceMs)
         repeat: false
         onTriggered: root.flushPendingUpdates()
+    }
+
+    Process {
+        id: getIconTheme
+        command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                const themeName = line.trim();
+                if (themeName.length > 0)
+                    root.systemIconTheme = themeName;
+            }
+        }
     }
 
     Process {

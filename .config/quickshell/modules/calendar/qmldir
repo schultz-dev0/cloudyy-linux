@@ -1,0 +1,8 @@
+module QuickCalendar
+singleton CalendarService 1.0 CalendarService.qml
+CalendarPanel 1.0 CalendarPanel.qml
+CalendarMiniSection 1.0 CalendarMiniSection.qml
+CalendarGrid 1.0 CalendarGrid.qml
+CalendarDayView 1.0 CalendarDayView.qml
+CalendarEventCard 1.0 CalendarEventCard.qml
+CalendarEventDialog 1.0 CalendarEventDialog.qml

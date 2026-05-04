@@ -1,5 +1,6 @@
-// modules/controlcenter/tiles/NightLightTile.qml
 pragma ComponentBehavior: Bound
+
+// modules/controlcenter/tiles/NightLightTile.qml
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts

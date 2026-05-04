@@ -1,3 +1,6 @@
+pragma ComponentBehavior: Bound
+
+// modules/dock/Dock.qml
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -17,7 +20,8 @@ PanelWindow {
         stdout: SplitParser {
             onRead: line => {
                 const t = line.trim();
-                if (t.length > 0) dock.systemIconTheme = t;
+                if (t.length > 0)
+                    dock.systemIconTheme = t;
             }
         }
     }
@@ -74,11 +78,40 @@ PanelWindow {
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
     property real dockMouseX: -9999
+    readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHover.hovered
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
-    onAnyFullscreenChanged: if (anyFullscreen)
-        dockVisible = false
+    onAnyFullscreenChanged: {
+        if (anyFullscreen) {
+            hideTimer.stop();
+            dockMouseX = -9999;
+            dockVisible = false;
+        } else {
+            syncDockVisibility();
+        }
+    }
+
+    onDockHoveredChanged: syncDockVisibility()
+
+    function syncDockVisibility() {
+        if (anyFullscreen) {
+            hideTimer.stop();
+            dockMouseX = -9999;
+            dockVisible = false;
+            return;
+        }
+
+        if (dockHovered) {
+            hideTimer.stop();
+            dockVisible = true;
+            return;
+        }
+
+        dockMouseX = -9999;
+        if (dockVisible)
+            hideTimer.restart();
+    }
 
     // ── App list: pinned + running, deduplicated ───────────────────────────
     readonly property var mergedApps: {
@@ -117,8 +150,7 @@ PanelWindow {
 
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
-    readonly property int dockWidth: mergedApps.length * (iconSize + iconSpacing)
-                                     + iconSize + paddingH * 2
+    readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -180,11 +212,31 @@ PanelWindow {
 
             // Search button — always leftmost, never displaced by app list
             Item {
-                width:  dock.iconSize
+                id: searchBtn
+                width: dock.iconSize
                 height: dock.iconSize * dock.maxScale + 6
 
+                readonly property real btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
+                readonly property real targetScale: {
+                    if (dock.dockMouseX < -1000)
+                        return 1.0;
+                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const sigma = dock.iconSize * dock.spread;
+                    return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
+                }
+                property real currentScale: 1.0
+                Timer {
+                    interval: dock.frameMs
+                    running: true
+                    repeat: true
+                    onTriggered: {
+                        const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
+                        searchBtn.currentScale += (searchBtn.targetScale - searchBtn.currentScale) * lerp;
+                    }
+                }
+
                 Text {
-                    width:  dock.iconSize
+                    width: dock.iconSize
                     height: dock.iconSize
                     anchors {
                         bottom: parent.bottom
@@ -192,16 +244,18 @@ PanelWindow {
                         horizontalCenter: parent.horizontalCenter
                     }
                     horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment:   Text.AlignVCenter
+                    verticalAlignment: Text.AlignVCenter
                     text: "󰍉"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: Math.round(dock.iconSize * 0.72)
                     color: Theme.on_surface
+                    scale: searchBtn.currentScale
+                    transformOrigin: Item.Bottom
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: Hyprland.dispatch("exec quickshell ipc call spotlight toggle")
+                    onClicked: Hyprland.dispatch("exec quickshell ipc call spotlight-dock toggle")
                 }
             }
 
@@ -236,19 +290,63 @@ PanelWindow {
                     }
                 }
             }
+
+            // Apps launcher button — always rightmost
+            Item {
+                id: appsBtn
+                width: dock.iconSize
+                height: dock.iconSize * dock.maxScale + 6
+
+                readonly property real btnCenterX: iconsRow.width + dock.iconSpacing + dock.iconSize / 2
+                readonly property real targetScale: {
+                    if (dock.dockMouseX < -1000)
+                        return 1.0;
+                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const sigma = dock.iconSize * dock.spread;
+                    return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
+                }
+                property real currentScale: 1.0
+                Timer {
+                    interval: dock.frameMs
+                    running: true
+                    repeat: true
+                    onTriggered: {
+                        const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
+                        appsBtn.currentScale += (appsBtn.targetScale - appsBtn.currentScale) * lerp;
+                    }
+                }
+
+                Text {
+                    width: dock.iconSize
+                    height: dock.iconSize
+                    anchors {
+                        bottom: parent.bottom
+                        bottomMargin: 6
+                        horizontalCenter: parent.horizontalCenter
+                    }
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: "󰀻"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Math.round(dock.iconSize * 0.72)
+                    color: Theme.on_surface
+                    scale: appsBtn.currentScale
+                    transformOrigin: Item.Bottom
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: dock.launch(["bash", "-c", "$HOME/cloudyy_scripts/rofi/applications.sh"])
+                }
+            }
         }
 
         // HoverHandler tracks pointer inside dockBody without competing with
         // child MouseAreas for hover events — fixes hide timer firing on icon hover.
         HoverHandler {
+            id: dockBodyHover
             onHoveredChanged: {
-                if (hovered) {
-                    hideTimer.stop();
-                } else {
-                    dock.dockMouseX = -9999;
-                    if (dock.dockVisible)
-                        hideTimer.restart();
-                }
+                dock.syncDockVisibility();
             }
             onPointChanged: {
                 if (hovered)
@@ -267,10 +365,7 @@ PanelWindow {
         width: dock.dockWidth
         height: dock.activationHeight
         hoverEnabled: true
-        onEntered: {
-            hideTimer.stop();
-            dock.dockVisible = true;
-        }
+        onContainsMouseChanged: dock.syncDockVisibility()
     }
 
     // ── Hide delay timer ───────────────────────────────────────────────────
@@ -278,7 +373,10 @@ PanelWindow {
         id: hideTimer
         interval: 500
         repeat: false
-        onTriggered: dock.dockVisible = false
+        onTriggered: {
+            if (!dock.dockHovered)
+                dock.dockVisible = false;
+        }
     }
 
     // ── IPC ────────────────────────────────────────────────────────────────

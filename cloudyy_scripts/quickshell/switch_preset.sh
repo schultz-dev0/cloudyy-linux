@@ -40,5 +40,5 @@ if [[ -x "$BRIDGE" ]]; then
     "$BRIDGE"
 else
     # Fallback: manually restart if bridge not found
-    qs kill && qs -c "$PRESET" -d
+    qs kill && env QS_NO_RELOAD_POPUP=1 qs -c "$PRESET" -d
 fi
