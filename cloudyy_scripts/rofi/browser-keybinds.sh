@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# CLOUDYY ZEN BROWSER KEYBIND VIEWER
-# Extracts keybinds from zen-keyboard-shortcuts.json
+# CLOUDYY ZEN BROWSER KEYBIND VIEWER (REFINED)
+# Extracts ALL 120+ keybinds from zen-keyboard-shortcuts.json
 # ==============================================================================
 
 set -uo pipefail
@@ -14,7 +14,7 @@ declare -a ROFI_ARGS=(
   rofi -dmenu -i
   -markup-rows
   -p "Zen Binds"
-  -mesg "Zen Browser Keyboard Shortcuts"
+  -mesg "Zen Browser Keyboard Shortcuts (All)"
   -theme-str 'window { width: 45%; }'
   -theme-str 'listview { fixed-height: true; lines: 15; }'
   -theme-str 'element { padding: 7px 14px; }'
@@ -32,7 +32,6 @@ fi
 
 DATA=$(jq -r --arg d "$DELIM" '
   .shortcuts[] | 
-  select(.disabled == false) |
   [
     (if .modifiers.accel   then "CTRL"  else empty end),
     (if .modifiers.control then "CTRL"  else empty end),
@@ -42,9 +41,13 @@ DATA=$(jq -r --arg d "$DELIM" '
   ] as $mods |
   [
     ($mods | join("+")),
-    (.key // .keycode // "unknown"),
-    (.id | sub("^key_"; "") | gsub("(?<=[a-z])(?=[A-Z])"; " ") | ascii_upcase),
-    .group
+    (if (.key != null and .key != "") then .key 
+     elif (.keycode != null and .keycode != "") then (.keycode | sub("^VK_"; ""))
+     else "---" end),
+    (if .id != null then (.id | sub("^key_"; "") | gsub("(?<=[a-z])(?=[A-Z])"; " ") | gsub("-"; " ") | ascii_upcase)
+     elif .action != null then (.action | sub("^cmd_"; "") | gsub("(?<=[a-z])(?=[A-Z])"; " ") | ascii_upcase)
+     else "UNKNOWN ACTION" end),
+    (.group // "other")
   ] | join($d)
 ' "$JSON_FILE" | awk -F"$DELIM" -v delim="$DELIM" '
 {
@@ -59,6 +62,7 @@ DATA=$(jq -r --arg d "$DELIM" '
   else if (group ~ /edit/)   icon = "󰏫 "
   else if (group ~ /navi/)   icon = "󰈹 "
   else if (group ~ /tool/)   icon = "󱁤 "
+  else if (desc ~ /ZEN/)     icon = " "
 
   # ── combo column ──
   if (mods != "")
@@ -68,7 +72,7 @@ DATA=$(jq -r --arg d "$DELIM" '
 
   # ── label column ──
   label = desc
-  if (group != "")
+  if (group != "" && group != "other")
     label = label "  <span alpha=\"55%\" style=\"italic\">(" group ")</span>"
 
   printf "%s  %s    %s\n", icon, combo, label

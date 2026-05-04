@@ -88,7 +88,7 @@ Item {
             top: headerRow.bottom
             left: parent.left
             right: parent.right
-            topMargin: 8
+            topMargin: 6
         }
         Repeater {
             model: ["Mo","Tu","We","Th","Fr","Sa","Su"]
@@ -111,10 +111,10 @@ Item {
             top: dowRow.bottom
             left: parent.left
             right: parent.right
-            topMargin: 4
+            topMargin: 2
         }
         columns: 7
-        rowSpacing: 3
+        rowSpacing: 0
         columnSpacing: 0
 
         Repeater {
@@ -159,26 +159,20 @@ Item {
                     border.color: Theme.primary
                 }
 
-                // Day number
+                // Day number — centered to match the ring circles
                 Text {
-                    anchors {
-                        horizontalCenter: parent.horizontalCenter
-                        top: parent.top
-                        topMargin: 4
-                    }
+                    anchors.centerIn: parent
                     text: {
                         const n = cellItem.index - root._offset + 1
                         return (n >= 1 && n <= root._numDays) ? n.toString() : ""
                     }
-                    color: cellItem.isToday    ? Theme.primary
+                    color: cellItem.isToday        ? Theme.primary
                          : cellItem.isCurrentMonth ? Theme.on_surface
                          : Theme.on_surface_variant
                     opacity: cellItem.isCurrentMonth ? 1.0 : 0.35
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
-                    font.weight: cellItem.isToday ? Font.Bold : Font.Normal
-                    horizontalAlignment: Text.AlignHCenter
-                    anchors.horizontalCenterOffset: 0
+                    font.weight:    cellItem.isToday ? Font.Bold : Font.Normal
                 }
 
                 // Event dots row
