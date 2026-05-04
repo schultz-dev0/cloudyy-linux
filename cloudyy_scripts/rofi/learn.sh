@@ -24,6 +24,17 @@ show_keybind_tips() {
   show_learn_menu
 }
 
+show_browser_keybinds() {
+  local script="${HOME}/cloudyy_scripts/rofi/browser-keybinds.sh"
+  [[ ! -x "$script" ]] && {
+    notify-send "Error" "browser-keybinds.sh not found at: $script"
+    show_learn_menu
+    return
+  }
+  (bash "$script") || true
+  show_learn_menu
+}
+
 # =============================================================================
 # LEARN MENU
 # =============================================================================
@@ -31,11 +42,12 @@ show_keybind_tips() {
 show_learn_menu() {
   local choice
   choice=$(menu "Learn" \
-    "󰣇 Arch Wiki\n Hyprland Wiki\n󱊨 Keybinds")
+    "󰣇 Arch Wiki\n Hyprland Wiki\n󱊨 Keybinds\n󰈹 Zen Binds")
 
   case "${choice,,}" in
   *arch*) run_app xdg-open "https://wiki.archlinux.org/" ;;
   *hypr*) run_app xdg-open "https://wiki.hypr.land/" ;;
+  *zen*) show_browser_keybinds ;;
   *key*) show_keybind_tips ;;
   *) back_to_main ;;
   esac

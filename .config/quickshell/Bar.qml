@@ -1,10 +1,16 @@
+pragma ComponentBehavior: Bound
+
+// Bar.qml
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import Quickshell.Io
+import Quickshell.Wayland
 import "overview/services"
+import "modules/spotlight" as QuickSpotlight
 
 PanelWindow {
     id: bar
@@ -19,11 +25,23 @@ PanelWindow {
     readonly property int pillPadV: 5
     readonly property int pillGap: 4
     readonly property real bgOpacity: 0.88
+    readonly property int spotlightWidth: 300
+    readonly property int spotlightClosedWidth: 220
+    readonly property int spotlightDropdownGap: 2
+    readonly property int spotlightDropdownHeight: 320
+    readonly property int spotlightDebounceMs: 120
+    readonly property int spotlightMaxFileResults: 10
+    readonly property string spotlightSearchScript: Qt.resolvedUrl("modules/spotlight/search.sh").toString().replace("file://", "")
 
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool notifOpen: false
     property bool dnd: false
+    property bool spotlightOpen: false
+    property string spotlightQuery: ""
+    property var spotlightResults: []
+    property int spotlightSelectedIndex: 0
     signal notifToggle
+    signal calendarToggle
 
     // ── Window ────────────────────────────────────────────────────────────────
     anchors {
@@ -39,6 +57,7 @@ PanelWindow {
     implicitHeight: barHeight + topGap
     exclusiveZone: barHeight + topGap
     color: "transparent"
+    WlrLayershell.keyboardFocus: spotlightOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     // ── One-shot command launcher ─────────────────────────────────────────────
     Component {
@@ -50,6 +69,125 @@ PanelWindow {
             command: cmd
         });
         p.running = true;
+    }
+
+    function showSpotlight() {
+        spotlightOpen = true;
+        Qt.callLater(() => spotlightInput.forceActiveFocus());
+    }
+
+    function hideSpotlight() {
+        spotlightSearchProc.running = false;
+        spotlightDebounceTimer.stop();
+        spotlightOpen = false;
+        spotlightInput.text = "";
+        spotlightQuery = "";
+        spotlightResults = [];
+        spotlightSelectedIndex = 0;
+    }
+
+    function activateSpotlightIndex(idx) {
+        if (idx < spotlightResults.length) {
+            const result = spotlightResults[idx];
+            if (result.type === "app") {
+                if (result.isRunning)
+                    Hyprland.dispatch("focuswindow class:" + result.wmclass);
+                else
+                    launch(["uwsm-app", "--", result.exec]);
+            } else {
+                launch(["xdg-open", result.path]);
+            }
+        } else {
+            launch(["xdg-open", "https://duckduckgo.com/?q=" + encodeURIComponent(spotlightQuery)]);
+        }
+        hideSpotlight();
+    }
+
+    function spotlightSelectionTop(index) {
+        let y = 0;
+        for (let i = 0; i < spotlightResults.length; ++i) {
+            if (i === 0 || spotlightResults[i].type !== spotlightResults[i - 1].type)
+                y += 28;
+            if (i === index)
+                return y;
+            y += 46;
+        }
+        return y + 28;
+    }
+
+    function ensureSpotlightSelectionVisible() {
+        if (!spotlightDropdown.visible)
+            return;
+
+        const itemTop = spotlightSelectionTop(spotlightSelectedIndex);
+        const itemBottom = itemTop + 46;
+        const viewTop = spotlightResultsFlick.contentY;
+        const viewBottom = viewTop + spotlightResultsFlick.height;
+
+        if (itemTop < viewTop) {
+            spotlightResultsFlick.contentY = itemTop;
+        } else if (itemBottom > viewBottom) {
+            spotlightResultsFlick.contentY = Math.max(0, itemBottom - spotlightResultsFlick.height);
+        }
+    }
+
+    Process {
+        id: spotlightSearchProc
+        environment: ({
+                MAX_FILE_RESULTS: bar.spotlightMaxFileResults.toString()
+            })
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: function (line) {
+                if (line.trim().length === 0)
+                    return;
+                try {
+                    const result = JSON.parse(line);
+                    if (result.type === "app") {
+                        const runningClasses = new Set(HyprlandData.windowList.map(w => (w.class || "").toLowerCase()));
+                        result.isRunning = runningClasses.has((result.wmclass || "").toLowerCase());
+                    }
+                    bar.spotlightResults = [...bar.spotlightResults, result];
+                } catch (_) {}
+            }
+        }
+    }
+
+    Timer {
+        id: spotlightDebounceTimer
+        interval: bar.spotlightDebounceMs
+        repeat: false
+        onTriggered: {
+            if (bar.spotlightQuery.length === 0) {
+                bar.spotlightResults = [];
+                bar.spotlightSelectedIndex = 0;
+                return;
+            }
+            spotlightSearchProc.running = false;
+            bar.spotlightResults = [];
+            bar.spotlightSelectedIndex = 0;
+            spotlightSearchProc.command = ["bash", bar.spotlightSearchScript, bar.spotlightQuery];
+            spotlightSearchProc.running = true;
+        }
+    }
+
+    onSpotlightQueryChanged: spotlightDebounceTimer.restart()
+    onSpotlightSelectedIndexChanged: Qt.callLater(() => ensureSpotlightSelectionVisible())
+
+    IpcHandler {
+        target: "spotlight"
+        function toggle() {
+            if (bar.spotlightOpen)
+                bar.hideSpotlight();
+            else
+                bar.showSpotlight();
+        }
+        function show() {
+            bar.showSpotlight();
+        }
+        function hide() {
+            bar.hideSpotlight();
+        }
     }
 
     // ── Module component ──────────────────────────────────────────────────────
@@ -109,6 +247,7 @@ PanelWindow {
 
         // ── LEFT ─────────────────────────────────────────────────────────────
         Row {
+            id: leftRow
             anchors {
                 left: parent.left
                 leftMargin: 6
@@ -138,7 +277,7 @@ PanelWindow {
                     repeat: true
                     onTriggered: clockPill.t = Qt.formatDateTime(new Date(), "hh:mm")
                 }
-                onClicked: bar.launch(["uwsm-app", "--", "gnome-clocks"])
+                onClicked: bar.calendarToggle()
             }
 
             Pill {
@@ -170,6 +309,109 @@ PanelWindow {
                 iconSize: 14
                 onClicked: bar.notifToggle()
             }
+
+            Rectangle {
+                id: spotlightField
+                height: bar.barHeight - bar.pillPadV * 2
+                width: bar.spotlightOpen ? bar.spotlightWidth : 250
+                radius: bar.pillRadius
+                color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                border.color: spotlightInput.activeFocus ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45) : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
+                border.width: 1
+
+                Behavior on width {
+                    NumberAnimation {
+                        duration: 140
+                        easing.type: Easing.OutQuad
+                    }
+                }
+
+                TapHandler {
+                    onTapped: bar.showSpotlight()
+                }
+
+                HoverHandler {
+                    onHoveredChanged: {
+                        if (hovered) {
+                            bar.showSpotlight();
+                        } else {
+                            spotlightInput.focus = false;
+                            barBg.forceActiveFocus();
+                        }
+                    }
+                }
+
+                Row {
+                    anchors {
+                        fill: parent
+                        leftMargin: 12
+                        rightMargin: 12
+                    }
+                    spacing: 8
+
+                    Text {
+                        text: "⌕"
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.7)
+                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                    }
+
+                    Item {
+                        width: parent.width - 24
+                        height: parent.height
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: spotlightInput.text.length === 0
+                            text: "Search apps, files, web..."
+                            color: Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.45)
+                            font.pixelSize: 13
+                            font.family: "JetBrainsMono Nerd Font"
+                        }
+
+                        TextInput {
+                            id: spotlightInput
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 18
+                            text: bar.spotlightQuery
+                            color: Theme.on_surface
+                            font.pixelSize: 13
+                            font.family: "JetBrainsMono Nerd Font"
+                            selectByMouse: true
+                            clip: true
+                            verticalAlignment: TextInput.AlignVCenter
+                            onActiveFocusChanged: {
+                                if (activeFocus) {
+                                    bar.spotlightOpen = true;
+                                } else {
+                                    bar.hideSpotlight();
+                                }
+                            }
+                            onTextChanged: bar.spotlightQuery = text
+                            Keys.onEscapePressed: {
+                                bar.hideSpotlight();
+                                event.accepted = true;
+                            }
+                            Keys.onUpPressed: {
+                                bar.spotlightSelectedIndex = Math.max(0, bar.spotlightSelectedIndex - 1);
+                                event.accepted = true;
+                            }
+                            Keys.onDownPressed: {
+                                bar.spotlightSelectedIndex = Math.min(bar.spotlightResults.length, bar.spotlightSelectedIndex + 1);
+                                event.accepted = true;
+                            }
+                            Keys.onReturnPressed: {
+                                bar.activateSpotlightIndex(bar.spotlightSelectedIndex);
+                                event.accepted = true;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // ── CENTER ────────────────────────────────────────────────────────────
@@ -178,7 +420,7 @@ PanelWindow {
             spacing: bar.pillGap
 
             Pill {
-                label: "󰕣"
+                label: ""
                 iconSize: 14
                 width: implicitWidth + bar.pillPadH * 2
                 fg: GlobalStates.overviewOpen ? Theme.on_primary_container : Theme.on_surface_variant
@@ -206,9 +448,10 @@ PanelWindow {
 
                         delegate: Rectangle {
                             required property int modelData
-                            readonly property var ws: Array.from(Hyprland.workspaces.values).find(w => w.id === modelData) ?? null
+                            readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
+                            readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
                             readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
-                            readonly property bool empty: ws === null
+                            readonly property bool empty: workspaceWindow === null
 
                             height: bar.barHeight - bar.pillPadV * 2 - 6
                             width: focused ? 26 : (empty ? 20 : 22)
@@ -223,10 +466,35 @@ PanelWindow {
                                 }
                             }
 
+                            Image {
+                                id: workspaceIcon
+                                anchors.centerIn: parent
+                                visible: workspaceWindow !== null
+                                width: 14
+                                height: 14
+                                property var currentIconSources: workspaceIconSources
+                                property int sourceIndex: 0
+                                onCurrentIconSourcesChanged: sourceIndex = 0
+                                sourceSize: Qt.size(28, 28)
+                                smooth: true
+                                source: currentIconSources[sourceIndex] ?? "image://icon/application-x-executable"
+                                layer.enabled: visible
+                                layer.smooth: true
+                                layer.effect: MultiEffect {
+                                    colorization: 1.0
+                                    colorizationColor: focused ? Theme.on_primary_container : Theme.on_surface
+                                }
+                                onStatusChanged: {
+                                    if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
+                                        Qt.callLater(() => sourceIndex++);
+                                }
+                            }
+
                             Text {
                                 anchors.centerIn: parent
+                                visible: workspaceWindow === null
                                 text: String(modelData)
-                                color: focused ? Theme.on_primary_container : (empty ? Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.35) : Theme.on_surface)
+                                color: focused ? Theme.on_primary_container : Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.35)
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.pixelSize: 12
                                 font.weight: Font.DemiBold
@@ -329,9 +597,9 @@ PanelWindow {
                         }
                     }
                 }
-                onClicked: bar.launch(["bash", "-c", "uwsm-app -- ~/cloudyy_scripts/cloud-center --audio"])
-                onScrollUp: bar.launch(["bash", "-c", "swayosd-client --output-volume raise"])
-                onScrollDown: bar.launch(["bash", "-c", "swayosd-client --output-volume lower"])
+                onClicked: bar.notifToggle()
+                onScrollUp: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh up"])
+                onScrollDown: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh down"])
             }
 
             // CPU
@@ -411,6 +679,123 @@ PanelWindow {
                 fg: Theme.on_primary_container
                 bg: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85)
                 onClicked: bar.launch(["bash", "-c", "~/cloudyy_scripts/wlogout.sh"])
+            }
+        }
+    }
+
+    PanelWindow {
+        id: spotlightDropdown
+        visible: bar.spotlightOpen && bar.spotlightQuery.length > 0
+        anchors {
+            top: true
+            left: true
+        }
+        margins {
+            top: bar.spotlightDropdownGap
+            left: bar.sideGap + 6 + leftRow.x + spotlightField.x
+        }
+        implicitWidth: spotlightField.width
+        implicitHeight: bar.spotlightDropdownHeight
+        exclusiveZone: 0
+        color: "transparent"
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "quickshell:spotlight-dropdown"
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 14
+            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.94)
+            border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
+            border.width: 1
+            clip: true
+
+            Flickable {
+                id: spotlightResultsFlick
+                anchors.fill: parent
+                contentWidth: width
+                contentHeight: spotlightResultsColumn.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
+
+                Column {
+                    id: spotlightResultsColumn
+                    width: spotlightResultsFlick.width
+
+                    Repeater {
+                        model: bar.spotlightResults
+
+                        delegate: Column {
+                            width: parent.width
+                            required property var modelData
+                            required property int index
+                            readonly property bool isFirstOfType: index === 0 || bar.spotlightResults[index].type !== bar.spotlightResults[index - 1].type
+
+                            Item {
+                                width: parent.width
+                                height: isFirstOfType ? 28 : 0
+                                visible: isFirstOfType
+
+                                Text {
+                                    anchors {
+                                        left: parent.left
+                                        leftMargin: 16
+                                        bottom: parent.bottom
+                                        bottomMargin: 6
+                                    }
+                                    text: {
+                                        if (modelData.type === "app")
+                                            return "APPS";
+                                        if (modelData.type === "file")
+                                            return "FILES";
+                                        return "";
+                                    }
+                                    font.pixelSize: 10
+                                    font.letterSpacing: 1
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    color: Theme.outline_variant
+                                }
+                            }
+
+                            QuickSpotlight.SpotlightRow {
+                                resultData: modelData
+                                isSelected: index === bar.spotlightSelectedIndex
+                                rowWidth: spotlightDropdown.implicitWidth
+                                onActivated: bar.activateSpotlightIndex(index)
+                                onHovered: bar.spotlightSelectedIndex = index
+                            }
+                        }
+                    }
+
+                    Item {
+                        width: parent.width
+                        height: 28
+
+                        Text {
+                            anchors {
+                                left: parent.left
+                                leftMargin: 16
+                                bottom: parent.bottom
+                                bottomMargin: 6
+                            }
+                            text: "WEB"
+                            font.pixelSize: 10
+                            font.letterSpacing: 1
+                            font.family: "JetBrainsMono Nerd Font"
+                            color: Theme.outline_variant
+                        }
+                    }
+
+                    QuickSpotlight.SpotlightRow {
+                        resultData: ({
+                                type: "web",
+                                query: bar.spotlightQuery
+                            })
+                        isSelected: bar.spotlightSelectedIndex === bar.spotlightResults.length
+                        rowWidth: spotlightDropdown.implicitWidth
+                        onActivated: bar.activateSpotlightIndex(bar.spotlightResults.length)
+                        onHovered: bar.spotlightSelectedIndex = bar.spotlightResults.length
+                    }
+                }
             }
         }
     }

@@ -15,8 +15,8 @@ declare -a ROFI_ARGS=(
   -markup-rows
   -p "Keybinds"
   -mesg "Type to filter  •  Enter to run bind"
-  -theme-str 'window { width: 65%; }'
-  -theme-str 'listview { fixed-height: true; lines: 20; }'
+  -theme-str 'window { width: 45%; }'
+  -theme-str 'listview { fixed-height: true; lines: 15; }'
   -theme-str 'element { padding: 7px 14px; }'
   -theme-str 'element-text { font: "JetBrainsMono Nerd Font 12"; }'
 )

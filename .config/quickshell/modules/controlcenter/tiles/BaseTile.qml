@@ -20,12 +20,16 @@ Rectangle {
     implicitWidth: 170
     radius: 12
     color: active
-        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
-        : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6)
+        ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18))
+        : Theme.surface_container
     border.color: active
         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
         : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
     border.width: 1
+
+    ElevatedEffect {
+        target: root
+    }
 
     ColumnLayout {
         anchors { fill: parent; margins: 10 }

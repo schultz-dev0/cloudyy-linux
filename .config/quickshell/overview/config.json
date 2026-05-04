@@ -4,7 +4,7 @@
   },
   "overview": {
     "enable": true,
-    "rows": 1,
+    "rows": 2,
     "columns": 5,
     "workspaceSpacing": 12,
     "backgroundPadding": 16,

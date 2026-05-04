@@ -11,12 +11,14 @@ BaseTile {
     statusText: active ? "Dark" : "Light"
     active:     false
 
+    onClicked: toggleProc.running = true
+
     function refresh() {
         readProc.running = false
         readProc.running = true
     }
 
-    onClicked: toggleProc.running = true
+    Component.onCompleted: refresh()
 
     Process {
         id: readProc
@@ -35,6 +37,4 @@ BaseTile {
         running: false
         onRunningChanged: if (!running) root.refresh()
     }
-
-    Component.onCompleted: refresh()
 }

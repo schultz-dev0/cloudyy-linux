@@ -27,6 +27,7 @@ readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
 readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
 readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
 readonly FIREFOX_PROFILES_INI_FLATPAK="${HOME}/.var/app/org.mozilla.firefox/.mozilla/firefox/profiles.ini"
+readonly ZEN_PROFILES_INI="${HOME}/.config/zen/profiles.ini"
 
 # --- LOGGING ---
 log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
@@ -62,7 +63,7 @@ CURRENT_WALL="$CURRENT_WALL"
 EOF
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
   [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
-  
+
   # Persist per-mode last wallpaper for toggle memory.
   # Only save if the wallpaper is in the correct mode-specific pool or if no pools exist.
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
@@ -70,7 +71,7 @@ EOF
     local mode_cap="${THEME_MODE^}"
     local mode_dir="${base_dir}/${mode_cap}"
     local should_save=true
-    
+
     if [[ -d "$mode_dir" ]]; then
       local real_wall
       real_wall="$(realpath "$CURRENT_WALL")"
@@ -81,7 +82,7 @@ EOF
         log "Not saving to ${THEME_MODE}_last: wallpaper is not in ${mode_cap} pool ($real_wall vs $real_mode_dir)"
       fi
     fi
-    
+
     if [[ "$should_save" == "true" ]]; then
       [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
     fi
@@ -155,6 +156,7 @@ set_firefox_theme() {
 
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value"
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value"
+  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value"
 }
 
 _apply_firefox_profiles_ini() {
@@ -209,14 +211,16 @@ _write_firefox_userjs() {
   tmp="$(mktemp)"
 
   if [[ -f "$user_js" ]]; then
-    grep -v 'user_pref("ui.systemUsesDarkTheme"' "$user_js" \
-      | grep -v 'user_pref("layout.css.prefers-color-scheme.content-override"' \
-      >"$tmp" || true
+    grep -v 'user_pref("ui.systemUsesDarkTheme"' "$user_js" |
+      grep -v 'user_pref("layout.css.prefers-color-scheme.content-override"' |
+      grep -v 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets"' \
+        >"$tmp" || true
   fi
 
   {
     cat "$tmp" 2>/dev/null || true
     echo 'user_pref("layout.css.prefers-color-scheme.content-override", 0);'
+    echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
     echo "user_pref(\"ui.systemUsesDarkTheme\", ${dark_value});"
   } >"$user_js"
 
@@ -438,14 +442,14 @@ cmd_toggle() {
     local base_dir="${WALL_DIR/#\~/$HOME}"
     local new_mode_cap="${new_mode^}"
     local new_mode_dir="${base_dir}/${new_mode_cap}"
-    
+
     if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" && -d "$new_mode_dir" ]]; then
       local wall_name
       wall_name="$(basename "$CURRENT_WALL")"
       # Search recursively for the same filename in the new mode's pool.
       local matching_wall
       matching_wall="$(find -L "$new_mode_dir" -type f -name "$wall_name" -print -quit)"
-      
+
       if [[ -n "$matching_wall" ]]; then
         log "Found matching wallpaper in ${new_mode_cap} pool: $wall_name"
         cmd_apply "$matching_wall" "$new_mode"

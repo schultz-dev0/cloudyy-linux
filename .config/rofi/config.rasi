@@ -87,14 +87,10 @@ configuration {
    ===================================================================== */
 
 window {
-    /* CRITICAL: Enable real transparency for glass effect */
-    transparency:       "real";
-    
     location:           center;
     anchor:             center;
     width:              40%;
     
-    /* Transparent background - compositor will blur behind it */
     background-color:   @s-win-bg;
     
     border:             2px;

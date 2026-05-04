@@ -121,8 +121,9 @@ setup_pywalfox() {
     return 0
   fi
 
-  # Check all known native messaging host locations for both native and Flatpak Firefox.
+  # Check all known native messaging host locations for both native and Flatpak Firefox + Zen.
   local -a host_dirs=(
+    "${HOME}/.config/zen/native-messaging-hosts"
     "${HOME}/.mozilla/native-messaging-hosts"
     "${HOME}/.var/app/org.mozilla.firefox/.mozilla/native-messaging-hosts"
   )
@@ -204,7 +205,7 @@ main() {
     return 1
   fi
 
-  log_ok "All done. Firefox will now pick up dark/light mode changes from theme_controller.sh."
+  log_ok "All done. Zen / Firefox will now pick up dark/light mode changes from theme_controller.sh."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

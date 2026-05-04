@@ -1,5 +1,6 @@
-// NotifPanel.qml
 pragma ComponentBehavior: Bound
+
+// NotifPanel.qml
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,62 +8,92 @@ import Quickshell
 import Quickshell.Io
 import "modules/controlcenter"
 import "modules/controlcenter/tiles"
+import "modules/calendar"
 
 PanelWindow {
     id: panel
 
     // ── Tunables ─────────────────────────────────────────────────────────────
-    readonly property int panelWidth:   380
-    readonly property int panelHeight:  900
-    readonly property int topGap:        10
-    readonly property int rightGap:      20
-    readonly property int panelRadius:   24
+    readonly property int panelWidth: 380
+    readonly property int panelMaxHeight: 900
+    readonly property int topGap: 10
+    readonly property int rightGap: 20
+    readonly property int panelRadius: 24
     readonly property int sectionRadius: 16
+    readonly property int panelPadding: 18
+    readonly property int emptyNotifHeight: 36
+    readonly property int maxNotifListHeight: 420
+    readonly property int notifCardShadowSideInset: 18
+    readonly property int notifCardShadowTopInset: 10
+    readonly property int notifCardShadowBottomInset: 22
+    readonly property bool hasNotifications: notifList.count > 0
 
     // ── Props ─────────────────────────────────────────────────────────────────
-    property bool open:             false
-    property bool dnd:              false
-    property var  notifServer:      null
-    property var  sliderController: null
-    signal close()
-    signal dndToggle()
+    property bool open: false
+    property bool dnd: false
+    property var notifServer: null
+    property var sliderController: null
+    signal close
+    signal dndToggle
     onOpenChanged: {
-        if (open && sliderController) sliderController.refreshAll()
-        if (open) { wifiTile.refresh(); btTile.refresh(); darkTile.refresh() }
+        if (open && sliderController)
+            sliderController.refreshAll();
+        if (open) {
+            wifiTile.refresh();
+            btTile.refresh();
+            darkTile.refresh();
+        }
     }
 
     // ── Clock ─────────────────────────────────────────────────────────────────
     property string clockText: ""
     Timer {
-        interval: 60000; repeat: true; running: true; triggeredOnStart: true
+        interval: 60000
+        repeat: true
+        running: true
+        triggeredOnStart: true
         onTriggered: panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm")
     }
 
     // ── One-shot launcher ─────────────────────────────────────────────────────
-    Component { id: procProto; Process {} }
+    Component {
+        id: procProto
+        Process {}
+    }
     function launch(cmd) {
-        procProto.createObject(panel, { command: cmd }).running = true
+        procProto.createObject(panel, {
+            command: cmd
+        }).running = true;
     }
 
     // ── Window setup ──────────────────────────────────────────────────────────
-    anchors { top: true; right: true }
-    margins { top: topGap; right: rightGap }
-    implicitWidth:  panelWidth
-    implicitHeight: panelHeight
-    color:          "transparent"
-    visible:        open
+    anchors {
+        top: true
+        right: true
+    }
+    margins {
+        top: topGap
+        right: rightGap
+    }
+    implicitWidth: panelWidth
+    implicitHeight: Math.min(panelMaxHeight, contentColumn.implicitHeight + panelPadding * 2)
+    color: "transparent"
+    visible: open
 
     // ── Panel shell ───────────────────────────────────────────────────────────
     Rectangle {
-        anchors.fill:  parent
-        radius:        panel.panelRadius
-        color:  Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g,
-                              Theme.outline_variant.b, 0.3)
+        anchors.fill: parent
+        radius: panel.panelRadius
+        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
+        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
 
         ColumnLayout {
-            anchors { fill: parent; margins: 18 }
+            id: contentColumn
+            anchors {
+                fill: parent
+                margins: panel.panelPadding
+            }
             spacing: 12
 
             // ── Header ───────────────────────────────────────────────────────
@@ -70,18 +101,18 @@ PanelWindow {
                 Layout.fillWidth: true
 
                 Text {
-                    text:           "Control Center"
-                    color:          Theme.on_surface
-                    font.family:    "JetBrainsMono Nerd Font"
+                    text: "Control Center"
+                    color: Theme.on_surface
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 16
-                    font.weight:    Font.Bold
+                    font.weight: Font.Bold
                     Layout.fillWidth: true
                 }
 
                 Text {
-                    text:           panel.clockText
-                    color:          Theme.on_surface_variant
-                    font.family:    "JetBrainsMono Nerd Font"
+                    text: panel.clockText
+                    color: Theme.on_surface_variant
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
                 }
             }
@@ -90,20 +121,26 @@ PanelWindow {
             TileGrid {
                 Layout.fillWidth: true
 
-                WifiTile { id: wifiTile }
+                WifiTile {
+                    id: wifiTile
+                }
 
                 DndTile {
-                    id:        dndTile
-                    dnd:       panel.dnd
+                    id: dndTile
+                    dnd: panel.dnd
                     onDndToggle: panel.dndToggle()
                 }
 
-                BluetoothTile { id: btTile }
+                BluetoothTile {
+                    id: btTile
+                }
 
-                DarkModeTile { id: darkTile }
+                DarkModeTile {
+                    id: darkTile
+                }
 
                 NightLightTile {
-                    id:               nlTile
+                    id: nlTile
                     sliderController: panel.sliderController
                 }
             }
@@ -112,89 +149,97 @@ PanelWindow {
             Rectangle {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
-                radius:  panel.sectionRadius
-                color:   Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.3)
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g,
-                                      Theme.outline_variant.b, 0.25)
-                border.width:   1
+                radius: panel.sectionRadius
+                color: Theme.surface_container
+                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
+                border.width: 1
                 implicitHeight: 72
 
+                ElevatedEffect {
+                    target: parent
+                }
+
                 ColumnLayout {
-                    anchors { fill: parent; margins: 12 }
+                    anchors {
+                        fill: parent
+                        margins: 12
+                    }
                     spacing: 8
 
                     Text {
-                        text:           "Display"
-                        color:          Theme.on_surface
-                        font.family:    "JetBrainsMono Nerd Font"
+                        text: "Display"
+                        color: Theme.on_surface
+                        font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        font.weight:    Font.Medium
+                        font.weight: Font.Medium
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
-                        radius:         10
-                        color:  Qt.rgba(Theme.surface_container.r, Theme.surface_container.g,
-                                        Theme.surface_container.b, 0.5)
-                        implicitHeight: 38
+                        radius: 10
+                        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                        implicitHeight: 27
 
                         RowLayout {
-                            anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                            anchors {
+                                fill: parent
+                                leftMargin: 12
+                                rightMargin: 12
+                            }
                             spacing: 10
 
                             Slider {
-                                id:              brightnessSlider
+                                id: brightnessSlider
                                 Layout.fillWidth: true
-                                from:    1; to: 100; live: true
-                                value:   panel.sliderController
-                                    ? panel.sliderController.brightnessValue : 50
+                                from: 1
+                                to: 100
+                                live: true
+                                value: panel.sliderController ? panel.sliderController.brightnessValue : 50
                                 palette.highlight: Theme.tertiary
                                 onMoved: if (panel.sliderController)
                                     panel.sliderController.setBrightness(value)
 
                                 background: Rectangle {
                                     x: brightnessSlider.leftPadding
-                                    y: brightnessSlider.topPadding
-                                       + brightnessSlider.availableHeight / 2 - height / 2
-                                    width: brightnessSlider.availableWidth; height: 10; radius: 999
-                                    color: Qt.rgba(Theme.surface_container_high.r,
-                                                   Theme.surface_container_high.g,
-                                                   Theme.surface_container_high.b, 0.45)
+                                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                    width: brightnessSlider.availableWidth
+                                    height: 10
+                                    radius: 999
+                                    color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
                                     Rectangle {
                                         width: brightnessSlider.visualPosition * parent.width
-                                        height: parent.height; radius: parent.radius
+                                        height: parent.height
+                                        radius: parent.radius
                                         color: brightnessSlider.palette.highlight
                                         opacity: brightnessSlider.enabled ? 1 : 0.35
                                     }
                                 }
                                 handle: Rectangle {
-                                    x: brightnessSlider.leftPadding
-                                       + brightnessSlider.visualPosition
-                                       * (brightnessSlider.availableWidth - width)
-                                    y: brightnessSlider.topPadding
-                                       + brightnessSlider.availableHeight / 2 - height / 2
-                                    width: 16; height: 16; radius: 8
+                                    x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                    width: 16
+                                    height: 16
+                                    radius: 8
                                     color: brightnessSlider.pressed ? Theme.primary : Theme.on_surface
-                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g,
-                                                          Theme.surface.b, 0.8)
+                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
                                     border.width: 1
                                     opacity: brightnessSlider.enabled ? 1 : 0.4
                                 }
                             }
 
                             Rectangle {
-                                width: 30; height: 30; radius: 10
-                                color: Qt.rgba(Theme.surface_container_high.r,
-                                               Theme.surface_container_high.g,
-                                               Theme.surface_container_high.b, 0.55)
-                                border.color: Qt.rgba(Theme.outline_variant.r,
-                                                      Theme.outline_variant.g,
-                                                      Theme.outline_variant.b, 0.3)
+                                width: 25
+                                height: 25
+                                radius: 16
+                                color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.55)
+                                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
                                 border.width: 1
                                 Text {
-                                    anchors.centerIn: parent; text: "󰃠"
+                                    anchors.centerIn: parent
+                                    text: "󰃠"
                                     color: Theme.on_surface
-                                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 16
                                 }
                                 MouseArea {
                                     anchors.fill: parent
@@ -211,91 +256,97 @@ PanelWindow {
             Rectangle {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
-                radius:  panel.sectionRadius
-                color:   Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.3)
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g,
-                                      Theme.outline_variant.b, 0.25)
-                border.width:   1
+                radius: panel.sectionRadius
+                color: Theme.surface_container
+                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
+                border.width: 1
                 implicitHeight: 72
 
+                ElevatedEffect {
+                    target: parent
+                }
+
                 ColumnLayout {
-                    anchors { fill: parent; margins: 12 }
+                    anchors {
+                        fill: parent
+                        margins: 12
+                    }
                     spacing: 8
 
                     Text {
-                        text:           "Sound"
-                        color:          Theme.on_surface
-                        font.family:    "JetBrainsMono Nerd Font"
+                        text: "Sound"
+                        color: Theme.on_surface
+                        font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
-                        font.weight:    Font.Medium
+                        font.weight: Font.Medium
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
-                        radius:         10
-                        color:  Qt.rgba(Theme.surface_container.r, Theme.surface_container.g,
-                                        Theme.surface_container.b, 0.5)
-                        implicitHeight: 38
+                        radius: 16
+                        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                        implicitHeight: 25
 
                         RowLayout {
-                            anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                            anchors {
+                                fill: parent
+                                leftMargin: 12
+                                rightMargin: 12
+                            }
                             spacing: 10
 
                             Slider {
-                                id:              volumeSlider
+                                id: volumeSlider
                                 Layout.fillWidth: true
-                                from: 0; to: 100; live: true
-                                value: panel.sliderController
-                                    ? panel.sliderController.volumeValue : 50
+                                from: 0
+                                to: 100
+                                live: true
+                                value: panel.sliderController ? panel.sliderController.volumeValue : 50
                                 palette.highlight: Theme.primary
                                 onMoved: if (panel.sliderController)
                                     panel.sliderController.setVolume(value)
 
                                 background: Rectangle {
                                     x: volumeSlider.leftPadding
-                                    y: volumeSlider.topPadding
-                                       + volumeSlider.availableHeight / 2 - height / 2
-                                    width: volumeSlider.availableWidth; height: 10; radius: 999
-                                    color: Qt.rgba(Theme.surface_container_high.r,
-                                                   Theme.surface_container_high.g,
-                                                   Theme.surface_container_high.b, 0.45)
+                                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                    width: volumeSlider.availableWidth
+                                    height: 10
+                                    radius: 999
+                                    color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
                                     Rectangle {
                                         width: volumeSlider.visualPosition * parent.width
-                                        height: parent.height; radius: parent.radius
+                                        height: parent.height
+                                        radius: parent.radius
                                         color: volumeSlider.palette.highlight
                                         opacity: volumeSlider.enabled ? 1 : 0.35
                                     }
                                 }
                                 handle: Rectangle {
-                                    x: volumeSlider.leftPadding
-                                       + volumeSlider.visualPosition
-                                       * (volumeSlider.availableWidth - width)
-                                    y: volumeSlider.topPadding
-                                       + volumeSlider.availableHeight / 2 - height / 2
-                                    width: 16; height: 16; radius: 8
+                                    x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+                                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                    width: 16
+                                    height: 16
+                                    radius: 8
                                     color: volumeSlider.pressed ? Theme.primary : Theme.on_surface
-                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g,
-                                                          Theme.surface.b, 0.8)
+                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
                                     border.width: 1
                                     opacity: volumeSlider.enabled ? 1 : 0.4
                                 }
                             }
 
                             Rectangle {
-                                width: 30; height: 30; radius: 10
-                                color: Qt.rgba(Theme.surface_container_high.r,
-                                               Theme.surface_container_high.g,
-                                               Theme.surface_container_high.b, 0.55)
-                                border.color: Qt.rgba(Theme.outline_variant.r,
-                                                      Theme.outline_variant.g,
-                                                      Theme.outline_variant.b, 0.3)
+                                width: 25
+                                height: 25
+                                radius: 16
+                                color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.55)
+                                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
                                 border.width: 1
                                 Text {
                                     anchors.centerIn: parent
-                                    text:  panel.sliderController
-                                        ? panel.sliderController.volumeIcon : "󰕾"
+                                    text: panel.sliderController ? panel.sliderController.volumeIcon : "󰕾"
                                     color: Theme.on_surface
-                                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 16
                                 }
                                 MouseArea {
                                     anchors.fill: parent
@@ -308,79 +359,101 @@ PanelWindow {
                 }
             }
 
+            // ── Calendar mini strip ───────────────────────────────────────────
+            CalendarMiniSection {
+                Layout.fillWidth: true
+            }
+
             // ── Media card ────────────────────────────────────────────────────
-            MediaCard { Layout.fillWidth: true }
+            MediaCard {
+                Layout.fillWidth: true
+            }
 
             // ── Notification list ─────────────────────────────────────────────
             ListView {
                 id: notifList
-                Layout.fillWidth:  true
-                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.preferredHeight: panel.hasNotifications
+                    ? Math.min(contentHeight, panel.maxNotifListHeight)
+                    : panel.emptyNotifHeight
                 spacing: 6
-                clip:    true
-                model:   panel.notifServer ? panel.notifServer.trackedNotifications : null
+                clip: true
+                model: panel.notifServer ? panel.notifServer.trackedNotifications : null
 
-                delegate: Rectangle {
-                    id: card
+                delegate: Item {
+                    id: cardWrapper
                     required property var modelData
-                    width:  ListView.view.width
-                    height: cardContent.implicitHeight + 28
-                    radius: 18
-                    color: card.modelData.urgency === 2
-                        ? Qt.rgba(Theme.error_container.r, Theme.error_container.g,
-                                  Theme.error_container.b, 0.2)
-                        : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.9)
-                    border.color: card.modelData.urgency === 2
-                        ? Theme.error
-                        : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g,
-                                  Theme.outline_variant.b, 0.4)
-                    border.width: 1
+                    width: ListView.view.width
+                    height: panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
 
-                    Column {
-                        id: cardContent
-                        anchors { left: parent.left; right: parent.right
-                                  top: parent.top; margins: 14 }
-                        spacing: 4
-
-                        Text {
-                            text:           card.modelData.appName
-                            color:          Theme.on_surface_variant
-                            font.family:    "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11
-                        }
-                        Text {
-                            width:          parent.width
-                            text:           card.modelData.summary
-                            color:          Theme.on_surface
-                            font.family:    "JetBrainsMono Nerd Font"
-                            font.pixelSize: 14
-                            font.weight:    Font.Bold
-                            wrapMode:       Text.WordWrap
-                        }
-                        Text {
-                            visible:  card.modelData.body !== ""
-                            width:    parent.width
-                            text:     card.modelData.body
-                            color:    Qt.rgba(Theme.on_surface.r, Theme.on_surface.g,
-                                             Theme.on_surface.b, 0.8)
-                            font.family:      "JetBrainsMono Nerd Font"
-                            font.pixelSize:   13
-                            wrapMode:         Text.WordWrap
-                            maximumLineCount: 3
-                            elide:            Text.ElideRight
-                        }
+                    ElevatedEffect {
+                        target: card
                     }
 
-                    MouseArea { anchors.fill: parent; onClicked: card.modelData.dismiss() }
+                    Rectangle {
+                        id: card
+                        x: panel.notifCardShadowSideInset
+                        y: panel.notifCardShadowTopInset
+                        width: parent.width - panel.notifCardShadowSideInset * 2
+                        height: cardContent.implicitHeight + 28
+                        radius: 18
+                        color: cardWrapper.modelData.urgency === 2
+                            ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
+                            : Theme.surface_container
+                        border.color: cardWrapper.modelData.urgency === 2 ? Theme.error : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                        border.width: 1
+
+                        Column {
+                            id: cardContent
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                margins: 14
+                            }
+                            spacing: 4
+
+                            Text {
+                                text: cardWrapper.modelData.appName
+                                color: Theme.on_surface_variant
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 11
+                            }
+                            Text {
+                                width: parent.width
+                                text: cardWrapper.modelData.summary
+                                color: Theme.on_surface
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                                font.weight: Font.Bold
+                                wrapMode: Text.WordWrap
+                            }
+                            Text {
+                                visible: cardWrapper.modelData.body !== ""
+                                width: parent.width
+                                text: cardWrapper.modelData.body
+                                color: Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.8)
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 13
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 3
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: cardWrapper.modelData.dismiss()
+                        }
+                    }
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    visible:        notifList.count === 0
-                    text:           "No notifications"
-                    color:  Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g,
-                                    Theme.on_surface_variant.b, 0.4)
-                    font.family:    "JetBrainsMono Nerd Font"
+                    visible: notifList.count === 0
+                    text: "No notifications"
+                    color: Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.4)
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
                 }
             }

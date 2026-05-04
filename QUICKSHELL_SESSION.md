@@ -143,7 +143,7 @@ Each profile defines per-slot impl + exec-once:
 - `bar`
 - `notifications`
 - `launcher` *(both currently rofi)*
-- `volume_osd` *(both currently swayosd)*
+- `volume_osd` *(default uses swayosd; quickshell now handles its own sliders/OSD)*
 - `app_menu` *(reserved, empty)*
 - `power_menu` *(both currently rofi)*
 

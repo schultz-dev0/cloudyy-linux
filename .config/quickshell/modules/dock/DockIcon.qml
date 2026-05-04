@@ -1,3 +1,4 @@
+// modules/dock/DockIcon.qml
 import QtQuick
 import Quickshell
 import "../.."
@@ -18,7 +19,7 @@ Item {
     property bool hovered: false
     property bool pressed: false
 
-    // ── Gaussian magnification ─────────────────────────────────────────────
+    // ── Gaussian magnification ───────────────────────────────────────────────
     readonly property real targetScale: {
         if (dockMouseX < -1000)
             return 1.0;
@@ -41,7 +42,7 @@ Item {
     width: root.iconSize
     height: root.iconSize * root.maxScale + 6  // +6 for running dot below
 
-    // ── Icon image ─────────────────────────────────────────────────────────
+    // ── Icon image ───────────────────────────────────────────────────────────
     Image {
         id: iconImg
         width: root.iconSize
@@ -56,7 +57,7 @@ Item {
         property string baseIcon: root.appData.icon ?? "application-x-executable"
         onBaseIconChanged: fallbackStage = 0
 
-                source: {
+        source: {
             if (baseIcon.startsWith("/")) return "file://" + baseIcon
             const theme = parent.themeName || "Papirus-Dark"
             if (fallbackStage === 0) return `file:///usr/share/icons/${theme}/48x48/apps/${baseIcon}.svg`
@@ -84,7 +85,7 @@ Item {
         }
     }
 
-    // ── Running indicator dot ──────────────────────────────────────────────
+    // ── Running indicator dot ────────────────────────────────────────────────
     Rectangle {
         visible: root.appData.isRunning ?? false
         width: 4
@@ -97,7 +98,7 @@ Item {
         }
     }
 
-    // ── Mouse interaction ──────────────────────────────────────────────────
+    // ── Mouse interaction ────────────────────────────────────────────────────
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
