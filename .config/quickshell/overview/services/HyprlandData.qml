@@ -13,6 +13,7 @@ import "../common"
 Singleton {
     id: root
     property string systemIconTheme: "Papirus-Dark"
+    property string homeDir: ""
     property var windowList: []
     property var addresses: []
     property var windowByAddress: ({})
@@ -161,6 +162,10 @@ Singleton {
             pushUnique(candidates, "discord");
         if (lowerClass.includes("thunar"))
             pushUnique(candidates, "thunar");
+        if (lowerClass.includes("zen"))
+            pushUnique(candidates, "zen-browser");
+        if (lowerClass.includes("freecad") || lowerInitialClass.includes("freecad"))
+            pushUnique(candidates, "org.freecad.FreeCAD");
 
         pushUnique(candidates, "application-x-executable");
         return candidates;
@@ -177,7 +182,7 @@ Singleton {
         const currentTheme = `${root.systemIconTheme ?? "Papirus-Dark"}`.trim() || "Papirus-Dark";
         const strippedTheme = currentTheme.replace(/-(Dark|Light)$/i, "");
         const themeNames = [];
-        [currentTheme, strippedTheme, "Papirus-Dark", "Papirus", "Papirus-Light"].forEach(theme => pushUnique(themeNames, theme));
+        [currentTheme, strippedTheme, "Papirus-Dark", "Papirus", "Papirus-Light", "hicolor"].forEach(theme => pushUnique(themeNames, theme));
 
         const directories = [
             "48x48/apps",
@@ -186,6 +191,8 @@ Singleton {
             "32x32/apps",
             "24x24/apps",
             "16x16/apps",
+            "128x128/apps",
+            "256x256/apps",
             "48x48/devices",
             "scalable/devices",
             "48x48/places",
@@ -195,11 +202,22 @@ Singleton {
         ];
 
         const sources = [];
+
         for (const theme of themeNames) {
             for (const directory of directories) {
                 sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.svg`);
                 sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.png`);
             }
+        }
+        // pixmaps fallback
+        sources.push(`file:///usr/share/pixmaps/${normalized}.svg`);
+        sources.push(`file:///usr/share/pixmaps/${normalized}.png`);
+        // user icon dirs
+        if (root.homeDir.length > 0) {
+            sources.push(`file://${root.homeDir}/.local/share/icons/${normalized}.svg`);
+            sources.push(`file://${root.homeDir}/.local/share/icons/${normalized}.png`);
+            sources.push(`file://${root.homeDir}/.icons/${normalized}.svg`);
+            sources.push(`file://${root.homeDir}/.icons/${normalized}.png`);
         }
         sources.push(Quickshell.iconPath(normalized, "image://icon/application-x-executable"));
         sources.push("image://icon/application-x-executable");
@@ -265,6 +283,18 @@ Singleton {
                 const themeName = line.trim();
                 if (themeName.length > 0)
                     root.systemIconTheme = themeName;
+            }
+        }
+    }
+
+    Process {
+        id: getHomeDir
+        command: ["sh", "-c", "echo $HOME"]
+        running: true
+        stdout: SplitParser {
+            onRead: line => {
+                const h = line.trim();
+                if (h.length > 0) root.homeDir = h;
             }
         }
     }

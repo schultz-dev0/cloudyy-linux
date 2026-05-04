@@ -2,6 +2,7 @@
 import QtQuick
 import Quickshell
 import "../.."
+import "../../overview/services"
 
 Item {
     id: root
@@ -52,26 +53,13 @@ Item {
             bottomMargin: 6  // space for running dot
             horizontalCenter: parent.horizontalCenter
         }
-        
-        property int fallbackStage: 0
-        property string baseIcon: root.appData.icon ?? "application-x-executable"
-        onBaseIconChanged: fallbackStage = 0
 
-        source: {
-            if (baseIcon.startsWith("/")) return "file://" + baseIcon
-            const theme = parent.themeName || "Papirus-Dark"
-            if (fallbackStage === 0) return `file:///usr/share/icons/${theme}/48x48/apps/${baseIcon}.svg`
-            if (fallbackStage === 1) return `file:///usr/share/icons/${theme}/scalable/apps/${baseIcon}.svg`
-            if (fallbackStage === 2) return `file:///usr/share/icons/${theme}/48x48/devices/${baseIcon}.svg`
-            if (fallbackStage === 3) return `file:///usr/share/icons/${theme}/scalable/devices/${baseIcon}.svg`
-            if (fallbackStage === 4) return `file:///usr/share/icons/${theme}/48x48/places/${baseIcon}.svg`
-            if (fallbackStage === 5) return `file:///usr/share/icons/${theme}/scalable/places/${baseIcon}.svg`
-            if (fallbackStage === 6) return `file:///usr/share/icons/${theme}/48x48/categories/${baseIcon}.svg`
-            if (fallbackStage === 7) return `file:///usr/share/icons/${theme}/scalable/categories/${baseIcon}.svg`
-            if (fallbackStage === 8) return `file:///usr/share/icons/Papirus-Dark/48x48/apps/${baseIcon}.svg`
-            if (fallbackStage === 9) return `file:///usr/share/icons/Papirus-Dark/48x48/devices/${baseIcon}.svg`
-            return `file:///usr/share/icons/${theme}/48x48/apps/application-x-executable.svg`
-        }
+        property int sourceIndex: 0
+        property var sources: HyprlandData.iconSourcesForName(root.appData.icon ?? "application-x-executable")
+
+        onSourcesChanged: sourceIndex = 0
+
+        source: sources[sourceIndex] ?? "image://icon/application-x-executable"
 
         sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
         smooth: true
@@ -79,9 +67,8 @@ Item {
         transformOrigin: Item.Bottom
 
         onStatusChanged: {
-            if (status === Image.Error && fallbackStage < 10) {
-                fallbackStage++
-            }
+            if (status === Image.Error && sourceIndex < sources.length - 1)
+                Qt.callLater(() => sourceIndex++);
         }
     }
 
