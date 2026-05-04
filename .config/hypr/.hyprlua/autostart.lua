@@ -1,5 +1,5 @@
 -- Autostart — equivalent of exec-once entries
--- Sources: user-configs/user_autostart.conf + source/shell-stack.conf (quickshell)
+-- Sources: user-configs/user_autostart.conf + source/quickshell.conf
 
 hl.on("hyprland.start", function()
     local home    = os.getenv("HOME")
@@ -17,6 +17,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("trcc theme-load \"Custom_Grace\"")
     hl.exec_cmd(scripts .. "/ssh-auth.sh")
 
-    -- Shell stack: quickshell bar (from source/shell-stack.conf, profile: quickshell)
-    hl.exec_cmd("qs -d")
+    -- Quickshell autostart (mirrors source/quickshell.conf)
+    hl.exec_cmd("env QS_NO_RELOAD_POPUP=1 qs -d")
 end)
