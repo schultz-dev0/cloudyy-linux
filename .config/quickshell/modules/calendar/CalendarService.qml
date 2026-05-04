@@ -10,9 +10,9 @@ Singleton {
     id: root
 
     // ── State ─────────────────────────────────────────────────────────────────
-    property var events: []
-    property var markedDays: ({})
-    property bool loaded: false
+    property var    events:         []
+    property var    markedDays:     ({})
+    property bool   loaded:         false
 
     // ── Date helpers ──────────────────────────────────────────────────────────
     function today() {
@@ -43,8 +43,6 @@ Singleton {
     function friendlyDate(dateStr) {
         const t = today()
         const d = new Date(dateStr + "T00:00:00")
-        const parts = dateStr.split("-")
-        const y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, day = parseInt(parts[2])
         if (dateStr === t) return "Today"
         const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
         if (dateStr === Qt.formatDate(tomorrow, "yyyy-MM-dd")) return "Tomorrow"
@@ -83,8 +81,7 @@ Singleton {
 
     // Returns up to 3 color-tag strings for dot indicators on a grid cell
     function dotsForDate(dateStr) {
-        const evs = eventsForDate(dateStr)
-        return evs.slice(0, 3).map(e => e.color || "primary")
+        return eventsForDate(dateStr).slice(0, 3).map(e => e.color || "primary")
     }
 
     // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -127,6 +124,7 @@ Singleton {
         saveProc.running = true
     }
 
+    // ── Processes ─────────────────────────────────────────────────────────────
     Process {
         id: initProc
         command: [
@@ -139,14 +137,11 @@ Singleton {
             id: initCollector
             onStreamFinished: {
                 const text = initCollector.text.trim()
-                if (!text || text === "{}") {
-                    root.loaded = true
-                    return
-                }
+                if (!text || text === "{}") { root.loaded = true; return }
                 try {
-                    const parsed = JSON.parse(text)
-                    root.events      = parsed.events      || []
-                    root.markedDays  = parsed.markedDays  || {}
+                    const parsed    = JSON.parse(text)
+                    root.events     = parsed.events     || []
+                    root.markedDays = parsed.markedDays || {}
                 } catch (err) {
                     console.warn("calendar: failed to parse events.json:", err)
                 }
@@ -157,13 +152,15 @@ Singleton {
 
     Process {
         id: saveProc
+        running: false
         command: [
             "sh", "-lc",
             "dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/calendar\";" +
             "printf '%s' \"$QS_DATA\" > \"$dir/events.json\""
         ]
-        running: false
     }
 
-    Component.onCompleted: initProc.running = true
+    Component.onCompleted: {
+        initProc.running = true
+    }
 }
