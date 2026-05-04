@@ -39,7 +39,6 @@ PanelWindow {
     implicitHeight: Math.min(panelMaxHeight, outerCol.implicitHeight + panelPadding * 2)
     color: "transparent"
     visible: open
-    WlrLayershell.namespace:     "quickshell:calendar"
     WlrLayershell.keyboardFocus: dialogLayer.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // ── Panel shell ───────────────────────────────────────────────────────────
@@ -47,13 +46,9 @@ PanelWindow {
         id: panelRect
         anchors.fill: parent
         radius: panel.panelRadius
-        // Lower alpha so Hyprland blur shows through
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.72)
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
-        clip: true
-
-        ElevatedEffect { target: panelRect }
 
         // ── Popout animation: scale from bottom-right + fade ─────────────────
         opacity: panel.open ? 1 : 0
