@@ -152,16 +152,21 @@ set_gtk_theme() {
 set_firefox_theme() {
   local mode="$1"
   local dark_value=0
-  [[ "$mode" == "dark" ]] && dark_value=1
+  local content_override=1 # Light
+  if [[ "$mode" == "dark" ]]; then
+    dark_value=1
+    content_override=2 # Dark
+  fi
 
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value"
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value"
-  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value"
+  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value" "$content_override"
+  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value" "$content_override"
+  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value" "$content_override"
 }
 
 _apply_firefox_profiles_ini() {
   local ini_file="$1"
   local dark_value="$2"
+  local content_override="$3"
   [[ -f "$ini_file" ]] || return 0
 
   local profiles_root
@@ -174,7 +179,7 @@ _apply_firefox_profiles_ini() {
     case "$line" in
     "[Profile"*"]")
       if [[ -n "$current_path" ]]; then
-        _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value"
+        _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
       fi
       current_path=""
       current_relative=1
@@ -189,7 +194,7 @@ _apply_firefox_profiles_ini() {
   done <"$ini_file"
 
   if [[ -n "$current_path" ]]; then
-    _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value"
+    _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
   fi
 }
 
@@ -198,6 +203,7 @@ _write_firefox_userjs() {
   local raw_path="$2"
   local is_relative="$3"
   local dark_value="$4"
+  local content_override="$5"
   local profile_dir="$raw_path"
 
   if [[ "$is_relative" == "1" ]]; then
@@ -219,9 +225,11 @@ _write_firefox_userjs() {
 
   {
     cat "$tmp" 2>/dev/null || true
-    echo 'user_pref("layout.css.prefers-color-scheme.content-override", 0);'
+    echo "user_pref(\"layout.css.prefers-color-scheme.content-override\", 3);"
     echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
     echo "user_pref(\"ui.systemUsesDarkTheme\", ${dark_value});"
+    echo "user_pref(\"browser.theme.content-theme\", ${dark_value});"
+    echo "user_pref(\"browser.theme.toolbar-theme\", ${dark_value});"
   } >"$user_js"
 
   rm -f "$tmp"

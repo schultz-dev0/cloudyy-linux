@@ -482,7 +482,7 @@ PanelWindow {
                                 layer.smooth: true
                                 layer.effect: MultiEffect {
                                     colorization: 1.0
-                                    colorizationColor: focused ? Theme.on_primary_container : Theme.on_surface
+                                    colorizationColor: focused ? Theme.secondary : Theme.outline
                                 }
                                 onStatusChanged: {
                                     if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
