@@ -125,6 +125,9 @@ run_test "hyprland-install.sh sources dependencies.conf" \
 run_test "hyprland-install.sh has paru/yay fallback" \
     "grep -q 'paru\|yay' ./hyprland-install.sh && grep -q 'AUR_HELPER' ./hyprland-install.sh"
 
+run_test "test-quickshell-only.sh passes" \
+    "bash ./test-quickshell-only.sh"
+
 # =============================================================================
 # TEST GROUP 5: dependencies.conf Content
 # =============================================================================
