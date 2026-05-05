@@ -17,6 +17,26 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("trcc theme-load \"Custom_Grace\"")
     hl.exec_cmd(scripts .. "/ssh-auth.sh")
 
-    -- Quickshell autostart (mirrors source/quickshell.conf)
-    hl.exec_cmd("env QS_NO_RELOAD_POPUP=1 qs -d")
+    -- Quickshell autostart: read canonical command from source/quickshell.conf
+    local qs_conf = home .. "/.config/hypr/source/quickshell.conf"
+    local f = io.open(qs_conf, "r")
+    if not f then
+        error("FATAL: " .. qs_conf .. " not found — quickshell startup source missing")
+    end
+
+    local qs_cmd = nil
+    for line in f:lines() do
+        local cmd = line:match("^exec%-once%s*=%s*(.+)$")
+        if cmd then
+            qs_cmd = cmd
+            break
+        end
+    end
+    f:close()
+
+    if not qs_cmd then
+        error("FATAL: No exec-once command found in " .. qs_conf)
+    end
+
+    hl.exec_cmd(qs_cmd)
 end)
