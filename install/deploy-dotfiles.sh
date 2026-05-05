@@ -388,11 +388,17 @@ main() {
   # Wire quickshell bridge and restore theme
   local _self_dir
   _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -x "${_self_dir}/widget_bridge.sh" ]]; then
-    if ! bash "${_self_dir}/widget_bridge.sh"; then
-      log_error "widget_bridge.sh failed"
-      exit 1
-    fi
+  if [[ ! -f "${_self_dir}/widget_bridge.sh" ]]; then
+    log_error "widget_bridge.sh not found: ${_self_dir}/widget_bridge.sh"
+    exit 1
+  fi
+  if [[ ! -x "${_self_dir}/widget_bridge.sh" ]]; then
+    log_error "widget_bridge.sh is not executable: ${_self_dir}/widget_bridge.sh"
+    exit 1
+  fi
+  if ! bash "${_self_dir}/widget_bridge.sh"; then
+    log_error "widget_bridge.sh failed"
+    exit 1
   fi
 
   if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
