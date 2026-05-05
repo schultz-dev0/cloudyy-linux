@@ -125,6 +125,7 @@ ShellRoot {
     QuickCalculator.Calculator {
         id: calcWindow
         open: root.calculatorOpen
+        onRequestClose: root.calculatorOpen = false
     }
 
     QuickSpotlight.Spotlight {}

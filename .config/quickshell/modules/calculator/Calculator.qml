@@ -20,6 +20,7 @@ PanelWindow {
 
     // ── Public ────────────────────────────────────────────────────────────
     property bool open: false
+    signal requestClose()
 
     // ── Internal State ────────────────────────────────────────────────────
     readonly property string liveResult:    _liveResult
@@ -169,7 +170,7 @@ PanelWindow {
 
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Escape) {
-                            calcWindow.open = false
+                            calcWindow.requestClose()
                             event.accepted = true
                         } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
                                    && calcWindow._hasResult && !calcWindow._resultIsError) {
@@ -262,17 +263,6 @@ PanelWindow {
     }
 
     // ── Public API ────────────────────────────────────────────────────────
-    function toggleVisibility() {
-        open = !open
-        if (open) Qt.callLater(() => inputField.forceActiveFocus())
-    }
-
-    function show() {
-        open = true
-        Qt.callLater(() => inputField.forceActiveFocus())
-    }
-
-    function hide() {
-        open = false
-    }
+    // Visibility is owned by shell.qml via the 'open' binding.
+    // Use the requestClose signal to ask the parent to close.
 }
