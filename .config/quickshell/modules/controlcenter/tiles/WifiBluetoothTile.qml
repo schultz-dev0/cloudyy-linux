@@ -27,10 +27,13 @@ Rectangle {
     readonly property int tileRadius: 12
 
     // ── Layout ────────────────────────────────────────────────────────────
-    // Spans 2 grid rows to match the height of the two tiles beside it
+    // Spans 2 grid rows to match the height of the two tiles beside it.
+    // z: 1 ensures this tile paints after its neighbours so the shadow
+    // from ElevatedEffect is not obscured by adjacent tiles.
     Layout.rowSpan:    2
     Layout.fillWidth:  true
     Layout.fillHeight: true
+    z: 1
 
     radius:       tileRadius
     color:        Theme.surface_container
