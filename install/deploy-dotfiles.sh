@@ -249,7 +249,6 @@ verify_deployment() {
 
   local -a critical_links=(
     "${HOME}/.config/hypr"
-    "${HOME}/.config/waybar"
     "${HOME}/.config/kitty"
   )
 
@@ -278,7 +277,6 @@ reapply_skip_worktree() {
   local -a state_files=(
     ".config/matugen/generated/colors.css"
     ".config/matugen/generated/colors-glass.rasi"
-    ".config/matugen/generated/colors-swaync.css"
     ".config/matugen/generated/colors-swayosd.css"
     ".config/matugen/generated/gtk-3.css"
     ".config/matugen/generated/gtk-4.css"
@@ -287,7 +285,6 @@ reapply_skip_worktree() {
     ".config/matugen/generated/matugen_colors.lua"
     ".config/matugen/generated/pywalfox-colors.json"
     ".config/matugen/generated/vscode.json"
-    ".config/matugen/generated/waybar-colors.css"
     ".config/kitty/kitty-colors.conf"
     ".config/btop/themes/matugen.theme"
     ".config/nvim/lua/current_mode.lua"
@@ -301,9 +298,6 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
-    ".config/waybar/.current_position"
-    ".config/waybar/.current_preset"
-    ".config/waybar/.vertical_side"
     ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"
