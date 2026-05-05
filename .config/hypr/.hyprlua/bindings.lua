@@ -37,8 +37,8 @@ hl.bind(mainMod .. " + Space",       hl.dsp.exec_cmd(scripts .. "/rofi/applicati
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
-hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -w"),          { desc = "Screenshot region and save" })
-hl.bind("Print",         hl.dsp.exec_cmd("hyprcap shot region -c -n"),        { desc = "Screenshot to clipboard" })
+hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -z -w"),          { desc = "Screenshot region and save" })
+hl.bind("Print",         hl.dsp.exec_cmd("hyprcap shot region -z -c -n"),        { desc = "Screenshot to clipboard" })
 hl.bind("ALT + Print",   hl.dsp.exec_cmd("hyprcap rec region -c -w"),         { desc = "Start screen recording" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd(scripts .. "/theme_controller.sh random"), { desc = "Random wallpaper" })
@@ -130,3 +130,4 @@ hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"), { desc = "
 -- --- Cloud Center Additions (managed by Cloud Center) ---
 hl.bind("SUPER + CTRL + K", hl.dsp.exec_cmd("rusty_keys"))
 -- --- End Cloud Center Additions ---
+hl.bind(mainMod .. " SHIFT + E", hl.dsp.exec_cmd("~/cloudyy_scripts/clipboard/text_extract.sh"), { desc = "Live Text Extraction" })

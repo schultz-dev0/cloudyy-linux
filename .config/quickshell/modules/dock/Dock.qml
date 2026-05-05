@@ -67,12 +67,6 @@ PanelWindow {
             exec: "spotify",
             icon: "spotify"
         }
-        //{
-        //class: "apps",
-        //exec: ["/usr/bin/bash", "-c", "$HOME/cloudyy_scripts/rofi/applications.sh"],
-        //icon: "kitty"
-        //},
-        ,
     ]
 
     // ── State ──────────────────────────────────────────────────────────────
@@ -128,6 +122,7 @@ PanelWindow {
                     exec: app.exec,
                     icon: app.icon,
                     isRunning: !!runningMap[app.class.toLowerCase()],
+                    window: null,
                     isPinned: true
                 }));
 
@@ -136,13 +131,15 @@ PanelWindow {
                 const w = runningMap[cls];
                 // Use DesktopEntries lookup for a proper icon name; fall back to
                 // the raw class only if no desktop entry is found
-                const entry = DesktopEntries.heuristicLookup(w.class || w.initialClass || w.initialTitle);
-                const iconName = entry?.icon || w.class || cls;
+                const candidates = HyprlandData.iconCandidatesForWindow(w);
+                let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || cls);
+                if (w.class && w.class.toLowerCase().includes("matlab")) iconName = "/home/schultz/.local/share/icons/matlab.png";
                 result.push({
                     class: w.class,
                     exec: w.class.toLowerCase(),
                     icon: iconName,
                     isRunning: true,
+                    window: w,
                     isPinned: false
                 });
             }
