@@ -389,7 +389,10 @@ main() {
   local _self_dir
   _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [[ -x "${_self_dir}/widget_bridge.sh" ]]; then
-    bash "${_self_dir}/widget_bridge.sh" || log_warn "widget_bridge.sh failed (non-fatal)"
+    if ! bash "${_self_dir}/widget_bridge.sh"; then
+      log_error "widget_bridge.sh failed"
+      exit 1
+    fi
   fi
 
   if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
