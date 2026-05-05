@@ -22,11 +22,10 @@ PanelWindow {
     readonly property int sectionRadius: 16
     readonly property int panelPadding: 18
     readonly property int emptyNotifHeight: 36
-    readonly property int maxNotifListHeight: 420
     readonly property int notifCardShadowSideInset: 18
     readonly property int notifCardShadowTopInset: 10
     readonly property int notifCardShadowBottomInset: 22
-    readonly property bool hasNotifications: notifList.count > 0
+    readonly property bool hasNotifications: (panel.notifServer?.trackedNotifications?.count ?? 0) > 0
 
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool open: false
@@ -403,92 +402,144 @@ PanelWindow {
                 Layout.fillWidth: true
             }
 
-            // ── Notification list ─────────────────────────────────────────────
-            ListView {
-                id: notifList
+            // ── Notification stack ────────────────────────────────────────────
+            //
+            // Cards are layered using absolute positioning + z-order.
+            // Card 0 (front): full width, full opacity.
+            // Card 1 (behind): slightly narrower, lower opacity, peeking below.
+            // Card 2 (behind): same pattern — max 3 cards shown.
+            //
+            // The container's implicitHeight tracks the front card live so the
+            // panel expands/contracts smoothly as notification content changes.
+            Item {
+                id: notifStack
                 Layout.fillWidth: true
-                Layout.preferredHeight: panel.hasNotifications
-                    ? Math.min(contentHeight, panel.maxNotifListHeight)
-                    : panel.emptyNotifHeight
-                spacing: 6
-                clip: true
-                model: panel.notifServer ? panel.notifServer.trackedNotifications : null
 
-                delegate: Item {
-                    id: cardWrapper
-                    required property var modelData
-                    width: ListView.view.width
-                    height: panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
+                // ── Tunables ──────────────────────────────────────────────────
+                readonly property int maxVisible: 3
+                readonly property int peekHeight: 12  // px each card peeks below the one in front
+                readonly property int widthInset:  8  // px inset on each side per depth level
 
-                    ElevatedEffect {
-                        target: card
-                    }
+                // Front-card height kept in sync via delegate bindings below.
+                property real frontCardHeight: panel.notifCardShadowTopInset
+                                             + 72
+                                             + panel.notifCardShadowBottomInset
 
-                    Rectangle {
-                        id: card
-                        x: panel.notifCardShadowSideInset
-                        y: panel.notifCardShadowTopInset
-                        width: parent.width - panel.notifCardShadowSideInset * 2
-                        height: cardContent.implicitHeight + 28
-                        radius: 18
-                        color: cardWrapper.modelData.urgency === 2
-                            ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
-                            : Theme.surface_container
-                        border.color: cardWrapper.modelData.urgency === 2 ? Theme.error : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
-                        border.width: 1
+                readonly property int notifCount: notifRepeater.count
+                readonly property int shownCount: Math.min(notifCount, maxVisible)
 
-                        Column {
-                            id: cardContent
-                            anchors {
-                                left: parent.left
-                                right: parent.right
-                                top: parent.top
-                                margins: 14
+                implicitHeight: notifCount === 0
+                    ? panel.emptyNotifHeight
+                    : frontCardHeight + Math.max(0, shownCount - 1) * peekHeight
+
+                Behavior on implicitHeight {
+                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                }
+
+                Repeater {
+                    id: notifRepeater
+                    model: panel.notifServer ? panel.notifServer.trackedNotifications : null
+
+                    delegate: Item {
+                        id: cardWrapper
+
+                        required property var modelData
+                        required property int index
+
+                        visible: index < notifStack.maxVisible
+
+                        // Higher index = further back = lower z = rendered first.
+                        z:       notifStack.maxVisible - index
+
+                        // Each card shifts inward and downward to create depth.
+                        x:       index * notifStack.widthInset
+                        y:       index * notifStack.peekHeight
+                        width:   notifStack.width - (index * notifStack.widthInset * 2)
+                        height:  panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
+                        opacity: 1.0 - (index * 0.18)
+
+                        Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                        // Keep the stack container's implicitHeight in sync with
+                        // the actual front-card height (content may wrap/grow).
+                        onHeightChanged:       if (index === 0) notifStack.frontCardHeight = height
+                        Component.onCompleted: if (index === 0) notifStack.frontCardHeight = height
+
+                        ElevatedEffect { target: card }
+
+                        Rectangle {
+                            id: card
+                            x:      panel.notifCardShadowSideInset
+                            y:      panel.notifCardShadowTopInset
+                            width:  parent.width - panel.notifCardShadowSideInset * 2
+                            height: cardContent.implicitHeight + 28
+                            radius: 18
+                            color: cardWrapper.modelData.urgency === 2
+                                ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
+                                : Theme.surface_container
+                            border.color: cardWrapper.modelData.urgency === 2
+                                ? Theme.error
+                                : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                            border.width: 1
+
+                            Column {
+                                id: cardContent
+                                anchors {
+                                    left:    parent.left
+                                    right:   parent.right
+                                    top:     parent.top
+                                    margins: 14
+                                }
+                                spacing: 4
+
+                                Text {
+                                    text:           cardWrapper.modelData.appName
+                                    color:          Theme.on_surface_variant
+                                    font.family:    "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                }
+
+                                Text {
+                                    width:          parent.width
+                                    text:           cardWrapper.modelData.summary
+                                    color:          Theme.on_surface
+                                    font.family:    "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 14
+                                    font.weight:    Font.Bold
+                                    wrapMode:       Text.WordWrap
+                                }
+
+                                Text {
+                                    visible:          cardWrapper.modelData.body !== ""
+                                    width:            parent.width
+                                    text:             cardWrapper.modelData.body
+                                    color:            Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.8)
+                                    font.family:      "JetBrainsMono Nerd Font"
+                                    font.pixelSize:   13
+                                    wrapMode:         Text.WordWrap
+                                    maximumLineCount: 3
+                                    elide:            Text.ElideRight
+                                }
                             }
-                            spacing: 4
 
-                            Text {
-                                text: cardWrapper.modelData.appName
-                                color: Theme.on_surface_variant
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
+                            // Only the front card is interactive — dismissing it
+                            // reveals the next card in the stack.
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled:      cardWrapper.index === 0
+                                onClicked:    cardWrapper.modelData.dismiss()
                             }
-                            Text {
-                                width: parent.width
-                                text: cardWrapper.modelData.summary
-                                color: Theme.on_surface
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 14
-                                font.weight: Font.Bold
-                                wrapMode: Text.WordWrap
-                            }
-                            Text {
-                                visible: cardWrapper.modelData.body !== ""
-                                width: parent.width
-                                text: cardWrapper.modelData.body
-                                color: Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.8)
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 13
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: 3
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: cardWrapper.modelData.dismiss()
                         }
                     }
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    visible: notifList.count === 0
-                    text: "No notifications"
-                    color: Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.4)
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    visible:          notifStack.notifCount === 0
+                    text:             "No notifications"
+                    color:            Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.4)
+                    font.family:      "JetBrainsMono Nerd Font"
+                    font.pixelSize:   13
                 }
             }
         }
