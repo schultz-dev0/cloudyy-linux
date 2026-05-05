@@ -31,10 +31,12 @@ PanelWindow {
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool open: false
     property bool dnd: false
+    property bool calculatorOpen: false
     property var notifServer: null
     property var sliderController: null
     signal close
     signal dndToggle
+    signal calculatorToggle
     onOpenChanged: {
         if (open && sliderController)
             sliderController.refreshAll();
@@ -142,6 +144,12 @@ PanelWindow {
                 NightLightTile {
                     id: nlTile
                     sliderController: panel.sliderController
+                }
+
+                CalculatorTile {
+                    id: calcTile
+                    open: panel.calculatorOpen
+                    onClicked: panel.calculatorToggle()
                 }
             }
 
