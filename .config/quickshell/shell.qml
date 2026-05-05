@@ -9,6 +9,7 @@ import "modules/dock" as QuickDock
 import "modules/sliders" as QuickSliders
 import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
+import "modules/calculator" as QuickCalculator
 
 ShellRoot {
     id: root
@@ -17,6 +18,7 @@ ShellRoot {
     property bool notifOpen: false
     property bool dnd: false
     property bool calendarOpen: false
+    property bool calculatorOpen: false
 
     // ── Notification service ─────────────────────────────────────────────────
     NotificationServer {
@@ -74,6 +76,13 @@ ShellRoot {
         }
     }
 
+    IpcHandler {
+        target: "calculator"
+        function toggle() { root.calculatorOpen = !root.calculatorOpen }
+        function show()   { root.calculatorOpen = true }
+        function hide()   { root.calculatorOpen = false }
+    }
+
     // The overview repo manages its own IPC ("overview") inside its modules!
     // So we don't need the custom IPC handler here anymore.
 
@@ -96,6 +105,7 @@ ShellRoot {
         sliderController: sliderController
         onClose: root.notifOpen = false
         onDndToggle: root.dnd = !root.dnd
+        onCalculatorToggle: root.calculatorOpen = !root.calculatorOpen
     }
 
     NotificationPopups {
@@ -110,6 +120,11 @@ ShellRoot {
     QuickCalendar.CalendarPanel {
         id: calendarPanel
         open: root.calendarOpen
+    }
+
+    QuickCalculator.Calculator {
+        id: calcWindow
+        open: root.calculatorOpen
     }
 
     QuickSpotlight.Spotlight {}
