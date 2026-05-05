@@ -41,8 +41,7 @@ PanelWindow {
         if (open && sliderController)
             sliderController.refreshAll();
         if (open) {
-            wifiTile.refresh();
-            btTile.refresh();
+            wifibtTile.refresh();
             darkTile.refresh();
         }
     }
@@ -120,21 +119,23 @@ PanelWindow {
             }
 
             // ── Tile grid ─────────────────────────────────────────────────────
+            //
+            // Layout (2 columns, macOS-style):
+            //   [ WiFi + Bluetooth (rowspan 2) ]  [ Do Not Disturb ]
+            //   [                              ]  [ Dark Mode      ]
+            //   [ Night Light                  ]  [ Calculator     ]
+            //
             TileGrid {
                 Layout.fillWidth: true
 
-                WifiTile {
-                    id: wifiTile
+                WifiBluetoothTile {
+                    id: wifibtTile
                 }
 
                 DndTile {
                     id: dndTile
                     dnd: panel.dnd
                     onDndToggle: panel.dndToggle()
-                }
-
-                BluetoothTile {
-                    id: btTile
                 }
 
                 DarkModeTile {
