@@ -140,8 +140,15 @@ phase_preflight() {
 }
 
 # --- Phase: Packages ---------------------------------------------------------
+
+# --- Phase: Packages ---------------------------------------------------------
 phase_packages() {
   bash "${SCRIPT_DIR}/hyprland-install.sh"
+}
+
+# --- Phase: Keyring ---------------------------------------------------------
+phase_keyring() {
+  bash "${SCRIPT_DIR}/setup-keyring.sh"
 }
 
 # --- Phase: Dotfiles ---------------------------------------------------------
@@ -149,7 +156,6 @@ phase_dotfiles() {
   bash "${SCRIPT_DIR}/deploy-dotfiles.sh"
 }
 
-# --- Phase: Services ---------------------------------------------------------
 phase_services() {
   log "Enabling system services..."
 
@@ -188,6 +194,8 @@ declare -a PHASE_IDS=(
   "preflight"
   "dotfiles"
   "packages"
+  "keyring"
+  "dotfiles"
   "services"
   "finalize"
 )
@@ -196,6 +204,8 @@ declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
   [dotfiles]="Dotfiles Deployment"
   [packages]="Hardware & Package Installation"
+  [keyring]="Keyring Configuration"
+  [dotfiles]="Dotfiles Deployment"
   [services]="Service Configuration"
   [finalize]="Finalization"
 )

@@ -47,15 +47,25 @@ do
 done
 
 resolve_icon_path() {
-    local candidate normalized dir match
+    local candidate normalized dir match expanded
 
     for candidate in "$@"; do
         [[ -z "$candidate" ]] && continue
         normalized="${candidate#file://}"
 
+        # Handle absolute paths
         if [[ "$normalized" = /* && -f "$normalized" ]]; then
             printf '%s\n' "$normalized"
             return 0
+        fi
+
+        # Handle tilde paths
+        if [[ "$normalized" = \~/* ]]; then
+            expanded="${normalized/#\~/$HOME}"
+            if [[ -f "$expanded" ]]; then
+                printf '%s\n' "$expanded"
+                return 0
+            fi
         fi
 
         normalized="${normalized##*/}"
