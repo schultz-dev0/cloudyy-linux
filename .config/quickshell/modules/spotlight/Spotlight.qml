@@ -8,6 +8,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../.."
 import "../../overview/services"
+import "../calculator/backend" as CalcBackend
 
 PanelWindow {
     id: spotlight
@@ -31,6 +32,11 @@ PanelWindow {
     readonly property int topMargin: 80
     readonly property int maxFileResults: 10
     readonly property int debounceMs: 120
+
+    // ── Calculator Backend ────────────────────────────────────────────────
+    CalcBackend.Calculator {
+        id: calculator
+    }
 
     // ── State ─────────────────────────────────────────────────────────────
     property bool spotlightVisible: false
@@ -103,8 +109,25 @@ PanelWindow {
                 spotlight.results = [];
                 return;
             }
-            searchProc.running = false;
+
+            // Always start from a clean slate so stale app/file results
+            // never linger below a new calculator result or vice versa.
             spotlight.results = [];
+
+            // Prepend a calculator result if the query is a valid math expression
+            if (calculator.isMathExpression(spotlight.query)) {
+                const value = calculator.evaluate(spotlight.query);
+                if (!calculator.hasError && value !== null) {
+                    spotlight.results = [{
+                        type:       "calculator",
+                        expression: spotlight.query,
+                        result:     calculator.formatResult(value)
+                    }];
+                }
+            }
+
+            // Then run file/app search
+            searchProc.running = false;
             searchProc.command = ["bash", spotlight.searchScript, spotlight.query];
             searchProc.running = true;
         }
@@ -121,6 +144,9 @@ PanelWindow {
                     Hyprland.dispatch("focuswindow class:" + r.wmclass);
                 else
                     launch(["uwsm-app", "--", r.exec]);
+            } else if (r.type === "calculator") {
+                // Copy result to clipboard
+                launch(["wl-copy", r.result]);
             } else {
                 launch(["xdg-open", r.path]);
             }
@@ -279,6 +305,8 @@ PanelWindow {
                                     return "APPS";
                                 if (modelData.type === "file")
                                     return "FILES";
+                                if (modelData.type === "calculator")
+                                    return "CALCULATOR";
                                 return "";
                             }
                             font.pixelSize: 10

@@ -22,15 +22,11 @@ PanelWindow {
     property bool open: false
     signal requestClose()
 
-    // ── Internal State ────────────────────────────────────────────────────
-    readonly property string liveResult:    _liveResult
-    readonly property bool   hasResult:     _hasResult
-    readonly property bool   resultIsError: _resultIsError
-
-    property string _liveResult:     ""
-    property bool   _hasResult:      false
-    property bool   _resultIsError:  false
-    property bool   _justCopied:     false
+    // ── State ─────────────────────────────────────────────────────────────
+    property string liveResult:    ""
+    property bool   hasResult:     false
+    property bool   resultIsError: false
+    property bool   justCopied:    false
 
     // ── Tunables ──────────────────────────────────────────────────────────
     readonly property int panelWidth:   340
@@ -43,7 +39,7 @@ PanelWindow {
     anchors { top: true; left: true }
     margins { top: topGap; left: leftGap }
     implicitWidth:  panelWidth
-    implicitHeight: panelRect.height
+    implicitHeight: contentCol.implicitHeight + padding * 2
     color:          "transparent"
     visible:        open
 
@@ -54,21 +50,34 @@ PanelWindow {
     onOpenChanged: {
         if (open) {
             inputField.text = ""
-            Qt.callLater(() => inputField.forceActiveFocus())
+            inputField.forceActiveFocus()
         }
     }
 
-    // ── Clipboard helper ─────────────────────────────────────────────────
-    Process {
-        id: clipProc
-        command: ["wl-copy", calcWindow._liveResult]
+    // ── One-shot clipboard helper ─────────────────────────────────────────
+    Component {
+        id: clipProto
+        Process {}
+    }
+    function copyToClipboard(text) {
+        const p = clipProto.createObject(calcWindow, { command: ["wl-copy", text] })
+        p.runningChanged.connect(() => { if (!p.running) p.destroy() })
+        p.running = true
+    }
+
+    // ── Reset "Copied!" label after a short delay ─────────────────────────
+    Timer {
+        id: copiedResetTimer
+        interval: 1500
+        repeat:   false
+        onTriggered: calcWindow.justCopied = false
     }
 
     // ── Panel shell ───────────────────────────────────────────────────────
     Rectangle {
         id: panelRect
         anchors { top: parent.top; left: parent.left; right: parent.right }
-        height: contentCol.implicitHeight + calcWindow.padding * 2
+        implicitHeight: contentCol.implicitHeight + calcWindow.padding * 2
         radius: calcWindow.panelRadius
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
@@ -149,35 +158,37 @@ PanelWindow {
                     onTextChanged: {
                         const t = text.trim()
                         if (t.length === 0) {
-                            calcWindow._liveResult    = ""
-                            calcWindow._hasResult     = false
-                            calcWindow._resultIsError = false
-                            calcWindow._justCopied    = false
+                            calcWindow.liveResult    = ""
+                            calcWindow.hasResult     = false
+                            calcWindow.resultIsError = false
+                            calcWindow.justCopied    = false
                             return
                         }
                         const val = calculator.evaluate(t)
                         if (calculator.hasError) {
-                            calcWindow._liveResult    = calculator.lastError
-                            calcWindow._hasResult     = true
-                            calcWindow._resultIsError = true
+                            calcWindow.liveResult    = calculator.lastError
+                            calcWindow.hasResult     = true
+                            calcWindow.resultIsError = true
                         } else {
-                            calcWindow._liveResult    = calculator.formatResult(val)
-                            calcWindow._hasResult     = true
-                            calcWindow._resultIsError = false
+                            calcWindow.liveResult    = calculator.formatResult(val)
+                            calcWindow.hasResult     = true
+                            calcWindow.resultIsError = false
                         }
-                        calcWindow._justCopied = false
+                        calcWindow.justCopied = false
                     }
 
-                    Keys.onPressed: event => {
-                        if (event.key === Qt.Key_Escape) {
-                            calcWindow.requestClose()
-                            event.accepted = true
-                        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                                   && calcWindow._hasResult && !calcWindow._resultIsError) {
-                            clipProc.running = true
-                            calcWindow._justCopied = true
-                            event.accepted = true
+                    Keys.onEscapePressed: {
+                        calcWindow.requestClose()
+                        event.accepted = true
+                    }
+
+                    Keys.onReturnPressed: {
+                        if (calcWindow.hasResult && !calcWindow.resultIsError) {
+                            calcWindow.copyToClipboard(calcWindow.liveResult)
+                            calcWindow.justCopied = true
+                            copiedResetTimer.restart()
                         }
+                        event.accepted = true
                     }
                 }
             }
@@ -187,11 +198,11 @@ PanelWindow {
                 Layout.fillWidth: true
                 height: 44
                 radius: 14
-                visible: calcWindow._hasResult
-                color: calcWindow._resultIsError
+                visible: calcWindow.hasResult
+                color: calcWindow.resultIsError
                     ? Qt.rgba(Theme.error_container.r, Theme.error_container.g, Theme.error_container.b, 0.35)
                     : Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
-                border.color: calcWindow._resultIsError
+                border.color: calcWindow.resultIsError
                     ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.25)
                     : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
                 border.width: 1
@@ -204,7 +215,7 @@ PanelWindow {
 
                     Text {
                         text: "="
-                        color: calcWindow._resultIsError ? Theme.error : Theme.primary
+                        color: calcWindow.resultIsError ? Theme.error : Theme.primary
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 16
                         font.weight: Font.Bold
@@ -212,10 +223,10 @@ PanelWindow {
                     }
 
                     Text {
-                        text: calcWindow._justCopied ? "Copied!" : calcWindow._liveResult
-                        color: calcWindow._justCopied
+                        text: calcWindow.justCopied ? "Copied!" : calcWindow.liveResult
+                        color: calcWindow.justCopied
                             ? Theme.tertiary
-                            : (calcWindow._resultIsError ? Theme.error : Theme.on_surface)
+                            : (calcWindow.resultIsError ? Theme.error : Theme.on_surface)
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 18
                         font.weight: Font.Medium
@@ -226,7 +237,7 @@ PanelWindow {
                     }
 
                     Text {
-                        visible: !calcWindow._resultIsError && !calcWindow._justCopied
+                        visible: !calcWindow.resultIsError && !calcWindow.justCopied
                         text: "󰆏"
                         color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
@@ -242,6 +253,7 @@ PanelWindow {
                 spacing: 16
 
                 Text {
+                    visible: calcWindow.hasResult && !calcWindow.resultIsError
                     text: "↵ copy"
                     color: Theme.on_surface_variant
                     font.family: "JetBrainsMono Nerd Font"
