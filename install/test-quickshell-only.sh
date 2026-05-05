@@ -130,7 +130,7 @@ for file in "${BINDING_FILES[@]}"; do
         echo "  SKIP: $file (not found)"
         continue
     fi
-    
+
     if grep -q "launch_waybar.sh" "$file"; then
         echo "  FAIL: $file still contains launch_waybar.sh"
         BINDING_FAILED=1
