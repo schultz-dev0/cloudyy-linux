@@ -120,37 +120,62 @@ PanelWindow {
 
             // ── Tile grid ─────────────────────────────────────────────────────
             //
-            // Layout (2 columns, macOS-style):
-            //   [ WiFi + Bluetooth (rowspan 2) ]  [ Do Not Disturb ]
-            //   [                              ]  [ Dark Mode      ]
-            //   [ Night Light                  ]  [ Calculator     ]
+            // Layout (macOS-style, two RowLayout sections):
             //
-            TileGrid {
+            //   Row 1: [ WiFi + Bluetooth (tall) ]  [ Do Not Disturb ]
+            //          [                         ]  [ Dark Mode      ]
+            //   Row 2: [ Night Light             ]  [ Calculator     ]
+            //
+            // Using explicit RowLayout / ColumnLayout instead of GridLayout
+            // rowSpan so ElevatedEffect shadows never fight z-ordering between
+            // sibling tiles — each tile lives in its own layout branch.
+            ColumnLayout {
                 Layout.fillWidth: true
+                spacing: 6
 
-                WifiBluetoothTile {
-                    id: wifibtTile
+                // ── First section: tall combined tile beside two stacked tiles ──
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    WifiBluetoothTile {
+                        id: wifibtTile
+                    }
+
+                    ColumnLayout {
+                        spacing: 6
+
+                        DndTile {
+                            id: dndTile
+                            Layout.fillWidth: true
+                            dnd: panel.dnd
+                            onDndToggle: panel.dndToggle()
+                        }
+
+                        DarkModeTile {
+                            id: darkTile
+                            Layout.fillWidth: true
+                        }
+                    }
                 }
 
-                DndTile {
-                    id: dndTile
-                    dnd: panel.dnd
-                    onDndToggle: panel.dndToggle()
-                }
+                // ── Second section: two tiles side by side ─────────────────────
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                DarkModeTile {
-                    id: darkTile
-                }
+                    NightLightTile {
+                        id: nlTile
+                        Layout.fillWidth: true
+                        sliderController: panel.sliderController
+                    }
 
-                NightLightTile {
-                    id: nlTile
-                    sliderController: panel.sliderController
-                }
-
-                CalculatorTile {
-                    id: calcTile
-                    open: panel.calculatorOpen
-                    onClicked: panel.calculatorToggle()
+                    CalculatorTile {
+                        id: calcTile
+                        Layout.fillWidth: true
+                        open: panel.calculatorOpen
+                        onClicked: panel.calculatorToggle()
+                    }
                 }
             }
 
