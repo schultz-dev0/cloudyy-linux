@@ -32,10 +32,11 @@ init_dirs
 show_main_menu() {
   local choice
   choice=$(menu "Dashboard" \
-    "󰧑 Learn\n󰈈 Appearance\n󰀻 Applications\n󰹑 System\n CloudCenter\n󰏖 Packages\n󰚰 Update\n󰚩 AI\n󰐥 Power")
+    "󰧑 Learn\n󰛔 Tools\n󰈈 Appearance\n󰀻 Applications\n󰹑 System\n CloudCenter\n󰏖 Packages\n󰚰 Update\n󰚩 AI\n󰐥 Power")
 
   case "$choice" in
   "󰧑 Learn") exec "${ROFI_DIR}/learn.sh" ;;
+  "󰛔 Tools") exec "${ROFI_DIR}/tools.sh" ;;
   "󰈈 Appearance") exec "${ROFI_DIR}/appearance.sh" ;;
   "󰀻 Applications") exec "${ROFI_DIR}/applications.sh" ;;
   "󰹑 System") exec "${ROFI_DIR}/system.sh" ;;
