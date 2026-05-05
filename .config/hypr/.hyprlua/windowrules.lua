@@ -118,14 +118,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "cloudcenter-waybar",
-	match = { class = "^(dev.cloudyy.WaybarEditor)$" },
-	float = true,
-	size = "1000 960",
-	center = true,
-})
-
-hl.window_rule({
 	name = "openrgb",
 	match = { class = "org.openrgb.OpenRGB" },
 	float = true,
@@ -191,21 +183,6 @@ hl.layer_rule({
 	name = "rofi",
 	match = { namespace = "rofi" },
 	animation = "slide down",
-})
-
-hl.layer_rule({
-	name = "logout_dialog_style",
-	match = { namespace = "logout_dialog" },
-	blur = true,
-	ignore_alpha = 0.0,
-})
-
-hl.layer_rule({
-	name = "waybar",
-	match = { namespace = "waybar" },
-	blur = true,
-	ignore_alpha = 0.5,
-	xray = true,
 })
 
 hl.layer_rule({
