@@ -158,6 +158,12 @@ link_config_dirs() {
     [[ -d "$dir" ]] || continue
     local dirname
     dirname="$(basename "$dir")"
+
+    # Skip legacy shell directories - quickshell is the only active shell
+    if [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]]; then
+      continue
+    fi
+
     safe_symlink "$dir" "${HOME}/.config/${dirname}"
     ((++linked))
   done

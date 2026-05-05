@@ -12,8 +12,35 @@ echo ""
 
 FAILED=0
 
-# Test 1: Cloud Center config.yaml must not expose active Waybar page block
-echo "[1/5] Checking cloudyy_scripts/cloud-center-v2/config.yaml..."
+# Test 1: deploy-dotfiles.sh must exclude legacy shell dirs from active symlinking
+echo "[1/7] Checking install/deploy-dotfiles.sh link_config_dirs() excludes waybar/swaync..."
+# Check if link_config_dirs has exclusion logic for waybar/swaync
+if grep -A 20 "^link_config_dirs()" install/deploy-dotfiles.sh | grep -B 1 -A 1 -E "(waybar|swaync)" | grep -q "continue"; then
+    echo "  PASS: link_config_dirs() excludes legacy shell dirs"
+else
+    echo "  FAIL: link_config_dirs() still symlinks all .config/* including waybar/swaync without exclusions"
+    FAILED=1
+fi
+
+# Test 2: Hyprland Lua windowrules must not contain active Waybar handling
+echo "[2/7] Checking .config/hypr/.hyprlua/windowrules.lua for Waybar rules..."
+WINDOWRULE_FAILED=0
+if grep -E "WaybarEditor" .config/hypr/.hyprlua/windowrules.lua | grep -qv "^[[:space:]]*--"; then
+    echo "  FAIL: windowrules.lua still has active WaybarEditor window rule"
+    WINDOWRULE_FAILED=1
+fi
+if grep -E 'namespace.*=.*"waybar"' .config/hypr/.hyprlua/windowrules.lua | grep -qv "^[[:space:]]*--"; then
+    echo "  FAIL: windowrules.lua still has active waybar layer rule"
+    WINDOWRULE_FAILED=1
+fi
+if [ $WINDOWRULE_FAILED -eq 0 ]; then
+    echo "  PASS: No active Waybar rules in windowrules.lua"
+else
+    FAILED=1
+fi
+
+# Test 3: Cloud Center config.yaml must not expose active Waybar page block
+echo "[3/7] Checking cloudyy_scripts/cloud-center-v2/config.yaml..."
 if grep -E "^\s+- id: waybar$" cloudyy_scripts/cloud-center-v2/config.yaml >/dev/null 2>&1; then
     echo "  FAIL: Cloud Center config still has active Waybar page block (id: waybar)"
     FAILED=1
@@ -22,7 +49,7 @@ else
 fi
 
 # Test 2: Cloud Center Python must not expose waybar CLI/page route
-echo "[2/5] Checking cloudyy_scripts/cloud-center-v2/cloud-center.py..."
+echo "[4/7] Checking cloudyy_scripts/cloud-center-v2/cloud-center.py..."
 if grep -E '(^[^#]*"waybar"|^[^#]*--waybar)' cloudyy_scripts/cloud-center-v2/cloud-center.py | grep -q .; then
     echo "  FAIL: Cloud Center Python still has active waybar route/CLI handling"
     FAILED=1
@@ -31,7 +58,7 @@ else
 fi
 
 # Test 3: matugen config must not have active Waybar/SwayNC template outputs
-echo "[3/5] Checking .config/matugen/config.toml..."
+echo "[5/7] Checking .config/matugen/config.toml..."
 if grep -E "(waybar|swaync)" .config/matugen/config.toml | grep -E "(output_path|input_path|\[templates\.(waybar|swaync)\])" | grep -qv "^#"; then
     echo "  FAIL: matugen config still has active Waybar/SwayNC template blocks"
     FAILED=1
@@ -40,7 +67,7 @@ else
 fi
 
 # Test 4: deploy-dotfiles.sh must not verify/manage Waybar/SwayNC as active shell state
-echo "[4/5] Checking install/deploy-dotfiles.sh..."
+echo "[6/7] Checking install/deploy-dotfiles.sh for legacy state file management..."
 DEPLOY_FAILED=0
 
 # Check if waybar is still in critical_links verification
@@ -62,7 +89,7 @@ else
 fi
 
 # Test 5: Hyprland bindings must not reference launch_waybar.sh
-echo "[5/5] Checking Hyprland binding files..."
+echo "[7/7] Checking Hyprland binding files..."
 BINDING_FILES=(
     ".config/hypr/source/bindings.conf"
     ".config/hypr/user-configs/user_bindings.conf"
