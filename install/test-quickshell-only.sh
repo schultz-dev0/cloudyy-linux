@@ -12,10 +12,10 @@ echo ""
 
 FAILED=0
 
-# Test 1: Cloud Center config.yaml must not expose active Waybar page
+# Test 1: Cloud Center config.yaml must not expose active Waybar page block
 echo "[1/5] Checking cloudyy_scripts/cloud-center-v2/config.yaml..."
-if grep -A5 "name: Waybar" cloudyy_scripts/cloud-center-v2/config.yaml | grep -q "icon:"; then
-    echo "  FAIL: Cloud Center config still exposes active Waybar page block"
+if grep -E "^\s+- id: waybar$" cloudyy_scripts/cloud-center-v2/config.yaml >/dev/null 2>&1; then
+    echo "  FAIL: Cloud Center config still has active Waybar page block (id: waybar)"
     FAILED=1
 else
     echo "  PASS: No active Waybar page in Cloud Center config"
@@ -41,11 +41,24 @@ fi
 
 # Test 4: deploy-dotfiles.sh must not verify/manage Waybar/SwayNC as active shell state
 echo "[4/5] Checking install/deploy-dotfiles.sh..."
-if grep -E "(waybar|swaync)" install/deploy-dotfiles.sh | grep -v "^#" | grep -qE "(VERIFICATION|STATE|MANAGED|DEPLOY)"; then
-    echo "  FAIL: deploy-dotfiles.sh still treats Waybar/SwayNC as active shell state"
-    FAILED=1
-else
+DEPLOY_FAILED=0
+
+# Check if waybar is still in critical_links verification
+if grep -E '^\s+"\$\{HOME\}/\.config/waybar"' install/deploy-dotfiles.sh >/dev/null 2>&1; then
+    echo "  FAIL: deploy-dotfiles.sh still verifies ~/.config/waybar as critical"
+    DEPLOY_FAILED=1
+fi
+
+# Check if legacy Waybar/SwayNC state files are still in skip-worktree list
+if grep -E '\.config/(waybar/\.(current_position|current_preset|vertical_side)|matugen/generated/(colors-swaync|waybar-colors)\.css)' install/deploy-dotfiles.sh >/dev/null 2>&1; then
+    echo "  FAIL: deploy-dotfiles.sh still manages legacy Waybar/SwayNC state files"
+    DEPLOY_FAILED=1
+fi
+
+if [ $DEPLOY_FAILED -eq 0 ]; then
     echo "  PASS: deploy-dotfiles.sh does not manage Waybar/SwayNC as active state"
+else
+    FAILED=1
 fi
 
 # Test 5: Hyprland bindings must not reference launch_waybar.sh
