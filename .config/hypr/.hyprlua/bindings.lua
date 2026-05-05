@@ -41,7 +41,6 @@ hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -w"),          { d
 hl.bind("Print",         hl.dsp.exec_cmd("hyprcap shot region -c -n"),        { desc = "Screenshot to clipboard" })
 hl.bind("ALT + Print",   hl.dsp.exec_cmd("hyprcap rec region -c -w"),         { desc = "Start screen recording" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
-hl.bind("ALT + 5",       hl.dsp.exec_cmd("uwsm-app " .. scripts .. "/waybar/launch_waybar.sh"), { desc = "Restart waybar" })
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd(scripts .. "/theme_controller.sh random"), { desc = "Random wallpaper" })
 
 -- ── Appearance ────────────────────────────────────────────────────────────────
