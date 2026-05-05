@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 // modules/spotlight/SpotlightRow.qml
 import QtQuick
 import Quickshell
@@ -6,7 +8,7 @@ import "../.."
 Item {
     id: root
 
-    required property var  resultData   // {type,name,icon?,exec?,wmclass?,isRunning?,path?} or {type:"web",query}
+    required property var  resultData   // {type,name,icon?,exec?,wmclass?,isRunning?,path?} or {type:"web",query} or {type:"calculator",expression,result}
     required property bool isSelected
     required property int  rowWidth
 
@@ -73,7 +75,11 @@ Item {
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 20
                 color: Theme.on_surface_variant
-                text: root.resultData.type === "file" ? "󰈔" : "󰖟"
+                text: {
+                    if (root.resultData.type === "file") return "󰈔";
+                    if (root.resultData.type === "calculator") return "󰃬";
+                    return "󰖟";
+                }
             }
         }
 
@@ -85,13 +91,20 @@ Item {
 
             Text {
                 width: parent.width
-                text:  root.resultData.type === "web"
-                    ? `Search DDG for "${root.resultData.query}"`
-                    : (root.resultData.name ?? "")
-                color: root.resultData.type === "web"
-                    ? Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6)
-                    : Theme.textPrimary
-                font.pixelSize: 13
+                text:  {
+                    if (root.resultData.type === "web")
+                        return `Search DDG for "${root.resultData.query}"`;
+                    if (root.resultData.type === "calculator")
+                        return root.resultData.result;
+                    return root.resultData.name ?? "";
+                }
+                color: root.resultData.type === "calculator"
+                    ? Theme.on_surface
+                    : (root.resultData.type === "web"
+                        ? Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6)
+                        : Theme.textPrimary)
+                font.pixelSize: root.resultData.type === "calculator" ? 15 : 13
+                font.weight:    root.resultData.type === "calculator" ? Font.Medium : Font.Normal
                 font.family:    "JetBrainsMono Nerd Font"
                 elide: Text.ElideRight
             }
@@ -99,9 +112,14 @@ Item {
             Text {
                 width:   parent.width
                 visible: root.resultData.type === "app" || root.resultData.type === "file"
-                text:    root.resultData.type === "app"
-                    ? (root.resultData.isRunning ? "Running" : (root.resultData.exec ?? ""))
-                    : (root.resultData.path ?? "")
+                         || root.resultData.type === "calculator"
+                text:    {
+                    if (root.resultData.type === "app")
+                        return root.resultData.isRunning ? "Running" : (root.resultData.exec ?? "");
+                    if (root.resultData.type === "calculator")
+                        return root.resultData.expression ?? "";
+                    return root.resultData.path ?? "";
+                }
                 color:   Theme.textMuted
                 font.pixelSize: 11
                 font.family:    "JetBrainsMono Nerd Font"

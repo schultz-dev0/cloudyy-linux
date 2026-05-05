@@ -78,9 +78,15 @@ ShellRoot {
 
     IpcHandler {
         target: "calculator"
-        function toggle() { root.calculatorOpen = !root.calculatorOpen }
-        function show()   { root.calculatorOpen = true }
-        function hide()   { root.calculatorOpen = false }
+        function toggle() {
+            root.calculatorOpen = !root.calculatorOpen;
+        }
+        function show() {
+            root.calculatorOpen = true;
+        }
+        function hide() {
+            root.calculatorOpen = false;
+        }
     }
 
     // The overview repo manages its own IPC ("overview") inside its modules!
@@ -101,6 +107,7 @@ ShellRoot {
     NotifPanel {
         open: root.notifOpen
         dnd: root.dnd
+        calculatorOpen: root.calculatorOpen
         notifServer: notifServer
         sliderController: sliderController
         onClose: root.notifOpen = false
