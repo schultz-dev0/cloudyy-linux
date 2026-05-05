@@ -24,11 +24,10 @@ input_path = '~/.config/matugen/templates/hyprland-colors.conf'
 output_path = '~/.config/matugen/generated/hyprcolors.conf'
 post_hook = 'hyprctl reload'
 
-# waybar config
-
-[templates.waybar]
-input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/matugen/generated/waybar-colors.css'
+# waybar config (LEGACY - quickshell is the active shell)
+# [templates.waybar]
+# input_path = '~/.config/matugen/templates/colors.css'
+# output_path = '~/.config/matugen/generated/waybar-colors.css'
 
 # starship config
 
@@ -59,9 +58,10 @@ post_hook = '~/cloudyy_scripts/nvim/reload_theme.sh'
 input_path = '~/.config/matugen/templates/colors.rasi'
 output_path = '~/.config/matugen/generated/colors-glass.rasi'
 
-[templates.swaync]
-input_path = '~/.config/matugen/templates/colors-swaync.css'
-output_path = '~/.config/matugen/generated/colors-swaync.css'
+# swaync config (LEGACY - quickshell is the active shell)
+# [templates.swaync]
+# input_path = '~/.config/matugen/templates/colors-swaync.css'
+# output_path = '~/.config/matugen/generated/colors-swaync.css'
 
 [templates.swayosd]
 input_path = '~/.config/matugen/templates/colors-swayosd.css'
@@ -112,7 +112,7 @@ fi
 
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/matugen/generated/waybar-colors.css'
+output_path = '~/.config/matugen/generated/cloud-center-colors.css'
 post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
 
 # Zen Browser UI (userChrome.css)
