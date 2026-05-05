@@ -112,7 +112,7 @@ fi
 
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/matugen/generated/cloud-center-colors.css'
+output_path = '~/.config/matugen/generated/colors.css'
 post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
 
 # Zen Browser UI (userChrome.css)
