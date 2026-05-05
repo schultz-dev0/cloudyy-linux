@@ -83,7 +83,6 @@ SIDEBAR_WIDTH   = 200   # px
 CLI_PAGE_ALIASES: dict[str, str] = {
     "home": "home",
     "appearance": "appearance",
-    "waybar": "waybar",
     "hyprland": "hyprland",
     "input": "input",
     "wifi": "__wifi__",
@@ -743,7 +742,6 @@ class CloudCenter(Adw.Application):
         flag_specs = [
             ("home", "Open Home page"),
             ("appearance", "Open Appearance page"),
-            ("waybar", "Open Waybar page"),
             ("hyprland", "Open Hyprland page"),
             ("input", "Open Input page"),
             ("wifi", "Open Wi-Fi page"),
@@ -772,7 +770,7 @@ class CloudCenter(Adw.Application):
             self._requested_page = CLI_PAGE_ALIASES.get(requested, requested)
 
         for flag in (
-            "home", "appearance", "waybar", "hyprland", "input",
+            "home", "appearance", "hyprland", "input",
             "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
             "keybind-manager", "keybinds",
         ):
