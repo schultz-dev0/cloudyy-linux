@@ -79,7 +79,9 @@ PanelWindow {
     function hideSpotlight() {
         spotlightSearchProc.running = false;
         spotlightDebounceTimer.stop();
+        spotlightInput.focus = false;
         spotlightOpen = false;
+        barBg.forceActiveFocus();
         spotlightInput.text = "";
         spotlightQuery = "";
         spotlightResults = [];
