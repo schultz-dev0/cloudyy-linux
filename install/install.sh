@@ -140,8 +140,15 @@ phase_preflight() {
 }
 
 # --- Phase: Packages ---------------------------------------------------------
+
+# --- Phase: Packages ---------------------------------------------------------
 phase_packages() {
   bash "${SCRIPT_DIR}/hyprland-install.sh"
+}
+
+# --- Phase: Keyring ---------------------------------------------------------
+phase_keyring() {
+  bash "${SCRIPT_DIR}/setup-keyring.sh"
 }
 
 # --- Phase: Dotfiles ---------------------------------------------------------
@@ -149,7 +156,6 @@ phase_dotfiles() {
   bash "${SCRIPT_DIR}/deploy-dotfiles.sh"
 }
 
-# --- Phase: Services ---------------------------------------------------------
 phase_services() {
   log "Enabling system services..."
 
@@ -167,6 +173,21 @@ phase_services() {
   done
 
   log_ok "Services configured."
+}
+
+# --- Phase: Theme Bootstrap --------------------------------------------------
+# Runs after packages so matugen is available to generate hyprcolors.conf.
+phase_theme_init() {
+  local controller="${HOME}/cloudyy_scripts/theme_controller.sh"
+  if [[ ! -x "$controller" ]]; then
+    log_warn "theme_controller.sh not found — skipping theme bootstrap."
+    return 0
+  fi
+  if "$controller" restore >/dev/null 2>&1; then
+    log_ok "Theme colours generated."
+  else
+    log_warn "Theme bootstrap failed (non-fatal — run 'theme_controller.sh restore' later)."
+  fi
 }
 
 # --- Phase: Finalize ---------------------------------------------------------
@@ -188,6 +209,8 @@ declare -a PHASE_IDS=(
   "preflight"
   "dotfiles"
   "packages"
+  "keyring"
+  "theme_init"
   "services"
   "finalize"
 )
@@ -196,6 +219,8 @@ declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
   [dotfiles]="Dotfiles Deployment"
   [packages]="Hardware & Package Installation"
+  [keyring]="Keyring Configuration"
+  [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
   [finalize]="Finalization"
 )

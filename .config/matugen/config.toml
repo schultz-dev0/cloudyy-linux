@@ -24,12 +24,10 @@ input_path = '~/.config/matugen/templates/hyprland-colors.conf'
 output_path = '~/.config/matugen/generated/hyprcolors.conf'
 post_hook = 'hyprctl reload'
 
-# waybar config
-
-[templates.waybar]
-input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/matugen/generated/waybar-colors.css'
-post_hook = "~/cloudyy_scripts/waybar/launch_waybar.sh"
+# waybar config (LEGACY - quickshell is the active shell)
+# [templates.waybar]
+# input_path = '~/.config/matugen/templates/colors.css'
+# output_path = '~/.config/matugen/generated/waybar-colors.css'
 
 # starship config
 
@@ -60,10 +58,10 @@ post_hook = '~/cloudyy_scripts/nvim/reload_theme.sh'
 input_path = '~/.config/matugen/templates/colors.rasi'
 output_path = '~/.config/matugen/generated/colors-glass.rasi'
 
-[templates.swaync]
-input_path = '~/.config/matugen/templates/colors-swaync.css'
-output_path = '~/.config/matugen/generated/colors-swaync.css'
-post_hook = 'swaync-client -rs'
+# swaync config (LEGACY - quickshell is the active shell)
+# [templates.swaync]
+# input_path = '~/.config/matugen/templates/colors-swaync.css'
+# output_path = '~/.config/matugen/generated/colors-swaync.css'
 
 [templates.swayosd]
 input_path = '~/.config/matugen/templates/colors-swayosd.css'
@@ -78,6 +76,11 @@ output_path = '~/.config/matugen/generated/colors.css'
 input_path = '~/.config/matugen/templates/btop.theme'
 output_path = '~/.config/matugen/generated/btop.theme'
 post_hook = 'pkill -USR2 btop || true'
+
+[templates.quickshell]
+input_path = '~/.config/matugen/templates/quickshell-theme.qml'
+output_path = '~/.config/quickshell/Theme.qml'
+# quickshell auto-reloads QML on file change; no post_hook needed
 
 [templates.Obsidian]
 input_path = '~/.config/matugen/templates/obsidian-theme.css'
@@ -107,41 +110,22 @@ if command -v vesktop >/dev/null 2>&1; then
 fi
 '''
 
-[templates.firefox_websites]
-input_path = '~/.config/matugen/templates/firefox_websites.css'
-output_path = '~/.config/matugen/generated/firefox_websites.css'
-# post_hook = '''  # TODO: re-enable once Firefox profile path is resolved
-#     FF_DIR="$HOME/.config/mozilla/firefox"
-#     if [ -d "$FF_DIR" ]; then
-#         for d in "$FF_DIR"/*.*; do
-#             [ -d "$d" ] || continue
-#             case "$(basename "$d")" in
-#                 "Crash Reports"|"Pending Pings"|"Profile Groups"|*mpris*) continue ;;
-#             esac
-#
-#             mkdir -p "$d/chrome"
-#             ln -nfs "$HOME/.config/matugen/generated/firefox_websites.css" "$d/chrome/colors.css"
-#
-#             # Ensure legacyUserProfileCustomizations is set so userContent.css is loaded
-#             if ! grep -q "legacyUserProfileCustomizations" "$d/user.js" 2>/dev/null; then
-#                 echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' >> "$d/user.js"
-#             fi
-#
-#             # Update userContent.css (Websites) — source of truth is the template file
-#             cp "$HOME/.config/matugen/templates/userContent.css" "$d/chrome/userContent.css"
-#
-#             # Update userChrome.css (Firefox UI)
-#             if ! grep -q '@import "colors.css";' "$d/chrome/userChrome.css" 2>/dev/null; then
-#                 echo '@import "colors.css";' > "$d/chrome/userChrome.css"
-#                 echo '/* Basic UI coloring example */' >> "$d/chrome/userChrome.css"
-#                 echo ':root { --toolbar-bgcolor: var(--surface_container) !important; --toolbar-color: var(--on_surface) !important; }' >> "$d/chrome/userChrome.css"
-#                 echo '#nav-bar { background-color: var(--surface) !important; }' >> "$d/chrome/userChrome.css"
-#             fi
-#         done
-#     fi
-# '''
-
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/matugen/generated/waybar-colors.css'
+output_path = '~/.config/matugen/generated/colors.css'
 post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
+
+# Zen Browser UI (userChrome.css)
+[templates.zen_chrome]
+input_path = '~/.config/matugen/templates/userChrome.css.tera'
+output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/userChrome.css'
+
+# Zen Browser Content (userContent.css)
+[templates.zen_content]
+input_path = '~/.config/matugen/templates/userContent.css.tera'
+output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/userContent.css'
+
+# Zen Browser Colors (shared by chrome/content)
+[templates.zen_colors]
+input_path = '~/.config/matugen/templates/colors.css.tera'
+output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/colors.css'

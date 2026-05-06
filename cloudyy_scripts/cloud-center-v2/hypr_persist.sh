@@ -53,22 +53,24 @@ HYPR_DIR="${HOME}/.config/hypr"
 USER_CONF="${HYPR_DIR}/user-configs/user_lookandfeel.conf"
 ANIM_CONF="${HYPR_DIR}/user-configs/user_animations.conf"
 INPUT_CONF="${HYPR_DIR}/user-configs/user_input.conf"
+CURSOR_CONF="${HYPR_DIR}/user-configs/user_cursor.conf"
 HYPRLAND_CONF="${HYPR_DIR}/hyprland.conf"
 STATE_FILE="${HYPR_DIR}/.cloud-center-state.json"
 
-python3 - "$MODE" "$ARG1" "$ARG2" "$STATE_FILE" "$USER_CONF" "$ANIM_CONF" "$INPUT_CONF" "$HYPRLAND_CONF" <<'PYEOF'
+python3 - "$MODE" "$ARG1" "$ARG2" "$STATE_FILE" "$USER_CONF" "$ANIM_CONF" "$INPUT_CONF" "$CURSOR_CONF" "$HYPRLAND_CONF" <<'PYEOF'
 import sys, json, os, re
 from pathlib import Path
 from collections import defaultdict
 
-mode           = sys.argv[1]
-arg1           = sys.argv[2]
-arg2           = sys.argv[3]
-state_path     = sys.argv[4]
-conf_path      = sys.argv[5]
-anim_conf_path = sys.argv[6]
-input_conf_path = sys.argv[7]
-hyprland_path  = sys.argv[8]
+mode             = sys.argv[1]
+arg1             = sys.argv[2]
+arg2             = sys.argv[3]
+state_path       = sys.argv[4]
+conf_path        = sys.argv[5]
+anim_conf_path   = sys.argv[6]
+input_conf_path  = sys.argv[7]
+cursor_conf_path = sys.argv[8]
+hyprland_path    = sys.argv[9]
 
 # ── Keyword → Hyprland section layout ────────────────────────────────────────
 
@@ -103,6 +105,19 @@ LAYOUT = {
     "input:touchpad:clickfinger_behavior": ("input", "touchpad", "clickfinger_behavior"),
     "input:touchpad:middle_button_emulation": ("input", "touchpad", "middle_button_emulation"),
     "input:touchpad:scroll_factor":   ("input",      "touchpad", "scroll_factor"),
+    "cursor:no_hardware_cursors":      ("cursor", None, "no_hardware_cursors"),
+    "cursor:enable_hyprcursor":        ("cursor", None, "enable_hyprcursor"),
+    "cursor:no_warps":                 ("cursor", None, "no_warps"),
+    "cursor:persistent_warps":         ("cursor", None, "persistent_warps"),
+    "cursor:warp_on_change_workspace": ("cursor", None, "warp_on_change_workspace"),
+    "cursor:zoom_factor":              ("cursor", None, "zoom_factor"),
+    "cursor:zoom_rigid":               ("cursor", None, "zoom_rigid"),
+    "cursor:inactive_timeout":         ("cursor", None, "inactive_timeout"),
+    "cursor:hide_on_key_press":        ("cursor", None, "hide_on_key_press"),
+    "cursor:hide_on_touch":            ("cursor", None, "hide_on_touch"),
+    "cursor:hide_on_tablet":           ("cursor", None, "hide_on_tablet"),
+    "cursor:no_break_fs_vrr":          ("cursor", None, "no_break_fs_vrr"),
+    "cursor:hotspot_padding":          ("cursor", None, "hotspot_padding"),
 }
 
 PAGE_KEYS = {
@@ -139,6 +154,21 @@ PAGE_KEYS = {
         "input:touchpad:clickfinger_behavior",
         "input:touchpad:middle_button_emulation",
         "input:touchpad:scroll_factor",
+    },
+    "cursor": {
+        "cursor:no_hardware_cursors",
+        "cursor:enable_hyprcursor",
+        "cursor:no_warps",
+        "cursor:persistent_warps",
+        "cursor:warp_on_change_workspace",
+        "cursor:zoom_factor",
+        "cursor:zoom_rigid",
+        "cursor:inactive_timeout",
+        "cursor:hide_on_key_press",
+        "cursor:hide_on_touch",
+        "cursor:hide_on_tablet",
+        "cursor:no_break_fs_vrr",
+        "cursor:hotspot_padding",
     },
 }
 
@@ -197,7 +227,7 @@ def parse_state_from_conf(path: Path) -> dict[str, str]:
 state: dict[str, str] = {}
 
 # Read existing managed overrides from user config files.
-for cfg in (Path(conf_path), Path(anim_conf_path), Path(input_conf_path)):
+for cfg in (Path(conf_path), Path(anim_conf_path), Path(input_conf_path), Path(cursor_conf_path)):
     state.update(parse_state_from_conf(cfg))
 
 # For input keys, preserve distro/source values when user_input.conf is sparse.
@@ -298,14 +328,20 @@ input_lines = build_lines(
     "# Cloud Center — user-configs/user_input.conf",
     ["input"],
 )
+cursor_lines = build_lines(
+    "# Cloud Center — user-configs/user_cursor.conf",
+    ["cursor"],
+)
 
 write_conf(conf_path, main_lines)
 write_conf(anim_conf_path, anim_lines)
 write_conf(input_conf_path, input_lines)
+write_conf(cursor_conf_path, cursor_lines)
 
 print(f"[hypr_persist] wrote {conf_path}")
 print(f"[hypr_persist] wrote {anim_conf_path}")
 print(f"[hypr_persist] wrote {input_conf_path}")
+print(f"[hypr_persist] wrote {cursor_conf_path}")
 
 # ── Ensure hyprland.conf sources user_cloud-center.conf ──────────────────────
 # Mirror the hcm TUI pattern: scan for an existing source line pointing at
@@ -315,6 +351,7 @@ source_specs = [
     ("~/.config/hypr/user-configs/user_cloud-center.conf", conf_path, "Cloud Center managed overrides"),
     ("~/.config/hypr/user-configs/user_animations.conf", anim_conf_path, "Cloud Center animation overrides"),
     ("~/.config/hypr/user-configs/user_input.conf", input_conf_path, "Cloud Center input overrides"),
+    ("~/.config/hypr/user-configs/user_cursor.conf", cursor_conf_path, "Cloud Center cursor overrides"),
 ]
 home = str(Path.home())
 

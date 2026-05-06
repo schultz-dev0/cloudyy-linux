@@ -158,6 +158,12 @@ link_config_dirs() {
     [[ -d "$dir" ]] || continue
     local dirname
     dirname="$(basename "$dir")"
+
+    # Skip legacy shell directories - quickshell is the only active shell
+    if [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]]; then
+      continue
+    fi
+
     safe_symlink "$dir" "${HOME}/.config/${dirname}"
     ((++linked))
   done
@@ -189,11 +195,11 @@ link_extra_dirs() {
       true
   fi
 
-  # pywalfox native messaging host — symlink only this file, not the whole mozilla dir
-  local pywalfox_src="${REPO_DIR}/mozilla/native-messaging-hosts/pywalfox.json"
+  # pywalfox native messaging host — symlink only this file, not the whole zen dir
+  local pywalfox_src="${REPO_DIR}/zen/native-messaging-hosts/pywalfox.json"
   if [[ -f "$pywalfox_src" ]]; then
-    mkdir -p "${HOME}/.mozilla/native-messaging-hosts"
-    safe_symlink "$pywalfox_src" "${HOME}/.mozilla/native-messaging-hosts/pywalfox.json"
+    mkdir -p "${HOME}/.config/zen/native-messaging-hosts"
+    safe_symlink "$pywalfox_src" "${HOME}/.config/zen/native-messaging-hosts/pywalfox.json"
   fi
 }
 
@@ -249,7 +255,6 @@ verify_deployment() {
 
   local -a critical_links=(
     "${HOME}/.config/hypr"
-    "${HOME}/.config/waybar"
     "${HOME}/.config/kitty"
   )
 
@@ -278,7 +283,6 @@ reapply_skip_worktree() {
   local -a state_files=(
     ".config/matugen/generated/colors.css"
     ".config/matugen/generated/colors-glass.rasi"
-    ".config/matugen/generated/colors-swaync.css"
     ".config/matugen/generated/colors-swayosd.css"
     ".config/matugen/generated/gtk-3.css"
     ".config/matugen/generated/gtk-4.css"
@@ -287,7 +291,6 @@ reapply_skip_worktree() {
     ".config/matugen/generated/matugen_colors.lua"
     ".config/matugen/generated/pywalfox-colors.json"
     ".config/matugen/generated/vscode.json"
-    ".config/matugen/generated/waybar-colors.css"
     ".config/kitty/kitty-colors.conf"
     ".config/btop/themes/matugen.theme"
     ".config/nvim/lua/current_mode.lua"
@@ -295,12 +298,13 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/state.conf"
     ".config/hypr/theme_state/dark_last"
     ".config/hypr/theme_state/light_last"
+    "cloudyy_scripts/theme_controller.sh"
+    "cloudyy_scripts/bridge_scripts/bridge_default.sh"
+    "cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
-    ".config/waybar/.current_position"
-    ".config/waybar/.current_preset"
-    ".config/waybar/.vertical_side"
+    ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"
     ".config/btop/btop.conf"
@@ -380,6 +384,27 @@ main() {
   verify_deployment
   setup_system_theme
   seed_required_applications
+
+  # Wire quickshell bridge and restore theme
+  local _self_dir
+  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ ! -f "${_self_dir}/widget_bridge.sh" ]]; then
+    log_error "widget_bridge.sh not found: ${_self_dir}/widget_bridge.sh"
+    exit 1
+  fi
+  if [[ ! -x "${_self_dir}/widget_bridge.sh" ]]; then
+    log_error "widget_bridge.sh is not executable: ${_self_dir}/widget_bridge.sh"
+    exit 1
+  fi
+  if ! bash "${_self_dir}/widget_bridge.sh"; then
+    log_error "widget_bridge.sh failed"
+    exit 1
+  fi
+
+  if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
+    "${HOME}/cloudyy_scripts/theme_controller.sh" restore >/dev/null 2>&1 || \
+      log_warn "theme_controller restore failed (non-fatal)"
+  fi
 
   printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"
 

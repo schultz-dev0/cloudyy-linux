@@ -7,7 +7,7 @@ configuration {
     /* --- General Settings --- */
     show-icons:                 true;
     icon-theme:                 "Papirus-Dark";
-    font:                       "Monocraft 11";
+    font:                       "JetBrainsMono Nerd Font 11";
 
     /* --- Mode Names --- */
     display-drun:               " Apps";
@@ -87,14 +87,10 @@ configuration {
    ===================================================================== */
 
 window {
-    /* CRITICAL: Enable real transparency for glass effect */
-    transparency:       "real";
-    
     location:           center;
     anchor:             center;
     width:              40%;
     
-    /* Transparent background - compositor will blur behind it */
     background-color:   @s-win-bg;
     
     border:             2px;
@@ -130,7 +126,7 @@ prompt {
     enabled:            true;
     background-color:   transparent;
     text-color:         @primary;            /* Accent color for prompt */
-    font:               "Monocraft Bold 12";
+    font:               "JetBrainsMono Nerd Font Bold 12";
 }
 
 entry {
@@ -159,7 +155,7 @@ textbox {
     border:             1px;
     border-color:       @outline-variant;
     markup:             true;
-    font:               "Monocraft 9";
+    font:               "JetBrainsMono Nerd Font 9";
     horizontal-align:   0.5;
 }
 

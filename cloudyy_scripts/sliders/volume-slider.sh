@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
-# volume-slider.sh — volume control via swayosd
+# volume-slider.sh — volume control via wpctl + Quickshell OSD
 #
 # Binds:
 #   bindel = $mainMod, up,   exec, $scripts/volume-slider.sh up
 #   bindel = $mainMod, down, exec, $scripts/volume-slider.sh down
 #   bindl  = $mainMod, m,    exec, $scripts/volume-slider.sh mute
 #
-# Deps: swayosd-server (exec-once in hyprland.conf), swayosd-client
+# Deps: wpctl, optional quickshell IPC target "sliders"
 
 STEP=5
 
+show_osd() {
+    command -v qs >/dev/null 2>&1 || return 0
+    qs ipc call sliders showVolume >/dev/null 2>&1 || true
+}
+
 case "${1:-}" in
-    up)   swayosd-client --output-volume "+${STEP}" ;;
-    down) swayosd-client --output-volume "-${STEP}" ;;
-    mute) swayosd-client --output-volume mute-toggle ;;
+    up)
+        wpctl set-volume @DEFAULT_AUDIO_SINK@ "${STEP}%+"
+        show_osd
+        ;;
+    down)
+        wpctl set-volume @DEFAULT_AUDIO_SINK@ "${STEP}%-"
+        show_osd
+        ;;
+    mute)
+        wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+        show_osd
+        ;;
     *)    echo "Usage: $(basename "$0") {up|down|mute}"; exit 1 ;;
 esac

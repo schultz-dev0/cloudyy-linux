@@ -15,7 +15,7 @@
   border-radius: 0;
   min-height:    0;
   box-shadow:    none;
-  font-family:   'Monocraft', monospace;
+  font-family:   'JetBrainsMono Nerd Font', monospace;
   font-weight:   600;
   font-size:     12px;
   transition:    background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
@@ -60,7 +60,7 @@ tooltip label {
 /* dense-modules — high-density monospace, maximum data */
 
 * {
-  font-family: 'JetBrainsMono Nerd Font', 'Monocraft', monospace;
+  font-family: 'JetBrainsMono Nerd Font', 'JetBrainsMono Nerd Font', monospace;
   font-size:   10px;
   font-weight: 500;
 }

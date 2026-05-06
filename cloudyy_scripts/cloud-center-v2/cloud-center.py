@@ -48,6 +48,9 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+# --- SHELL STACK WIRING (Updated by installer) ---
+ACTIVE_SHELL_TAB = "quickshell"
+
 import lib.rows as rows
 from lib.rows import RowContext
 import lib.hcm as hcm
@@ -58,6 +61,7 @@ import lib.bluetooth_page as bluetooth_page
 import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
 import lib.rgb_page as rgb_page
+import lib.cursor_page as cursor_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -79,7 +83,6 @@ SIDEBAR_WIDTH   = 200   # px
 CLI_PAGE_ALIASES: dict[str, str] = {
     "home": "home",
     "appearance": "appearance",
-    "waybar": "waybar",
     "hyprland": "hyprland",
     "input": "input",
     "wifi": "__wifi__",
@@ -91,6 +94,7 @@ CLI_PAGE_ALIASES: dict[str, str] = {
     "lighting": "__rgb__",
     "keybind-manager": "__hkbm__",
     "keybinds": "__hkbm__",
+    "cursor": "__cursor__",
 }
 
 
@@ -212,6 +216,8 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         # Sidebar nav state
         self._nav_rows: dict[str, Gtk.ListBoxRow] = {}
         self._nav_list: Gtk.ListBox | None = None
+        self._pinned_list: Gtk.ListBox | None = None
+        self._nav_deselecting: bool = False
 
         # Heavy pages deferred until first navigation
         self._lazy_builders: dict = {}
@@ -291,6 +297,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             p.get("id"): p for p in self._config.get("pages", []) if p.get("id")
         }
         builtins = {
+            "__cursor__": {"id": "__cursor__", "title": "Cursor", "icon": "input-mouse-symbolic"},
             "__mon__": {"id": "__mon__", "title": "Monitors", "icon": "video-display-symbolic"},
             "__bt__": {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"},
             "__wifi__": {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"},
@@ -299,10 +306,9 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
-            ("Home", ["home"]),
-            ("Visuals", ["appearance", "waybar", "hyprland"]),
-            ("System", ["input", "__mon__", "__bt__", "__wifi__", "__audio__", "__rgb__"]),
-            ("Tools", ["__hkbm__"]),
+            ("Visuals",         ["appearance", ACTIVE_SHELL_TAB, "hyprland"]),
+            ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
+            ("System",          ["__bt__", "__wifi__", "__audio__", "__rgb__"]),
         ]
 
         for title, ids in categories:
@@ -314,6 +320,27 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         scroll.set_child(self._nav_list)
         box.append(scroll)
+
+        # Pinned bottom: System Overview (home page) — only if home page exists
+        home_page = yaml_pages.get("home")
+        if home_page:
+            sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+            box.append(sep)
+
+            self._pinned_list = Gtk.ListBox()
+            self._pinned_list.add_css_class("sidebar-surface")
+            self._pinned_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            self._pinned_list.add_css_class("sidebar-nav-list")
+            self._pinned_list.connect("row-selected", self._on_nav_row_selected)
+
+            home_display = dict(home_page)
+            home_display["title"] = "System Overview"
+            home_row = self._make_nav_row(home_display)
+            # Re-register under "home" key so navigate_to_page("home") still works
+            self._nav_rows["home"] = home_row
+            self._pinned_list.append(home_row)
+
+            box.append(self._pinned_list)
 
         return box
 
@@ -422,6 +449,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         # Register heavy pages as lazy builders — built on first navigation
         self._lazy_builders = {
+            "__cursor__": lambda: cursor_page.CursorPage(self._toast_ov),
             "__bt__":    lambda: bluetooth_page.BluetoothPage(self._toast_ov),
             "__wifi__":  lambda: wifi_page.WiFiPage(self._toast_ov),
             "__mon__":   lambda: monitor_editor.MonitorEditorPage(self._toast_ov),
@@ -544,14 +572,28 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         self._search_entry.set_text("")
         self._stack.set_visible_child_name(page_id)
         row = self._nav_rows.get(page_id)
-        if row and self._nav_list is not None:
-            self._nav_list.select_row(row)
+        if row:
+            parent = row.get_parent()
+            if isinstance(parent, Gtk.ListBox):
+                parent.select_row(row)
+                if parent is self._nav_list and self._pinned_list is not None:
+                    self._pinned_list.unselect_all()
+                elif parent is self._pinned_list and self._nav_list is not None:
+                    self._nav_list.unselect_all()
         return True
     
     def _on_nav_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
         """Handle row selection in the sidebar nav list."""
-        if row is None:
+        if row is None or self._nav_deselecting:
             return
+        self._nav_deselecting = True
+        try:
+            if listbox is self._nav_list and self._pinned_list is not None:
+                self._pinned_list.unselect_all()
+            elif listbox is self._pinned_list and self._nav_list is not None:
+                self._nav_list.unselect_all()
+        finally:
+            self._nav_deselecting = False
         page_id = getattr(row, "_page_id", None)
         if page_id:
             self._on_nav_selected(row, page_id)
@@ -571,15 +613,11 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
     def _on_search_stop(self, entry: Gtk.SearchEntry) -> None:
         self._search_entry.set_text("")
-        # Restore previously selected page (just show first page for now)
         if self._nav_rows:
             first_row = next(iter(self._nav_rows.values()))
             page_id = getattr(first_row, "_page_id", None)
             if page_id:
-                self._stack.set_visible_child_name(page_id)
-            parent = first_row.get_parent()
-            if isinstance(parent, Gtk.ListBox):
-                parent.select_row(first_row)
+                self.navigate_to_page(page_id)
 
     def _do_search(self, query: str) -> bool:
         self._search_debounce = 0
@@ -704,7 +742,6 @@ class CloudCenter(Adw.Application):
         flag_specs = [
             ("home", "Open Home page"),
             ("appearance", "Open Appearance page"),
-            ("waybar", "Open Waybar page"),
             ("hyprland", "Open Hyprland page"),
             ("input", "Open Input page"),
             ("wifi", "Open Wi-Fi page"),
@@ -733,7 +770,7 @@ class CloudCenter(Adw.Application):
             self._requested_page = CLI_PAGE_ALIASES.get(requested, requested)
 
         for flag in (
-            "home", "appearance", "waybar", "hyprland", "input",
+            "home", "appearance", "hyprland", "input",
             "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
             "keybind-manager", "keybinds",
         ):

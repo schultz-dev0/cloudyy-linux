@@ -228,8 +228,8 @@ pages:
                 rm -rf ~/.config/cloud-center/settings/theme &&
                 ~/cloudyy_scripts/theme_controller.sh refresh neutral 0
 
-  - id: waybar
-    title: Waybar
+  - id: quickshell
+    title: Shell
     icon: window-minimize-symbolic
     layout:
       - type: section
@@ -240,112 +240,22 @@ pages:
           - type: selection
             properties:
               title: Preset
-              description: Visual style — orientation toggle below switches between horizontal and vertical variants automatically
+              description: Visual style — layout variations
               icon: document-page-setup-symbolic
-              key: waybar/preset
+              key: quickshell/preset
               options:
                 - default
-                - pill
-                - macOS
-                - compact
                 - bubble
+                - compact
                 - dense
-                - ghost
-                - minimal
-                - ultraminimal
               options_map:
-                default: default
-                pill: pill
-                macOS: macOS
-                compact: compact
+                macos: default
                 bubble: bubble
+                compact: compact
                 dense: dense
-                ghost: ghost
-                minimal: minimal
-                ultraminimal: ultraminimal
             on_change:
               command: >-
-                ([ "$(cat ~/.config/waybar/.current_preset 2>/dev/null | grep -c '^vertical_')" = "1" ]
-                && ~/cloudyy_scripts/waybar/switch_style.sh "vertical_{value}"
-                || ~/cloudyy_scripts/waybar/switch_style.sh "{value}")
-
-      - type: section
-        properties:
-          title: Orientation
-        items:
-          - type: toggle
-            properties:
-              title: Vertical Bar
-              description: Switch between a horizontal top bar and a vertical side bar
-              icon: pan-up-symbolic
-              key: waybar/vertical
-              state_command: "grep -c '^vertical_' ~/.config/waybar/.current_preset 2>/dev/null || echo 0"
-              interval: 3
-            on_toggle:
-              enabled:
-                command: >-
-                  BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
-                  ~/cloudyy_scripts/waybar/switch_style.sh "vertical_${BASE}"
-              disabled:
-                command: >-
-                  BASE=$(sed 's/^vertical_//' ~/.config/waybar/.current_preset 2>/dev/null || echo compact);
-                  ~/cloudyy_scripts/waybar/switch_style.sh "${BASE}"
-
-          - type: toggle
-            properties:
-              title: Right Side
-              description: Place the vertical bar on the right edge instead of the left
-              icon: pan-end-symbolic
-              key: waybar/right_side
-              state_command: "grep -c '^right' ~/.config/waybar/.current_position 2>/dev/null || echo 0"
-              interval: 3
-            on_toggle:
-              enabled:
-                command: "~/cloudyy_scripts/waybar/set_position.sh right && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
-              disabled:
-                command: "~/cloudyy_scripts/waybar/set_position.sh left && (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)"
-
-      - type: section
-        properties:
-          title: Actions
-        items:
-          - type: button
-            properties:
-              title: Reload Waybar
-              description: Restart waybar to apply any manual config changes
-              icon: view-refresh-symbolic
-              button_text: Reload
-            on_press:
-              command: "pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &"
-
-          - type: button
-            properties:
-              title: Visual Editor
-              description: Open the graphical waybar preset editor
-              icon: document-edit-symbolic
-              button_text: Open
-            on_press:
-              command: python3 ~/cloudyy_scripts/cloud-center-v2/waybar-editor/main.py
-
-      - type: section
-        properties:
-          title: Distro Defaults
-          description: Reset Waybar page to distro defaults
-        items:
-          - type: button
-            properties:
-              title: Use Distro Defaults
-              description: Reset style, position, and Cloud Center Waybar toggles
-              icon: edit-clear-symbolic
-              button_text: Reset
-            on_press:
-              command: >-
-                rm -f ~/.config/cloud-center/settings/waybar/preset
-                ~/.config/cloud-center/settings/waybar/vertical
-                ~/.config/cloud-center/settings/waybar/right_side &&
-                ~/cloudyy_scripts/waybar/switch_style.sh default &&
-                ~/cloudyy_scripts/waybar/set_position.sh left &&
-                (pkill waybar 2>/dev/null || true; sleep 0.3; uwsm-app -- waybar &)
+                ~/cloudyy_scripts/quickshell/switch_preset.sh "{value}"
 
   - id: input
     title: Input
@@ -849,4 +759,3 @@ pages:
               button_text: Reset
             on_press:
               command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page hyprland
-

@@ -1,7 +1,7 @@
 """
 Online wallpaper browser row for Cloud Center.
 
-Provides search + download for Wallhaven and WallpapersHome.
+Provides search + download for Wallhaven.
 """
 from __future__ import annotations
 
@@ -13,10 +13,9 @@ import threading
 import webbrowser
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import gi
@@ -53,54 +52,6 @@ class WallpaperItem:
     resolution: str = ""
 
 
-class _AnchorParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.items: list[dict[str, str]] = []
-        self._in_anchor = False
-        self._href = ""
-        self._text: list[str] = []
-        self._img_alt = ""
-        self._img_src = ""
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        amap = dict(attrs)
-        if tag == "a":
-            href = amap.get("href") or ""
-            if href:
-                self._in_anchor = True
-                self._href = href
-                self._text = []
-                self._img_alt = ""
-                self._img_src = ""
-        elif tag == "img" and self._in_anchor:
-            alt = amap.get("alt") or ""
-            src = amap.get("src") or ""
-            if alt:
-                self._img_alt = alt.strip()
-            if src:
-                self._img_src = src.strip()
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "a" and self._in_anchor:
-            text = " ".join("".join(self._text).split()).strip()
-            self.items.append({
-                "href": self._href,
-                "text": text,
-                "alt": self._img_alt,
-                "img": self._img_src,
-            })
-            self._in_anchor = False
-            self._href = ""
-            self._text = []
-            self._img_alt = ""
-            self._img_src = ""
-
-    def handle_data(self, data: str) -> None:
-        if self._in_anchor and data.strip():
-            self._text.append(data)
-
-
 class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
     __gtype_name__ = "CCOnlineWallpaperBrowserRow"
 
@@ -111,38 +62,17 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._ctx = ctx
         self._query = ""
         self._page = 1
-        self._source = "all"
         self._busy = False
         self._results: list[WallpaperItem] = []
         self._thumb_sema = threading.BoundedSemaphore(6)
+        self._thumb_cache: dict[str, GdkPixbuf.Pixbuf] = {}
 
         def _expand(p: str) -> Path:
             return Path(os.path.expandvars(p)).expanduser()
 
-        raw_dir = props.get("download_directory", "~/Wallpapers/Online")
         self._light_dir = _expand(props.get("light_directory", "~/Wallpapers/Light"))
         self._dark_dir  = _expand(props.get("dark_directory",  "~/Wallpapers/Dark"))
         self._download_dir = self._dark_dir   # default to dark
-        self._wallpapershome_base = props.get("wallpapershome_base", "https://wallpapershome.com")
-        self._wallpapershome_routes = [
-            "nature",
-            "abstract",
-            "animals",
-            "space",
-            "travel",
-            "best",
-            "daily",
-            "top",
-            "aesthetic",
-            "architecture",
-            "creative",
-            "decor",
-            "mood",
-            "objects",
-            "people",
-            "seasonal",
-            "styles",
-        ]
 
         self._build_widget(props)
         self._set_status("Ready")
@@ -162,7 +92,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         title.set_hexpand(True)
 
         subtitle = Gtk.Label(
-            label=props.get("description", "Search and download from Wallhaven + WallpapersHome"),
+            label=props.get("description", "Search and download from Wallhaven"),
             xalign=0,
         )
         subtitle.add_css_class("online-wall-subtitle")
@@ -172,11 +102,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         title_box.append(title)
         title_box.append(subtitle)
 
-        self._source_badge = Gtk.Label(label="All Sources")
-        self._source_badge.add_css_class("online-wall-source-badge")
-
         header.append(title_box)
-        header.append(self._source_badge)
 
         dir_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         dir_box.add_css_class("online-wall-row")
@@ -210,10 +136,6 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._search_entry.set_placeholder_text("Search wallpapers")
         self._search_entry.connect("activate", self._on_search_clicked)
 
-        self._source_combo = Gtk.DropDown.new_from_strings(["All", "Wallhaven", "WallpapersHome"])
-        self._source_combo.set_selected(0)
-        self._source_combo.connect("notify::selected", self._on_source_changed)
-
         prev_btn = Gtk.Button(label="Prev")
         prev_btn.connect("clicked", self._on_prev_clicked)
         next_btn = Gtk.Button(label="Next")
@@ -222,7 +144,6 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         search_btn.connect("clicked", self._on_search_clicked)
 
         controls.append(self._search_entry)
-        controls.append(self._source_combo)
         controls.append(prev_btn)
         controls.append(next_btn)
         controls.append(search_btn)
@@ -260,11 +181,6 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
             self._download_dir = self._dark_dir
         self._save_dir_lbl.set_label(str(self._download_dir))
 
-    def _on_source_changed(self, combo: Gtk.DropDown, _pspec) -> None:
-        idx = combo.get_selected()
-        self._source = ["all", "wallhaven", "wallpapershome"][idx]
-        self._source_badge.set_label(["All Sources", "Wallhaven", "WallpapersHome"][idx])
-
     def _on_prev_clicked(self, _btn: Gtk.Button) -> None:
         if self._busy:
             return
@@ -292,11 +208,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
     def _search_worker(self) -> None:
         try:
-            items: list[WallpaperItem] = []
-            if self._source in {"all", "wallhaven"}:
-                items.extend(self._search_wallhaven(self._query, self._page))
-            if self._source in {"all", "wallpapershome"}:
-                items.extend(self._search_wallpapershome(self._query, self._page))
+            items = self._search_wallhaven(self._query, self._page)
             GLib.idle_add(self._apply_results, items, None)
         except Exception as exc:
             GLib.idle_add(self._apply_results, [], str(exc))
@@ -356,9 +268,12 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         open_btn = Gtk.Button(label="Open")
         open_btn.connect("clicked", self._on_open_clicked, item)
+        prev_btn = Gtk.Button(label="Preview")
+        prev_btn.connect("clicked", self._on_preview_clicked, item)
         dl_btn = Gtk.Button(label="Download")
         dl_btn.connect("clicked", self._on_download_clicked, item)
         btns.append(open_btn)
+        btns.append(prev_btn)
         btns.append(dl_btn)
 
         content.append(t)
@@ -420,6 +335,8 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
             if pixbuf is None:
                 return
 
+            self._thumb_cache[preview_url] = pixbuf
+
             # Cover-scale: fill 180×102 without distortion
             scaled = self._scale_cover(pixbuf, 180, 102)
             if scaled is None:
@@ -450,6 +367,40 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
     def _on_open_clicked(self, _btn: Gtk.Button, item: WallpaperItem) -> None:
         webbrowser.open(item.page_url)
 
+    def _on_preview_clicked(self, _btn: Gtk.Button, item: WallpaperItem) -> None:
+        key = item.preview_url or item.image_url
+        pixbuf = self._thumb_cache.get(key) if key else None
+
+        dialog = Adw.Dialog(title=item.title or "Preview")
+
+        toolbar_view = Adw.ToolbarView()
+        toolbar_view.add_top_bar(Adw.HeaderBar())
+
+        if pixbuf is None:
+            lbl = Gtk.Label(label="Thumbnail not loaded yet — wait a moment and try again.")
+            lbl.add_css_class("dim-label")
+            lbl.set_margin_top(24)
+            lbl.set_margin_bottom(24)
+            lbl.set_margin_start(16)
+            lbl.set_margin_end(16)
+            toolbar_view.set_content(lbl)
+            dialog.set_content_width(480)
+        else:
+            sw, sh = pixbuf.get_width(), pixbuf.get_height()
+            scale = min(960 / max(sw, 1), 600 / max(sh, 1))
+            if scale < 1:
+                scale = 1
+            nw, nh = max(1, int(sw * scale)), max(1, int(sh * scale))
+            scaled = pixbuf.scale_simple(nw, nh, GdkPixbuf.InterpType.BILINEAR)
+            pic = Gtk.Picture.new_for_pixbuf(scaled)
+            pic.set_can_shrink(False)
+            toolbar_view.set_content(pic)
+            dialog.set_content_width(nw)
+            dialog.set_content_height(nh)
+
+        dialog.set_child(toolbar_view)
+        dialog.present(self)
+
     def _on_download_clicked(self, _btn: Gtk.Button, item: WallpaperItem) -> None:
         if self._busy:
             return
@@ -457,22 +408,22 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._set_status(f"Downloading {item.title}...")
         threading.Thread(target=self._download_worker, args=(item,), daemon=True).start()
 
+    def _next_number(self, directory: Path) -> int:
+        nums = [int(f.stem) for f in directory.iterdir() if f.is_file() and f.stem.isdigit()]
+        return (max(nums) + 1) if nums else 1
+
     def _download_worker(self, item: WallpaperItem) -> None:
         try:
             image_url = item.image_url
-            if not image_url and item.source == "WallpapersHome":
-                image_url = self._resolve_wallpapershome_image(item.page_url)
             if not image_url:
                 raise RuntimeError("No image URL available for this wallpaper")
 
-            src_dir = self._download_dir / item.source.lower().replace(" ", "-")
+            src_dir = self._download_dir
             src_dir.mkdir(parents=True, exist_ok=True)
 
             parsed = urlparse(image_url)
             ext = Path(parsed.path).suffix.lower() or ".jpg"
-            safe_title = re.sub(r"[^A-Za-z0-9._-]+", "_", item.title).strip("_") or "wallpaper"
-            stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-            file_path = src_dir / f"{safe_title}_{stamp}{ext}"
+            file_path = src_dir / f"{self._next_number(src_dir)}{ext}"
 
             data = self._http_get(image_url, binary=True)
             if not isinstance(data, bytes):
@@ -504,29 +455,16 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
             url = "https://wallhaven.cc/api/v1/search?" + urlencode(params)
             return json.loads(self._http_get(url, binary=False))
 
-        params = {"page": str(page), "sorting": "relevance", "purity": "100"}
         if query:
-            params["q"] = query
+            params: dict[str, str] = {"page": str(page), "sorting": "relevance", "purity": "100", "q": query}
+        else:
+            params = {"page": str(page), "sorting": "hot", "purity": "100"}
 
         payload = fetch(params)
         data = payload.get("data", [])
 
         if not data and query:
-            fallback_params = {
-                "page": str(page),
-                "sorting": "toplist",
-                "purity": "100",
-                "q": query,
-            }
-            payload = fetch(fallback_params)
-            data = payload.get("data", [])
-
-        if not data:
-            fallback_params = {
-                "page": str(page),
-                "sorting": "toplist",
-                "purity": "100",
-            }
+            fallback_params = {"page": str(page), "sorting": "hot", "purity": "100"}
             payload = fetch(fallback_params)
             data = payload.get("data", [])
 
@@ -543,79 +481,6 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
                 )
             )
         return out
-
-    def _search_wallpapershome(self, query: str, page: int) -> list[WallpaperItem]:
-        base = self._wallpapershome_base.rstrip("/")
-        pool = self._wallpapershome_routes
-        if query:
-            q = query.lower().strip()
-            matched = [r for r in pool if q in r]
-            if matched:
-                pool = matched
-
-        route_idx = (max(page, 1) - 1) % len(pool)
-        route_page = ((max(page, 1) - 1) // len(pool)) + 1
-        route = pool[route_idx]
-        url = f"{base}/{route}/?{urlencode({'page': str(route_page)})}"
-        html = self._http_get(url, binary=False)
-
-        parser = _AnchorParser()
-        parser.feed(html)
-
-        seen: set[str] = set()
-        out: list[WallpaperItem] = []
-        filtered_out: list[WallpaperItem] = []
-
-        for anchor in parser.items:
-            href = anchor.get("href", "")
-            if not href:
-                continue
-            href_low = href.lower()
-            has_thumb = bool(anchor.get("img"))
-            if not has_thumb and "wallpaper" not in href_low and not href_low.endswith(".html"):
-                continue
-
-            page_url = urljoin(base + "/", href)
-            if page_url in seen:
-                continue
-            seen.add(page_url)
-
-            title = anchor.get("alt") or anchor.get("text") or "WallpapersHome"
-            title = title.strip()
-            item = WallpaperItem(
-                source="WallpapersHome",
-                title=title,
-                page_url=page_url,
-                image_url=None,
-                preview_url=urljoin(base + "/", anchor.get("img", "")) if anchor.get("img") else None,
-                resolution=self._extract_resolution(title),
-            )
-
-            if query and query.lower() not in title.lower() and query.lower() not in page_url.lower():
-                filtered_out.append(item)
-                continue
-
-            out.append(item)
-
-            if len(out) >= 120:
-                break
-
-        if out:
-            return out
-        return filtered_out[:120]
-
-    def _resolve_wallpapershome_image(self, page_url: str) -> str | None:
-        html = self._http_get(page_url, binary=False)
-
-        m = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', html, re.I)
-        if m:
-            return urljoin(page_url, m.group(1))
-
-        m = re.search(r'href=["\']([^"\']+\.(?:jpg|jpeg|png|webp))["\']', html, re.I)
-        if m:
-            return urljoin(page_url, m.group(1))
-
-        return None
 
     def _extract_resolution(self, text: str) -> str:
         m = re.search(r"\b(\d{3,5}x\d{3,5})\b", text)

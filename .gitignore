@@ -37,6 +37,7 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/theme_state/cycle.conf
 cloudyy_scripts/gpu-powerd.py
 cloudyy_scripts/launch-matlab.sh
+cloudyy_scripts/pin-ksp.sh
 
 # hyprland theme state
 
@@ -70,6 +71,8 @@ cloudyy_scripts/launch-matlab.sh
 
 # Local AI tooling
 .claude*
+.worktrees/
+**/.docs/
 
 # User-specific and generated configs
 .config/btop/btop.conf
@@ -83,3 +86,4 @@ cloudyy_scripts/launch-matlab.sh
 .config/waybar/.current_preset
 .config/waybar/.vertical_side
 .config/waypaper/config.ini
+**/.superpowers/

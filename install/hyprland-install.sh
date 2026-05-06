@@ -566,7 +566,7 @@ select_optional() {
     _add OPTIONAL_OFFICIAL_SYSADMIN OPTIONAL_AUR_SYSADMIN
 
   ask_optional "Extra Fonts" \
-    "Atkinson Hyperlegible Next (accessibility font)" &&
+    "JetBrainsMono Nerd Font (accessibility font)" &&
     _add OPTIONAL_OFFICIAL_FONTS OPTIONAL_AUR_FONTS
 }
 

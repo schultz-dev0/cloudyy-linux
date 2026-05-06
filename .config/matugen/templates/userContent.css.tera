@@ -1,0 +1,9 @@
+@import "colors.css";
+
+/* 
+   Removed hardcoded dark color-scheme.
+   Zen will now follow the system preference or user manual override.
+*/
+:root {
+    /* No forced color-scheme here anymore */
+}

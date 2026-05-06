@@ -22,6 +22,7 @@ if [[ ! -f "$STARSHIP_CACHE" ]]; then
 fi
 source "$STARSHIP_CACHE"
 
+
 # Path management
 
 typeset -U path
@@ -64,6 +65,9 @@ alias poweroff='sudo shutdown now'
 alias reboot='sudo shutdown -r now'
 alias seeya='hyprctl dispatch exit'
 
+# utility aliases
+
+alias wlogout="$HOME/cloudyy_scripts/wlogout.sh"
 
 # --- Top Left Startup Logo ---
 if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" ]]; then
