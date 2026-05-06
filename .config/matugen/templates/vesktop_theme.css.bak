@@ -1,16 +1,16 @@
 /**
  * @name Matugen_Bruteforce_Final
- * @description Comprehensive Matugen Colors via DOM structural targeting + Monocraft
+ * @description Comprehensive Matugen Colors via DOM structural targeting + JetBrainsMono Nerd Font
  * @author Matugen
  */
 
 /* 1. Global Variables */
 :root, .theme-dark, .theme-light, .theme-midnight {
     /* Fonts */
-    --font-primary: "Monocraft", "gg sans", sans-serif !important;
-    --font-display: "Monocraft", "gg sans", sans-serif !important;
-    --font-headline: "Monocraft", "gg sans", sans-serif !important;
-    --font-code: "Monocraft", monospace !important;
+    --font-primary: "JetBrainsMono Nerd Font", "gg sans", sans-serif !important;
+    --font-display: "JetBrainsMono Nerd Font", "gg sans", sans-serif !important;
+    --font-headline: "JetBrainsMono Nerd Font", "gg sans", sans-serif !important;
+    --font-code: "JetBrainsMono Nerd Font", monospace !important;
 
     /* Text & Interactive Elements */
     --text-normal: {{colors.on_surface.default.hex}} !important;

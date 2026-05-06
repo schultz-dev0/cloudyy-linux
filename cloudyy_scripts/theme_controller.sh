@@ -22,10 +22,12 @@ WALLPAPER_DAEMON_CMD=()
 
 # --- CONFIGURATION (cont.) ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
+WIDGETS_BRIDGE="/home/schultz/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
 readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
 readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
 readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
 readonly FIREFOX_PROFILES_INI_FLATPAK="${HOME}/.var/app/org.mozilla.firefox/.mozilla/firefox/profiles.ini"
+readonly ZEN_PROFILES_INI="${HOME}/.config/zen/profiles.ini"
 
 # --- LOGGING ---
 log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
@@ -61,9 +63,29 @@ CURRENT_WALL="$CURRENT_WALL"
 EOF
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
   [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
-  # Persist per-mode last wallpaper for toggle memory
+
+  # Persist per-mode last wallpaper for toggle memory.
+  # Only save if the wallpaper is in the correct mode-specific pool or if no pools exist.
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local mode_cap="${THEME_MODE^}"
+    local mode_dir="${base_dir}/${mode_cap}"
+    local should_save=true
+
+    if [[ -d "$mode_dir" ]]; then
+      local real_wall
+      real_wall="$(realpath "$CURRENT_WALL")"
+      local real_mode_dir
+      real_mode_dir="$(realpath "$mode_dir")/"
+      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
+        should_save=false
+        log "Not saving to ${THEME_MODE}_last: wallpaper is not in ${mode_cap} pool ($real_wall vs $real_mode_dir)"
+      fi
+    fi
+
+    if [[ "$should_save" == "true" ]]; then
+      [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
+    fi
   fi
 
   # Apply system-wide theme settings
@@ -102,7 +124,7 @@ set_system_theme() {
   # "pywalfox dark" / "pywalfox light" switches the extension's palette;
   # matugen's post_hook already runs "pywalfox update" to push new colours.
   if command -v pywalfox >/dev/null 2>&1; then
-    pywalfox "$mode" 2>/dev/null || true
+    pywalfox "$mode" 2>/dev/null &
     log "pywalfox switched to $mode"
   fi
 }
@@ -130,15 +152,21 @@ set_gtk_theme() {
 set_firefox_theme() {
   local mode="$1"
   local dark_value=0
-  [[ "$mode" == "dark" ]] && dark_value=1
+  local content_override=1 # Light
+  if [[ "$mode" == "dark" ]]; then
+    dark_value=1
+    content_override=2 # Dark
+  fi
 
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value"
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value"
+  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value" "$content_override"
+  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value" "$content_override"
+  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value" "$content_override"
 }
 
 _apply_firefox_profiles_ini() {
   local ini_file="$1"
   local dark_value="$2"
+  local content_override="$3"
   [[ -f "$ini_file" ]] || return 0
 
   local profiles_root
@@ -151,7 +179,7 @@ _apply_firefox_profiles_ini() {
     case "$line" in
     "[Profile"*"]")
       if [[ -n "$current_path" ]]; then
-        _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value"
+        _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
       fi
       current_path=""
       current_relative=1
@@ -166,7 +194,7 @@ _apply_firefox_profiles_ini() {
   done <"$ini_file"
 
   if [[ -n "$current_path" ]]; then
-    _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value"
+    _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
   fi
 }
 
@@ -175,6 +203,7 @@ _write_firefox_userjs() {
   local raw_path="$2"
   local is_relative="$3"
   local dark_value="$4"
+  local content_override="$5"
   local profile_dir="$raw_path"
 
   if [[ "$is_relative" == "1" ]]; then
@@ -188,15 +217,19 @@ _write_firefox_userjs() {
   tmp="$(mktemp)"
 
   if [[ -f "$user_js" ]]; then
-    grep -v 'user_pref("ui.systemUsesDarkTheme"' "$user_js" \
-      | grep -v 'user_pref("layout.css.prefers-color-scheme.content-override"' \
-      >"$tmp" || true
+    grep -v 'user_pref("ui.systemUsesDarkTheme"' "$user_js" |
+      grep -v 'user_pref("layout.css.prefers-color-scheme.content-override"' |
+      grep -v 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets"' \
+        >"$tmp" || true
   fi
 
   {
     cat "$tmp" 2>/dev/null || true
-    echo 'user_pref("layout.css.prefers-color-scheme.content-override", 0);'
+    echo "user_pref(\"layout.css.prefers-color-scheme.content-override\", 3);"
+    echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
     echo "user_pref(\"ui.systemUsesDarkTheme\", ${dark_value});"
+    echo "user_pref(\"browser.theme.content-theme\", ${dark_value});"
+    echo "user_pref(\"browser.theme.toolbar-theme\", ${dark_value});"
   } >"$user_js"
 
   rm -f "$tmp"
@@ -235,6 +268,7 @@ set_xdg_portal_theme() {
 # --- HELPERS ---
 
 get_wallpapers() {
+  local mode="${1:-$THEME_MODE}"
   walls=()
   local base_dir="${WALL_DIR/#\~/$HOME}"
   [[ -d "$base_dir" ]] || die "Wallpaper directory not found: $base_dir"
@@ -242,7 +276,7 @@ get_wallpapers() {
 
   # Use mode-specific subdir (Dark/Light) if it exists, mirroring rofi's behaviour.
   # Capitalise first letter to match the dir naming convention.
-  local mode_cap="${THEME_MODE^}"
+  local mode_cap="${mode^}"
   local mode_dir="${base_dir}/${mode_cap}"
   local wall_dir="$base_dir"
   local depth_args=()
@@ -290,15 +324,31 @@ run_matugen() {
   local img="$1" mode="$2"
   local variant="${3:-}" contrast="${4:-}"
   local extra_args=()
+  local lockfile="/tmp/cloudyy_theme_controller.lock"
 
   [[ -n "$variant" ]] && extra_args+=(--type "$variant")
   [[ -n "$contrast" ]] && extra_args+=(--contrast "$contrast")
 
-  log "Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})..."
-  matugen image "$img" -m "$mode" --source-color-index 0 "${extra_args[@]}" || {
+  # --- CRITICAL: Release lock before running background processes ---
+  # We lock ONLY the matugen generation part to prevent corruption.
+  # We close FD 9 (if it was used) and other common FDs to prevent inheritance.
+  flock -x "$lockfile" bash -c "
+    printf '\033[1;34m[THEME]\033[0m Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})...\n'
+    matugen image \"$img\" -m \"$mode\" --source-color-index 0 ${extra_args[*]} 9>&- 8>&- 7>&- 6>&- 5>&- 4>&- 3>&-
+  " || {
     log "matugen failed — check image validity"
     return 1
   }
+
+  # Now that the lock is released, trigger shell-specific reloads
+  if [[ -n "$WIDGETS_BRIDGE" ]]; then
+    if [[ -x "$WIDGETS_BRIDGE" ]]; then
+      log "Executing widget bridge: $(basename "$WIDGETS_BRIDGE")"
+      "$WIDGETS_BRIDGE" &
+    else
+      log "WARNING: Bridge script not found or not executable: $WIDGETS_BRIDGE"
+    fi
+  fi
 }
 
 sync_current_wallpaper() {
@@ -327,7 +377,14 @@ cmd_apply() {
 
   log "Applying: $(basename "$img") [$mode]"
 
-  # Generate colors first — post_hooks fire and restart apps
+  # Fire wallpaper transition immediately — no need to wait for matugen
+  "${WALLPAPER_CMD[@]}" img "$img" \
+    --transition-type "$transition" \
+    --transition-duration 2 \
+    --transition-fps 60 &
+  local swww_pid=$!
+
+  # Generate colors + post_hooks in parallel with the transition
   run_matugen "$img" "$mode" || log "WARNING: Matugen failed, but continuing to wallpaper..."
 
   # Save state
@@ -335,12 +392,7 @@ cmd_apply() {
   THEME_MODE="$mode"
   save_state
 
-  # Animate wallpaper after color generation
-  "${WALLPAPER_CMD[@]}" img "$img" \
-    --transition-type "$transition" \
-    --transition-duration 2 \
-    --transition-fps 60
-
+  wait "$swww_pid" 2>/dev/null || true
   notify "Wallpaper applied" low
 }
 
@@ -373,18 +425,61 @@ cmd_toggle() {
   local last_wall=""
   [[ -f "$last_file" ]] && last_wall="$(tr -d '[:space:]' <"$last_file")"
 
+  # Validate that last_wall belongs to the correct pool if pools exist
+  if [[ -n "$last_wall" && -f "$last_wall" ]]; then
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local mode_cap="${new_mode^}"
+    local mode_dir="${base_dir}/${mode_cap}"
+    if [[ -d "$mode_dir" ]]; then
+      local real_wall
+      real_wall="$(realpath "$last_wall")"
+      local real_mode_dir
+      real_mode_dir="$(realpath "$mode_dir")"
+      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
+        log "Saved wallpaper for $new_mode is invalid (wrong pool). Ignoring."
+        last_wall=""
+      fi
+    fi
+  fi
+
   if [[ -n "$last_wall" && -f "$last_wall" ]]; then
     log "Restoring $(basename "$last_wall") [$new_mode]"
     cmd_apply "$last_wall" "$new_mode"
-  elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$new_mode"
-    sync_current_wallpaper "$CURRENT_WALL"
-    THEME_MODE="$new_mode"
-    save_state
-    notify "Switched to $new_mode mode"
   else
-    log "No wallpaper history — picking random"
-    cmd_random "$new_mode"
+    # No history for this mode — try to find a matching name in the new mode's pool.
+    local base_dir="${WALL_DIR/#\~/$HOME}"
+    local new_mode_cap="${new_mode^}"
+    local new_mode_dir="${base_dir}/${new_mode_cap}"
+
+    if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" && -d "$new_mode_dir" ]]; then
+      local wall_name
+      wall_name="$(basename "$CURRENT_WALL")"
+      # Search recursively for the same filename in the new mode's pool.
+      local matching_wall
+      matching_wall="$(find -L "$new_mode_dir" -type f -name "$wall_name" -print -quit)"
+
+      if [[ -n "$matching_wall" ]]; then
+        log "Found matching wallpaper in ${new_mode_cap} pool: $wall_name"
+        cmd_apply "$matching_wall" "$new_mode"
+        return 0
+      fi
+    fi
+
+    # Still no wallpaper? If a mode pool exists, pick a random one from it.
+    if [[ -d "$new_mode_dir" ]]; then
+      log "No matching wall or history — picking random from ${new_mode_cap} pool"
+      cmd_random "$new_mode"
+    elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
+      # Absolute fallback: keep current wall but change theme mode.
+      run_matugen "$CURRENT_WALL" "$new_mode"
+      sync_current_wallpaper "$CURRENT_WALL"
+      THEME_MODE="$new_mode"
+      save_state
+      notify "Switched to $new_mode mode"
+    else
+      log "No pool or history — picking random"
+      cmd_random "$new_mode"
+    fi
   fi
 }
 
@@ -392,14 +487,14 @@ cmd_random() {
   local force_mode="${1:-}"
   read_state
   [[ -z "$force_mode" ]] && force_mode="$THEME_MODE"
-  get_wallpapers
+  get_wallpapers "$force_mode"
   local rand="${walls[RANDOM % ${#walls[@]}]}"
   cmd_apply "$rand" "$force_mode"
 }
 
 cmd_next() {
   read_state
-  get_wallpapers
+  get_wallpapers "$THEME_MODE"
   local next=0
   if [[ -n "$CURRENT_WALL" ]]; then
     # Resolve both sides so symlinks in Dark/Light dirs match their realpath targets.
@@ -525,7 +620,7 @@ debug)
   log "LIGHT_LAST: $(cat "$LIGHT_LAST" 2>/dev/null || echo '(none)')"
   log "Dark dir:  $([ -d "${WALL_DIR}/Dark" ] && echo YES || echo NO)"
   log "Light dir: $([ -d "${WALL_DIR}/Light" ] && echo YES || echo NO)"
-  get_wallpapers
+  get_wallpapers "$THEME_MODE"
   log "Wallpapers in current mode pool: ${#walls[@]}"
   ;;
 *)
