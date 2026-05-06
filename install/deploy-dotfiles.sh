@@ -247,6 +247,45 @@ ensure_cloudyy_path() {
 }
 
 # =============================================================================
+# STEP 4.5: Deploy First-Boot Defaults
+# =============================================================================
+# Copies distro defaults for files that are gitignored (generated at runtime).
+# Only runs if the target doesn't already exist — never overwrites user files.
+
+deploy_defaults() {
+  log_section "First-Boot Defaults"
+
+  local defaults_dir="${REPO_DIR}/install/default-theme"
+
+  # hyprland.conf — gitignored; deploy once so Hyprland can start cleanly
+  local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
+  if [[ ! -f "$hypr_conf" ]]; then
+    cp "${defaults_dir}/hyprland.conf" "$hypr_conf"
+    log_ok "hyprland.conf deployed (default)."
+  else
+    log_skip "hyprland.conf"
+  fi
+
+  # matugen generated colors — gitignored; deploy so Hyprland + rofi have colors
+  local generated_dir="${HOME}/.config/matugen/generated"
+  mkdir -p "$generated_dir"
+  local deployed=0
+  for src in "${defaults_dir}/matugen/"*; do
+    [[ -f "$src" ]] || continue
+    local dst="${generated_dir}/$(basename "$src")"
+    if [[ ! -f "$dst" ]]; then
+      cp "$src" "$dst"
+      (( ++deployed )) || true
+    fi
+  done
+  if (( deployed > 0 )); then
+    log_ok "${deployed} default color file(s) deployed."
+  else
+    log_skip "matugen generated colors"
+  fi
+}
+
+# =============================================================================
 # STEP 5: Post-Deployment Verification
 # =============================================================================
 
@@ -380,6 +419,7 @@ main() {
   link_home_dotfiles
   link_config_dirs
   link_extra_dirs
+  deploy_defaults
   ensure_cloudyy_path
   verify_deployment
   setup_system_theme

@@ -183,10 +183,24 @@ phase_services() {
 # Runs after packages so matugen is available to generate hyprcolors.conf.
 phase_theme_init() {
   local controller="${HOME}/cloudyy_scripts/theme_controller.sh"
+  local state_conf="${HOME}/.config/hypr/theme_state/state.conf"
+  local default_wall="${HOME}/Wallpapers/Dark/cloudyy.jpg"
+
   if [[ ! -x "$controller" ]]; then
     log_warn "theme_controller.sh not found — skipping theme bootstrap."
     return 0
   fi
+
+  # Seed state.conf with the default wallpaper so restore has something to run matugen against.
+  # Only seeds if no wallpaper is already saved.
+  if [[ -f "$state_conf" ]] && grep -q 'CURRENT_WALL="[^"]' "$state_conf" 2>/dev/null; then
+    log "Existing theme state found — preserving."
+  elif [[ -f "$default_wall" ]]; then
+    mkdir -p "$(dirname "$state_conf")"
+    printf 'THEME_MODE="dark"\nCURRENT_WALL="%s"\n' "$default_wall" >"$state_conf"
+    log "Default wallpaper seeded into theme state."
+  fi
+
   if "$controller" restore >/dev/null 2>&1; then
     log_ok "Theme colours generated."
   else
