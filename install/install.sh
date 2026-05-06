@@ -6,6 +6,7 @@
 #   ./install.sh              Normal run (resumes if previous session exists)
 #   ./install.sh --dry-run    Preview phases without executing anything
 #   ./install.sh --reset      Clear saved state and start from the beginning
+#   ./install.sh --unattended Silent install — skip post-install config prompt
 #   ./install.sh --help       Show this message
 # =============================================================================
 
@@ -18,6 +19,9 @@ readonly LOG_DIR="${STATE_DIR}/logs"
 readonly LOG_FILE="${LOG_DIR}/install_$(date +%Y%m%d_%H%M%S).log"
 readonly STATE_FILE="${STATE_DIR}/.install_state"
 readonly LOCK_FILE="/tmp/cloudyy_install_${UID}.lock"
+
+# --- Script-Level Variables -------------------------------------------------
+UNATTENDED=0
 
 # --- Colors (TTY-aware) ------------------------------------------------------
 if [[ -t 1 ]]; then
@@ -196,6 +200,12 @@ phase_finalize() {
   printf '%s  🎉  cloudyy-linux installation complete!  %s\n' "$BOLD" "$RESET"
   printf '%s%s════════════════════════════════════════════%s\n\n' "$BOLD" "$GREEN" "$RESET"
   printf 'Log saved to:\n  %s%s%s\n\n' "$CYAN" "$LOG_FILE" "$RESET"
+
+  local config_script="${HOME}/cloudyy_scripts/cloudyy-config"
+  if [[ "${UNATTENDED}" != "1" ]] && [[ -x "$config_script" ]]; then
+    "$config_script" --first-run
+  fi
+
   printf '%sNext steps:%s\n' "$YELLOW" "$RESET"
   printf '  1. Log out of your current session\n'
   printf '  2. Select Hyprland at your display manager, or run: %sHyprland%s\n' "$BOLD" "$RESET"
@@ -232,9 +242,10 @@ main() {
   # --- Argument Handling ---
   case "${1:-}" in
   --help | -h)
-    printf 'Usage: %s [--dry-run | --reset | --help]\n' "$(basename "$0")"
-    printf '\n  --dry-run   Preview phases without making changes\n'
-    printf '  --reset     Clear saved progress and start from scratch\n\n'
+    printf 'Usage: %s [--dry-run | --reset | --unattended | --help]\n' "$(basename "$0")"
+    printf '\n  --dry-run      Preview phases without making changes\n'
+    printf '  --reset        Clear saved progress and start from scratch\n'
+    printf '  --unattended   Silent install — skip post-install config prompt\n\n'
     exit 0
     ;;
   --reset)
@@ -256,6 +267,9 @@ main() {
     done
     printf '\n'
     exit 0
+    ;;
+  --unattended | -u)
+    UNATTENDED=1
     ;;
   "") ;;
   *)
