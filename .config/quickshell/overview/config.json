@@ -1,0 +1,85 @@
+{
+  "position": {
+    "topMargin": 100
+  },
+  "overview": {
+    "enable": true,
+    "rows": 2,
+    "columns": 5,
+    "workspaceSpacing": 12,
+    "backgroundPadding": 16,
+    "useWorkspaceMap": false,
+    "workspaceMap": {},
+    "orderBottomUp": false,
+    "orderRightLeft": false,
+    "closeOnFocusLoss": true,
+    "scale": 0.16,
+    "workspaceNumberBaseSize": 120,
+    "effects": {
+      "enableBlur": false,
+      "enableBackdrop": false,
+      "backdropOpacity": 0,
+      "panelOpacity": 0.85,
+      "workspaceOpacity": 0.6,
+      "emptyWorkspaceWallpaperOverlayOpacity": 0.1,
+      "windowOverlayOpacity": 0.15,
+      "glassMode": true,
+      "glassTintStrength": 0.2,
+      "glassBorderOpacity": 0.4,
+      "glassShineOpacity": 0
+    },
+    "previewsEnabled": true,
+    "previewMode": "live",
+    "includeInactiveMonitorPreviews": true,
+    "previewRecaptureDelayMs": 60,
+    "specialWorkspaceColumns": 4,
+    "specialWorkspaceNames": [
+      "magic",
+      "scratchpad"
+    ],
+    "showSpecialWorkspaces": true,
+    "emptyWorkspaceWallpaper": null,
+    "specialEmptyWorkspaceWallpaper": null
+  },
+  "appearance": {
+    "colorSource": "matugen",
+    "rounding": {
+      "unsharpen": 0,
+      "verysmall": 4,
+      "small": 8,
+      "normal": 12,
+      "large": 16,
+      "full": 9999,
+      "screenRounding": 12,
+      "windowRounding": 8
+    },
+    "font": {
+      "family": {
+        "main": "JetBrains Mono",
+        "title": "JetBrains Mono",
+        "expressive": "JetBrains Mono"
+      },
+      "pixelSize": {
+        "smaller": 10,
+        "small": 12,
+        "normal": 14,
+        "larger": 16,
+        "huge": 24
+      }
+    },
+    "animation": {
+      "duration": {
+        "elementMoveEnter": 350,
+        "elementMove": 250,
+        "elementMoveFast": 150
+      }
+    },
+    "sizes": {
+      "elevationMargin": 32
+    }
+  },
+  "hacks": {
+    "hyprlandEventDebounceMs": 50,
+    "arbitraryRaceConditionDelay": 35
+  }
+}

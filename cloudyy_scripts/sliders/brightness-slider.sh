@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# brightness.sh — brightness control via swayosd
+# brightness.sh — brightness control via brightnessctl + Quickshell OSD
 #
 # Binds:
 #   bindel = , XF86MonBrightnessUp,   exec, $scripts/brightness.sh up
 #   bindel = , XF86MonBrightnessDown, exec, $scripts/brightness.sh down
 #
-# Deps: swayosd-server (exec-once in hyprland.conf), swayosd-client, brightnessctl
+# Deps: brightnessctl, optional quickshell IPC target "sliders"
 
 MIN_BRIGHTNESS=1
 
@@ -15,14 +15,16 @@ _get_brightness() {
 
 case "${1:-}" in
     up)
-        swayosd-client --brightness raise
+        brightnessctl set 5%+ -q
+        command -v qs >/dev/null 2>&1 && qs ipc call sliders showBrightness >/dev/null 2>&1 || true
         ;;
     down)
         current=$(_get_brightness)
         if (( current <= MIN_BRIGHTNESS )); then
             exit 0
         fi
-        swayosd-client --brightness lower
+        brightnessctl set 5%- -q
+        command -v qs >/dev/null 2>&1 && qs ipc call sliders showBrightness >/dev/null 2>&1 || true
         ;;
     *)
         echo "Usage: $(basename "$0") {up|down}"

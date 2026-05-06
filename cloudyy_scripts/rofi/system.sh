@@ -32,7 +32,7 @@ show_system_menu() {
     ;;
   *killer*)
     command -v kitty &>/dev/null &&
-      "hyprctl" kill & # this one doesn't open a terminal
+      "hyprctl" kill
     ;;
   *) back_to_main ;;
   esac

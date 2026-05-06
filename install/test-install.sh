@@ -125,6 +125,9 @@ run_test "hyprland-install.sh sources dependencies.conf" \
 run_test "hyprland-install.sh has paru/yay fallback" \
     "grep -q 'paru\|yay' ./hyprland-install.sh && grep -q 'AUR_HELPER' ./hyprland-install.sh"
 
+run_test "test-quickshell-only.sh passes" \
+    "bash ./test-quickshell-only.sh"
+
 # =============================================================================
 # TEST GROUP 5: dependencies.conf Content
 # =============================================================================
@@ -133,30 +136,41 @@ print_header "Dependencies Configuration"
 # shellcheck disable=SC1091
 source ./dependencies.conf 2>/dev/null || true
 
-run_test "OFFICIAL_CORE array exists and non-empty"     "[ ${#OFFICIAL_CORE[@]} -gt 0 ]"
-run_test "OFFICIAL_INTERFACE array exists and non-empty" "[ ${#OFFICIAL_INTERFACE[@]} -gt 0 ]"
-run_test "OFFICIAL_UTILITY array exists and non-empty"   "[ ${#OFFICIAL_UTILITY[@]} -gt 0 ]"
-run_test "AUR_INTERFACE array exists"                    "declare -p AUR_INTERFACE &>/dev/null"
-run_test "AUR_UTILITY array exists"                      "declare -p AUR_UTILITY &>/dev/null"
+run_test "CORE_PACKAGES alias exists and non-empty" \
+    "[ ${#CORE_PACKAGES[@]} -gt 0 ]"
 
-# Legacy aliases (for backwards compatibility)
-run_test "CORE_PACKAGES alias exists"     "[ ${#CORE_PACKAGES[@]} -gt 0 ]"
-run_test "AUDIO_PACKAGES alias exists"    "[ ${#AUDIO_PACKAGES[@]} -gt 0 ]"
-run_test "MINIMAL_GROUP array exists"     "[ ${#MINIMAL_GROUP[@]} -gt 0 ]"
-run_test "STANDARD_GROUP array exists"    "[ ${#STANDARD_GROUP[@]} -gt 0 ]"
-run_test "FULL_GROUP array exists"        "[ ${#FULL_GROUP[@]} -gt 0 ]"
+run_test "INTERFACE_PACKAGES alias exists and non-empty" \
+    "[ ${#INTERFACE_PACKAGES[@]} -gt 0 ]"
 
-run_test "hyprland is in OFFICIAL_CORE" \
-    "printf '%s\n' \"\${OFFICIAL_CORE[@]}\" | grep -q '^hyprland$'"
+run_test "UTILITY_PACKAGES alias exists and non-empty" \
+    "[ ${#UTILITY_PACKAGES[@]} -gt 0 ]"
 
-run_test "No empty strings in OFFICIAL_CORE" \
-    "! printf '%s\n' \"\${OFFICIAL_CORE[@]}\" | grep -q '^$'"
+run_test "AUR_PACKAGES alias exists and non-empty" \
+    "[ ${#AUR_PACKAGES[@]} -gt 0 ]"
 
-run_test "No empty strings in OFFICIAL_UTILITY" \
-    "! printf '%s\n' \"\${OFFICIAL_UTILITY[@]}\" | grep -q '^$'"
+run_test "AUDIO_PACKAGES alias exists and non-empty" \
+    "[ ${#AUDIO_PACKAGES[@]} -gt 0 ]"
 
-run_test "No empty strings in OPT groups" \
-    "! printf '%s\n' \"\${AUR_OPT_GAMING[@]:-}\" \"\${OFFICIAL_OPT_GAMING[@]:-}\" | grep -q '^$'"
+run_test "MINIMAL_GROUP array exists" \
+    "[ ${#MINIMAL_GROUP[@]} -gt 0 ]"
+
+run_test "STANDARD_GROUP array exists" \
+    "[ ${#STANDARD_GROUP[@]} -gt 0 ]"
+
+run_test "FULL_GROUP array exists" \
+    "[ ${#FULL_GROUP[@]} -gt 0 ]"
+
+run_test "hyprland is in CORE_PACKAGES" \
+    "printf '%s\n' \"\${CORE_PACKAGES[@]}\" | grep -q '^hyprland$'"
+
+run_test "No empty strings in CORE_PACKAGES" \
+    "! printf '%s\n' \"\${CORE_PACKAGES[@]}\" | grep -q '^$'"
+
+run_test "No empty strings in UTILITY_PACKAGES" \
+    "! printf '%s\n' \"\${UTILITY_PACKAGES[@]}\" | grep -q '^$'"
+
+run_test "No empty strings in gaming option groups" \
+    "! printf '%s\n' \"\${OPTIONAL_AUR_GAMING[@]:-}\" \"\${OPTIONAL_OFFICIAL_GAMING[@]:-}\" | grep -q '^$'"
 
 run_test "GPU arrays are defined (NVIDIA)" \
     "[ ${#OFFICIAL_GPU_NVIDIA[@]} -gt 0 ]"
@@ -171,8 +185,8 @@ run_test "GPU arrays are defined (Intel)" \
 run_test "wlroots-nvidia removed (was non-existent)" \
     "! grep -q 'wlroots-nvidia' ./dependencies.conf"
 
-run_test "hyprcap flagged/removed (non-existent package)" \
-    "! grep -qE '^[^#]*\"hyprcap\"' ./dependencies.conf"
+run_test "hyprcap present in AUR_PACKAGES" \
+    "printf '%s\n' \"\${AUR_PACKAGES[@]}\" | grep -q '^hyprcap$'"
 
 run_test "Empty OPT_PRODUCTIVITY string removed" \
     "! grep -qE '^\s*\"\"' ./dependencies.conf"
@@ -200,11 +214,11 @@ print_header "Package Statistics"
 # shellcheck disable=SC1091
 source ./dependencies.conf 2>/dev/null || true
 
-print_info "OFFICIAL_CORE     : ${#OFFICIAL_CORE[@]} packages"
-print_info "OFFICIAL_INTERFACE: ${#OFFICIAL_INTERFACE[@]} packages"
-print_info "OFFICIAL_UTILITY  : ${#OFFICIAL_UTILITY[@]} packages"
-print_info "AUR_INTERFACE     : ${#AUR_INTERFACE[@]} packages"
-print_info "AUR_UTILITY       : ${#AUR_UTILITY[@]} packages"
+print_info "CORE_PACKAGES     : ${#CORE_PACKAGES[@]} packages"
+print_info "INTERFACE_PACKAGES: ${#INTERFACE_PACKAGES[@]} packages"
+print_info "UTILITY_PACKAGES  : ${#UTILITY_PACKAGES[@]} packages"
+print_info "AUR_PACKAGES      : ${#AUR_PACKAGES[@]} packages"
+print_info "AUDIO_PACKAGES    : ${#AUDIO_PACKAGES[@]} packages"
 print_info "MINIMAL_GROUP     : ${#MINIMAL_GROUP[@]} packages"
 print_info "STANDARD_GROUP    : ${#STANDARD_GROUP[@]} packages"
 print_info "FULL_GROUP        : ${#FULL_GROUP[@]} packages"
