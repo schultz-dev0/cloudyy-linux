@@ -27,9 +27,9 @@ source "$LIB_FILE"
 # shellcheck source=install/dependencies.conf
 source "$DEPS_FILE"
 
-# Detect which AUR helper is available (mirrors hyprland-install.sh logic)
-command -v paru &>/dev/null && AUR_HELPER="paru" || true
+# Detect which AUR helper is available — paru wins if both present (matches hyprland-install.sh)
 command -v yay  &>/dev/null && AUR_HELPER="yay"  || true
+command -v paru &>/dev/null && AUR_HELPER="paru" || true
 
 # =============================================================================
 # HELPERS
