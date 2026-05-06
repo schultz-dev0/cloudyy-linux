@@ -380,47 +380,80 @@ select_gpu() {
   printf '  GPU : %s\n' "${gpu:-Unknown}"
   printf '\n'
 
-  local auto=""
-  echo "$gpu" | grep -qi "nvidia" && auto=1 && printf '  %s→ Detected NVIDIA%s\n' "$GREEN" "$RESET"
-  echo "$gpu" | grep -qi "amd\|radeon" && auto=2 && printf '  %s→ Detected AMD%s\n' "$GREEN" "$RESET"
-  echo "$gpu" | grep -qi "intel" && auto=3 && printf '  %s→ Detected Intel%s\n' "$GREEN" "$RESET"
+  local has_nvidia=0 has_amd=0 has_intel=0
+  echo "$gpu" | grep -qi "nvidia"      && has_nvidia=1 && printf '  %s→ Detected NVIDIA%s\n' "$GREEN" "$RESET"
+  echo "$gpu" | grep -qi "amd\|radeon" && has_amd=1    && printf '  %s→ Detected AMD%s\n'    "$GREEN" "$RESET"
+  echo "$gpu" | grep -qi "intel"       && has_intel=1   && printf '  %s→ Detected Intel%s\n'  "$GREEN" "$RESET"
 
-  printf '\n'
-  printf '  %s1)%s NVIDIA  (nvidia-open-dkms — Turing/RTX 20xx+)\n' "$CYAN" "$RESET"
-  printf '  %s2)%s AMD     (mesa + vulkan-radeon)\n' "$CYAN" "$RESET"
-  printf '  %s3)%s Intel   (mesa + vulkan-intel + intel-media-driver)\n' "$CYAN" "$RESET"
-  printf '  %s4)%s Skip    (VM / already configured / dual GPU)\n' "$CYAN" "$RESET"
-  printf '\n'
-
-  local default="${auto:-4}"
-  local choice
-  read -rp "  Selection [1-4, Enter=${default}]: " choice
-  choice="${choice:-${default}}"
+  local vendor_count=$(( has_nvidia + has_amd + has_intel ))
 
   CHOSEN_GPU_OFFICIAL=()
   CHOSEN_GPU_AUR=()
-  case "$choice" in
-  1)
-    CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_NVIDIA[@]}")
-    CHOSEN_GPU_AUR=("${AUR_GPU_NVIDIA[@]}")
-    log_ok "NVIDIA drivers selected."
-    write_gpu_launcher "nvidia"
-    ;;
-  2)
-    CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_AMD[@]}")
-    log_ok "AMD drivers selected."
-    write_gpu_launcher "amd"
-    ;;
-  3)
-    CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_INTEL[@]}")
-    log_ok "Intel drivers selected."
-    write_gpu_launcher "intel"
-    ;;
-  *)
-    log_skip "Skipping GPU drivers."
-    write_gpu_launcher "skip"
-    ;;
-  esac
+
+  if (( vendor_count > 1 )); then
+    # ── Dual / multi-GPU: auto-install all detected driver sets ───────────────
+    printf '\n'
+    log "Multiple GPUs detected — installing all driver sets automatically."
+
+    (( has_nvidia )) && CHOSEN_GPU_OFFICIAL+=("${OFFICIAL_GPU_NVIDIA[@]}") \
+                     && CHOSEN_GPU_AUR+=("${AUR_GPU_NVIDIA[@]}")
+    (( has_amd ))    && CHOSEN_GPU_OFFICIAL+=("${OFFICIAL_GPU_AMD[@]}")
+    (( has_intel ))  && CHOSEN_GPU_OFFICIAL+=("${OFFICIAL_GPU_INTEL[@]}")
+
+    # Deduplicate (mesa / lib32-mesa appear in both AMD and Intel sets)
+    mapfile -t CHOSEN_GPU_OFFICIAL < <(printf '%s\n' "${CHOSEN_GPU_OFFICIAL[@]}" | sort -u)
+
+    # Primary vendor for the Hyprland launcher: NVIDIA > AMD > Intel
+    local primary
+    if   (( has_nvidia )); then primary="nvidia"
+    elif (( has_amd ));    then primary="amd"
+    else                        primary="intel"
+    fi
+
+    log_ok "Installing ${#CHOSEN_GPU_OFFICIAL[@]} GPU packages (primary: ${primary})."
+    write_gpu_launcher "$primary"
+
+  else
+    # ── Single GPU (or none): show menu with auto-detected default ────────────
+    local default=4
+    (( has_nvidia )) && default=1
+    (( has_amd ))    && default=2
+    (( has_intel ))  && default=3
+
+    printf '\n'
+    printf '  %s1)%s NVIDIA  (nvidia-open-dkms — Turing/RTX 20xx+)\n' "$CYAN" "$RESET"
+    printf '  %s2)%s AMD     (mesa + vulkan-radeon)\n'                  "$CYAN" "$RESET"
+    printf '  %s3)%s Intel   (mesa + vulkan-intel + intel-media-driver)\n' "$CYAN" "$RESET"
+    printf '  %s4)%s Skip    (VM / already configured)\n'               "$CYAN" "$RESET"
+    printf '\n'
+
+    local choice
+    read -rp "  Selection [1-4, Enter=${default}]: " choice
+    choice="${choice:-${default}}"
+
+    case "$choice" in
+    1)
+      CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_NVIDIA[@]}")
+      CHOSEN_GPU_AUR=("${AUR_GPU_NVIDIA[@]}")
+      log_ok "NVIDIA drivers selected."
+      write_gpu_launcher "nvidia"
+      ;;
+    2)
+      CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_AMD[@]}")
+      log_ok "AMD drivers selected."
+      write_gpu_launcher "amd"
+      ;;
+    3)
+      CHOSEN_GPU_OFFICIAL=("${OFFICIAL_GPU_INTEL[@]}")
+      log_ok "Intel drivers selected."
+      write_gpu_launcher "intel"
+      ;;
+    *)
+      log_skip "Skipping GPU drivers."
+      write_gpu_launcher "skip"
+      ;;
+    esac
+  fi
 }
 
 # =============================================================================
