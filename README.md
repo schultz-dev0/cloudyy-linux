@@ -22,6 +22,10 @@ Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1L
 - **Waybar presets**: legacy assets kept in-repo during the transition; not part of the active default shell path
 - **Obsidian vault**: drop your vault in the blank obsidian vault (or any path) — matugen will colour-match it
 
+## Quickshell overview
+
+![Preview](extras/Previewpics/general/system_overview.png)
+
 ## Waybar presets (legacy)
 **You can change orientation top and bottom | left and right**
 ![Preview](extras/Previewpics/waybar/waybar_default.png)
