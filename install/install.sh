@@ -175,6 +175,21 @@ phase_services() {
   log_ok "Services configured."
 }
 
+# --- Phase: Theme Bootstrap --------------------------------------------------
+# Runs after packages so matugen is available to generate hyprcolors.conf.
+phase_theme_init() {
+  local controller="${HOME}/cloudyy_scripts/theme_controller.sh"
+  if [[ ! -x "$controller" ]]; then
+    log_warn "theme_controller.sh not found — skipping theme bootstrap."
+    return 0
+  fi
+  if "$controller" restore >/dev/null 2>&1; then
+    log_ok "Theme colours generated."
+  else
+    log_warn "Theme bootstrap failed (non-fatal — run 'theme_controller.sh restore' later)."
+  fi
+}
+
 # --- Phase: Finalize ---------------------------------------------------------
 phase_finalize() {
   printf '\n%s%s════════════════════════════════════════════%s\n' "$BOLD" "$GREEN" "$RESET"
@@ -195,7 +210,7 @@ declare -a PHASE_IDS=(
   "dotfiles"
   "packages"
   "keyring"
-  "dotfiles"
+  "theme_init"
   "services"
   "finalize"
 )
@@ -205,7 +220,7 @@ declare -A PHASE_LABELS=(
   [dotfiles]="Dotfiles Deployment"
   [packages]="Hardware & Package Installation"
   [keyring]="Keyring Configuration"
-  [dotfiles]="Dotfiles Deployment"
+  [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
   [finalize]="Finalization"
 )
