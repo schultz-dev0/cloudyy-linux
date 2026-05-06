@@ -247,6 +247,48 @@ ensure_cloudyy_path() {
 }
 
 # =============================================================================
+# STEP 4.2: Shell Setup — zsh default + oh-my-zsh
+# =============================================================================
+
+setup_shell() {
+  log_section "Shell Setup"
+
+  # Set zsh as default shell if it isn't already
+  local zsh_path
+  zsh_path="$(command -v zsh 2>/dev/null || true)"
+  if [[ -z "$zsh_path" ]]; then
+    log_warn "zsh not found — skipping shell setup."
+    return 0
+  fi
+
+  if [[ "$SHELL" != "$zsh_path" ]]; then
+    log "Setting zsh as default shell..."
+    if chsh -s "$zsh_path" 2>/dev/null; then
+      log_ok "Default shell set to zsh (takes effect on next login)."
+    else
+      log_warn "chsh failed — run: chsh -s ${zsh_path}"
+    fi
+  else
+    log_skip "zsh already default shell"
+  fi
+
+  # Install oh-my-zsh if not present
+  if [[ -d "${HOME}/.oh-my-zsh" ]]; then
+    log_skip "oh-my-zsh already installed"
+    return 0
+  fi
+
+  log "Installing oh-my-zsh..."
+  if RUNZSH=no CHSH=no \
+     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+     "" --unattended 2>/dev/null; then
+    log_ok "oh-my-zsh installed."
+  else
+    log_warn "oh-my-zsh install failed (non-fatal — run the installer manually)."
+  fi
+}
+
+# =============================================================================
 # STEP 4.5: Deploy First-Boot Defaults
 # =============================================================================
 # Copies distro defaults for files that are gitignored (generated at runtime).
@@ -419,6 +461,7 @@ main() {
   link_home_dotfiles
   link_config_dirs
   link_extra_dirs
+  setup_shell
   deploy_defaults
   ensure_cloudyy_path
   verify_deployment
