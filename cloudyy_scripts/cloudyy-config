@@ -104,7 +104,7 @@ do_swap() {
     if [[ "$pkg" == "none" ]]; then
       if [[ "$current" != "none" ]]; then
         log "Removing ${current}..."
-        yay -Rns --noconfirm "$current" 2>/dev/null || \
+        [[ -n "$AUR_HELPER" ]] && "$AUR_HELPER" -Rns --noconfirm "$current" 2>/dev/null || \
           sudo pacman -Rns --noconfirm "$current" 2>/dev/null || true
         log_ok "Removed ${current}."
       fi
@@ -114,7 +114,7 @@ do_swap() {
     # Remove current
     if [[ "$current" != "none" ]]; then
       log "Removing ${current}..."
-      yay -Rns --noconfirm "$current" 2>/dev/null || \
+      [[ -n "$AUR_HELPER" ]] && "$AUR_HELPER" -Rns --noconfirm "$current" 2>/dev/null || \
         sudo pacman -Rns --noconfirm "$current" 2>/dev/null || true
     fi
 
@@ -144,12 +144,16 @@ toggle_addon() {
   if addon_installed "$sentinel"; then
     log "Removing addon..."
     local all_pkgs=("${_official[@]}" "${_aur[@]}")
-    yay -Rns --noconfirm "${all_pkgs[@]}" 2>/dev/null || true
+    if [[ -n "$AUR_HELPER" ]]; then
+      "$AUR_HELPER" -Rns --noconfirm "${all_pkgs[@]}" 2>/dev/null || true
+    else
+      sudo pacman -Rns --noconfirm "${all_pkgs[@]}" 2>/dev/null || true
+    fi
     log_ok "Removed."
   else
     log "Installing addon..."
-    (( ${#_official[@]} > 0 )) && pacman_install "Addon" "${_official[@]}" || true
-    (( ${#_aur[@]} > 0 ))      && aur_install    "Addon" "${_aur[@]}"     || true
+    if (( ${#_official[@]} > 0 )); then pacman_install "Addon" "${_official[@]}"; fi
+    if (( ${#_aur[@]} > 0 ));      then aur_install    "Addon" "${_aur[@]}";     fi
     log_ok "Installed."
   fi
 }
@@ -219,7 +223,10 @@ main_menu() {
 }
 
 first_run() {
-  [[ -f "$FIRST_RUN_FLAG" ]] && { main_menu; return 0; }
+  if [[ -f "$FIRST_RUN_FLAG" ]]; then
+    main_menu
+    return 0
+  fi
 
   printf '\n%s╔══════════════════════════════════════════╗%s\n' "$BOLD" "$RESET"
   printf '%s║   cloudyy-linux is ready!               ║%s\n' "$BOLD" "$RESET"
