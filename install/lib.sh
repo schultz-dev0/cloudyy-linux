@@ -47,7 +47,7 @@ pacman_install() {
       fails=$(( fails + 1 ))
     fi
   done
-  (( fails > 0 )) && log_warn "${group}: ${fails} package(s) skipped." || true
+  if (( fails > 0 )); then log_warn "${group}: ${fails} package(s) skipped."; fi
   return 0
 }
 
@@ -74,6 +74,6 @@ aur_install() {
       fails=$(( fails + 1 ))
     fi
   done
-  (( fails > 0 )) && log_warn "${group}: ${fails} package(s) skipped." || true
+  if (( fails > 0 )); then log_warn "${group}: ${fails} package(s) skipped."; fi
   return 0
 }
