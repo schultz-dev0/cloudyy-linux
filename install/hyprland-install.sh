@@ -568,6 +568,7 @@ select_optional() {
   ask_optional "Extra Fonts" \
     "JetBrainsMono Nerd Font (accessibility font)" &&
     _add OPTIONAL_OFFICIAL_FONTS OPTIONAL_AUR_FONTS
+  return 0
 }
 
 # =============================================================================
@@ -663,10 +664,10 @@ show_summary() {
   printf '\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n' "$GREEN" "$RESET"
 
   read -rp "  Begin installation? [Y/n]: " _c
-  [[ "${_c,,}" == "n" ]] && {
+  if [[ "${_c,,}" == "n" ]]; then
     log "Cancelled."
     exit 0
-  }
+  fi
 }
 
 # =============================================================================
