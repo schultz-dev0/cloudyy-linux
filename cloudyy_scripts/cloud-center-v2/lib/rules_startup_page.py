@@ -1389,3 +1389,127 @@ class _EnvVarsTab(_Gtk.Box):
         self._refresh()
     def serialize(self) -> list[str]:   return _serialize_env_vars(self._items)
     def parse(self, lines: list[str]) -> None: self.load(_parse_env_vars(lines))
+
+
+# ── Rules & Startup Page ───────────────────────────────────────────────────────
+
+class RulesStartupPage(_Gtk.Box):
+    """Tabbed page: Window Rules, Layer Rules, Autostart, Environment Variables."""
+
+    def __init__(self, toast_overlay) -> None:
+        super().__init__(orientation=_Gtk.Orientation.VERTICAL)
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._toast_ov = toast_overlay
+
+        self._window_tab    = _WindowRulesTab(self)
+        self._layer_tab     = _LayerRulesTab(self)
+        self._autostart_tab = _AutostartTab(self)
+        self._env_tab       = _EnvVarsTab(self)
+        self._tabs = [self._window_tab, self._layer_tab, self._autostart_tab, self._env_tab]
+
+        stack = Adw.ViewStack()
+        stack.add_titled(self._window_tab,    'window',    'Window Rules')
+        stack.add_titled(self._layer_tab,     'layer',     'Layer Rules')
+        stack.add_titled(self._autostart_tab, 'autostart', 'Autostart')
+        stack.add_titled(self._env_tab,       'env',       'Environment')
+        stack.set_vexpand(True)
+
+        switcher = Adw.ViewSwitcher()
+        switcher.set_stack(stack)
+        switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
+
+        header = Adw.HeaderBar()
+        header.set_title_widget(switcher)
+        header.add_css_class('flat')
+
+        toolbar_view = Adw.ToolbarView()
+        toolbar_view.add_top_bar(header)
+        toolbar_view.set_content(stack)
+        toolbar_view.add_bottom_bar(self._build_footer())
+        toolbar_view.set_vexpand(True)
+        self.append(toolbar_view)
+
+        self._load_from_file()
+
+    def _build_footer(self):
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.add_css_class('toolbar')
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+
+        path_lbl = Gtk.Label(label=str(CONF_PATH).replace(str(Path.home()), '~'))
+        path_lbl.add_css_class('dim-label')
+        path_lbl.add_css_class('caption')
+        path_lbl.set_hexpand(True)
+        path_lbl.set_xalign(0)
+        path_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+
+        self._discard_btn = Gtk.Button(label='Discard')
+        self._discard_btn.add_css_class('flat')
+        self._discard_btn.set_sensitive(False)
+        self._discard_btn.connect('clicked', self._on_discard)
+
+        self._apply_btn = Gtk.Button(label='Apply')
+        self._apply_btn.add_css_class('suggested-action')
+        self._apply_btn.set_sensitive(False)
+        self._apply_btn.connect('clicked', self._on_apply)
+
+        box.append(path_lbl)
+        box.append(self._discard_btn)
+        box.append(self._apply_btn)
+        return box
+
+    def _load_from_file(self) -> None:
+        if not CONF_PATH.exists():
+            return
+        try:
+            sections = _parse_conf(CONF_PATH.read_text(encoding='utf-8'))
+            self._window_tab.parse(sections['window_rules'])
+            self._layer_tab.parse(sections['layer_rules'])
+            self._autostart_tab.parse(sections['autostart'])
+            self._env_tab.parse(sections['env_vars'])
+        except Exception as e:
+            log.warning('Failed to load rules conf: %s', e)
+
+    def apply_live(self) -> None:
+        """Write conf + reload. Called by tabs after any mutation."""
+        self._update_dirty_buttons()
+        threading.Thread(target=self._do_apply_live, daemon=True).start()
+
+    def _do_apply_live(self) -> None:
+        from gi.repository import GLib
+        try:
+            _write_conf(
+                self._window_tab._items,
+                self._layer_tab._items,
+                self._autostart_tab._items,
+                self._env_tab._items,
+            )
+            subprocess.run(['hyprctl', 'reload'], capture_output=True, timeout=5)
+        except Exception as e:
+            GLib.idle_add(lambda msg=str(e): self._show_toast(f'Reload failed: {msg}'))
+
+    def _update_dirty_buttons(self) -> None:
+        dirty = any(t.is_dirty() for t in self._tabs)
+        self._discard_btn.set_sensitive(dirty)
+        self._apply_btn.set_sensitive(dirty)
+
+    def _on_apply(self, _btn) -> None:
+        import lib.hcm as hcm
+        for tab in self._tabs:
+            tab.confirm_baseline()
+        hcm.ensure_user_config_sourced(CONF_PATH)
+        self._update_dirty_buttons()
+        has_startup = bool(self._autostart_tab._items) or bool(self._env_tab._items)
+        msg = 'Saved — restart Hyprland for env & autostart changes' if has_startup else 'Rules saved'
+        self._show_toast(msg)
+
+    def _on_discard(self, _btn) -> None:
+        for tab in self._tabs:
+            tab.revert_to_baseline()
+        self.apply_live()
+
+    def _show_toast(self, msg: str) -> None:
+        from lib import utility
+        utility.toast(self._toast_ov, msg)
