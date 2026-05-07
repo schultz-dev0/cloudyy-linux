@@ -166,3 +166,50 @@ def _serialize_layer_rules(rules: list[LayerRule]) -> list[str]:
         lines.append('}')
         lines.append('')
     return lines
+
+
+# ── Autostart parse / serialize ────────────────────────────────────────────────
+
+def _parse_autostart(lines: list[str]) -> list[AutostartEntry]:
+    entries: list[AutostartEntry] = []
+    for line in lines:
+        line = line.strip()
+        if line.startswith('exec-once'):
+            _, _, cmd = line.partition('=')
+            entries.append(AutostartEntry(command=cmd.strip(), exec_once=True))
+        elif line.startswith('exec'):
+            _, _, cmd = line.partition('=')
+            entries.append(AutostartEntry(command=cmd.strip(), exec_once=False))
+    return entries
+
+
+def _serialize_autostart(entries: list[AutostartEntry]) -> list[str]:
+    return [
+        f"{'exec-once' if e.exec_once else 'exec'} = {e.command}"
+        for e in entries
+    ]
+
+
+# ── Env var parse / serialize ──────────────────────────────────────────────────
+
+_ENV_NAME_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def _valid_env_name(name: str) -> bool:
+    return bool(_ENV_NAME_RE.match(name))
+
+
+def _parse_env_vars(lines: list[str]) -> list[EnvVar]:
+    vars_: list[EnvVar] = []
+    for line in lines:
+        line = line.strip()
+        if line.startswith('env'):
+            _, _, rest = line.partition('=')
+            rest = rest.strip()
+            name, _, value = rest.partition(',')
+            vars_.append(EnvVar(name=name.strip(), value=value))
+    return vars_
+
+
+def _serialize_env_vars(vars_: list[EnvVar]) -> list[str]:
+    return [f'env = {v.name},{v.value}' for v in vars_]
