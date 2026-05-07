@@ -62,6 +62,7 @@ import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
 import lib.rgb_page as rgb_page
 import lib.cursor_page as cursor_page
+import lib.rules_startup_page as rules_startup_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -304,9 +305,10 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__audio__": {"id": "__audio__", "title": "Audio", "icon": "audio-speakers-symbolic"},
             "__rgb__": {"id": "__rgb__", "title": "RGB Lighting", "icon": "applications-games-symbolic"},
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
+            "__rules__": {"id": "__rules__", "title": "Rules & Startup", "icon": "preferences-system-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
-            ("Visuals",         ["appearance", ACTIVE_SHELL_TAB, "hyprland"]),
+            ("Visuals",         ["appearance", ACTIVE_SHELL_TAB, "hyprland", "__rules__"]),
             ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
             ("System",          ["__bt__", "__wifi__", "__audio__", "__rgb__"]),
         ]
@@ -454,6 +456,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__wifi__":  lambda: wifi_page.WiFiPage(self._toast_ov),
             "__mon__":   lambda: monitor_editor.MonitorEditorPage(self._toast_ov),
             "__hkbm__":  lambda: keybind_manager.KeybindManagerPage(self._toast_ov),
+            "__rules__": lambda: rules_startup_page.RulesStartupPage(self._toast_ov),
             "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
             "__rgb__":   lambda: rgb_page.RGBPage(self._toast_ov),
         }
