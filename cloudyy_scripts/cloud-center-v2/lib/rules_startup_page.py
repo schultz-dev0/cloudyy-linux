@@ -15,6 +15,8 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
+from gi.repository import Gtk as _Gtk
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 HYPR_DIR  = Path.home() / '.config' / 'hypr'
@@ -1096,8 +1098,9 @@ def _make_rule_row(primary: str, secondary: str, pills: list[str], on_edit, on_d
 
 # ── Window Rules Tab ───────────────────────────────────────────────────────────
 
-class _WindowRulesTab:
+class _WindowRulesTab(_Gtk.Box):
     def __init__(self, page: 'RulesStartupPage') -> None:
+        super().__init__(orientation=_Gtk.Orientation.VERTICAL)
         self._page = page
         self._items:    list[WindowRule] = []
         self._baseline: list[WindowRule] = []
@@ -1105,9 +1108,8 @@ class _WindowRulesTab:
 
     def _build_ui(self) -> None:
         Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hdr, self._count_lbl = _make_list_header('Window Rules', self._on_add)
-        self._box.append(hdr)
+        self.append(hdr)
         self._list = Gtk.ListBox()
         self._list.add_css_class('boxed-list')
         self._list.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1117,11 +1119,7 @@ class _WindowRulesTab:
         scroll.set_vexpand(True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self._list)
-        self._box.append(scroll)
-
-    @property
-    def widget(self):
-        return self._box
+        self.append(scroll)
 
     def load(self, items: list[WindowRule]) -> None:
         self._items    = list(items)
@@ -1175,8 +1173,9 @@ class _WindowRulesTab:
 
 # ── Layer Rules Tab ────────────────────────────────────────────────────────────
 
-class _LayerRulesTab:
+class _LayerRulesTab(_Gtk.Box):
     def __init__(self, page: 'RulesStartupPage') -> None:
+        super().__init__(orientation=_Gtk.Orientation.VERTICAL)
         self._page = page
         self._items:    list[LayerRule] = []
         self._baseline: list[LayerRule] = []
@@ -1184,9 +1183,8 @@ class _LayerRulesTab:
 
     def _build_ui(self) -> None:
         Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hdr, self._count_lbl = _make_list_header('Layer Rules', self._on_add)
-        self._box.append(hdr)
+        self.append(hdr)
         self._list = Gtk.ListBox()
         self._list.add_css_class('boxed-list')
         self._list.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1196,11 +1194,7 @@ class _LayerRulesTab:
         scroll.set_vexpand(True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self._list)
-        self._box.append(scroll)
-
-    @property
-    def widget(self):
-        return self._box
+        self.append(scroll)
 
     def load(self, items: list[LayerRule]) -> None:
         self._items    = list(items)
@@ -1253,8 +1247,9 @@ class _LayerRulesTab:
 
 # ── Autostart Tab ──────────────────────────────────────────────────────────────
 
-class _AutostartTab:
+class _AutostartTab(_Gtk.Box):
     def __init__(self, page: 'RulesStartupPage') -> None:
+        super().__init__(orientation=_Gtk.Orientation.VERTICAL)
         self._page = page
         self._items:    list[AutostartEntry] = []
         self._baseline: list[AutostartEntry] = []
@@ -1262,9 +1257,8 @@ class _AutostartTab:
 
     def _build_ui(self) -> None:
         Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hdr, self._count_lbl = _make_list_header('Autostart', self._on_add)
-        self._box.append(hdr)
+        self.append(hdr)
         self._list = Gtk.ListBox()
         self._list.add_css_class('boxed-list')
         self._list.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1274,11 +1268,7 @@ class _AutostartTab:
         scroll.set_vexpand(True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self._list)
-        self._box.append(scroll)
-
-    @property
-    def widget(self):
-        return self._box
+        self.append(scroll)
 
     def load(self, items: list[AutostartEntry]) -> None:
         self._items    = list(items)
@@ -1330,8 +1320,9 @@ class _AutostartTab:
 
 # ── Env Vars Tab ───────────────────────────────────────────────────────────────
 
-class _EnvVarsTab:
+class _EnvVarsTab(_Gtk.Box):
     def __init__(self, page: 'RulesStartupPage') -> None:
+        super().__init__(orientation=_Gtk.Orientation.VERTICAL)
         self._page = page
         self._items:    list[EnvVar] = []
         self._baseline: list[EnvVar] = []
@@ -1339,9 +1330,8 @@ class _EnvVarsTab:
 
     def _build_ui(self) -> None:
         Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
-        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hdr, self._count_lbl = _make_list_header('Environment Variables', self._on_add)
-        self._box.append(hdr)
+        self.append(hdr)
         self._list = Gtk.ListBox()
         self._list.add_css_class('boxed-list')
         self._list.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -1351,11 +1341,7 @@ class _EnvVarsTab:
         scroll.set_vexpand(True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self._list)
-        self._box.append(scroll)
-
-    @property
-    def widget(self):
-        return self._box
+        self.append(scroll)
 
     def load(self, items: list[EnvVar]) -> None:
         self._items    = list(items)
