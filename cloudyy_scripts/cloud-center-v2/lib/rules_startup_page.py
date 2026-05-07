@@ -737,3 +737,276 @@ class _LayerRuleDialog:
             return
         self._on_save(LayerRule(name=name, namespace=namespace, effects=effects))
         self._dialog.close()
+
+
+# ── App Picker Dialog ──────────────────────────────────────────────────────────
+
+class _AppPickerDialog:
+    """Lists installed .desktop apps; calls on_pick(exec_command) on select."""
+
+    _DESKTOP_DIRS = [
+        Path('/usr/share/applications'),
+        Path.home() / '.local' / 'share' / 'applications',
+    ]
+
+    def __init__(self, parent_widget, on_pick) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._on_pick = on_pick
+        self._filter_text = ''
+
+        self._dialog = Adw.Dialog()
+        self._dialog.set_title('Pick Application')
+        self._dialog.set_content_width(400)
+        self._dialog.set_content_height(460)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        header = Adw.HeaderBar()
+        header.add_css_class('flat')
+        outer.append(header)
+
+        search = Gtk.SearchEntry()
+        search.set_placeholder_text('Filter apps…')
+        search.set_margin_start(12)
+        search.set_margin_end(12)
+        search.set_margin_bottom(6)
+        outer.append(search)
+
+        self._list = Gtk.ListBox()
+        self._list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self._list.add_css_class('boxed-list')
+        self._list.set_filter_func(lambda row, _: self._filter(row))
+        self._list.connect('row-activated', self._on_row_activated)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_margin_start(12)
+        scroll.set_margin_end(12)
+        scroll.set_margin_bottom(12)
+        scroll.set_child(self._list)
+        outer.append(scroll)
+
+        search.connect('search-changed', lambda s: (
+            setattr(self, '_filter_text', s.get_text().lower()) or
+            self._list.invalidate_filter()
+        ))
+
+        self._dialog.set_child(outer)
+        self._dialog.present(parent_widget)
+        threading.Thread(target=self._load_apps, daemon=True).start()
+
+    def _filter(self, row) -> bool:
+        return not self._filter_text or self._filter_text in getattr(row, '_app_name', '').lower()
+
+    def _load_apps(self) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        apps: list[tuple[str, str]] = []
+        for d in self._DESKTOP_DIRS:
+            if not d.exists():
+                continue
+            for desktop in sorted(d.glob('*.desktop')):
+                try:
+                    text = desktop.read_text(encoding='utf-8', errors='replace')
+                except OSError:
+                    continue
+                name = exec_cmd = ''
+                for line in text.splitlines():
+                    if line.startswith('Name=') and not name:
+                        name = line[5:].strip()
+                    if line.startswith('Exec=') and not exec_cmd:
+                        exec_cmd = re.sub(r'\s*%\w', '', line[5:].strip()).strip()
+                if name and exec_cmd:
+                    apps.append((name, exec_cmd))
+        apps.sort(key=lambda x: x[0].lower())
+        GLib.idle_add(self._populate, apps)
+
+    def _populate(self, apps: list[tuple[str, str]]) -> bool:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        for name, exec_cmd in apps:
+            row = Adw.ActionRow()
+            row.set_title(name)
+            row.set_subtitle(exec_cmd)
+            row._app_name = name       # type: ignore[attr-defined]
+            row._exec_cmd = exec_cmd   # type: ignore[attr-defined]
+            self._list.append(row)
+        return GLib.SOURCE_REMOVE
+
+    def _on_row_activated(self, _listbox, row) -> None:
+        cmd = getattr(row, '_exec_cmd', '')
+        if cmd:
+            self._on_pick(cmd)
+        self._dialog.close()
+
+
+# ── Autostart Dialog ───────────────────────────────────────────────────────────
+
+class _AutostartDialog:
+    """Add/edit a single AutostartEntry. Calls on_save(AutostartEntry) on confirm."""
+
+    def __init__(self, parent_widget, on_save, existing: Optional[AutostartEntry] = None) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._on_save = on_save
+        is_edit = existing is not None
+
+        self._dialog = Adw.Dialog()
+        self._dialog.set_title('Edit Autostart Entry' if is_edit else 'Add Autostart Entry')
+        self._dialog.set_content_width(440)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        header = Adw.HeaderBar()
+        header.add_css_class('flat')
+        outer.append(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        content.set_margin_top(12)
+        content.set_margin_bottom(16)
+        outer.append(content)
+
+        cmd_group = Adw.PreferencesGroup()
+        cmd_group.set_title('Command')
+
+        self._cmd_entry = Adw.EntryRow()
+        self._cmd_entry.set_title('Command to run at startup')
+        cmd_group.add(self._cmd_entry)
+
+        pick_row = Adw.ActionRow()
+        pick_row.set_title('Pick installed app')
+        pick_btn = Gtk.Button(label='Browse…')
+        pick_btn.add_css_class('flat')
+        pick_btn.set_valign(Gtk.Align.CENTER)
+        pick_btn.connect('clicked', lambda _: _AppPickerDialog(
+            self._dialog, lambda cmd: self._cmd_entry.set_text(cmd)
+        ))
+        pick_row.add_suffix(pick_btn)
+        pick_row.set_activatable_widget(pick_btn)
+        cmd_group.add(pick_row)
+        content.append(cmd_group)
+
+        exec_group = Adw.PreferencesGroup()
+        self._exec_once_row = Adw.SwitchRow()
+        self._exec_once_row.set_title('Run once at startup')
+        self._exec_once_row.set_subtitle('Off = re-run on every Hyprland reload')
+        self._exec_once_row.set_active(True)
+        exec_group.add(self._exec_once_row)
+        content.append(exec_group)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_box.set_halign(Gtk.Align.END)
+        cancel_btn = Gtk.Button(label='Cancel')
+        cancel_btn.connect('clicked', lambda _: self._dialog.close())
+        self._save_btn = Gtk.Button(label='Save' if is_edit else 'Add')
+        self._save_btn.add_css_class('suggested-action')
+        self._save_btn.connect('clicked', self._on_save_clicked)
+        btn_box.append(cancel_btn)
+        btn_box.append(self._save_btn)
+        content.append(btn_box)
+
+        self._dialog.set_child(outer)
+
+        if existing:
+            self._cmd_entry.set_text(existing.command)
+            self._exec_once_row.set_active(existing.exec_once)
+
+        self._dialog.present(parent_widget)
+
+    def _on_save_clicked(self, _btn) -> None:
+        cmd = self._cmd_entry.get_text().strip()
+        if not cmd:
+            return
+        self._on_save(AutostartEntry(command=cmd, exec_once=self._exec_once_row.get_active()))
+        self._dialog.close()
+
+
+# ── Env Var Dialog ─────────────────────────────────────────────────────────────
+
+class _EnvVarDialog:
+    """Add/edit a single EnvVar. Calls on_save(EnvVar) on confirm."""
+
+    def __init__(self, parent_widget, on_save, existing: Optional[EnvVar] = None) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._on_save = on_save
+        is_edit = existing is not None
+
+        self._dialog = Adw.Dialog()
+        self._dialog.set_title('Edit Variable' if is_edit else 'Add Variable')
+        self._dialog.set_content_width(400)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        header = Adw.HeaderBar()
+        header.add_css_class('flat')
+        outer.append(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        content.set_margin_top(12)
+        content.set_margin_bottom(16)
+        outer.append(content)
+
+        fields_group = Adw.PreferencesGroup()
+        self._name_entry = Adw.EntryRow()
+        self._name_entry.set_title('Variable name (e.g. XCURSOR_THEME)')
+        fields_group.add(self._name_entry)
+        self._val_entry = Adw.EntryRow()
+        self._val_entry.set_title('Value')
+        fields_group.add(self._val_entry)
+        content.append(fields_group)
+
+        self._error_label = Gtk.Label()
+        self._error_label.add_css_class('error')
+        self._error_label.set_xalign(0)
+        self._error_label.set_visible(False)
+        content.append(self._error_label)
+
+        preview_group = Adw.PreferencesGroup()
+        preview_group.set_title('Preview')
+        self._preview_label = Gtk.Label()
+        self._preview_label.set_xalign(0)
+        self._preview_label.add_css_class('monospace')
+        self._preview_label.add_css_class('dim-label')
+        self._preview_label.set_margin_start(8)
+        self._preview_label.set_margin_top(6)
+        self._preview_label.set_margin_bottom(6)
+        preview_group.add(self._preview_label)
+        content.append(preview_group)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_box.set_halign(Gtk.Align.END)
+        cancel_btn = Gtk.Button(label='Cancel')
+        cancel_btn.connect('clicked', lambda _: self._dialog.close())
+        self._save_btn = Gtk.Button(label='Save' if is_edit else 'Add')
+        self._save_btn.add_css_class('suggested-action')
+        self._save_btn.connect('clicked', self._on_save_clicked)
+        btn_box.append(cancel_btn)
+        btn_box.append(self._save_btn)
+        content.append(btn_box)
+
+        self._dialog.set_child(outer)
+
+        if existing:
+            self._name_entry.set_text(existing.name)
+            self._val_entry.set_text(existing.value)
+
+        self._name_entry.connect('changed', lambda *_: self._update_preview())
+        self._val_entry.connect('changed',  lambda *_: self._update_preview())
+        self._update_preview()
+        self._dialog.present(parent_widget)
+
+    def _update_preview(self) -> None:
+        name  = self._name_entry.get_text().strip()
+        val   = self._val_entry.get_text()
+        valid = _valid_env_name(name) if name else False
+        self._error_label.set_text('Name must match [A-Za-z_][A-Za-z0-9_]*')
+        self._error_label.set_visible(bool(name) and not valid)
+        self._preview_label.set_text(f'env = {name},{val}' if name else '')
+        self._save_btn.set_sensitive(valid)
+
+    def _on_save_clicked(self, _btn) -> None:
+        name = self._name_entry.get_text().strip()
+        val  = self._val_entry.get_text()
+        if not _valid_env_name(name):
+            return
+        self._on_save(EnvVar(name=name, value=val))
+        self._dialog.close()
