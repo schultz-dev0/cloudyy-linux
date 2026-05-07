@@ -121,3 +121,61 @@ def test_serialize_layer_rule_round_trip():
         name='panel', namespace='^(quickshell)$', effects={'blur': 'on', 'ignore_alpha': '0.2'},
     )]
     assert _parse_layer_rules(_serialize_layer_rules(original)) == original
+
+
+# New tests for autostart and env vars
+from lib.rules_startup_page import (
+    _parse_autostart, _serialize_autostart,
+    _parse_env_vars, _serialize_env_vars,
+    _valid_env_name,
+)
+
+
+def test_parse_autostart_exec_once():
+    entries = _parse_autostart(['exec-once = waybar', 'exec-once = hyprpaper'])
+    assert entries == [
+        AutostartEntry(command='waybar', exec_once=True),
+        AutostartEntry(command='hyprpaper', exec_once=True),
+    ]
+
+
+def test_parse_autostart_exec():
+    entries = _parse_autostart(['exec = some-daemon'])
+    assert entries[0] == AutostartEntry(command='some-daemon', exec_once=False)
+
+
+def test_parse_autostart_mixed():
+    entries = _parse_autostart(['exec-once = a', 'exec = b', 'exec-once = c'])
+    assert [e.exec_once for e in entries] == [True, False, True]
+    assert [e.command for e in entries] == ['a', 'b', 'c']
+
+
+def test_serialize_autostart_round_trip():
+    original = [AutostartEntry('waybar', True), AutostartEntry('daemon', False)]
+    assert _parse_autostart(_serialize_autostart(original)) == original
+
+
+def test_parse_env_var_basic():
+    vars_ = _parse_env_vars(['env = XCURSOR_THEME,Bibata-Modern-Ice', 'env = XCURSOR_SIZE,24'])
+    assert vars_[0] == EnvVar(name='XCURSOR_THEME', value='Bibata-Modern-Ice')
+    assert vars_[1] == EnvVar(name='XCURSOR_SIZE', value='24')
+
+
+def test_parse_env_var_comma_in_value():
+    vars_ = _parse_env_vars(['env = MY_VAR,a,b,c'])
+    assert vars_[0] == EnvVar(name='MY_VAR', value='a,b,c')
+
+
+def test_serialize_env_var_round_trip():
+    original = [EnvVar('FOO', 'bar'), EnvVar('BAZ', '1,2,3')]
+    assert _parse_env_vars(_serialize_env_vars(original)) == original
+
+
+def test_valid_env_name():
+    assert _valid_env_name('XCURSOR_THEME')
+    assert _valid_env_name('_FOO')
+    assert _valid_env_name('foo123')
+    assert not _valid_env_name('')
+    assert not _valid_env_name('123BAD')
+    assert not _valid_env_name('HAS SPACE')
+    assert not _valid_env_name('HAS-DASH')
