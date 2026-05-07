@@ -179,3 +179,66 @@ def test_valid_env_name():
     assert not _valid_env_name('123BAD')
     assert not _valid_env_name('HAS SPACE')
     assert not _valid_env_name('HAS-DASH')
+
+
+# Conf file I/O tests
+import tempfile
+from pathlib import Path
+from lib.rules_startup_page import _parse_conf, _write_conf
+
+_SAMPLE_CONF = """\
+# --- CC: Window Rules ---
+windowrule {
+    name        = zen-browser
+    match:class = ^(zen)$
+    float       = on
+}
+# --- CC: End Window Rules ---
+
+# --- CC: Layer Rules ---
+layerrule {
+    name            = panel
+    match:namespace = ^(waybar)$
+    blur            = on
+}
+# --- CC: End Layer Rules ---
+
+# --- CC: Autostart ---
+exec-once = waybar
+# --- CC: End Autostart ---
+
+# --- CC: Environment ---
+env = XCURSOR_THEME,Bibata
+# --- CC: End Environment ---
+"""
+
+
+def test_parse_conf_sections():
+    s = _parse_conf(_SAMPLE_CONF)
+    assert any('zen-browser' in l for l in s['window_rules'])
+    assert any('waybar' in l for l in s['layer_rules'])
+    assert any('exec-once = waybar' in l for l in s['autostart'])
+    assert any('XCURSOR_THEME' in l for l in s['env_vars'])
+
+
+def test_parse_conf_empty():
+    assert _parse_conf('') == {k: [] for k in ('window_rules', 'layer_rules', 'autostart', 'env_vars')}
+
+
+def test_write_conf_round_trip():
+    window_rules = [WindowRule('test', [('match:class', '^(x)$')], {'float': 'on'})]
+    layer_rules  = [LayerRule('l', 'rofi', {'blur': 'on'})]
+    autostart    = [AutostartEntry('waybar', True)]
+    env_vars     = [EnvVar('FOO', 'bar')]
+
+    with tempfile.NamedTemporaryFile(suffix='.conf', delete=False) as f:
+        tmp = Path(f.name)
+    try:
+        _write_conf(window_rules, layer_rules, autostart, env_vars, path=tmp)
+        s = _parse_conf(tmp.read_text())
+        assert _parse_window_rules(s['window_rules']) == window_rules
+        assert _parse_layer_rules(s['layer_rules'])   == layer_rules
+        assert _parse_autostart(s['autostart'])        == autostart
+        assert _parse_env_vars(s['env_vars'])          == env_vars
+    finally:
+        tmp.unlink(missing_ok=True)
