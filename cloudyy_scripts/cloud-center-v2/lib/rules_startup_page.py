@@ -78,3 +78,47 @@ class EnvVar:
         if not isinstance(other, EnvVar):
             return NotImplemented
         return self.name == other.name and self.value == other.value
+
+
+# ── Window rule parse / serialize ──────────────────────────────────────────────
+
+def _parse_window_rules(lines: list[str]) -> list[WindowRule]:
+    rules: list[WindowRule] = []
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == 'windowrule {':
+            name = ''
+            matchers: list[tuple[str, str]] = []
+            effects: dict[str, str] = {}
+            i += 1
+            while i < len(lines) and lines[i].strip() != '}':
+                raw = lines[i].strip()
+                if '=' in raw:
+                    key, _, val = raw.partition('=')
+                    key = key.strip()
+                    val = val.strip()
+                    if key == 'name':
+                        name = val
+                    elif key.startswith('match:'):
+                        matchers.append((key, val))
+                    else:
+                        effects[key] = val
+                i += 1
+            rules.append(WindowRule(name=name, matchers=matchers, effects=effects))
+        i += 1
+    return rules
+
+
+def _serialize_window_rules(rules: list[WindowRule]) -> list[str]:
+    lines: list[str] = []
+    for rule in rules:
+        lines.append('windowrule {')
+        if rule.name:
+            lines.append(f'    name        = {rule.name}')
+        for key, val in rule.matchers:
+            lines.append(f'    {key} = {val}')
+        for effect, val in rule.effects.items():
+            lines.append(f'    {effect} = {val}')
+        lines.append('}')
+        lines.append('')
+    return lines
