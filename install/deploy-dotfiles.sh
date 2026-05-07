@@ -272,20 +272,31 @@ setup_shell() {
     log_skip "zsh already default shell"
   fi
 
-  # Install oh-my-zsh if not present
-  if [[ -d "${HOME}/.oh-my-zsh" ]]; then
+  # Install oh-my-zsh to ~/.config/zsh/oh-my-zsh (matches $ZSH in .zshrc)
+  local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
+  if [[ ! -d "$omz_dir" ]]; then
+    log "Installing oh-my-zsh..."
+    if ZSH="$omz_dir" RUNZSH=no CHSH=no \
+       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+       "" --unattended 2>/dev/null; then
+      log_ok "oh-my-zsh installed."
+    else
+      log_warn "oh-my-zsh install failed (non-fatal — run manually later)."
+    fi
+  else
     log_skip "oh-my-zsh already installed"
-    return 0
   fi
 
-  log "Installing oh-my-zsh..."
-  if RUNZSH=no CHSH=no \
-     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
-     "" --unattended 2>/dev/null; then
-    log_ok "oh-my-zsh installed."
-  else
-    log_warn "oh-my-zsh install failed (non-fatal — run the installer manually)."
-  fi
+  # Symlink system-installed plugins into oh-my-zsh custom plugins dir
+  local custom_plugins="${omz_dir}/custom/plugins"
+  mkdir -p "$custom_plugins"
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    local sys_path="/usr/share/zsh/plugins/${plugin}"
+    if [[ -d "$sys_path" && ! -e "${custom_plugins}/${plugin}" ]]; then
+      ln -snf "$sys_path" "${custom_plugins}/${plugin}"
+      log_ok "Plugin linked: ${plugin}"
+    fi
+  done
 }
 
 # =============================================================================
