@@ -160,6 +160,56 @@ phase_dotfiles() {
   bash "${SCRIPT_DIR}/deploy-dotfiles.sh"
 }
 
+# --- Phase: Shell Setup -------------------------------------------------------
+# Runs after packages so zsh is guaranteed to be installed.
+phase_shell() {
+  log "Configuring zsh shell..."
+
+  local zsh_path
+  zsh_path="$(command -v zsh 2>/dev/null || true)"
+  if [[ -z "$zsh_path" ]]; then
+    log_warn "zsh not found — skipping (zsh should have been installed in packages phase)."
+    return 0
+  fi
+
+  if [[ "$SHELL" != "$zsh_path" ]]; then
+    if chsh -s "$zsh_path" 2>/dev/null; then
+      log_ok "Default shell set to zsh (takes effect on next login)."
+    else
+      log_warn "chsh failed — run: chsh -s ${zsh_path}"
+    fi
+  else
+    log_ok "zsh already default shell."
+  fi
+
+  local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
+  if [[ ! -d "$omz_dir" ]]; then
+    log "Installing oh-my-zsh..."
+    if ZSH="$omz_dir" RUNZSH=no CHSH=no \
+       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+       "" --unattended 2>/dev/null; then
+      log_ok "oh-my-zsh installed."
+    else
+      log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    fi
+  else
+    log_ok "oh-my-zsh already installed."
+  fi
+
+  # Symlink system-installed plugins into oh-my-zsh custom plugins dir
+  local custom_plugins="${omz_dir}/custom/plugins"
+  mkdir -p "$custom_plugins"
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    local sys_path="/usr/share/zsh/plugins/${plugin}"
+    if [[ -d "$sys_path" && ! -e "${custom_plugins}/${plugin}" ]]; then
+      ln -snf "$sys_path" "${custom_plugins}/${plugin}"
+      log_ok "Plugin linked: ${plugin}"
+    fi
+  done
+
+  log_ok "Shell configured."
+}
+
 phase_services() {
   log "Enabling system services..."
 
@@ -233,6 +283,7 @@ declare -a PHASE_IDS=(
   "preflight"
   "dotfiles"
   "packages"
+  "shell"
   "keyring"
   "theme_init"
   "services"
@@ -243,6 +294,7 @@ declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
   [dotfiles]="Dotfiles Deployment"
   [packages]="Hardware & Package Installation"
+  [shell]="Shell Configuration"
   [keyring]="Keyring Configuration"
   [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
