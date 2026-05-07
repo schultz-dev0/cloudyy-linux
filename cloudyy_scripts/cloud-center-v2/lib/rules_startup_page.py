@@ -213,3 +213,50 @@ def _parse_env_vars(lines: list[str]) -> list[EnvVar]:
 
 def _serialize_env_vars(vars_: list[EnvVar]) -> list[str]:
     return [f'env = {v.name},{v.value}' for v in vars_]
+
+
+# ── Conf file I/O ──────────────────────────────────────────────────────────────
+
+def _parse_conf(text: str) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {k: [] for k in _M}
+    current: Optional[str] = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        matched = False
+        for key, (start, end) in _M.items():
+            if stripped == start:
+                current = key
+                matched = True
+                break
+            if stripped == end:
+                current = None
+                matched = True
+                break
+        if not matched and current is not None:
+            result[current].append(line)
+    return result
+
+
+def _write_conf(
+    window_rules: list[WindowRule],
+    layer_rules: list[LayerRule],
+    autostart: list[AutostartEntry],
+    env_vars: list[EnvVar],
+    path: Path = CONF_PATH,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    out: list[str] = []
+    for key, serialize_fn, items in [          # type: ignore[var-annotated]
+        ('window_rules', _serialize_window_rules, window_rules),
+        ('layer_rules',  _serialize_layer_rules,  layer_rules),
+        ('autostart',    _serialize_autostart,     autostart),
+        ('env_vars',     _serialize_env_vars,      env_vars),
+    ]:
+        start, end = _M[key]
+        out.append(start)
+        out.extend(serialize_fn(items))
+        out.append(end)
+        out.append('')
+    tmp = path.with_suffix('.tmp')
+    tmp.write_text('\n'.join(out), encoding='utf-8')
+    tmp.replace(path)
