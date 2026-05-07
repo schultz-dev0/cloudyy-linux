@@ -578,3 +578,162 @@ class _WindowRuleDialog:
             return
         self._on_save(WindowRule(name=name, matchers=matchers, effects=effects))
         self._dialog.close()
+
+
+# ── Layer Rule Dialog ──────────────────────────────────────────────────────────
+
+_LR_TOGGLE_EFFECTS: list[str] = ['blur', 'dim_around', 'xray', 'no_anim']
+_LR_VALUE_EFFECTS: dict[str, str] = {
+    'ignore_alpha': '0.0–1.0, e.g. 0.2',
+    'animation':    'e.g. slide down',
+}
+
+
+class _LayerRuleDialog:
+    """Add/edit a single LayerRule. Calls on_save(LayerRule) on confirm."""
+
+    def __init__(self, parent_widget, on_save, existing: Optional[LayerRule] = None) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._on_save = on_save
+        is_edit = existing is not None
+
+        self._dialog = Adw.Dialog()
+        self._dialog.set_title('Edit Layer Rule' if is_edit else 'Add Layer Rule')
+        self._dialog.set_content_width(440)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        header = Adw.HeaderBar()
+        header.add_css_class('flat')
+        outer.append(header)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        content.set_margin_top(12)
+        content.set_margin_bottom(16)
+        scroll.set_child(content)
+        outer.append(scroll)
+
+        name_group = Adw.PreferencesGroup()
+        name_group.set_title('Name (optional)')
+        self._name_entry = Adw.EntryRow()
+        self._name_entry.set_title('Rule name')
+        name_group.add(self._name_entry)
+        content.append(name_group)
+
+        ns_group = Adw.PreferencesGroup()
+        ns_group.set_title('Namespace')
+        self._ns_entry = Adw.EntryRow()
+        self._ns_entry.set_title('match:namespace regex, e.g. ^(waybar)$')
+        ns_group.add(self._ns_entry)
+        content.append(ns_group)
+
+        effects_group = Adw.PreferencesGroup()
+        effects_group.set_title('Effects')
+        self._effect_switches: dict[str, Adw.SwitchRow] = {}
+        self._effect_entries:  dict[str, Adw.EntryRow]  = {}
+
+        for eff in _LR_TOGGLE_EFFECTS:
+            row = Adw.SwitchRow()
+            row.set_title(eff)
+            self._effect_switches[eff] = row
+            effects_group.add(row)
+            row.connect('notify::active', lambda *_: self._update_preview())
+
+        for eff, placeholder in _LR_VALUE_EFFECTS.items():
+            sw = Adw.SwitchRow()
+            sw.set_title(eff)
+            self._effect_switches[eff] = sw
+            effects_group.add(sw)
+            entry = Adw.EntryRow()
+            entry.set_title(placeholder)
+            entry.set_visible(False)
+            self._effect_entries[eff] = entry
+            effects_group.add(entry)
+            sw.connect(
+                'notify::active',
+                lambda s, _p, e=eff: (
+                    self._effect_entries[e].set_visible(s.get_active()),
+                    self._update_preview(),
+                ),
+            )
+            entry.connect('changed', lambda *_: self._update_preview())
+
+        content.append(effects_group)
+
+        preview_group = Adw.PreferencesGroup()
+        preview_group.set_title('Preview')
+        self._preview_label = Gtk.Label()
+        self._preview_label.set_wrap(True)
+        self._preview_label.set_xalign(0)
+        self._preview_label.add_css_class('monospace')
+        self._preview_label.add_css_class('dim-label')
+        self._preview_label.set_margin_start(8)
+        self._preview_label.set_margin_end(8)
+        self._preview_label.set_margin_top(6)
+        self._preview_label.set_margin_bottom(6)
+        preview_group.add(self._preview_label)
+        content.append(preview_group)
+
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_box.set_halign(Gtk.Align.END)
+        cancel_btn = Gtk.Button(label='Cancel')
+        cancel_btn.connect('clicked', lambda _: self._dialog.close())
+        self._save_btn = Gtk.Button(label='Save' if is_edit else 'Add Rule')
+        self._save_btn.add_css_class('suggested-action')
+        self._save_btn.connect('clicked', self._on_save_clicked)
+        btn_box.append(cancel_btn)
+        btn_box.append(self._save_btn)
+        content.append(btn_box)
+
+        self._dialog.set_child(outer)
+
+        if existing:
+            self._name_entry.set_text(existing.name)
+            self._ns_entry.set_text(existing.namespace)
+            for eff, val in existing.effects.items():
+                if eff in self._effect_switches:
+                    self._effect_switches[eff].set_active(True)
+                if eff in self._effect_entries:
+                    self._effect_entries[eff].set_text(val)
+                    self._effect_entries[eff].set_visible(True)
+
+        self._name_entry.connect('changed', lambda *_: self._update_preview())
+        self._ns_entry.connect('changed', lambda *_: self._update_preview())
+        self._update_preview()
+        self._dialog.present(parent_widget)
+
+    def _collect(self) -> tuple[str, str, dict[str, str]]:
+        name      = self._name_entry.get_text().strip()
+        namespace = self._ns_entry.get_text().strip()
+        effects: dict[str, str] = {}
+        for eff, sw in self._effect_switches.items():
+            if sw.get_active():
+                effects[eff] = (
+                    self._effect_entries[eff].get_text().strip()
+                    if eff in self._effect_entries else 'on'
+                )
+        return name, namespace, effects
+
+    def _update_preview(self) -> None:
+        name, namespace, effects = self._collect()
+        lines = ['layerrule {']
+        if name:
+            lines.append(f'    name = {name}')
+        if namespace:
+            lines.append(f'    match:namespace = {namespace}')
+        for eff, val in effects.items():
+            lines.append(f'    {eff} = {val}')
+        lines.append('}')
+        self._preview_label.set_text('\n'.join(lines))
+        self._save_btn.set_sensitive(bool(namespace))
+
+    def _on_save_clicked(self, _btn) -> None:
+        name, namespace, effects = self._collect()
+        if not namespace:
+            return
+        self._on_save(LayerRule(name=name, namespace=namespace, effects=effects))
+        self._dialog.close()
