@@ -122,3 +122,47 @@ def _serialize_window_rules(rules: list[WindowRule]) -> list[str]:
         lines.append('}')
         lines.append('')
     return lines
+
+
+# ── Layer rule parse / serialize ───────────────────────────────────────────────
+
+def _parse_layer_rules(lines: list[str]) -> list[LayerRule]:
+    rules: list[LayerRule] = []
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == 'layerrule {':
+            name = ''
+            namespace = ''
+            effects: dict[str, str] = {}
+            i += 1
+            while i < len(lines) and lines[i].strip() != '}':
+                raw = lines[i].strip()
+                if '=' in raw:
+                    key, _, val = raw.partition('=')
+                    key = key.strip()
+                    val = val.strip()
+                    if key == 'name':
+                        name = val
+                    elif key == 'match:namespace':
+                        namespace = val
+                    else:
+                        effects[key] = val
+                i += 1
+            rules.append(LayerRule(name=name, namespace=namespace, effects=effects))
+        i += 1
+    return rules
+
+
+def _serialize_layer_rules(rules: list[LayerRule]) -> list[str]:
+    lines: list[str] = []
+    for rule in rules:
+        lines.append('layerrule {')
+        if rule.name:
+            lines.append(f'    name            = {rule.name}')
+        if rule.namespace:
+            lines.append(f'    match:namespace = {rule.namespace}')
+        for effect, val in rule.effects.items():
+            lines.append(f'    {effect} = {val}')
+        lines.append('}')
+        lines.append('')
+    return lines

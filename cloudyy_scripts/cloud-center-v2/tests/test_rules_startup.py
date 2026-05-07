@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from lib.rules_startup_page import WindowRule, LayerRule, AutostartEntry, EnvVar, _parse_window_rules, _serialize_window_rules
+from lib.rules_startup_page import WindowRule, LayerRule, AutostartEntry, EnvVar, _parse_window_rules, _serialize_window_rules, _parse_layer_rules, _serialize_layer_rules
 
 
 def test_window_rule_equality():
@@ -92,3 +92,32 @@ def test_serialize_window_rule_no_name_omits_name_key():
     lines = _serialize_window_rules([rule])
     assert not any('name' in l for l in lines)
     assert _parse_window_rules(lines)[0].matchers == rule.matchers
+
+
+def test_parse_layer_rule_basic():
+    lines = [
+        'layerrule {',
+        '    name            = quickshell_panel',
+        '    match:namespace = ^(quickshell)$',
+        '    blur            = on',
+        '    ignore_alpha    = 0.2',
+        '}',
+    ]
+    r = _parse_layer_rules(lines)[0]
+    assert r.name == 'quickshell_panel'
+    assert r.namespace == '^(quickshell)$'
+    assert r.effects == {'blur': 'on', 'ignore_alpha': '0.2'}
+
+
+def test_parse_layer_rule_no_name():
+    lines = ['layerrule {', '    match:namespace = rofi', '    blur = on', '}']
+    r = _parse_layer_rules(lines)[0]
+    assert r.name == ''
+    assert r.namespace == 'rofi'
+
+
+def test_serialize_layer_rule_round_trip():
+    original = [LayerRule(
+        name='panel', namespace='^(quickshell)$', effects={'blur': 'on', 'ignore_alpha': '0.2'},
+    )]
+    assert _parse_layer_rules(_serialize_layer_rules(original)) == original
