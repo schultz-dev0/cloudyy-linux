@@ -1009,4 +1009,397 @@ class _EnvVarDialog:
         if not _valid_env_name(name):
             return
         self._on_save(EnvVar(name=name, value=val))
-        self._dialog.close()
+
+
+# ── Shared row helpers ─────────────────────────────────────────────────────────
+
+def _make_list_header(title: str, on_add) -> tuple:
+    """Returns (header_box, count_label)."""
+    Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    box.set_margin_start(16)
+    box.set_margin_end(16)
+    box.set_margin_top(12)
+    box.set_margin_bottom(8)
+
+    lbl = Gtk.Label(label=title)
+    lbl.add_css_class('heading')
+    lbl.set_xalign(0)
+    lbl.set_hexpand(True)
+
+    count = Gtk.Label(label='0')
+    count.add_css_class('dim-label')
+    count.add_css_class('caption')
+
+    add_btn = Gtk.Button(label='+ Add')
+    add_btn.add_css_class('suggested-action')
+    add_btn.add_css_class('pill')
+    add_btn.connect('clicked', lambda _: on_add())
+
+    box.append(lbl)
+    box.append(count)
+    box.append(add_btn)
+    return box, count
+
+
+def _make_rule_row(primary: str, secondary: str, pills: list[str], on_edit, on_delete):
+    """Generic list row: primary heading, optional subtitle, pill tags, Edit/Delete buttons."""
+    Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+    row = Gtk.ListBoxRow()
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+    box.set_margin_start(12)
+    box.set_margin_end(8)
+    box.set_margin_top(8)
+    box.set_margin_bottom(8)
+
+    top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    prim_lbl = Gtk.Label(label=primary or '(unnamed)')
+    prim_lbl.set_xalign(0)
+    prim_lbl.set_hexpand(True)
+    prim_lbl.add_css_class('heading')
+
+    edit_btn = Gtk.Button(label='Edit')
+    edit_btn.add_css_class('flat')
+    edit_btn.connect('clicked', lambda _: on_edit())
+
+    del_btn = Gtk.Button(label='Delete')
+    del_btn.add_css_class('flat')
+    del_btn.add_css_class('destructive-action')
+    del_btn.connect('clicked', lambda _: on_delete())
+
+    top.append(prim_lbl)
+    top.append(edit_btn)
+    top.append(del_btn)
+    box.append(top)
+
+    if secondary:
+        sub = Gtk.Label(label=secondary)
+        sub.set_xalign(0)
+        sub.add_css_class('dim-label')
+        sub.add_css_class('caption')
+        sub.set_ellipsize(Pango.EllipsizeMode.END)
+        box.append(sub)
+
+    if pills:
+        pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        pill_box.set_margin_top(2)
+        for text in pills:
+            p = Gtk.Label(label=text)
+            p.add_css_class('caption')
+            p.add_css_class('tag')
+            pill_box.append(p)
+        box.append(pill_box)
+
+    row.set_child(box)
+    return row
+
+
+# ── Window Rules Tab ───────────────────────────────────────────────────────────
+
+class _WindowRulesTab:
+    def __init__(self, page: 'RulesStartupPage') -> None:
+        self._page = page
+        self._items:    list[WindowRule] = []
+        self._baseline: list[WindowRule] = []
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hdr, self._count_lbl = _make_list_header('Window Rules', self._on_add)
+        self._box.append(hdr)
+        self._list = Gtk.ListBox()
+        self._list.add_css_class('boxed-list')
+        self._list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._list.set_margin_start(16)
+        self._list.set_margin_end(16)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(self._list)
+        self._box.append(scroll)
+
+    @property
+    def widget(self):
+        return self._box
+
+    def load(self, items: list[WindowRule]) -> None:
+        self._items    = list(items)
+        self._baseline = list(items)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        while child := self._list.get_row_at_index(0):
+            self._list.remove(child)
+        for i, rule in enumerate(self._items):
+            matcher_str = ' · '.join(f'{k} {v}' for k, v in rule.matchers)
+            pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
+            self._list.append(_make_rule_row(
+                primary=rule.name or matcher_str,
+                secondary=matcher_str if rule.name else '',
+                pills=pills,
+                on_edit=lambda idx=i: self._on_edit(idx),
+                on_delete=lambda idx=i: self._on_delete(idx),
+            ))
+        self._count_lbl.set_text(str(len(self._items)))
+
+    def _on_add(self) -> None:
+        _WindowRuleDialog(self, self._mutate_add)
+
+    def _on_edit(self, idx: int) -> None:
+        _WindowRuleDialog(self, lambda r, i=idx: self._mutate_edit(i, r), existing=self._items[idx])
+
+    def _on_delete(self, idx: int) -> None:
+        self._items.pop(idx)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_add(self, rule: WindowRule) -> None:
+        self._items.append(rule)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_edit(self, idx: int, rule: WindowRule) -> None:
+        self._items[idx] = rule
+        self._refresh()
+        self._page.apply_live()
+
+    def is_dirty(self) -> bool:        return self._items != self._baseline
+    def confirm_baseline(self) -> None: self._baseline = list(self._items)
+    def revert_to_baseline(self) -> None:
+        self._items = list(self._baseline)
+        self._refresh()
+    def serialize(self) -> list[str]:   return _serialize_window_rules(self._items)
+    def parse(self, lines: list[str]) -> None: self.load(_parse_window_rules(lines))
+
+
+# ── Layer Rules Tab ────────────────────────────────────────────────────────────
+
+class _LayerRulesTab:
+    def __init__(self, page: 'RulesStartupPage') -> None:
+        self._page = page
+        self._items:    list[LayerRule] = []
+        self._baseline: list[LayerRule] = []
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hdr, self._count_lbl = _make_list_header('Layer Rules', self._on_add)
+        self._box.append(hdr)
+        self._list = Gtk.ListBox()
+        self._list.add_css_class('boxed-list')
+        self._list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._list.set_margin_start(16)
+        self._list.set_margin_end(16)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(self._list)
+        self._box.append(scroll)
+
+    @property
+    def widget(self):
+        return self._box
+
+    def load(self, items: list[LayerRule]) -> None:
+        self._items    = list(items)
+        self._baseline = list(items)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        while child := self._list.get_row_at_index(0):
+            self._list.remove(child)
+        for i, rule in enumerate(self._items):
+            pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
+            self._list.append(_make_rule_row(
+                primary=rule.name or rule.namespace or '(unnamed)',
+                secondary=rule.namespace if rule.name else '',
+                pills=pills,
+                on_edit=lambda idx=i: self._on_edit(idx),
+                on_delete=lambda idx=i: self._on_delete(idx),
+            ))
+        self._count_lbl.set_text(str(len(self._items)))
+
+    def _on_add(self) -> None:
+        _LayerRuleDialog(self, self._mutate_add)
+
+    def _on_edit(self, idx: int) -> None:
+        _LayerRuleDialog(self, lambda r, i=idx: self._mutate_edit(i, r), existing=self._items[idx])
+
+    def _on_delete(self, idx: int) -> None:
+        self._items.pop(idx)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_add(self, rule: LayerRule) -> None:
+        self._items.append(rule)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_edit(self, idx: int, rule: LayerRule) -> None:
+        self._items[idx] = rule
+        self._refresh()
+        self._page.apply_live()
+
+    def is_dirty(self) -> bool:        return self._items != self._baseline
+    def confirm_baseline(self) -> None: self._baseline = list(self._items)
+    def revert_to_baseline(self) -> None:
+        self._items = list(self._baseline)
+        self._refresh()
+    def serialize(self) -> list[str]:   return _serialize_layer_rules(self._items)
+    def parse(self, lines: list[str]) -> None: self.load(_parse_layer_rules(lines))
+
+
+# ── Autostart Tab ──────────────────────────────────────────────────────────────
+
+class _AutostartTab:
+    def __init__(self, page: 'RulesStartupPage') -> None:
+        self._page = page
+        self._items:    list[AutostartEntry] = []
+        self._baseline: list[AutostartEntry] = []
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hdr, self._count_lbl = _make_list_header('Autostart', self._on_add)
+        self._box.append(hdr)
+        self._list = Gtk.ListBox()
+        self._list.add_css_class('boxed-list')
+        self._list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._list.set_margin_start(16)
+        self._list.set_margin_end(16)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(self._list)
+        self._box.append(scroll)
+
+    @property
+    def widget(self):
+        return self._box
+
+    def load(self, items: list[AutostartEntry]) -> None:
+        self._items    = list(items)
+        self._baseline = list(items)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        while child := self._list.get_row_at_index(0):
+            self._list.remove(child)
+        for i, entry in enumerate(self._items):
+            self._list.append(_make_rule_row(
+                primary=entry.command,
+                secondary='',
+                pills=['exec-once' if entry.exec_once else 'exec'],
+                on_edit=lambda idx=i: self._on_edit(idx),
+                on_delete=lambda idx=i: self._on_delete(idx),
+            ))
+        self._count_lbl.set_text(str(len(self._items)))
+
+    def _on_add(self) -> None:
+        _AutostartDialog(self, self._mutate_add)
+
+    def _on_edit(self, idx: int) -> None:
+        _AutostartDialog(self, lambda e, i=idx: self._mutate_edit(i, e), existing=self._items[idx])
+
+    def _on_delete(self, idx: int) -> None:
+        self._items.pop(idx)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_add(self, entry: AutostartEntry) -> None:
+        self._items.append(entry)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_edit(self, idx: int, entry: AutostartEntry) -> None:
+        self._items[idx] = entry
+        self._refresh()
+        self._page.apply_live()
+
+    def is_dirty(self) -> bool:        return self._items != self._baseline
+    def confirm_baseline(self) -> None: self._baseline = list(self._items)
+    def revert_to_baseline(self) -> None:
+        self._items = list(self._baseline)
+        self._refresh()
+    def serialize(self) -> list[str]:   return _serialize_autostart(self._items)
+    def parse(self, lines: list[str]) -> None: self.load(_parse_autostart(lines))
+
+
+# ── Env Vars Tab ───────────────────────────────────────────────────────────────
+
+class _EnvVarsTab:
+    def __init__(self, page: 'RulesStartupPage') -> None:
+        self._page = page
+        self._items:    list[EnvVar] = []
+        self._baseline: list[EnvVar] = []
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hdr, self._count_lbl = _make_list_header('Environment Variables', self._on_add)
+        self._box.append(hdr)
+        self._list = Gtk.ListBox()
+        self._list.add_css_class('boxed-list')
+        self._list.set_selection_mode(Gtk.SelectionMode.NONE)
+        self._list.set_margin_start(16)
+        self._list.set_margin_end(16)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_child(self._list)
+        self._box.append(scroll)
+
+    @property
+    def widget(self):
+        return self._box
+
+    def load(self, items: list[EnvVar]) -> None:
+        self._items    = list(items)
+        self._baseline = list(items)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        while child := self._list.get_row_at_index(0):
+            self._list.remove(child)
+        for i, var in enumerate(self._items):
+            self._list.append(_make_rule_row(
+                primary=var.name,
+                secondary=var.value,
+                pills=[],
+                on_edit=lambda idx=i: self._on_edit(idx),
+                on_delete=lambda idx=i: self._on_delete(idx),
+            ))
+        self._count_lbl.set_text(str(len(self._items)))
+
+    def _on_add(self) -> None:
+        _EnvVarDialog(self, self._mutate_add)
+
+    def _on_edit(self, idx: int) -> None:
+        _EnvVarDialog(self, lambda v, i=idx: self._mutate_edit(i, v), existing=self._items[idx])
+
+    def _on_delete(self, idx: int) -> None:
+        self._items.pop(idx)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_add(self, var: EnvVar) -> None:
+        self._items.append(var)
+        self._refresh()
+        self._page.apply_live()
+
+    def _mutate_edit(self, idx: int, var: EnvVar) -> None:
+        self._items[idx] = var
+        self._refresh()
+        self._page.apply_live()
+
+    def is_dirty(self) -> bool:        return self._items != self._baseline
+    def confirm_baseline(self) -> None: self._baseline = list(self._items)
+    def revert_to_baseline(self) -> None:
+        self._items = list(self._baseline)
+        self._refresh()
+    def serialize(self) -> list[str]:   return _serialize_env_vars(self._items)
+    def parse(self, lines: list[str]) -> None: self.load(_parse_env_vars(lines))
