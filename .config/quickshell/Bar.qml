@@ -11,6 +11,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import "overview/services"
 import "modules/spotlight" as QuickSpotlight
+import "modules/timer" as QuickTimer
 
 PanelWindow {
     id: bar
@@ -414,6 +415,8 @@ PanelWindow {
                     }
                 }
             }
+
+            QuickTimer.TimerBarPill {}
         }
 
         // ── CENTER ────────────────────────────────────────────────────────────
