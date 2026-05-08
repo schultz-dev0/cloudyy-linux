@@ -1,17 +1,58 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
 
 PanelWindow {
     id: timerWindow
 
+    // ── Tunables ──────────────────────────────────────────────────────────
     readonly property int panelWidth:  340
     readonly property int panelRadius: 20
     readonly property int padding:     16
 
+    // ── History state ─────────────────────────────────────────────────────
+    property var historyEntries: []
+    readonly property string _historyFile:
+        TimerService.homeDir + "/Desktop/timer_record/" + Qt.formatDate(new Date(), "yyyy-MM") + ".md"
+
+    Process {
+        id: historyReader
+        command: ["bash", "-c", "cat '" + timerWindow._historyFile + "' 2>/dev/null"]
+        running: false
+        stdout: SplitParser {
+            onRead: line => {
+                if (!line.startsWith("| ") || line.startsWith("| Started") || line.startsWith("|---")) return
+                const parts = line.split("|").map(s => s.trim()).filter(s => s.length > 0)
+                if (parts.length < 3) return
+                timerWindow.historyEntries = timerWindow.historyEntries.concat([{
+                    started:  parts[0],
+                    label:    parts[1],
+                    duration: parts[2],
+                    mode:     parts[3] || ""
+                }])
+            }
+        }
+        onRunningChanged: {
+            if (!running)
+                timerWindow.historyEntries = timerWindow.historyEntries.slice().reverse()
+        }
+    }
+
+    Process {
+        id: fileOpener
+        command: ["xdg-open", timerWindow._historyFile]
+        running: false
+    }
+
+    // ── Local form state ──────────────────────────────────────────────────
+    property bool showingNewForm: false
+
+    // ── Window ────────────────────────────────────────────────────────────
     anchors { bottom: true; left: true }
     margins { bottom: 16; left: 16 }
     implicitWidth:  panelWidth
@@ -24,12 +65,26 @@ PanelWindow {
     WlrLayershell.keyboardFocus: TimerService.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     WlrLayershell.exclusiveZone: 0
 
-    Keys.onEscapePressed: TimerService.open = false
+    onVisibleChanged: {
+        if (visible) {
+            timerWindow.historyEntries = []
+            historyReader.running = true
+        }
+    }
 
+    Keys.onEscapePressed: {
+        if (showingNewForm) {
+            showingNewForm = false
+        } else {
+            TimerService.open = false
+        }
+    }
+
+    // ── Panel shell ───────────────────────────────────────────────────────
     Rectangle {
         id: panelRect
         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-        implicitHeight: 120
+        implicitHeight: contentCol.implicitHeight + timerWindow.padding * 2
         radius: timerWindow.panelRadius
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.9)
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
@@ -41,11 +96,137 @@ PanelWindow {
         transformOrigin: Item.BottomLeft
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
 
-        Text {
-            anchors.centerIn: parent
-            text: "⏱ Timer panel (stub)"
-            color: Theme.on_surface
-            font.pixelSize: 13
+        ColumnLayout {
+            id: contentCol
+            anchors {
+                top: parent.top; left: parent.left; right: parent.right
+                margins: timerWindow.padding
+            }
+            spacing: 10
+
+            // ── Header ────────────────────────────────────────────────────
+            RowLayout {
+                Layout.fillWidth: true
+
+                Text {
+                    text: "⏱  Timers"
+                    color: Theme.on_surface
+                    font.pixelSize: 15
+                    font.weight: Font.Bold
+                    font.family: "JetBrainsMono Nerd Font"
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    visible: !timerWindow.showingNewForm
+                    implicitWidth: newBtnLabel.implicitWidth + 16
+                    implicitHeight: 24
+                    radius: 12
+                    color: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.8)
+
+                    Text {
+                        id: newBtnLabel
+                        anchors.centerIn: parent
+                        text: "+ New"
+                        color: Theme.on_primary_container
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                        font.family: "JetBrainsMono Nerd Font"
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: timerWindow.showingNewForm = true
+                    }
+                }
+            }
+
+            // ── New timer form ─────────────────────────────────────────────
+            NewTimerForm {
+                Layout.fillWidth: true
+                visible: timerWindow.showingNewForm
+                onStartTimer: (label, mode, targetSecs) => {
+                    TimerService.addTimer(label, mode, targetSecs)
+                    timerWindow.showingNewForm = false
+                }
+                onCancel: timerWindow.showingNewForm = false
+            }
+
+            // ── Timer cards ───────────────────────────────────────────────
+            Repeater {
+                model: TimerService.timers
+                delegate: TimerCard {
+                    required property var model
+                    Layout.fillWidth: true
+                    timerId:        model.timerId
+                    label:          model.label
+                    mode:           model.mode
+                    targetSeconds:  model.targetSeconds
+                    elapsedSeconds: model.elapsedSeconds
+                    timerState:     model.timerState
+                }
+            }
+
+            // ── History divider ───────────────────────────────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+                visible: timerWindow.historyEntries.length > 0
+            }
+
+            // ── History header ────────────────────────────────────────────
+            RowLayout {
+                Layout.fillWidth: true
+                visible: timerWindow.historyEntries.length > 0
+
+                Text {
+                    text: "HISTORY"
+                    color: Theme.on_surface_variant
+                    font.pixelSize: 9
+                    font.weight: Font.Medium
+                    font.family: "JetBrainsMono Nerd Font"
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: timerWindow.historyEntries.length + " entries · open file"
+                    color: Theme.primary
+                    font.pixelSize: 9
+                    font.family: "JetBrainsMono Nerd Font"
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: fileOpener.running = true
+                    }
+                }
+            }
+
+            // ── History rows (up to 10 most recent) ───────────────────────
+            Repeater {
+                model: Math.min(timerWindow.historyEntries.length, 10)
+                delegate: RowLayout {
+                    required property int index
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: timerWindow.historyEntries[index].label
+                        color: Theme.on_surface_variant
+                        font.pixelSize: 10
+                        font.family: "JetBrainsMono Nerd Font"
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: timerWindow.historyEntries[index].duration
+                        color: Theme.on_surface_variant
+                        font.pixelSize: 10
+                        font.family: "JetBrainsMono Nerd Font"
+                        opacity: 0.7
+                    }
+                }
+            }
         }
     }
 }
