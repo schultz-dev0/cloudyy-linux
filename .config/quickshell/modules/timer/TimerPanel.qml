@@ -22,6 +22,7 @@ PanelWindow {
     WlrLayershell.layer:         WlrLayer.Top
     WlrLayershell.namespace:     "quickshell:timer"
     WlrLayershell.keyboardFocus: TimerService.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.exclusiveZone: 0
 
     Keys.onEscapePressed: TimerService.open = false
 
