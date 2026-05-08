@@ -261,6 +261,7 @@ Rectangle {
         const targetSecs = form.selectedMode === "countdown"
                            ? (form.hours * 3600 + form.minutes * 60)
                            : 0
+        if (form.selectedMode === "countdown" && targetSecs === 0) return
         form.startTimer(lbl, form.selectedMode, targetSecs)
         labelField.text = ""
         form.selectedMode = "stopwatch"
