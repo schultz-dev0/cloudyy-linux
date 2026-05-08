@@ -50,7 +50,7 @@ Rectangle {
                 }
                 return fmtTime(pill.pt.elapsedSeconds)
             }
-            color: pill.warning ? Theme.error : Theme.on_surface
+            color: pill.warning ? Theme.error : Theme.primary
             font.pixelSize: 12
             font.family:    "JetBrainsMono Nerd Font"
             font.weight:    Font.Bold
@@ -97,6 +97,7 @@ Rectangle {
     }
 
     function fmtTime(secs) {
+        secs = Math.floor(secs)
         const h = Math.floor(secs / 3600)
         const m = Math.floor((secs % 3600) / 60)
         const s = secs % 60
