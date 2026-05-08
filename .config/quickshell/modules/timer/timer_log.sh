@@ -3,6 +3,7 @@
 set -euo pipefail
 
 LABEL="$1"
+LABEL="${LABEL//|/-}"
 ELAPSED_SECONDS="$2"
 MODE="$3"
 TARGET_SECONDS="${4:-0}"
