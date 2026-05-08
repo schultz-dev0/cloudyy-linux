@@ -10,6 +10,7 @@ import "modules/sliders" as QuickSliders
 import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
 import "modules/calculator" as QuickCalculator
+import "modules/timer" as QuickTimer
 
 ShellRoot {
     id: root
@@ -89,6 +90,13 @@ ShellRoot {
         }
     }
 
+    IpcHandler {
+        target: "timer"
+        function toggle() { QuickTimer.TimerService.open = !QuickTimer.TimerService.open }
+        function show()   { QuickTimer.TimerService.open = true }
+        function hide()   { QuickTimer.TimerService.open = false }
+    }
+
     // The overview repo manages its own IPC ("overview") inside its modules!
     // So we don't need the custom IPC handler here anymore.
 
@@ -136,4 +144,6 @@ ShellRoot {
     }
 
     QuickSpotlight.Spotlight {}
+
+    QuickTimer.TimerPanel {}
 }
