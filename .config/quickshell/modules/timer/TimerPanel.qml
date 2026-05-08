@@ -67,6 +67,7 @@ PanelWindow {
 
     onVisibleChanged: {
         if (visible) {
+            historyReader.running = false
             timerWindow.historyEntries = []
             historyReader.running = true
         }
