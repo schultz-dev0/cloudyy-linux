@@ -353,7 +353,7 @@ class _WindowPickerDialog:
 
 _WR_MATCHER_KEYS: list[str] = [
     'match:class', 'match:title', 'match:tag',
-    'match:xwayland', 'match:floating', 'match:fullscreen',
+    'match:xwayland', 'match:float', 'match:fullscreen',
 ]
 _WR_TOGGLE_EFFECTS: list[str] = ['float', 'opaque', 'center', 'pin', 'noblur', 'immediate']
 _WR_VALUE_EFFECTS: dict[str, str] = {
