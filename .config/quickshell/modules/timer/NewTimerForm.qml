@@ -79,10 +79,18 @@ Rectangle {
                     color: Theme.on_surface
                     font.pixelSize: 12
                     font.family: "JetBrainsMono Nerd Font"
-                    placeholderText: "e.g. Gemini 3.1 prompt training"
-                    placeholderTextColor: Theme.on_surface_variant
                     clip: true
                     Keys.onReturnPressed: if (text.trim().length > 0) form.submitTimer()
+
+                    Text {
+                        visible: labelField.text.length === 0
+                        anchors.fill: parent
+                        verticalAlignment: Text.AlignVCenter
+                        text: "e.g. Gemini 3.1 prompt training"
+                        color: Theme.on_surface_variant
+                        font.pixelSize: 12
+                        font.family: "JetBrainsMono Nerd Font"
+                    }
                 }
             }
         }
@@ -253,6 +261,10 @@ Rectangle {
                 onClicked:    form.submitTimer()
             }
         }
+    }
+
+    function activate() {
+        labelField.forceActiveFocus()
     }
 
     function submitTimer() {

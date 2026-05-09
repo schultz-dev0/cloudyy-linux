@@ -51,6 +51,10 @@ PanelWindow {
 
     // ── Local form state ──────────────────────────────────────────────────
     property bool showingNewForm: false
+    onShowingNewFormChanged: {
+        if (showingNewForm) newTimerForm.activate()
+        else panelRect.forceActiveFocus()
+    }
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors { bottom: true; left: true }
@@ -73,17 +77,17 @@ PanelWindow {
         }
     }
 
-    Keys.onEscapePressed: {
-        if (showingNewForm) {
-            showingNewForm = false
-        } else {
-            TimerService.open = false
-        }
-    }
-
     // ── Panel shell ───────────────────────────────────────────────────────
     Rectangle {
         id: panelRect
+        focus: true
+        Keys.onEscapePressed: {
+            if (timerWindow.showingNewForm) {
+                timerWindow.showingNewForm = false
+            } else {
+                TimerService.open = false
+            }
+        }
         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
         implicitHeight: contentCol.implicitHeight + timerWindow.padding * 2
         radius: timerWindow.panelRadius
@@ -144,8 +148,13 @@ PanelWindow {
 
             // ── New timer form ─────────────────────────────────────────────
             NewTimerForm {
+                id: newTimerForm
                 Layout.fillWidth: true
-                visible: timerWindow.showingNewForm
+                clip: true
+                Layout.preferredHeight: timerWindow.showingNewForm ? implicitHeight : 0
+                opacity: timerWindow.showingNewForm ? 1 : 0
+                Behavior on Layout.preferredHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
                 onStartTimer: (label, mode, targetSecs) => {
                     TimerService.addTimer(label, mode, targetSecs)
                     timerWindow.showingNewForm = false

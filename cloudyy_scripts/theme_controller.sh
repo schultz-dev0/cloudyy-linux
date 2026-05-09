@@ -332,7 +332,10 @@ run_matugen() {
   # --- CRITICAL: Release lock before running background processes ---
   # We lock ONLY the matugen generation part to prevent corruption.
   # We close FD 9 (if it was used) and other common FDs to prevent inheritance.
+  # NOTE: matugen_active_mode is written inside the lock so post_hooks always read
+  # the correct mode even when two theme switches happen in quick succession.
   flock -x "$lockfile" bash -c "
+    echo \"$mode\" > /tmp/matugen_active_mode
     printf '\033[1;34m[THEME]\033[0m Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})...\n'
     matugen image \"$img\" -m \"$mode\" --source-color-index 0 ${extra_args[*]} 9>&- 8>&- 7>&- 6>&- 5>&- 4>&- 3>&-
   " || {

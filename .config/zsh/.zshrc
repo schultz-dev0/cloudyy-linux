@@ -84,7 +84,7 @@ if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" ]]; then
     printf "\033[${IMG_H}B\033[0G"
 fi
 
-if uwsm check may-start && uwsm select; then
+if [ -z "$TMUX" ] && uwsm check may-start && uwsm select; then
     exec uwsm start default
 fi
 
@@ -96,3 +96,5 @@ fi
 export PATH=/home/schultz/.opencode/bin:$PATH
 
 export PATH=$PATH:/home/schultz/.spicetify
+
+
