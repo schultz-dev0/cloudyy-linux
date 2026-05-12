@@ -26,8 +26,8 @@ hl.window_rule({
 hl.window_rule({
 	name = "terminal",
 	match = { class = "^(.*kitty)$" },
-	size = "1080 900",
-	float = true,
+	--size = "1080 900",
+	--float = true,
 })
 
 hl.window_rule({

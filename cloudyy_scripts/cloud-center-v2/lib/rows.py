@@ -17,6 +17,7 @@ from gi.repository import Adw, GLib, GdkPixbuf, Gtk
 
 import lib.utility as utility
 import lib.wallpaper_browser as wallpaper_browser
+import lib.extension_browser as extension_browser
 
 log = logging.getLogger(__name__)
 
@@ -850,6 +851,8 @@ def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
                 return WallpaperPickerRow(props, item.get("on_select"), ctx)
             case "online_wallpaper_browser":
                 return wallpaper_browser.OnlineWallpaperBrowserRow(props, item.get("on_search"), ctx)
+            case "extension_browser":
+                return extension_browser.ExtensionBrowserRow(props, item.get("on_action"), ctx)
             case _:
                 log.warning("Unknown row type: %s", itype)
                 return None

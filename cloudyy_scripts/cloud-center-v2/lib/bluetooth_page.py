@@ -127,6 +127,10 @@ def remove_device(address: str) -> tuple[bool, str]:
     return _run_bt(["remove", address], timeout=8)
 
 
+def trust_device(address: str, trust: bool) -> tuple[bool, str]:
+    return _run_bt(["trust" if trust else "untrust", address], timeout=8)
+
+
 def _icon_for_type(device_type: str) -> str:
     return {
         "audio-headset": "audio-headset-symbolic",
@@ -296,6 +300,22 @@ class BluetoothPage(Gtk.Box):
                 b.add_css_class(css)
                 badge_row.append(b)
         box.append(badge_row)
+
+        # Auto-connect (Trust) toggle
+        if device.paired:
+            trust_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            trust_box.set_margin_top(4)
+            trust_box.set_margin_bottom(4)
+            trust_lbl = Gtk.Label(label="Auto-connect")
+            trust_lbl.set_xalign(0)
+            trust_lbl.set_hexpand(True)
+            trust_switch = Gtk.Switch()
+            trust_switch.set_valign(Gtk.Align.CENTER)
+            trust_switch.set_active(device.trusted)
+            trust_switch.connect("notify::active", lambda sw, _, d=device: self._action_trust(d, sw.get_active()))
+            trust_box.append(trust_lbl)
+            trust_box.append(trust_switch)
+            box.append(trust_box)
 
         # Action buttons
         btns = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -488,6 +508,15 @@ class BluetoothPage(Gtk.Box):
         def _work() -> None:
             ok, out = remove_device(device.address)
             msg = f"Removed {device.display_name}" if ok else f"Remove failed: {out[:80]}"
+            GLib.idle_add(self._after_action, msg)
+
+        threading.Thread(target=_work, daemon=True).start()
+
+    def _action_trust(self, device: BluetoothDevice, trust: bool) -> None:
+        def _work() -> None:
+            ok, out = trust_device(device.address, trust)
+            action = "Autoconnect enabled for" if trust else "Autoconnect disabled for"
+            msg = f"{action} {device.display_name}" if ok else f"Failed: {out[:80]}"
             GLib.idle_add(self._after_action, msg)
 
         threading.Thread(target=_work, daemon=True).start()

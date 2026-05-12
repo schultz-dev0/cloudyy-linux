@@ -6,13 +6,11 @@
 # ── Hyprland persistence ──────────────────────────────────────────────────────
 # Every Hyprland setting chains:  hyprctl keyword … && hypr_persist.sh keyword value
 #
-# hypr_persist.sh copies ~/.config/hypr/source/lookandfeel.conf →
-# user-configs/user_lookandfeel.conf, source/animations.conf →
-# user_animations.conf, and source/input.conf → user_input.conf,
-# then appends Cloud Center overrides at the bottom of each file.
-# It replaces the existing "source = .../source/<name>.conf" line in
-# hyprland.conf with the user-configs/ path — never adding a duplicate.
-# Uses the same convention as the hcm config manager TUI.
+# hypr_persist.sh now writes Lua overrides under ~/.config/hypr/user-configs/
+# (user_lookandfeel.lua, user_animations.lua, user_input.lua, user_cursor.lua).
+# It updates hyprland.lua with the shared Lua activation helpers so Cloud Center
+# toggles exact require("source.*") and require("user-configs.user_*") lines.
+# Source modules stay distro-owned; user modules carry Cloud Center-managed overrides.
 
 pages:
   - id: home
@@ -759,3 +757,37 @@ pages:
               button_text: Reset
             on_press:
               command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page hyprland
+
+  - id: terminal
+    title: Terminal
+    icon: utilities-terminal-symbolic
+    layout:
+      - type: section
+        properties:
+          title: Terminal Mascot
+          description: Manage startup images in Kitty
+        items:
+          - type: toggle
+            properties:
+              title: Show Mascot
+              description: Show Hyprchan mascot on terminal startup
+              icon: face-smile-symbolic
+              key: terminal/show_mascot
+
+      - type: section
+        properties:
+          title: Shell & Multiplexer
+          description: Workflow and plugin management
+        items:
+          - type: toggle
+            properties:
+              title: Tmux Autostart
+              description: Automatically start/attach to tmux session
+              icon: application-x-executable-symbolic
+              key: terminal/tmux_autostart
+
+          - type: extension_browser
+            properties:
+              title: Zsh Extension Browser
+              description: Search, enable, and manage all Oh My Zsh plugins natively
+
