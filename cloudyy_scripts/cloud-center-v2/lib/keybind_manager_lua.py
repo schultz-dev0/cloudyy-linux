@@ -1,7 +1,7 @@
 """
 Cloud Center — lib/keybind_manager_lua.py
-Lua keybind manager: mirrors keybind_manager.py but targets
-~/.config/hypr/.hyprlua/bindings.lua and parses hl.bind(...) calls.
+Lua keybind manager for ~/.config/hypr/source/bindings.lua and
+~/.config/hypr/user-configs/user_bindings.lua.
 
 Writes/reads a Cloud Center-managed section delimited by:
   -- --- Cloud Center Additions (managed by Cloud Center) ---
@@ -24,14 +24,15 @@ from typing import Optional
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
 import lib.hcm_lua as hcm_lua
+from lib.hyprlua_runtime import ensure_user_override_active
 
 log = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-BINDINGS_LUA  = hcm_lua.HYPRLUA_DIR / "bindings.lua"
-MAIN_LUA      = hcm_lua.MAIN_LUA
-_BINDINGS_REQ = 'require("bindings")'
+SOURCE_BINDINGS_LUA = hcm_lua.SOURCE_DIR / "bindings.lua"
+BINDINGS_LUA        = hcm_lua.USER_DIR / "user_bindings.lua"
+MAIN_LUA            = hcm_lua.MAIN_LUA
 
 _CC_BEGIN = '-- --- Cloud Center Additions (managed by Cloud Center) ---'
 _CC_END   = '-- --- End Cloud Center Additions ---'
@@ -123,30 +124,122 @@ class LuaKeybindEntry:
 
 # ── Parsing helpers ───────────────────────────────────────────────────────────
 
-# Matches: hl.bind("KEYS", dispatcher_expr, opts?)
-# dispatcher_expr may contain nested parens like hl.dsp.exec_cmd("cmd")
-_BIND_RE = re.compile(
-    r'hl\.bind\(\s*'
-    r'"([^"]+)"'              # group 1: key string
-    r'\s*,\s*'
-    r'(hl\.dsp\.[^,\n]+?)'   # group 2: dispatcher (greedy but not past newline)
-    r'(?:\s*,\s*(\{[^}]*\}))?' # group 3: optional opts table
-    r'\s*\)',
-    re.DOTALL,
-)
+_LOCAL_STRING_RE = re.compile(r'local\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"')
 
 
-def _parse_bind_line(line: str) -> Optional[LuaKeybindEntry]:
+def _read_string_variables(text: str) -> dict[str, str]:
+    variables: dict[str, str] = {}
+    for line in text.splitlines():
+        match = _LOCAL_STRING_RE.match(line.strip())
+        if match:
+            variables[match.group(1)] = match.group(2)
+    return variables
+
+
+def _split_lua_args(text: str) -> list[str]:
+    args: list[str] = []
+    current: list[str] = []
+    paren_depth = 0
+    brace_depth = 0
+    quote: str | None = None
+    escape = False
+
+    for ch in text:
+        if quote is not None:
+            current.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == quote:
+                quote = None
+            continue
+
+        if ch in {'"', "'"}:
+            quote = ch
+            current.append(ch)
+            continue
+
+        if ch == "(":
+            paren_depth += 1
+        elif ch == ")":
+            paren_depth -= 1
+        elif ch == "{":
+            brace_depth += 1
+        elif ch == "}":
+            brace_depth -= 1
+
+        if ch == "," and paren_depth == 0 and brace_depth == 0:
+            args.append("".join(current).strip())
+            current = []
+            continue
+
+        current.append(ch)
+
+    tail = "".join(current).strip()
+    if tail:
+        args.append(tail)
+    return args
+
+
+def _evaluate_key_expr(expr: str, variables: dict[str, str]) -> str | None:
+    parts = [part.strip() for part in expr.split("..")]
+    resolved: list[str] = []
+    for part in parts:
+        if len(part) >= 2 and part[0] == part[-1] and part[0] in {'"', "'"}:
+            resolved.append(part[1:-1])
+            continue
+        if part in variables:
+            resolved.append(variables[part])
+            continue
+        return None
+    return "".join(resolved).strip()
+
+
+def _parse_bind_line(line: str, variables: dict[str, str] | None = None) -> Optional[LuaKeybindEntry]:
     """Return a LuaKeybindEntry from an hl.bind(...) line, or None."""
     stripped = line.strip()
     if not stripped or stripped.startswith("--"):
         return None
-    m = _BIND_RE.search(stripped)
-    if not m:
+    if not stripped.startswith("hl.bind("):
         return None
-    keys       = m.group(1).strip()
-    dispatcher = m.group(2).strip()
-    opts       = (m.group(3) or "").strip()
+
+    # Strip any trailing Lua comment (-- outside a string literal) before paren matching
+    # so that ')' inside comment text doesn't corrupt the dispatcher.
+    _i, _q, _esc = 0, None, False
+    while _i < len(stripped) - 1:
+        _ch = stripped[_i]
+        if _q:
+            if _esc:
+                _esc = False
+            elif _ch == '\\':
+                _esc = True
+            elif _ch == _q:
+                _q = None
+        elif _ch in ('"', "'"):
+            _q = _ch
+        elif _ch == '-' and stripped[_i + 1] == '-':
+            stripped = stripped[:_i].rstrip()
+            break
+        _i += 1
+
+    last_paren = stripped.rfind(")")
+    if last_paren == -1:
+        return None
+    if stripped[last_paren + 1:].strip():
+        return None
+    stripped = stripped[:last_paren + 1]
+
+    args = _split_lua_args(stripped[len("hl.bind("):-1])
+    if len(args) < 2:
+        return None
+
+    keys = _evaluate_key_expr(args[0], variables or {})
+    if keys is None:
+        return None
+
+    dispatcher = args[1].strip()
+    opts = args[2].strip() if len(args) >= 3 else ""
     return LuaKeybindEntry(
         keys       = keys,
         dispatcher = dispatcher,
@@ -165,36 +258,49 @@ def _entry_to_line(entry: LuaKeybindEntry) -> str:
 
 # ── File I/O ──────────────────────────────────────────────────────────────────
 
-def _ensure_bindings_lua() -> None:
-    """Ensure bindings.lua exists, has a CC marker section, and is required by hyprland.lua."""
-    if not BINDINGS_LUA.exists():
-        hcm_lua.HYPRLUA_DIR.mkdir(parents=True, exist_ok=True)
+def _ensure_cc_markers(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    if _CC_BEGIN in text:
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        suffix = "" if text.endswith("\n") or not text else "\n"
+        f.write(f"{suffix}\n{_CC_BEGIN}\n{_CC_END}\n")
+
+
+def _bindings_config_file() -> hcm_lua.LuaConfigFile | None:
+    if not SOURCE_BINDINGS_LUA.exists():
+        return None
+    return hcm_lua.LuaConfigFile(
+        filename=SOURCE_BINDINGS_LUA.name,
+        path=SOURCE_BINDINGS_LUA,
+        description=hcm_lua._read_lua_description(SOURCE_BINDINGS_LUA),
+        status=hcm_lua.LuaFileStatus.USER_OVERRIDE if BINDINGS_LUA.exists() else hcm_lua.LuaFileStatus.DISTRO,
+    )
+
+
+def _ensure_user_bindings_lua() -> None:
+    if BINDINGS_LUA.exists():
+        _ensure_cc_markers(BINDINGS_LUA)
+        return
+
+    config = _bindings_config_file()
+    if config is not None:
+        result = hcm_lua.switch_to_user_override(config)
+        if not result.activated:
+            raise FileNotFoundError(result.message)
+    else:
+        hcm_lua.USER_DIR.mkdir(parents=True, exist_ok=True)
         BINDINGS_LUA.write_text(
-            "-- Cloud Center — Lua keybind additions\n\n"
             f"{_CC_BEGIN}\n{_CC_END}\n",
             encoding="utf-8",
         )
-        log.info("Created %s", BINDINGS_LUA)
-
-    text = BINDINGS_LUA.read_text(encoding="utf-8")
-    if _CC_BEGIN not in text:
-        with open(BINDINGS_LUA, "a", encoding="utf-8") as f:
-            f.write(f"\n{_CC_BEGIN}\n{_CC_END}\n")
-
-    # Ensure hyprland.lua requires bindings
-    _ensure_require_in_main()
-
-
-def _ensure_require_in_main() -> None:
-    """Add require("bindings") to hyprland.lua if missing."""
-    if not MAIN_LUA.exists():
-        return
-    content = MAIN_LUA.read_text(encoding="utf-8")
-    if _BINDINGS_REQ in content:
-        return
-    with open(MAIN_LUA, "a", encoding="utf-8") as f:
-        f.write(f"\n{_BINDINGS_REQ}\n")
-    log.info("Appended %s to %s", _BINDINGS_REQ, MAIN_LUA)
+        if MAIN_LUA.exists():
+            updated_main = ensure_user_override_active(
+                MAIN_LUA.read_text(encoding="utf-8"),
+                "bindings",
+            )
+            MAIN_LUA.write_text(updated_main, encoding="utf-8")
+    _ensure_cc_markers(BINDINGS_LUA)
 
 
 def _read_cc_section(text: str) -> str:
@@ -215,7 +321,7 @@ def _get_cc_lines() -> list[str]:
 
 
 def _write_cc_section(lines: list[str]) -> None:
-    _ensure_bindings_lua()
+    _ensure_user_bindings_lua()
     text       = BINDINGS_LUA.read_text(encoding="utf-8", errors="replace")
     cc_content = "\n".join(lines)
     if cc_content:
@@ -236,6 +342,19 @@ def _write_cc_section(lines: list[str]) -> None:
     Path(tmp_path).replace(BINDINGS_LUA)
 
 
+def _active_bindings_path() -> Path | None:
+    if MAIN_LUA.exists():
+        files = {cf.filename: cf for cf in hcm_lua.scan_lua_files()}
+        bindings = files.get("bindings.lua")
+        if bindings is not None:
+            return hcm_lua._preview_path_for(bindings)
+    if BINDINGS_LUA.exists():
+        return BINDINGS_LUA
+    if SOURCE_BINDINGS_LUA.exists():
+        return SOURCE_BINDINGS_LUA
+    return None
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def scan_keybinds() -> list[LuaKeybindEntry]:
@@ -245,31 +364,32 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
     Entries inside the CC section are marked owned=True.
     Entries before the CC section marker are locked (owned=False).
     """
-    _ensure_bindings_lua()
-
-    if not BINDINGS_LUA.exists():
+    active_path = _active_bindings_path()
+    if active_path is None:
         return []
 
-    full_text  = BINDINGS_LUA.read_text(encoding="utf-8", errors="replace")
+    full_text  = active_path.read_text(encoding="utf-8", errors="replace")
     cc_section = _read_cc_section(full_text)
     before     = full_text.split(_CC_BEGIN)[0] if _CC_BEGIN in full_text else full_text
+    is_user_override = active_path == BINDINGS_LUA
+    variables = _read_string_variables(before)
 
     owned: list[LuaKeybindEntry]  = []
     locked: list[LuaKeybindEntry] = []
 
     for idx, raw in enumerate(cc_section.splitlines(), 1):
-        e = _parse_bind_line(raw)
+        e = _parse_bind_line(raw, variables)
         if e:
-            e.owned       = True
-            e.source_name = BINDINGS_LUA.name
+            e.owned       = is_user_override
+            e.source_name = active_path.name
             e.line_no     = idx
             owned.append(e)
 
     for idx, raw in enumerate(before.splitlines(), 1):
-        e = _parse_bind_line(raw)
+        e = _parse_bind_line(raw, variables)
         if e:
             e.owned       = False
-            e.source_name = BINDINGS_LUA.name
+            e.source_name = active_path.name
             e.line_no     = idx
             locked.append(e)
 
@@ -279,7 +399,10 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
 
 
 def add_keybind(entry: LuaKeybindEntry) -> tuple[bool, str]:
-    _ensure_bindings_lua()
+    try:
+        _ensure_user_bindings_lua()
+    except FileNotFoundError as exc:
+        return False, str(exc)
     lines = _get_cc_lines()
     lines.append(_entry_to_line(entry))
     _write_cc_section(lines)

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gtk
 
+import lib.rules_startup_page as rules_startup_page
 import lib.utility as utility
 
 PERSIST = str(Path(__file__).resolve().parents[1] / "hypr_persist.sh")
@@ -214,6 +215,12 @@ class CursorPage(Gtk.Box):
             idx = self._theme_row.get_selected()
             theme = self._themes[idx] if idx < len(self._themes) else "Adwaita"
             size = int(self._size_spin.get_value())
+            rules_startup_page.upsert_env_vars({
+                "XCURSOR_THEME": theme,
+                "HYPRCURSOR_THEME": theme,
+                "XCURSOR_SIZE": str(size),
+                "HYPRCURSOR_SIZE": str(size),
+            })
             _run(
                 f"hyprctl setcursor '{theme}' {size}"
                 f" && gsettings set org.gnome.desktop.interface cursor-theme '{theme}'"

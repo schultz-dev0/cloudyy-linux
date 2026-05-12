@@ -4,7 +4,7 @@ Two-panel layout mirroring the keybind/wifi pages:
   Left:  list of connected monitors (from hyprctl monitors -j)
   Right: per-monitor settings editor
 
-Writes to ~/.config/hypr/user-configs/user_monitors.conf
+Writes to ~/.config/hypr/user-configs/user_monitors.lua
 and reloads Hyprland on apply.
 """
 from __future__ import annotations
@@ -23,10 +23,12 @@ from typing import Optional
 
 from gi.repository import Adw, GLib, Gtk, Pango
 
+from lib.hyprlua_runtime import ensure_user_override_active
+
 log = logging.getLogger(__name__)
 
 HYPR_DIR       = Path.home() / ".config" / "hypr"
-MONITORS_CONF  = HYPR_DIR / "user-configs" / "user_monitors.conf"
+MONITORS_CONF  = HYPR_DIR / "user-configs" / "user_monitors.lua"
 
 TRANSFORM_LABELS = [
     (0, "Normal"),
@@ -533,7 +535,7 @@ class DisplayLayoutPreview(Gtk.Box):
 # ── Config I/O ────────────────────────────────────────────────────────────────
 
 def _parse_conf() -> tuple[dict[str, str], dict[str, list[str]]]:
-    """Return ({monitor_name: raw_line}, {monitor_name: [workspace_ids]}) from user_monitors.conf."""
+    """Return ({monitor_name: raw_line}, {monitor_name: [workspace_ids]}) from user_monitors.lua."""
     monitors: dict[str, str] = {}
     workspaces: dict[str, list[str]] = {}
     if not MONITORS_CONF.exists():
@@ -541,7 +543,15 @@ def _parse_conf() -> tuple[dict[str, str], dict[str, list[str]]]:
     try:
         for line in MONITORS_CONF.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
-            if stripped.startswith("monitor="):
+            if stripped.startswith("hl.monitor("):
+                match = re.search(r'output\s*=\s*"([^"]+)"', stripped)
+                if match:
+                    monitors[match.group(1)] = stripped
+            elif stripped.startswith("hl.workspace_rule("):
+                match = re.search(r'workspace\s*=\s*"([^"]+)".*monitor\s*=\s*"([^"]+)"', stripped)
+                if match:
+                    workspaces.setdefault(match.group(2), []).append(match.group(1))
+            elif stripped.startswith("monitor="):
                 # monitor=NAME,...
                 rest = stripped[len("monitor="):]
                 name = rest.split(",")[0].strip()
@@ -571,30 +581,31 @@ def _build_monitor_line(
     mirror_of: str,
 ) -> str:
     if not enabled:
-        return f"monitor={name},disable"
+        return f'hl.monitor({{ output = "{name}", disable = true }})'
 
     # Strip trailing "Hz" — Hyprland config uses numeric refresh without unit
     mode_conf = re.sub(r"Hz$", "", mode, flags=re.IGNORECASE)
 
     scale_str = f"{scale:.4g}"          # 1, 1.5, 2, etc. — no trailing zeros
-    line = f"monitor={name},{mode_conf},{pos_x}x{pos_y},{scale_str}"
-
+    fields = [
+        f'output = "{name}"',
+        f'mode = "{mode_conf}"',
+        f'position = "{pos_x}x{pos_y}"',
+        f'scale = "{scale_str}"',
+    ]
     if transform != 0:
-        line += f",transform,{transform}"
+        fields.append(f"transform = {transform}")
     if mirror_of and mirror_of.lower() not in ("", "none"):
-        line += f",mirror,{mirror_of}"
-
-    return line
+        fields.append(f'mirror = "{mirror_of}"')
+    return f"hl.monitor({{ {', '.join(fields)} }})"
 
 
 def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
-    """Insert or replace the monitor= and workspace= lines for `name` in user_monitors.conf."""
+    """Insert or replace the monitor and workspace rules for `name` in user_monitors.lua."""
     MONITORS_CONF.parent.mkdir(parents=True, exist_ok=True)
 
     header = (
-        "# ─────────────────────────────────────────────────────────────────\n"
-        "# Hyprland monitor configuration — managed by Cloud Center\n"
-        "# ─────────────────────────────────────────────────────────────────\n"
+        "-- Cloud Center user override file for monitor layout.\n"
         "\n"
     )
 
@@ -611,16 +622,35 @@ def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
 
     for raw in existing:
         stripped = raw.strip()
-        if stripped.startswith("monitor="):
+        if stripped.startswith("hl.monitor("):
+            match = re.search(r'output\s*=\s*"([^"]+)"', stripped)
+            existing_name = match.group(1) if match else ""
+            if existing_name == name:
+                if not replaced_monitor:
+                    out_lines.append(line + "\n")
+                    for ws in workspaces:
+                        out_lines.append(f'hl.workspace_rule({{ workspace = "{ws}", monitor = "{name}" }})\n')
+                    replaced_monitor = True
+                continue
+        elif stripped.startswith("monitor="):
             rest = stripped[len("monitor="):]
             existing_name = rest.split(",")[0].strip()
             if existing_name == name:
                 if not replaced_monitor:
                     out_lines.append(line + "\n")
                     for ws in workspaces:
-                        out_lines.append(f"workspace={ws},monitor:{name}\n")
+                        out_lines.append(f'hl.workspace_rule({{ workspace = "{ws}", monitor = "{name}" }})\n')
                     replaced_monitor = True
                 continue
+        elif stripped.startswith("hl.workspace_rule("):
+            match = re.search(r'workspace\s*=\s*"([^"]+)".*monitor\s*=\s*"([^"]+)"', stripped)
+            if match:
+                ws_id = match.group(1).strip()
+                mon_part = match.group(2).strip()
+                if ws_id in current_ws_set:
+                    continue
+                if mon_part == name:
+                    continue
         elif stripped.startswith("workspace="):
             # workspace=ID,monitor:MON_NAME
             match = re.search(r"workspace\s*=\s*(.+?)\s*,\s*monitor:(.+)$", stripped)
@@ -645,7 +675,7 @@ def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
             out_lines = [l for l in header.splitlines(keepends=True)]
         out_lines.append(line + "\n")
         for ws in workspaces:
-            out_lines.append(f"workspace={ws},monitor:{name}\n")
+            out_lines.append(f'hl.workspace_rule({{ workspace = "{ws}", monitor = "{name}" }})\n')
 
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(MONITORS_CONF.parent))
     with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
@@ -654,22 +684,43 @@ def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
         os.fsync(f.fileno())
     Path(tmp_path).replace(MONITORS_CONF)
 
-    # Ensure this user config is actually sourced by hyprland.conf.
-    try:
-        from lib import hcm
-        hcm.ensure_user_config_sourced(MONITORS_CONF)
-    except Exception as exc:
-        log.warning("Could not ensure source for %s: %s", MONITORS_CONF, exc)
+    main_lua = HYPR_DIR / "hyprland.lua"
+    if main_lua.exists():
+        updated = ensure_user_override_active(main_lua.read_text(encoding="utf-8"), "monitors")
+        tmp_main = main_lua.with_name(main_lua.name + ".tmp")
+        tmp_main.write_text(updated, encoding="utf-8")
+        os.replace(tmp_main, main_lua)
 
     log.info("Wrote monitor config for %s: %s (workspaces: %s)", name, line, workspaces)
 
 
 def _apply_monitor_line(line: str) -> tuple[bool, str]:
     """Apply a monitor rule live via hyprctl without reloading the compositor."""
-    if not line.startswith("monitor="):
+    if not line.startswith("hl.monitor("):
         return False, "Invalid monitor rule"
 
-    rule = line[len("monitor="):]
+    output_match = re.search(r'output\s*=\s*"([^"]+)"', line)
+    if not output_match:
+        return False, "Missing monitor output"
+
+    output = output_match.group(1)
+    if "disable = true" in line:
+        rule = f"{output},disable"
+    else:
+        mode_match = re.search(r'mode\s*=\s*"([^"]+)"', line)
+        position_match = re.search(r'position\s*=\s*"([^"]+)"', line)
+        scale_match = re.search(r'scale\s*=\s*"([^"]+)"', line)
+        if not (mode_match and position_match and scale_match):
+            return False, "Incomplete monitor rule"
+
+        parts = [output, mode_match.group(1), position_match.group(1), scale_match.group(1)]
+        transform_match = re.search(r'transform\s*=\s*(\d+)', line)
+        if transform_match:
+            parts.extend(["transform", transform_match.group(1)])
+        mirror_match = re.search(r'mirror\s*=\s*"([^"]+)"', line)
+        if mirror_match:
+            parts.extend(["mirror", mirror_match.group(1)])
+        rule = ",".join(parts)
     try:
         result = subprocess.run(
             ["hyprctl", "keyword", "monitor", rule],

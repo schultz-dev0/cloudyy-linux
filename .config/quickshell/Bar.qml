@@ -39,6 +39,7 @@ PanelWindow {
     property bool dnd: false
     property bool spotlightOpen: false
     property string spotlightQuery: ""
+    property string keyboardLayoutLabel: "--"
     property var spotlightResults: []
     property int spotlightSelectedIndex: 0
     signal notifToggle
@@ -118,6 +119,22 @@ PanelWindow {
         return y + 28;
     }
 
+    function updateKeyboardLayout(devices) {
+        const keyboards = devices?.keyboards ?? [];
+        const activeKeyboard = keyboards.find(keyboard => keyboard?.main) || keyboards[0];
+
+        if (!activeKeyboard) {
+            keyboardLayoutLabel = "--";
+            return;
+        }
+
+        const layouts = `${activeKeyboard.layout ?? ""}`.split(",").map(part => part.trim()).filter(Boolean);
+        const layoutIndex = Math.max(0, Number(activeKeyboard.active_layout_index ?? 0));
+        const activeLayout = layouts[layoutIndex] ?? layouts[0] ?? "";
+
+        keyboardLayoutLabel = activeLayout.length > 0 ? activeLayout.toUpperCase() : "--";
+    }
+
     function ensureSpotlightSelectionVisible() {
         if (!spotlightDropdown.visible)
             return;
@@ -156,6 +173,27 @@ PanelWindow {
         }
     }
 
+    Component.onCompleted: getKeyboardDevices.running = true
+
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event) {
+            const eventName = `${event?.name ?? event?.event ?? event?.type ?? ""}`;
+            if (eventName === "activelayout" || eventName === "configreloaded")
+                getKeyboardDevices.running = true;
+        }
+    }
+
+    Process {
+        id: getKeyboardDevices
+        command: ["hyprctl", "devices", "-j"]
+        stdout: StdioCollector {
+            id: keyboardDevicesCollector
+            onStreamFinished: bar.updateKeyboardLayout(JSON.parse(keyboardDevicesCollector.text))
+        }
+    }
+
     Timer {
         id: spotlightDebounceTimer
         interval: bar.spotlightDebounceMs
@@ -178,7 +216,7 @@ PanelWindow {
     onSpotlightSelectedIndexChanged: Qt.callLater(() => ensureSpotlightSelectionVisible())
 
     IpcHandler {
-        target: "spotlight"
+        target: "spotlight-bar"
         function toggle() {
             if (bar.spotlightOpen)
                 bar.hideSpotlight();
@@ -547,6 +585,16 @@ PanelWindow {
                     player.previous()
             }
 
+            Pill {
+                id: keyboardLayoutPill
+                label: " " + bar.keyboardLayoutLabel
+                width: implicitWidth + bar.pillPadH * 2
+                iconSize: 14
+                fg: Theme.on_secondary_container
+                bg: Qt.rgba(Theme.secondary_container.r, Theme.secondary_container.g, Theme.secondary_container.b, 0.45)
+                hoverable: false
+            }
+
             // Network
             Pill {
                 id: netPill
@@ -652,7 +700,6 @@ PanelWindow {
                         onRead: d => memPill.lbl = "󰘚 " + d.trim() + "%"
                     }
                 }
-                onClicked: bar.launch(["bash", "-a", "~/cloudyy_scripts/cloudyy-other/RAMtui"])
             }
 
             // Battery

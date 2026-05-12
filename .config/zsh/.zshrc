@@ -6,12 +6,14 @@ HISTFILE="$HOME/.config/zsh/.zsh_history"
 
 DISABLE_AUTO_UPDATE=true
 
-plugins=(
-  git
-  zsh-autosuggestions
-)
-
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#888888'
+# ── Dynamic Plugins (Cloud Center) ───────────────────────────────────────────
+plugins=(git)
+if [[ -f ~/.config/cloud-center/settings/terminal/active_zsh_plugins.txt ]]; then
+    while IFS= read -r plugin; do
+        # Ignore empty lines and comments
+        [[ -n "$plugin" && ! "$plugin" =~ ^# ]] && plugins+=("$plugin")
+    done < ~/.config/cloud-center/settings/terminal/active_zsh_plugins.txt
+fi
 
 source $ZSH/oh-my-zsh.sh
 
@@ -70,18 +72,26 @@ alias seeya='hyprctl dispatch exit'
 alias wlogout="$HOME/cloudyy_scripts/wlogout.sh"
 
 # --- Top Left Startup Logo ---
-if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" ]]; then
-    IMG_H=$((LINES / 3))
-    # Removed the 'seq' call and used zsh brace expansion for speed
-    printf '\n%.0s' {1..$IMG_H}
-    printf "\033[${IMG_H}A\033[0G"
-    kitty +kitten icat \
-        --place "${IMG_H}x${IMG_H}@0x0" \
-        --scale-up \
-        --transfer-mode file \
-        --silent \
-        ~/extras/hyprchan-lol.png 2>/dev/null
-    printf "\033[${IMG_H}B\033[0G"
+SHOW_PIC=$(cat ~/.config/cloud-center/settings/terminal/show_mascot 2>/dev/null | tr '[:upper:]' '[:lower:]')
+if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" && "$SHOW_PIC" != "false" ]]; then
+    MASCOT="$HOME/cloudyy-linux/extras/terminal_pic/hyprchan-lol.png"
+    if [[ -f "$MASCOT" ]]; then
+        IMG_H=$((LINES / 3))
+        printf '\n%.0s' {1..$IMG_H}
+        printf "\033[${IMG_H}A\033[0G"
+        kitty +kitten icat \
+            --place "${IMG_H}x${IMG_H}@0x0" \
+            --scale-up \
+            --transfer-mode file \
+            --silent \
+            "$MASCOT" 2>/dev/null
+        printf "\033[${IMG_H}B\033[0G"
+    fi
+fi
+
+# ── Tmux Autostart (Cloud Center) ───────────────────────────────────────────
+if [[ -z "$TMUX" && $(cat ~/.config/cloud-center/settings/terminal/tmux_autostart 2>/dev/null | tr '[:upper:]' '[:lower:]') == "true" ]]; then
+    tmux attach-session -t default 2>/dev/null || tmux new-session -s default
 fi
 
 if [ -z "$TMUX" ] && uwsm check may-start && uwsm select; then
@@ -98,3 +108,6 @@ export PATH=/home/schultz/.opencode/bin:$PATH
 export PATH=$PATH:/home/schultz/.spicetify
 
 
+
+# Apply terminal settings from Cloud Center
+~/cloudyy_scripts/terminal/kitty_sync.sh 2>/dev/null

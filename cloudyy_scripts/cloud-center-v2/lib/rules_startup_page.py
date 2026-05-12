@@ -16,11 +16,13 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 from gi.repository import Gtk as _Gtk
+from lib.hyprlua_runtime import ensure_user_override_active
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 HYPR_DIR  = Path.home() / '.config' / 'hypr'
-CONF_PATH = HYPR_DIR / 'user-configs' / 'user_rules_startup.conf'
+CONF_PATH = HYPR_DIR / 'user-configs' / 'user_rules_startup.lua'
+MANAGED_STATE_PREFIX = '-- @cloud-center-state = '
 
 # Section markers
 _M: dict[str, tuple[str, str]] = {
@@ -182,12 +184,21 @@ def _parse_autostart(lines: list[str]) -> list[AutostartEntry]:
         elif line.startswith('exec'):
             _, _, cmd = line.partition('=')
             entries.append(AutostartEntry(command=cmd.strip(), exec_once=False))
+        elif line.startswith('hl.exec_once(') or line.startswith('hl.exec_cmd('):
+            match = re.match(r'hl\.(exec_once|exec_cmd)\((.+)\)', line)
+            if not match:
+                continue
+            try:
+                command = json.loads(match.group(2))
+            except json.JSONDecodeError:
+                continue
+            entries.append(AutostartEntry(command=str(command), exec_once=match.group(1) == 'exec_once'))
     return entries
 
 
 def _serialize_autostart(entries: list[AutostartEntry]) -> list[str]:
     return [
-        f"{'exec-once' if e.exec_once else 'exec'} = {e.command}"
+        f'hl.{"exec_once" if e.exec_once else "exec_cmd"}({json.dumps(e.command)})'
         for e in entries
     ]
 
@@ -210,16 +221,59 @@ def _parse_env_vars(lines: list[str]) -> list[EnvVar]:
             rest = rest.strip()
             name, _, value = rest.partition(',')
             vars_.append(EnvVar(name=name.strip(), value=value))
+        elif line.startswith('hl.env('):
+            match = re.match(r'hl\.env\((.+?),\s*(.+)\)$', line)
+            if not match:
+                continue
+            try:
+                name = json.loads(match.group(1))
+                value = json.loads(match.group(2))
+            except json.JSONDecodeError:
+                continue
+            vars_.append(EnvVar(name=str(name), value=str(value)))
     return vars_
 
 
 def _serialize_env_vars(vars_: list[EnvVar]) -> list[str]:
-    return [f'env = {v.name},{v.value}' for v in vars_]
+    return [f'hl.env({json.dumps(v.name)}, {json.dumps(v.value)})' for v in vars_]
 
 
 # ── Conf file I/O ──────────────────────────────────────────────────────────────
 
 def _parse_conf(text: str) -> dict[str, list[str]]:
+    for line in text.splitlines()[:5]:
+        if line.startswith(MANAGED_STATE_PREFIX):
+            try:
+                data = json.loads(line[len(MANAGED_STATE_PREFIX):])
+            except json.JSONDecodeError:
+                break
+            return {
+                'window_rules': _serialize_window_rules([
+                    WindowRule(
+                        name=item.get('name', ''),
+                        matchers=[tuple(m) for m in item.get('matchers', [])],
+                        effects=dict(item.get('effects', {})),
+                    )
+                    for item in data.get('window_rules', [])
+                ]),
+                'layer_rules': _serialize_layer_rules([
+                    LayerRule(
+                        name=item.get('name', ''),
+                        namespace=item.get('namespace', ''),
+                        effects=dict(item.get('effects', {})),
+                    )
+                    for item in data.get('layer_rules', [])
+                ]),
+                'autostart': [
+                    f"{'exec-once' if item.get('exec_once', True) else 'exec'} = {item.get('command', '')}"
+                    for item in data.get('autostart', [])
+                ],
+                'env_vars': [
+                    f"env = {item.get('name', '')},{item.get('value', '')}"
+                    for item in data.get('env_vars', [])
+                ],
+            }
+
     result: dict[str, list[str]] = {k: [] for k in _M}
     current: Optional[str] = None
     for line in text.splitlines():
@@ -239,29 +293,140 @@ def _parse_conf(text: str) -> dict[str, list[str]]:
     return result
 
 
+_NUMBER_RE = re.compile(r'^-?(?:\d+\.\d+|\d+|\.\d+)$')
+
+
+def _lua_value(value: str) -> str:
+    if value in {'on', 'true'}:
+        return 'true'
+    if value in {'off', 'false'}:
+        return 'false'
+    if _NUMBER_RE.match(value):
+        return value
+    return json.dumps(value)
+
+
+def _render_window_rules_lua(rules: list[WindowRule]) -> list[str]:
+    lines: list[str] = []
+    matcher_key_map = {
+        'match:class': 'class',
+        'match:title': 'title',
+        'match:tag': 'tag',
+        'match:xwayland': 'xwayland',
+        'match:float': 'float',
+        'match:fullscreen': 'fullscreen',
+    }
+    for rule in rules:
+        lines.append('hl.window_rule({')
+        if rule.name:
+            lines.append(f'    name = {json.dumps(rule.name)},')
+        if rule.matchers:
+            lines.append('    match = {')
+            for key, val in rule.matchers:
+                lines.append(f'        {matcher_key_map.get(key, key.replace("match:", ""))} = {_lua_value(val)},')
+            lines.append('    },')
+        for effect, val in rule.effects.items():
+            lines.append(f'    {effect} = {_lua_value(val)},')
+        lines.append('})')
+        lines.append('')
+    return lines
+
+
+def _render_layer_rules_lua(rules: list[LayerRule]) -> list[str]:
+    lines: list[str] = []
+    for rule in rules:
+        lines.append('hl.layer_rule({')
+        if rule.name:
+            lines.append(f'    name = {json.dumps(rule.name)},')
+        if rule.namespace:
+            lines.append('    match = {')
+            lines.append(f'        namespace = {_lua_value(rule.namespace)},')
+            lines.append('    },')
+        for effect, val in rule.effects.items():
+            lines.append(f'    {effect} = {_lua_value(val)},')
+        lines.append('})')
+        lines.append('')
+    return lines
+
+
 def _write_conf(
     window_rules: list[WindowRule],
     layer_rules: list[LayerRule],
     autostart: list[AutostartEntry],
     env_vars: list[EnvVar],
-    path: Path = CONF_PATH,
+    path: Path | None = None,
 ) -> None:
+    path = path or CONF_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    out: list[str] = []
-    for key, serialize_fn, items in [          # type: ignore[var-annotated]
-        ('window_rules', _serialize_window_rules, window_rules),
-        ('layer_rules',  _serialize_layer_rules,  layer_rules),
-        ('autostart',    _serialize_autostart,     autostart),
-        ('env_vars',     _serialize_env_vars,      env_vars),
-    ]:
-        start, end = _M[key]
-        out.append(start)
-        out.extend(serialize_fn(items))
-        out.append(end)
-        out.append('')
+    state = {
+        'window_rules': [
+            {'name': rule.name, 'matchers': list(rule.matchers), 'effects': rule.effects}
+            for rule in window_rules
+        ],
+        'layer_rules': [
+            {'name': rule.name, 'namespace': rule.namespace, 'effects': rule.effects}
+            for rule in layer_rules
+        ],
+        'autostart': [
+            {'command': entry.command, 'exec_once': entry.exec_once}
+            for entry in autostart
+        ],
+        'env_vars': [
+            {'name': var.name, 'value': var.value}
+            for var in env_vars
+        ],
+    }
+    out: list[str] = [
+        '-- Cloud Center user override file for rules and startup hooks.',
+        f'{MANAGED_STATE_PREFIX}{json.dumps(state, sort_keys=True)}',
+        '',
+    ]
+    out.extend(_render_window_rules_lua(window_rules))
+    out.extend(_render_layer_rules_lua(layer_rules))
+    out.extend(_serialize_autostart(autostart))
+    out.extend(_serialize_env_vars(env_vars))
     tmp = path.with_suffix('.tmp')
     tmp.write_text('\n'.join(out), encoding='utf-8')
     tmp.replace(path)
+
+    main_lua = HYPR_DIR / 'hyprland.lua'
+    if main_lua.exists():
+        updated = ensure_user_override_active(main_lua.read_text(encoding='utf-8'), 'rules_startup')
+        tmp_main = main_lua.with_name(main_lua.name + '.tmp')
+        tmp_main.write_text(updated, encoding='utf-8')
+        tmp_main.replace(main_lua)
+
+
+def upsert_env_vars(updates: dict[str, str], path: Path | None = None) -> None:
+    path = path or CONF_PATH
+    if path.exists():
+        sections = _parse_conf(path.read_text(encoding='utf-8'))
+        window_rules = _parse_window_rules(sections['window_rules'])
+        layer_rules = _parse_layer_rules(sections['layer_rules'])
+        autostart = _parse_autostart(sections['autostart'])
+        env_vars = _parse_env_vars(sections['env_vars'])
+    else:
+        window_rules = []
+        layer_rules = []
+        autostart = []
+        env_vars = []
+
+    by_name = {var.name: var for var in env_vars}
+    for name, value in updates.items():
+        by_name[name] = EnvVar(name=name, value=value)
+
+    merged_env_vars: list[EnvVar] = []
+    seen: set[str] = set()
+    for var in env_vars:
+        merged = by_name[var.name]
+        if merged.name not in seen:
+            merged_env_vars.append(merged)
+            seen.add(merged.name)
+    for name, var in by_name.items():
+        if name not in seen:
+            merged_env_vars.append(var)
+
+    _write_conf(window_rules, layer_rules, autostart, merged_env_vars, path=path)
 
 
 # ── GTK import helper ──────────────────────────────────────────────────────────
@@ -1496,10 +1661,8 @@ class RulesStartupPage(_Gtk.Box):
         self._apply_btn.set_sensitive(dirty)
 
     def _on_apply(self, _btn) -> None:
-        import lib.hcm as hcm
         for tab in self._tabs:
             tab.confirm_baseline()
-        hcm.ensure_user_config_sourced(CONF_PATH)
         self._update_dirty_buttons()
         has_startup = bool(self._autostart_tab._items) or bool(self._env_tab._items)
         msg = 'Saved — restart Hyprland for env & autostart changes' if has_startup else 'Rules saved'

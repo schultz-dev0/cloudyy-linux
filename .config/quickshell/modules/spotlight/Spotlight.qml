@@ -367,7 +367,7 @@ PanelWindow {
 
     // ── IPC ───────────────────────────────────────────────────────────────
     IpcHandler {
-        target: "spotlight-dock"
+        target: "spotlight"
         function toggle() {
             spotlight.spotlightVisible = !spotlight.spotlightVisible;
         }

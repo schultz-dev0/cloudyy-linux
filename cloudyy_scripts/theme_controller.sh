@@ -119,14 +119,6 @@ set_system_theme() {
 
   # Firefox: keep profile prefs aligned with system mode for "Automatic".
   set_firefox_theme "$mode"
-
-  # pywalfox: tell the Firefox extension which colour variant to use.
-  # "pywalfox dark" / "pywalfox light" switches the extension's palette;
-  # matugen's post_hook already runs "pywalfox update" to push new colours.
-  if command -v pywalfox >/dev/null 2>&1; then
-    pywalfox "$mode" 2>/dev/null &
-    log "pywalfox switched to $mode"
-  fi
 }
 
 set_gtk_theme() {
@@ -160,7 +152,6 @@ set_firefox_theme() {
 
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value" "$content_override"
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value" "$content_override"
-  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value" "$content_override"
 }
 
 _apply_firefox_profiles_ini() {

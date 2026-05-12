@@ -1,7 +1,4 @@
-/*
- * ROFI THEME - LIQUID GLASS EFFECT
- * Uses matugen generated transparent colors for a frosted glass look
- */
+
 
 configuration {
     /* --- General Settings --- */
@@ -33,10 +30,9 @@ configuration {
 
 * {
     /* =====================================================================
-       1. COLOR MAPPINGS - LIQUID GLASS STYLE
+       1. COLOR MAPPINGS
        ===================================================================== */
     
-    /* Glass backgrounds with transparency */
     s-win-bg:       @glass-surface;              /* 70% transparent main window */
     s-input-bg:     @glass-input;                /* 80% transparent input bar */
     s-urg-bg:       @error-container;            /* Keep error solid for visibility */
@@ -83,7 +79,7 @@ configuration {
 }
 
 /* =====================================================================
-   WINDOW STRUCTURE - LIQUID GLASS
+   WINDOW STRUCTURE
    ===================================================================== */
 
 window {
@@ -108,15 +104,15 @@ mainbox {
 }
 
 /* =====================================================================
-   INPUT BAR - FROSTED GLASS PILL
+   INPUT BAR
    ===================================================================== */
 
 inputbar {
     children:           [ prompt, entry ];
     spacing:            10px;
     padding:            14px 16px;
-    border-radius:      12px;                /* Pill shape */
-    background-color:   @s-input-bg;         /* Frosted glass effect */
+    border-radius:      12px;                
+    background-color:   @s-input-bg;         
     text-color:         @s-text-def;
     border:             1px;
     border-color:       @outline-variant;
@@ -148,7 +144,7 @@ message {
 }
 
 textbox {
-    background-color:   @s-msg-bg;           /* Glass message box */
+    background-color:   @s-msg-bg;           
     text-color:         @s-text-dim;
     padding:            10px 14px;
     border-radius:      8px;
@@ -160,7 +156,7 @@ textbox {
 }
 
 /* =====================================================================
-   LIST VIEW - GLASS ITEMS
+   LIST VIEW 
    ===================================================================== */
 
 listview {

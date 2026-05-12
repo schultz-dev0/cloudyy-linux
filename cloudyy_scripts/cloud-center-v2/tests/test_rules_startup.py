@@ -1,6 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import lib.rules_startup_page as _rsp
+
 from lib.rules_startup_page import WindowRule, LayerRule, AutostartEntry, EnvVar, _parse_window_rules, _serialize_window_rules, _parse_layer_rules, _serialize_layer_rules
 
 
@@ -182,7 +184,6 @@ def test_valid_env_name():
 
 
 # Conf file I/O tests
-import tempfile
 from pathlib import Path
 from lib.rules_startup_page import _parse_conf, _write_conf
 
@@ -225,20 +226,47 @@ def test_parse_conf_empty():
     assert _parse_conf('') == {k: [] for k in ('window_rules', 'layer_rules', 'autostart', 'env_vars')}
 
 
-def test_write_conf_round_trip():
+def test_write_conf_does_not_leak_to_real_hypr_dir_regression(tmp_path, monkeypatch):
+    """Regression: _write_conf must not write to the real HYPR_DIR.
+
+    Without monkeypatching rules_startup_page.HYPR_DIR the function unconditionally
+    updates HYPR_DIR/hyprland.lua even when given an explicit path= argument.
+    Fix: monkeypatch HYPR_DIR to tmp_path so all writes stay within the test sandbox.
+    """
+    monkeypatch.setattr(_rsp, 'HYPR_DIR', tmp_path)
+
+    real_hypr = Path.home() / '.config' / 'hypr'
+    written_outside: list[str] = []
+
+    _orig_write_text = Path.write_text
+    def _intercept_write(self: Path, text, *a, **kw):
+        p = self.resolve()
+        if real_hypr.resolve() in p.parents or p.parent.resolve() == real_hypr.resolve():
+            written_outside.append(str(self))
+            return  # suppress – never touch real HYPR_DIR
+        return _orig_write_text(self, text, *a, **kw)
+
+    monkeypatch.setattr(Path, "write_text", _intercept_write)
+
+    _write_conf([], [], [], [], path=tmp_path / "conf.lua")
+
+    assert not written_outside, (
+        f"HYPR_DIR not isolated – _write_conf attempted writes to: {written_outside}"
+    )
+
+
+def test_write_conf_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setattr(_rsp, 'HYPR_DIR', tmp_path)
+
     window_rules = [WindowRule('test', [('match:class', '^(x)$')], {'float': 'on'})]
     layer_rules  = [LayerRule('l', 'rofi', {'blur': 'on'})]
     autostart    = [AutostartEntry('waybar', True)]
     env_vars     = [EnvVar('FOO', 'bar')]
 
-    with tempfile.NamedTemporaryFile(suffix='.conf', delete=False) as f:
-        tmp = Path(f.name)
-    try:
-        _write_conf(window_rules, layer_rules, autostart, env_vars, path=tmp)
-        s = _parse_conf(tmp.read_text())
-        assert _parse_window_rules(s['window_rules']) == window_rules
-        assert _parse_layer_rules(s['layer_rules'])   == layer_rules
-        assert _parse_autostart(s['autostart'])        == autostart
-        assert _parse_env_vars(s['env_vars'])          == env_vars
-    finally:
-        tmp.unlink(missing_ok=True)
+    conf = tmp_path / 'test.conf'
+    _write_conf(window_rules, layer_rules, autostart, env_vars, path=conf)
+    s = _parse_conf(conf.read_text())
+    assert _parse_window_rules(s['window_rules']) == window_rules
+    assert _parse_layer_rules(s['layer_rules'])   == layer_rules
+    assert _parse_autostart(s['autostart'])        == autostart
+    assert _parse_env_vars(s['env_vars'])          == env_vars
