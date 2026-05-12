@@ -255,7 +255,7 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: Hyprland.dispatch("exec quickshell ipc call spotlight-dock toggle")
+                    onClicked: dock.launch(["quickshell", "ipc", "call", "spotlight", "toggle"])
                 }
             }
 
