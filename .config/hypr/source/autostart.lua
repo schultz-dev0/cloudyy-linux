@@ -5,7 +5,6 @@ hl.on("hyprland.start", function()
     local home = os.getenv("HOME")
     local scripts = home .. "/cloudyy_scripts"
 
-    hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
     hl.exec_cmd("hyprlock")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")

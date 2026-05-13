@@ -142,7 +142,7 @@ PanelWindow {
                 const candidates = HyprlandData.iconCandidatesForWindow(w);
                 let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || cls);
                 if (w.class && w.class.toLowerCase().includes("matlab"))
-                    iconName = "/home/schultz/.local/share/icons/matlab.png";
+                    iconName = `${HyprlandData.homeDir}/.local/share/icons/matlab.png`;
                 result.push({
                     class: w.class,
                     exec: dock.execFromWindow(w),
