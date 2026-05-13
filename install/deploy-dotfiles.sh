@@ -226,6 +226,12 @@ ensure_cloudyy_path() {
 
   local -a rc_files=("${HOME}/.zshrc" "${HOME}/.bashrc")
   for rc in "${rc_files[@]}"; do
+    # Broken/circular symlinks (dirty systems) cause touch to fail with ELOOP.
+    # Remove them so we can create a plain file in their place.
+    if [[ -L "$rc" && ! -e "$rc" ]]; then
+      log_warn "$(basename "$rc"): broken symlink detected — removing before recreating."
+      rm -f "$rc"
+    fi
     [[ -f "$rc" ]] || touch "$rc"
 
     local needs_root=1 needs_subdir=1
