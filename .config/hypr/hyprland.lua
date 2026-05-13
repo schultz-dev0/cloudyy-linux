@@ -19,7 +19,7 @@ package.path = package.path
 	.. "/.config/hypr/.hyprlua/?.lua"
 
 require("source.variables")
-require("source.monitors")
+-- require("source.monitors")
 -- require("source.lookandfeel")
 require("source.animations")
 -- require("source.input")
@@ -33,5 +33,5 @@ require("user-configs.user_lookandfeel") -- managed by Cloud Center
 require("user-configs.user_input") -- managed by Cloud Center
 require("user-configs.user_cursor") -- managed by Cloud Center
 require("user-configs.user_bindings") -- managed by Cloud Center
--- require("user-configs.user_monitors") -- managed by Cloud Center
+require("user-configs.user_monitors") -- managed by Cloud Center
 require("user-configs.user_rules_startup") -- managed by Cloud Center
