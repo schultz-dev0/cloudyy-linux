@@ -7,7 +7,7 @@
 # Run standalone or called from install.sh.
 # Safe to source (functions only; main() guarded by BASH_SOURCE check).
 # =============================================================================
-set -euo pipefail
+set -euo pipefail -E
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly DEPS_FILE="${SCRIPT_DIR}/dependencies.conf"
@@ -22,6 +22,12 @@ source "$LIB_FILE"
 source "$DEPS_FILE"
 
 [[ $EUID -eq 0 ]] && { log_error "Do not run as root."; exit 1; }
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+}
+trap '_err_handler' ERR
 
 # =============================================================================
 # AUR HELPER
@@ -99,6 +105,17 @@ NVD_BACKEND=direct
 ENVD
     log_ok "NVIDIA environment.d entry written."
     ;;
+  nvidia-prime)
+    # Hybrid Intel+NVIDIA: PRIME render offload — renders on NVIDIA, displays via Intel
+    cat >>"$launcher" <<'PRIME'
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export LIBVA_DRIVER_NAME=iHD
+export WLR_NO_HARDWARE_CURSORS=1
+PRIME
+    log_ok "NVIDIA PRIME (hybrid) launcher written."
+    ;;
   amd)
     cat >>"$launcher" <<'AMD'
 export LIBVA_DRIVER_NAME=radeonsi
@@ -174,6 +191,12 @@ detect_and_install_gpu() {
     log "Detected Intel — installing drivers..."
     pacman_install "Intel" "${OFFICIAL_GPU_INTEL[@]}"
     [[ -z "$primary_vendor" ]] && primary_vendor="intel"
+  fi
+
+  # Hybrid Intel+NVIDIA: use PRIME offload launcher instead of pure NVIDIA
+  if (( has_nvidia && has_intel )); then
+    log "Hybrid Intel+NVIDIA detected — switching to PRIME offload launcher."
+    primary_vendor="nvidia-prime"
   fi
 
   [[ -n "$primary_vendor" ]] && write_gpu_launcher "$primary_vendor"
