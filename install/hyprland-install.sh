@@ -65,7 +65,7 @@ setup_aur_helper() {
 
 # write_gpu_launcher <vendor>
 # Generates ~/.config/hypr/cloudyy-launch.sh with GPU-appropriate env vars.
-# Vendor: "nvidia" | "amd" | "intel"
+# Vendor: "nvidia" | "nvidia-prime" | "amd" | "intel"
 write_gpu_launcher() {
   local vendor="$1"
   local launcher_dir="${HOME}/.config/hypr"
@@ -114,7 +114,14 @@ export __GLX_VENDOR_LIBRARY_NAME=nvidia
 export LIBVA_DRIVER_NAME=iHD
 export WLR_NO_HARDWARE_CURSORS=1
 PRIME
-    log_ok "NVIDIA PRIME (hybrid) launcher written."
+    cat >"${env_d}/nvidia-prime-wayland.conf" <<'PRIMEENVD'
+__NV_PRIME_RENDER_OFFLOAD=1
+__NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
+__GLX_VENDOR_LIBRARY_NAME=nvidia
+LIBVA_DRIVER_NAME=iHD
+WLR_NO_HARDWARE_CURSORS=1
+PRIMEENVD
+    log_ok "NVIDIA PRIME (hybrid) launcher + environment.d written."
     ;;
   amd)
     cat >>"$launcher" <<'AMD'
@@ -177,26 +184,18 @@ detect_and_install_gpu() {
 
   local primary_vendor=""
 
-  if (( has_nvidia )); then
-    log "Detected NVIDIA — installing drivers..."
-    pacman_install "NVIDIA" "${OFFICIAL_GPU_NVIDIA[@]}"
-    primary_vendor="nvidia"
-  fi
-  if (( has_amd )); then
-    log "Detected AMD — installing drivers..."
-    pacman_install "AMD" "${OFFICIAL_GPU_AMD[@]}"
-    [[ -z "$primary_vendor" ]] && primary_vendor="amd"
-  fi
-  if (( has_intel )); then
-    log "Detected Intel — installing drivers..."
-    pacman_install "Intel" "${OFFICIAL_GPU_INTEL[@]}"
-    [[ -z "$primary_vendor" ]] && primary_vendor="intel"
-  fi
+  # Install all detected GPU drivers first
+  (( has_nvidia )) && { log "Detected NVIDIA — installing drivers..."; pacman_install "NVIDIA" "${OFFICIAL_GPU_NVIDIA[@]}"; }
+  (( has_amd ))    && { log "Detected AMD — installing drivers...";    pacman_install "AMD"    "${OFFICIAL_GPU_AMD[@]}"; }
+  (( has_intel ))  && { log "Detected Intel — installing drivers...";  pacman_install "Intel"  "${OFFICIAL_GPU_INTEL[@]}"; }
 
-  # Hybrid Intel+NVIDIA: use PRIME offload launcher instead of pure NVIDIA
-  if (( has_nvidia && has_intel )); then
-    log "Hybrid Intel+NVIDIA detected — switching to PRIME offload launcher."
+  # Select launcher: hybrid Intel+NVIDIA → PRIME offload; else first detected wins
+  if   (( has_nvidia && has_intel )); then
+    log "Hybrid Intel+NVIDIA detected — using PRIME offload launcher."
     primary_vendor="nvidia-prime"
+  elif (( has_nvidia )); then primary_vendor="nvidia"
+  elif (( has_amd ));    then primary_vendor="amd"
+  elif (( has_intel ));  then primary_vendor="intel"
   fi
 
   [[ -n "$primary_vendor" ]] && write_gpu_launcher "$primary_vendor"
