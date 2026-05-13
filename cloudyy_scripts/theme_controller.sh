@@ -22,7 +22,7 @@ WALLPAPER_DAEMON_CMD=()
 
 # --- CONFIGURATION (cont.) ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
-WIDGETS_BRIDGE="/home/schultz/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
+WIDGETS_BRIDGE="${HOME}/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
 readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
 readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
 readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
