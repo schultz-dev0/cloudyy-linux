@@ -1,4 +1,5 @@
 -- Monitor defaults
 -- Source: source/monitors.conf
 
-hl.monitor({ output = "", mode = "3440x1440@180", position = "0x0", scale = "1" })
+-- preferred = auto-detect native resolution & refresh rate (works on any display)
+hl.monitor({ output = "", mode = "preferred", position = "0x0", scale = "1" })
