@@ -7,30 +7,42 @@ import Quickshell
 Item {
     id: root
 
-    required property var appData // { class, exec, icon, isRunning, isPinned }
+    required property var appData // { class, exec, icon, isRunning, isPinned, window? }
     required property int iconSize
     required property real maxScale
     required property real spread
     required property int frameMs
-    required property real dockMouseX // mouse X in iconsRow coordinates, -9999 = outside
-    required property real iconCenterX // center X of this icon in iconsRow coordinates
+    required property real dockMouseX
+    required property real iconCenterX
+    required property var dockBodyRef
+    required property var iconsRowRef
+    required property int visualIndex
+    property bool isDragSource: false
+
     property bool hovered: false
     property bool pressed: false
-    // ── Gaussian magnification ───────────────────────────────────────────────
+    property bool leftDragging: false
+    property real pressStartX: 0
+
+    signal clicked()
+    signal requestTogglePin()
+    signal dragReorderStarted(int visualIndex, real centerBodyX, real centerBodyY)
+    signal dragReorderMoved(real centerBodyX, real centerBodyY)
+    signal dragReorderEnded()
+
     readonly property real targetScale: {
         if (dockMouseX < -1000)
             return 1;
-
         const d = Math.abs(dockMouseX - iconCenterX);
         const sigma = iconSize * spread;
         return 1 + (maxScale - 1) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
     }
     property real currentScale: 1
 
-    signal clicked()
+    z: isDragSource ? 80 : 0
 
     width: root.iconSize
-    height: root.iconSize * root.maxScale + 6 // +6 for running dot below
+    height: root.iconSize * root.maxScale + 6
 
     Timer {
         interval: root.frameMs
@@ -42,7 +54,6 @@ Item {
         }
     }
 
-    // ── Icon image ───────────────────────────────────────────────────────────
     Image {
         id: iconImg
 
@@ -57,25 +68,24 @@ Item {
         smooth: true
         scale: root.currentScale
         transformOrigin: Item.Bottom
+        opacity: root.isDragSource ? 0.2 : 1
         onStatusChanged: {
             if (status === Image.Error && sourceIndex < sources.length - 1)
                 Qt.callLater(() => {
-                return sourceIndex++;
-            });
-
+                    sourceIndex++;
+                });
         }
 
         anchors {
             bottom: parent.bottom
-            bottomMargin: 6 // space for running dot
+            bottomMargin: 6
             horizontalCenter: parent.horizontalCenter
         }
 
     }
 
-    // ── Running indicator dot ────────────────────────────────────────────────
     Rectangle {
-        visible: root.appData.isRunning ?? false
+        visible: (root.appData.isRunning ?? false) && !root.isDragSource
         width: 4
         height: 4
         radius: 2
@@ -88,18 +98,56 @@ Item {
 
     }
 
-    // ── Mouse interaction ────────────────────────────────────────────────────
     MouseArea {
+        id: leftDragArea
         anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
         hoverEnabled: true
         onEntered: root.hovered = true
         onExited: {
             root.hovered = false;
+            if (!pressed) {
+                root.pressed = false;
+                root.leftDragging = false;
+            }
+        }
+        onPressed: mouse => {
+            root.pressed = true;
+            root.pressStartX = mouse.x;
+            root.leftDragging = false;
+        }
+        onPositionChanged: mouse => {
+            if (!pressed)
+                return;
+            if (!root.leftDragging) {
+                if (Math.abs(mouse.x - root.pressStartX) > 10) {
+                    root.leftDragging = true;
+                    const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
+                    root.dragReorderStarted(root.visualIndex, p.x, p.y);
+                }
+            }
+            if (root.leftDragging) {
+                const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
+                root.dragReorderMoved(p.x, p.y);
+            }
+        }
+        onReleased: mouse => {
+            if (mouse.button === Qt.LeftButton) {
+                if (root.leftDragging) {
+                    root.dragReorderEnded();
+                    root.leftDragging = false;
+                } else {
+                    root.clicked();
+                }
+            }
             root.pressed = false;
         }
-        onPressed: root.pressed = true
-        onReleased: root.pressed = false
-        onClicked: root.clicked()
+    }
+
+    TapHandler {
+        acceptedButtons: Qt.RightButton
+        gesturePolicy: TapHandler.WithinBounds | TapHandler.ReleaseWithinBounds
+        onTapped: root.requestTogglePin()
     }
 
 }
