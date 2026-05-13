@@ -16,13 +16,15 @@ else
 fi
 
 # --- Logging ------------------------------------------------------------------
-log()         { printf '%s[*]%s %s\n'    "$BLUE"   "$RESET" "$1"; }
-log_ok()      { printf '%s[✓]%s %s\n'   "$GREEN"  "$RESET" "$1"; }
-log_warn()    { printf '%s[!]%s %s\n'   "$YELLOW" "$RESET" "$1"; }
-log_error()   { printf '%s[✗]%s %s\n'   "$RED"    "$RESET" "$1" >&2; }
-log_skip()    { printf '%s[-]%s %s\n'   "$DIM"    "$RESET" "$1"; }
-log_section() { printf '\n%s%s── %s%s\n' "$BOLD"  "$CYAN"  "$1" "$RESET"; }
+_ts() { date '+%H:%M:%S'; }
+log()         { printf '%s[*]%s  [%s] %s\n'    "$BLUE"   "$RESET" "$(_ts)" "$1"; }
+log_ok()      { printf '%s[✓]%s  [%s] %s\n'   "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()    { printf '%s[!]%s  [%s] %s\n'   "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error()   { printf '%s[✗]%s  [%s] %s\n'   "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log_skip()    { printf '%s[-]%s  [%s] %s\n'   "$DIM"    "$RESET" "$(_ts)" "$1"; }
+log_section() { printf '\n%s%s── %s%s\n'       "$BOLD"   "$CYAN"  "$1"     "$RESET"; }
 divider()     { printf '%s─────────────────────────────────────────────%s\n' "$DIM" "$RESET"; }
+log_cmd()     { printf '%s[cmd]%s [%s] %s\n'  "$DIM"    "$RESET" "$(_ts)" "$*"; "$@"; }
 
 # --- AUR Helper (set by setup_aur_helper in hyprland-install.sh) -------------
 AUR_HELPER=""
@@ -40,7 +42,7 @@ pacman_install() {
   log_warn "${group} — batch failed, retrying individually..."
   local fails=0
   for pkg in "${pkgs[@]}"; do
-    if sudo pacman -S --needed --noconfirm "$pkg" &>/dev/null; then
+    if sudo pacman -S --needed --noconfirm "$pkg" >/dev/null; then
       log_ok "  ✓ ${pkg}"
     else
       log_warn "  ✗ ${pkg}"
@@ -67,7 +69,7 @@ aur_install() {
   log_warn "${group} — batch failed, retrying individually..."
   local fails=0
   for pkg in "${pkgs[@]}"; do
-    if "$AUR_HELPER" -S --needed --noconfirm "$pkg" &>/dev/null; then
+    if "$AUR_HELPER" -S --needed --noconfirm "$pkg" >/dev/null; then
       log_ok "  ✓ ${pkg}"
     else
       log_warn "  ✗ ${pkg}"
