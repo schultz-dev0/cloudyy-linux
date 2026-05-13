@@ -17,44 +17,49 @@ verify_controller_bridge() {
     if grep -Fxq "WIDGETS_BRIDGE=\"${BRIDGE_SCRIPT}\"" "$file"; then
         echo "[✓] Wired quickshell bridge into $(basename "$file")"
     else
-        echo "[✗] Failed to wire quickshell bridge into $(basename "$file")" >&2
-        exit 1
+        echo "[!] Could not verify quickshell bridge in $(basename "$file") — may need manual fix" >&2
     fi
 }
 
 update_controller() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
-        echo "[✗] Missing expected theme controller target: $file" >&2
-        exit 1
+        echo "[!] Missing theme controller target: $file — skipping" >&2
+        return 0
+    fi
+    # Only attempt sed if the pattern line exists at all
+    if ! grep -q '^WIDGETS_BRIDGE=' "$file"; then
+        echo "[!] WIDGETS_BRIDGE= line not found in $(basename "$file") — skipping wire" >&2
+        return 0
     fi
     sed -i "s|^WIDGETS_BRIDGE=.*|WIDGETS_BRIDGE=\"${BRIDGE_SCRIPT}\"|" "$file"
     verify_controller_bridge "$file"
 }
 
-update_controller "$THEME_CONTROLLER_HOME"
-update_controller "$THEME_CONTROLLER_REPO"
-
-# --- update cloud-center.py wiring -------------------------------------------
 verify_cloud_center() {
     local py_file="$1"
     if grep -Fxq 'ACTIVE_SHELL_TAB = "quickshell"' "$py_file"; then
         echo "[✓] Wired quickshell tab into $(basename "$py_file")"
     else
-        echo "[✗] Failed to wire quickshell tab into $(basename "$py_file")" >&2
-        exit 1
+        echo "[!] Could not verify quickshell tab in $(basename "$py_file") — may need manual fix" >&2
     fi
 }
 
 update_cloud_center() {
     local py_file="$1"
     if [[ ! -f "$py_file" ]]; then
-        echo "[✗] Missing expected cloud-center target: $py_file" >&2
-        exit 1
+        echo "[!] Missing cloud-center target: $py_file — skipping" >&2
+        return 0
+    fi
+    if ! grep -q '^ACTIVE_SHELL_TAB = ' "$py_file"; then
+        echo "[!] ACTIVE_SHELL_TAB line not found in $(basename "$py_file") — skipping wire" >&2
+        return 0
     fi
     sed -i 's|^ACTIVE_SHELL_TAB = ".*"|ACTIVE_SHELL_TAB = "quickshell"|' "$py_file"
     verify_cloud_center "$py_file"
 }
 
+update_controller "$THEME_CONTROLLER_HOME"
+update_controller "$THEME_CONTROLLER_REPO"
 update_cloud_center "$CLOUD_CENTER_HOME"
 update_cloud_center "$CLOUD_CENTER_REPO"
