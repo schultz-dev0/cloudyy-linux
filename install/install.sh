@@ -236,6 +236,8 @@ phase_laptop() {
   local input_conf="${HOME}/.config/hypr/input-overrides.conf"
   local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
 
+  mkdir -p "$(dirname "$input_conf")"
+
   # Write touchpad config (idempotent — only if file doesn't exist)
   if [[ ! -f "$input_conf" ]]; then
     cat >"$input_conf" <<'TOUCHPAD'
