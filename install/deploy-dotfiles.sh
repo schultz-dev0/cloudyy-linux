@@ -9,7 +9,7 @@
 # Called by install.sh. Can also be run standalone.
 # =============================================================================
 
-set -euo pipefail
+set -euo pipefail -E
 
 # --- Configuration -----------------------------------------------------------
 readonly REPO_URL="https://github.com/schultz-dev0/cloudyy-linux"
@@ -25,20 +25,25 @@ else
 fi
 
 # --- Logging -----------------------------------------------------------------
-log() { printf '%s[*]%s %s\n' "$BLUE" "$RESET" "$1"; }
-log_ok() { printf '%s[✓]%s %s\n' "$GREEN" "$RESET" "$1"; }
-log_warn() { printf '%s[!]%s %s\n' "$YELLOW" "$RESET" "$1"; }
-log_error() { printf '%s[✗]%s %s\n' "$RED" "$RESET" "$1" >&2; }
-log_skip() { printf '%s[-]%s %s %s(unchanged)%s\n' "$CYAN" "$RESET" "$1" "$YELLOW" "$RESET"; }
-log_section() {
-  printf '\n%s%s── %s%s\n' "$BOLD" "$CYAN" "$1" "$RESET"
-}
+_ts() { date '+%H:%M:%S'; }
+log()         { printf '%s[*]%s  [%s] %s\n'              "$BLUE"   "$RESET" "$(_ts)" "$1"; }
+log_ok()      { printf '%s[✓]%s  [%s] %s\n'              "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()    { printf '%s[!]%s  [%s] %s\n'              "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error()   { printf '%s[✗]%s  [%s] %s\n'              "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log_skip()    { printf '%s[-]%s  [%s] %s %s(unchanged)%s\n' "$CYAN" "$RESET" "$(_ts)" "$1" "$YELLOW" "$RESET"; }
+log_section() { printf '\n%s%s── %s%s\n'                  "$BOLD"   "$CYAN"  "$1"     "$RESET"; }
 
 # --- Guards ------------------------------------------------------------------
 if [[ $EUID -eq 0 ]]; then
   log_error "Do not run as root."
   exit 1
 fi
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+}
+trap '_err_handler' ERR
 
 # =============================================================================
 # HELPERS
@@ -60,11 +65,12 @@ backup_if_needed() {
     fi
   fi
 
-  # It's a real file/dir that will be replaced — back it up
-  mkdir -p "$BACKUP_DIR"
-  local dest="${BACKUP_DIR}/$(basename "$target")"
+  # It's a real file/dir that will be replaced — back it up, mirroring its path
+  local rel_path="${target#${HOME}/}"
+  local dest="${BACKUP_DIR}/${rel_path}"
+  mkdir -p "$(dirname "$dest")"
   mv "$target" "$dest"
-  log_warn "Backed up: $(basename "$target") → ${BACKUP_DIR}/"
+  log_warn "Backed up: ${rel_path} → ${BACKUP_DIR}/${rel_path}"
 }
 
 # Create a symlink, backing up whatever was there first
@@ -313,8 +319,12 @@ deploy_defaults() {
   # hyprland.conf — gitignored; deploy once so Hyprland can start cleanly
   local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
   if [[ ! -f "$hypr_conf" ]]; then
-    cp "${defaults_dir}/hyprland.conf" "$hypr_conf"
-    log_ok "hyprland.conf deployed (default)."
+    if [[ -f "${defaults_dir}/hyprland.conf" ]]; then
+      cp "${defaults_dir}/hyprland.conf" "$hypr_conf"
+      log_ok "hyprland.conf deployed (default)."
+    else
+      log_warn "No default hyprland.conf in ${defaults_dir} — Hyprland may not start until configured."
+    fi
   else
     log_skip "hyprland.conf"
   fi
@@ -453,6 +463,13 @@ seed_required_applications() {
 # =============================================================================
 
 main() {
+  # Parse flags
+  for _arg in "$@"; do
+    case "$_arg" in
+      --unattended|-u) CLOUDYY_UNATTENDED=1 ;;
+    esac
+  done
+
   printf '\n%s%s── cloudyy-linux Dotfiles Deployment ──%s\n' "$BOLD" "$CYAN" "$RESET"
   printf 'Repo URL : %s\n' "$REPO_URL"
   printf 'Repo dir : %s\n' "$REPO_DIR"
@@ -461,23 +478,41 @@ main() {
   printf '%sExisting files will be backed up before being replaced.%s\n' "$YELLOW" "$RESET"
   printf 'Nothing is deleted — backups live in:\n  %s\n\n' "$BACKUP_DIR"
 
-  read -rp "Proceed with dotfiles deployment? [Y/n]: " _confirm
-  [[ "${_confirm,,}" == "n" ]] && {
-    log "Cancelled."
-    exit 0
-  }
+  if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
+    log "Unattended mode — proceeding with dotfiles deployment."
+  else
+    read -rp "Proceed with dotfiles deployment? [Y/n]: " _confirm
+    [[ "${_confirm,,}" == "n" ]] && {
+      log "Cancelled."
+      exit 0
+    }
+  fi
 
   sync_repo
   reapply_skip_worktree
   link_home_dotfiles
   link_config_dirs
   link_extra_dirs
-  setup_shell
+  # Only run shell setup when not orchestrated by install.sh
+  # (install.sh has a dedicated phase_shell that runs after packages are installed)
+  [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]] && setup_shell
   deploy_defaults
   ensure_cloudyy_path
   verify_deployment
   setup_system_theme
   seed_required_applications
+
+  # Run schema settings (XDG portal + pywalfox) — only in standalone mode;
+  # install.sh has a dedicated phase_schema for this.
+  if [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]]; then
+    local _schema_script
+    _schema_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/schema_settings.sh"
+    if [[ -f "$_schema_script" ]]; then
+      bash "$_schema_script" || log_warn "schema_settings.sh encountered issues (non-fatal)"
+    else
+      log_warn "schema_settings.sh not found at ${_schema_script} — skipping"
+    fi
+  fi
 
   # Wire quickshell bridge and restore theme
   local _self_dir
