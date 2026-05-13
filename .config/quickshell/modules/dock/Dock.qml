@@ -40,34 +40,18 @@ PanelWindow {
     readonly property int bottomGap: 0
     readonly property int activationHeight: 16
 
-    // ── Pinned apps — EDIT THIS ────────────────────────────────────────────
-    readonly property var pinnedApps: [
-        {
-            class: "zen",
-            exec: "zen-browser",
-            icon: "zen-browser"
-        },
-        {
-            class: "dev.zed.Zed",
-            exec: "zeditor",
-            icon: "zed"
-        },
-        {
-            class: "kitty",
-            exec: "kitty",
-            icon: "kitty"
-        },
-        {
-            class: "thunar",
-            exec: "thunar",
-            icon: "xfce-filemanager"
-        },
-        {
-            class: "spotify",
-            exec: "spotify",
-            icon: "spotify"
-        }
-    ]
+    // ── Drag / interaction ─────────────────────────────────────────────────
+    property int dragSourceIndex: -1
+    property int dragHoverVisualIndex: -1
+    property bool interactionBlock: false
+    property var dragGhostAppData: null
+    property real dragGhostTargetCenterX: 0
+    property real dragGhostTargetCenterY: 0
+    property real dragGhostVisualCenterX: 0
+    property real dragGhostVisualCenterY: 0
+    property real dragGhostLiftScale: 1
+
+    readonly property var effectivePinnedApps: DockStore.loaded ? DockStore.pinnedApps : DockStore.defaultPinnedApps
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
@@ -89,6 +73,11 @@ PanelWindow {
     onDockHoveredChanged: syncDockVisibility()
 
     function syncDockVisibility() {
+        if (interactionBlock) {
+            hideTimer.stop();
+            dockVisible = true;
+            return;
+        }
         if (anyFullscreen) {
             hideTimer.stop();
             dockMouseX = -9999;
@@ -107,8 +96,29 @@ PanelWindow {
             hideTimer.restart();
     }
 
+    function stripDesktopExecField(s) {
+        const t = `${s ?? ""}`.trim();
+        if (!t)
+            return "";
+        return t.replace(/%[A-Za-z]/g, "").trim();
+    }
+
+    function execFromWindow(w) {
+        if (!w)
+            return "";
+        const entry = DesktopEntries.heuristicLookup(w.class || w.initialClass || w.initialTitle);
+        if (entry) {
+            const raw = entry.exec ?? entry.Exec ?? entry.commandLine ?? entry.commandline ?? "";
+            const st = stripDesktopExecField(raw);
+            if (st.length > 0)
+                return st;
+        }
+        return (w.class || "").toLowerCase();
+    }
+
     // ── App list: pinned + running, deduplicated ───────────────────────────
     readonly property var mergedApps: {
+        const pinnedApps = dock.effectivePinnedApps;
         const pinnedClasses = new Set(pinnedApps.map(a => a.class.toLowerCase()));
         const runningMap = {};
         HyprlandData.windowList.forEach(w => {
@@ -118,25 +128,24 @@ PanelWindow {
         });
 
         const result = pinnedApps.map(app => ({
-                    class: app.class,
-                    exec: app.exec,
-                    icon: app.icon,
-                    isRunning: !!runningMap[app.class.toLowerCase()],
-                    window: null,
-                    isPinned: true
-                }));
+            class: app.class,
+            exec: app.exec,
+            icon: app.icon,
+            isRunning: !!runningMap[app.class.toLowerCase()],
+            window: runningMap[app.class.toLowerCase()] ?? null,
+            isPinned: true
+        }));
 
         Object.keys(runningMap).forEach(cls => {
             if (!pinnedClasses.has(cls)) {
                 const w = runningMap[cls];
-                // Use DesktopEntries lookup for a proper icon name; fall back to
-                // the raw class only if no desktop entry is found
                 const candidates = HyprlandData.iconCandidatesForWindow(w);
                 let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || cls);
-                if (w.class && w.class.toLowerCase().includes("matlab")) iconName = "/home/schultz/.local/share/icons/matlab.png";
+                if (w.class && w.class.toLowerCase().includes("matlab"))
+                    iconName = "/home/schultz/.local/share/icons/matlab.png";
                 result.push({
                     class: w.class,
-                    exec: w.class.toLowerCase(),
+                    exec: dock.execFromWindow(w),
                     icon: iconName,
                     isRunning: true,
                     window: w,
@@ -148,9 +157,132 @@ PanelWindow {
         return result;
     }
 
+    function visualIndexAtRowX(rowLocalX) {
+        const slot = dock.iconSize + dock.iconSpacing;
+        const n = dock.mergedApps.length;
+        if (n <= 0)
+            return 0;
+        let i = Math.floor((rowLocalX + slot * 0.5) / slot);
+        if (i < 0)
+            i = 0;
+        if (i >= n)
+            i = n - 1;
+        return i;
+    }
+
+    function clampDragGhostCenterX(cx) {
+        const half = dock.iconSize * dock.maxScale * 0.5 + 4;
+        const w = dockBody.width;
+        if (w <= half * 2)
+            return w * 0.5;
+        return Math.max(half, Math.min(w - half, cx));
+    }
+
+    function clampDragGhostCenterY(cy) {
+        const half = (dock.iconSize * dock.maxScale + 6) * 0.5;
+        const h = dockBody.height;
+        if (h <= half * 2)
+            return h * 0.5;
+        return Math.max(half + 2, Math.min(h - half - 2, cy));
+    }
+
+    function setDragGhostTargetFromBodyPoint(bodyX, bodyY) {
+        dock.dragGhostTargetCenterX = dock.clampDragGhostCenterX(bodyX);
+        dock.dragGhostTargetCenterY = dock.clampDragGhostCenterY(bodyY);
+    }
+
+    function beginIconDrag(visualIndex, ghostCenterBodyX, ghostCenterBodyY) {
+        dock.dragGhostAppData = dock.mergedApps[visualIndex] ?? null;
+        const cx = dock.clampDragGhostCenterX(ghostCenterBodyX);
+        const cy = dock.clampDragGhostCenterY(ghostCenterBodyY);
+        dock.dragGhostTargetCenterX = cx;
+        dock.dragGhostTargetCenterY = cy;
+        dock.dragGhostVisualCenterX = cx;
+        dock.dragGhostVisualCenterY = cy;
+        dock.dragGhostLiftScale = 1.12;
+        dock.dragSourceIndex = visualIndex;
+        dock.dragHoverVisualIndex = visualIndex;
+        dock.interactionBlock = true;
+        dock.syncDockVisibility();
+    }
+
+    function updateDragHoverFromRowX(rowLocalX) {
+        dock.dragHoverVisualIndex = dock.visualIndexAtRowX(rowLocalX);
+    }
+
+    function updateDragFromBodyPoint(bodyX, bodyY) {
+        dock.setDragGhostTargetFromBodyPoint(bodyX, bodyY);
+        const lp = dockBody.mapToItem(iconsRow, bodyX, bodyY);
+        dock.updateDragHoverFromRowX(lp.x);
+    }
+
+    function clearDragGhost() {
+        dock.dragGhostAppData = null;
+        dock.dragGhostLiftScale = 1;
+    }
+
+    function finishIconDrag() {
+        if (dock.dragSourceIndex < 0)
+            return;
+        const src = dock.dragSourceIndex;
+        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
+        const list = dock.mergedApps;
+        const pinnedCount = DockStore.pinnedApps.length;
+        if (src >= list.length) {
+            dock.dragSourceIndex = -1;
+            dock.dragHoverVisualIndex = -1;
+            dock.interactionBlock = false;
+            dock.clearDragGhost();
+            dock.syncDockVisibility();
+            return;
+        }
+        const srcEntry = list[src];
+        const srcPinned = !!srcEntry.isPinned;
+        const dstClamped = Math.min(dst, Math.max(0, list.length - 1));
+
+        if (srcPinned) {
+            if (dstClamped < pinnedCount) {
+                if (src !== dstClamped)
+                    DockStore.movePinned(src, dstClamped);
+            } else {
+                if (pinnedCount > 0 && src !== pinnedCount - 1)
+                    DockStore.movePinned(src, pinnedCount - 1);
+            }
+        } else {
+            const insertAt = Math.min(dstClamped, pinnedCount);
+            DockStore.pinEntry({
+                class: srcEntry.class,
+                exec: srcEntry.exec,
+                icon: srcEntry.icon
+            }, insertAt);
+        }
+
+        dock.dragSourceIndex = -1;
+        dock.dragHoverVisualIndex = -1;
+        dock.interactionBlock = false;
+        dock.clearDragGhost();
+        dock.syncDockVisibility();
+    }
+
+    function togglePinAtIndex(visualIndex) {
+        const list = dock.mergedApps;
+        if (visualIndex < 0 || visualIndex >= list.length)
+            return;
+        const e = list[visualIndex];
+        if (e.isPinned)
+            DockStore.unpinClass(e.class);
+        else
+            DockStore.pinEntry({
+                class: e.class,
+                exec: e.exec,
+                icon: e.icon
+            }, DockStore.pinnedApps.length);
+    }
+
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
+    readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseX
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -218,9 +350,9 @@ PanelWindow {
 
                 readonly property real btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
                 readonly property real targetScale: {
-                    if (dock.dockMouseX < -1000)
+                    if (dock.dockMouseXEffective < -1000)
                         return 1.0;
-                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
                     const sigma = dock.iconSize * dock.spread;
                     return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
                 }
@@ -268,13 +400,17 @@ PanelWindow {
                     DockIcon {
                         required property var modelData
                         required property int index
+                        dockBodyRef: dockBody
+                        iconsRowRef: iconsRow
+                        visualIndex: index
                         appData: modelData
                         iconSize: dock.iconSize
                         maxScale: dock.maxScale
                         spread: dock.spread
                         frameMs: dock.frameMs
-                        dockMouseX: dock.dockMouseX
+                        dockMouseX: dock.dockMouseXEffective
                         iconCenterX: x + dock.iconSize / 2
+                        isDragSource: dock.dragSourceIndex === index
                         onClicked: {
                             if (modelData.isRunning)
                                 Hyprland.dispatch("focuswindow class:" + modelData.class);
@@ -286,6 +422,12 @@ PanelWindow {
                                     dock.launch(["uwsm-app", "--", e]);
                                 }
                             }
+                        }
+                        onRequestTogglePin: dock.togglePinAtIndex(index)
+                        onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
+                        onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
+                        onDragReorderEnded: {
+                            dock.finishIconDrag();
                         }
                     }
                 }
@@ -299,9 +441,9 @@ PanelWindow {
 
                 readonly property real btnCenterX: iconsRow.width + dock.iconSpacing + dock.iconSize / 2
                 readonly property real targetScale: {
-                    if (dock.dockMouseX < -1000)
+                    if (dock.dockMouseXEffective < -1000)
                         return 1.0;
-                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
                     const sigma = dock.iconSize * dock.spread;
                     return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
                 }
@@ -341,6 +483,76 @@ PanelWindow {
             }
         }
 
+        Item {
+            id: dragGhostLayer
+            z: 5000
+            visible: dock.dragSourceIndex >= 0 && dock.dragGhostAppData !== null
+            width: dock.iconSize
+            height: dock.iconSize * dock.maxScale + 6
+            x: dock.dragGhostVisualCenterX - width / 2
+            y: dock.dragGhostVisualCenterY - height / 2
+            scale: dock.dragGhostLiftScale
+            transformOrigin: Item.Bottom
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Image {
+                id: ghostImg
+                property int sourceIndex: 0
+                property var ghostSources: HyprlandData.iconSourcesForName(dock.dragGhostAppData && dock.dragGhostAppData.icon ? dock.dragGhostAppData.icon : "application-x-executable")
+
+                anchors {
+                    bottom: parent.bottom
+                    bottomMargin: 6
+                    horizontalCenter: parent.horizontalCenter
+                }
+                width: dock.iconSize
+                height: dock.iconSize
+                onGhostSourcesChanged: sourceIndex = 0
+                source: ghostSources[sourceIndex] ?? "image://icon/application-x-executable"
+                sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
+                smooth: true
+                scale: dock.maxScale * 0.92
+                transformOrigin: Item.Bottom
+                onStatusChanged: {
+                    if (status === Image.Error && ghostImg.sourceIndex < ghostSources.length - 1)
+                        Qt.callLater(() => {
+                            ghostImg.sourceIndex++;
+                        });
+                }
+            }
+
+            Rectangle {
+                visible: dock.dragGhostAppData && dock.dragGhostAppData.isRunning
+                width: 4
+                height: 4
+                radius: 2
+                color: Theme.primary
+                anchors {
+                    bottom: parent.bottom
+                    horizontalCenter: parent.horizontalCenter
+                }
+            }
+        }
+
+        Timer {
+            id: dragGhostLerpTimer
+            interval: dock.frameMs
+            running: dock.dragSourceIndex >= 0
+            repeat: true
+            onTriggered: {
+                const dt = dock.frameMs / 1000.0;
+                const k = 1 - Math.exp(-24 * dt);
+                dock.dragGhostVisualCenterX += (dock.dragGhostTargetCenterX - dock.dragGhostVisualCenterX) * k;
+                dock.dragGhostVisualCenterY += (dock.dragGhostTargetCenterY - dock.dragGhostVisualCenterY) * k;
+            }
+        }
+
         // HoverHandler tracks pointer inside dockBody without competing with
         // child MouseAreas for hover events — fixes hide timer firing on icon hover.
         HoverHandler {
@@ -351,6 +563,8 @@ PanelWindow {
             onPointChanged: {
                 if (hovered)
                     dock.dockMouseX = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
+                if (dock.dragSourceIndex >= 0 && hovered)
+                    dock.updateDragFromBodyPoint(point.position.x, point.position.y);
             }
         }
     }

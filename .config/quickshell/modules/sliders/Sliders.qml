@@ -8,6 +8,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
+import "../../overview/services"
 
 Scope {
     id: sliders
@@ -21,6 +22,7 @@ Scope {
     property bool nightLightActive: false
     property int nightLightTemp: 3500
     property int pendingNightLightTemp: 3500
+    property bool _nightLightReapplyTempAfterToggle: false
 
     readonly property bool osdVisible: osdKind !== ""
     readonly property string volumeIcon: volumeMuted ? "󰖁" : (volumeValue < 33 ? "󰕿" : volumeValue < 66 ? "󰕾" : "󱄠")
@@ -114,6 +116,25 @@ Scope {
         p.running = true;
     }
 
+    function nightLightScriptPath() {
+        const h = (HyprlandData.homeDir || "").trim();
+        if (h.length > 0)
+            return h + "/cloudyy_scripts/sliders/nightlight.sh";
+        return "";
+    }
+
+    function nightLightExecArgv(mode, arg2) {
+        const path = nightLightScriptPath();
+        if (path.length > 0) {
+            if (mode === "toggle")
+                return ["bash", path, "toggle"];
+            return ["bash", path, "set", String(arg2)];
+        }
+        if (mode === "toggle")
+            return ["bash", "-lc", "exec \"$HOME/cloudyy_scripts/sliders/nightlight.sh\" toggle"];
+        return ["bash", "-lc", "exec \"$HOME/cloudyy_scripts/sliders/nightlight.sh\" set " + String(arg2)];
+    }
+
     function refreshAll() {
         refreshVolume();
         refreshBrightness();
@@ -169,10 +190,16 @@ Scope {
         if (!nightLightAvailable)
             return;
 
-        launch(["hyprctl", "dispatch", "exec", "/home/schultz/cloudyy_scripts/sliders/nightlight.sh toggle"]);
-        
+        const turningOn = !nightLightActive;
+        _nightLightReapplyTempAfterToggle = turningOn;
+        if (turningOn)
+            pendingNightLightTemp = nightLightTemp;
+
+        nightLightToggleProc.running = false;
+        nightLightToggleProc.command = nightLightExecArgv("toggle", 0);
+        nightLightToggleProc.running = true;
+
         nightLightActive = !nightLightActive;
-        scheduleRefresh();
     }
 
     function setNightLightTemp(value) {
@@ -188,7 +215,7 @@ Scope {
 
     function writeNightLightTemp() {
         const temp = Math.round(pendingNightLightTemp);
-        launch(["hyprctl", "dispatch", "exec", "/home/schultz/cloudyy_scripts/sliders/nightlight.sh set " + temp.toString()]);
+        launch(nightLightExecArgv("set", temp));
     }
 
     function showVolume() {
@@ -205,6 +232,7 @@ Scope {
 
     function showNightLight() {
         osdKind = "nightlight";
+        refreshNightLight();
         osdTimer.restart();
     }
 
@@ -252,8 +280,30 @@ Scope {
                 const tempMatch = line.match(/temp=(\d+)/);
                 sliders.nightLightAvailable = availableMatch ? availableMatch[1] === "1" : false;
                 sliders.nightLightActive = activeMatch ? activeMatch[1] === "1" : false;
-                if (tempMatch)
-                    sliders.nightLightTemp = parseInt(tempMatch[1], 10);
+                if (tempMatch) {
+                    const t = parseInt(tempMatch[1], 10);
+                    sliders.nightLightTemp = t;
+                    sliders.pendingNightLightTemp = t;
+                }
+            }
+        }
+    }
+
+    Process {
+        id: nightLightToggleProc
+        running: false
+        command: ["bash", "-lc", "true"]
+
+        stdout: StdioCollector {
+            id: nightLightToggleCollector
+            onStreamFinished: {
+                sliders.refreshNightLight();
+                if (sliders._nightLightReapplyTempAfterToggle && sliders.nightLightActive) {
+                    sliders.pendingNightLightTemp = sliders.nightLightTemp;
+                    sliders.writeNightLightTemp();
+                }
+                sliders._nightLightReapplyTempAfterToggle = false;
+                Qt.callLater(() => sliders.refreshNightLight());
             }
         }
     }

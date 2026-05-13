@@ -4,6 +4,8 @@ A Hyprland rice for Arch Linux — Material-You theming via matugen, dynamic lig
 
 ## Install
 
+DISCLAIMER!!!! Currently installer script suite is broken, I was stupid enough to trust AI to help me with the install script, it messed everything up, and yes I am aware that it is my fault! Please do not attempt to download UNLESS you know what you are doing and can fix broken files or configs! Standby for repair commit!
+
 ```bash
 sudo pacman -S git
 git clone https://github.com/schultz-dev0/cloudyy-linux ~/cloudyy-linux
