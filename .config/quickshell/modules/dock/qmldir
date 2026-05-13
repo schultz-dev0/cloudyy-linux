@@ -1,3 +1,4 @@
 module QuickDock
+singleton DockStore 1.0 DockStore.qml
 Dock 1.0 Dock.qml
 DockIcon 1.0 DockIcon.qml
