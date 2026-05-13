@@ -7,8 +7,9 @@ import sys
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
+gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Gtk4LayerShell', '1.0')
-from gi.repository import Gdk, GLib, Gio, Gtk
+from gi.repository import Gdk, GdkPixbuf, GLib, Gio, Gtk
 from gi.repository import Gtk4LayerShell as GtkLayerShell
 
 POPUP_WIDTH = 220
@@ -41,30 +42,22 @@ class ScreenshotPopup(Gtk.ApplicationWindow):
             .popup-root {
                 background: rgba(18, 18, 35, 0.96);
                 border-radius: 14px;
-                border: 1px solid rgba(255,255,255,0.1);
                 box-shadow: 0 8px 32px rgba(0,0,0,0.6);
                 overflow: hidden;
             }
-            .btn-copy {
-                background: rgba(80, 80, 180, 0.85);
+            .overlay-btn {
+                background: rgba(0, 0, 0, 0.4);
+                color: rgba(255, 255, 255, 0.85);
+                border-radius: 8px;
+                padding: 6px;
+                min-width: 24px;
+                min-height: 24px;
+                border: none;
+            }
+            .overlay-btn:hover { 
+                background: rgba(0, 0, 0, 0.7); 
                 color: white;
-                border-radius: 6px;
-                font-size: 11px;
-                padding: 2px 8px;
-                border: none;
             }
-            .btn-copy:hover { background: rgba(100, 100, 210, 0.95); }
-            .btn-close {
-                background: rgba(0,0,0,0.5);
-                color: rgba(255,255,255,0.8);
-                border-radius: 50%;
-                padding: 0;
-                border: none;
-                min-width: 22px;
-                min-height: 22px;
-                font-size: 11px;
-            }
-            .btn-close:hover { background: rgba(100,40,40,0.9); }
             .drag-hint {
                 font-size: 10px;
                 color: rgba(255,255,255,0.45);
@@ -76,8 +69,21 @@ class ScreenshotPopup(Gtk.ApplicationWindow):
         )
 
     def _build_ui(self):
-        texture = Gdk.Texture.new_from_file(Gio.File.new_for_path(self.temp_path))
-        thumb_h = max(80, min(160, int(texture.get_height() * POPUP_WIDTH / texture.get_width())))
+        # Load and scale the image down using Pixbuf to strictly constrain natural size
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file(self.temp_path)
+        orig_w = pixbuf.get_width()
+        orig_h = pixbuf.get_height()
+        
+        # Calculate aspect ratio
+        thumb_h = int(orig_h * (POPUP_WIDTH / orig_w)) if orig_w > 0 else 120
+        # Hard cap the height so it doesn't get too tall on vertical displays
+        thumb_h = min(thumb_h, 160)
+        
+        pixbuf = pixbuf.scale_simple(POPUP_WIDTH, thumb_h, GdkPixbuf.InterpType.BILINEAR)
+        texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+
+        self.set_default_size(POPUP_WIDTH, thumb_h)
+        self.set_size_request(POPUP_WIDTH, thumb_h)
 
         overlay = Gtk.Overlay()
         overlay.add_css_class('popup-root')
@@ -85,7 +91,7 @@ class ScreenshotPopup(Gtk.ApplicationWindow):
 
         picture = Gtk.Picture.new_for_paintable(texture)
         picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-        picture.set_size_request(POPUP_WIDTH, thumb_h)
+        picture.set_can_shrink(True)
         overlay.set_child(picture)
 
         # Buttons (top)
@@ -96,15 +102,15 @@ class ScreenshotPopup(Gtk.ApplicationWindow):
         btn_row.set_margin_start(6)
         btn_row.set_margin_end(6)
 
-        btn_copy = Gtk.Button(label='⎘ Copy')
-        btn_copy.add_css_class('btn-copy')
+        btn_copy = Gtk.Button(icon_name='edit-copy-symbolic')
+        btn_copy.add_css_class('overlay-btn')
         btn_copy.connect('clicked', lambda _: self._copy_and_close())
 
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
 
-        btn_close = Gtk.Button(label='✕')
-        btn_close.add_css_class('btn-close')
+        btn_close = Gtk.Button(icon_name='window-close-symbolic')
+        btn_close.add_css_class('overlay-btn')
         btn_close.connect('clicked', lambda _: self._close())
 
         btn_row.append(btn_copy)

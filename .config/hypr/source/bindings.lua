@@ -75,7 +75,7 @@ hl.bind(
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -z -w"), { desc = "Screenshot region and save" })
-hl.bind("Print", hl.dsp.exec_cmd("hyprcap shot region -z -c -n"), { desc = "Screenshot to clipboard" })
+hl.bind("Print", hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh"), { desc = "Screenshot popup" })
 hl.bind("ALT + Print", hl.dsp.exec_cmd("hyprcap rec region -c -w"), { desc = "Start screen recording" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
 hl.bind(
