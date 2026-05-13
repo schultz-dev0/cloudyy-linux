@@ -126,6 +126,10 @@ class ExtensionBrowserRow(Adw.PreferencesRow):
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         self._render_results(entry.get_text().strip().lower())
 
+    def _on_filter_toggled(self, btn: Gtk.ToggleButton) -> None:
+        self._show_enabled_only = btn.get_active()
+        self._render_results(self._search_entry.get_text().strip().lower())
+
     def _render_results(self, query: str = "") -> None:
         # Clear existing
         while child := self._listbox.get_first_child():
@@ -133,6 +137,9 @@ class ExtensionBrowserRow(Adw.PreferencesRow):
 
         count = 0
         for p in self._plugins:
+            if self._show_enabled_only and not p["enabled"]:
+                continue
+
             if query and query not in p["name"].lower() and query not in p["desc"].lower():
                 continue
 

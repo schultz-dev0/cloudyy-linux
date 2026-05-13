@@ -24,13 +24,17 @@ Scope {
 
     readonly property bool osdVisible: osdKind !== ""
     readonly property string volumeIcon: volumeMuted ? "󰖁" : (volumeValue < 33 ? "󰕿" : volumeValue < 66 ? "󰕾" : "󱄠")
-    readonly property string osdIcon: osdKind === "brightness" ? "󰃠" : volumeIcon
-    readonly property string osdValueLabel: osdKind === "brightness"
-        ? Math.round(brightnessValue) + "%"
-        : (volumeMuted ? "Muted" : Math.round(volumeValue) + "%")
-    readonly property real osdProgress: osdKind === "brightness"
-        ? Math.max(0, Math.min(1, brightnessValue / 100))
-        : (volumeMuted ? 0 : Math.max(0, Math.min(1, volumeValue / 100)))
+    readonly property string osdIcon: osdKind === "brightness" ? "󰃠" : (osdKind === "nightlight" ? "󰖙" : volumeIcon)
+    readonly property string osdValueLabel: {
+        if (osdKind === "brightness") return Math.round(brightnessValue) + "%";
+        if (osdKind === "nightlight") return nightLightTemp + "K";
+        return volumeMuted ? "Muted" : Math.round(volumeValue) + "%";
+    }
+    readonly property real osdProgress: {
+        if (osdKind === "brightness") return Math.max(0, Math.min(1, brightnessValue / 100));
+        if (osdKind === "nightlight") return Math.max(0, Math.min(1, (nightLightTemp - 1000) / 5500));
+        return volumeMuted ? 0 : Math.max(0, Math.min(1, volumeValue / 100));
+    }
 
     Component {
         id: procProto
@@ -118,19 +122,19 @@ Scope {
 
     function refreshVolume() {
         volumeState.running = false;
-        volumeState.command = ["bash", "-lc", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null"];
+        volumeState.command = ["sh", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null"];
         volumeState.running = true;
     }
 
     function refreshBrightness() {
         brightnessState.running = false;
-        brightnessState.command = ["bash", "-lc", "brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/, \"\", $4); print $4}'"];
+        brightnessState.command = ["sh", "-c", "brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/, \"\", $4); print $4}'"];
         brightnessState.running = true;
     }
 
     function refreshNightLight() {
         nightLightState.running = false;
-        nightLightState.command = ["bash", "-lc", "if ! command -v hyprsunset >/dev/null 2>&1; then echo 'available=0'; exit 0; fi; active=0; if pgrep -x hyprsunset >/dev/null 2>&1; then active=1; fi; temp=$(cat \"$HOME/.cache/wltemp\" 2>/dev/null || echo 3500); printf 'available=1 active=%s temp=%s\\n' \"$active\" \"$temp\""];
+        nightLightState.command = ["sh", "-c", "if ! command -v hyprsunset >/dev/null 2>&1; then echo 'available=0'; exit 0; fi; active=0; if pgrep -x hyprsunset >/dev/null 2>&1; then active=1; fi; temp=$(cat \"$HOME/.cache/wltemp\" 2>/dev/null || echo 3500); printf 'available=1 active=%s temp=%s\\n' \"$active\" \"$temp\""];
         nightLightState.running = true;
     }
 
@@ -143,37 +147,31 @@ Scope {
         volumeValue = target;
         if (target > 0)
             volumeMuted = false;
-        launch(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", target + "%"]);
-        if (target > 0)
-            launch(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
-        showVolume();
+        volumeWriteTimer.restart();
+        osdKind = "volume";
+        osdTimer.restart();
     }
 
     function toggleMute() {
-        launch(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
+        launch(["wpctl", "-c", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
         showVolume();
     }
 
     function setBrightness(value) {
         const target = Math.max(1, Math.min(100, Math.round(value)));
         brightnessValue = target;
-        launch(["brightnessctl", "set", target + "%", "-q"]);
-        showBrightness();
+        brightnessWriteTimer.restart();
+        osdKind = "brightness";
+        osdTimer.restart();
     }
 
     function toggleNightLight() {
         if (!nightLightAvailable)
             return;
 
-        if (nightLightActive) {
-            launch(["bash", "-lc", "if ! systemctl --user stop hyprsunset.service >/dev/null 2>&1; then pid=$(pgrep -x hyprsunset | head -n1); [ -n \"$pid\" ] && kill \"$pid\"; fi"]);
-            nightLightActive = false;
-        } else {
-            const temp = Math.round(nightLightTemp);
-            launch(["bash", "-lc", "temp=" + temp + "; if ! systemctl --user start hyprsunset.service >/dev/null 2>&1 && ! pgrep -x hyprsunset >/dev/null 2>&1; then hyprsunset >/dev/null 2>&1 & fi; sleep 0.2; hyprctl hyprsunset temperature \"$temp\" >/dev/null 2>&1; mkdir -p \"$HOME/.cache\"; printf '%s' \"$temp\" > \"$HOME/.cache/wltemp\""]);
-            nightLightActive = true;
-        }
-
+        launch(["hyprctl", "dispatch", "exec", "/home/schultz/cloudyy_scripts/sliders/nightlight.sh toggle"]);
+        
+        nightLightActive = !nightLightActive;
         scheduleRefresh();
     }
 
@@ -184,26 +182,30 @@ Scope {
         pendingNightLightTemp = Math.max(1000, Math.min(6500, Math.round(value)));
         nightLightTemp = pendingNightLightTemp;
         nightLightWriteTimer.restart();
+        osdKind = "nightlight";
+        osdTimer.restart();
     }
 
     function writeNightLightTemp() {
-        const temp = Math.max(1000, Math.min(6500, Math.round(pendingNightLightTemp)));
-        launch(["bash", "-lc", "temp=" + temp + "; mkdir -p \"$HOME/.cache\"; printf '%s' \"$temp\" > \"$HOME/.cache/wltemp\"; if pgrep -x hyprsunset >/dev/null 2>&1; then hyprctl hyprsunset temperature \"$temp\" >/dev/null 2>&1; fi"]);
-        scheduleRefresh();
+        const temp = Math.round(pendingNightLightTemp);
+        launch(["hyprctl", "dispatch", "exec", "/home/schultz/cloudyy_scripts/sliders/nightlight.sh set " + temp.toString()]);
     }
 
     function showVolume() {
         osdKind = "volume";
         refreshVolume();
         osdTimer.restart();
-        scheduleRefresh();
     }
 
     function showBrightness() {
         osdKind = "brightness";
         refreshBrightness();
         osdTimer.restart();
-        scheduleRefresh();
+    }
+
+    function showNightLight() {
+        osdKind = "nightlight";
+        osdTimer.restart();
     }
 
     function hideOsd() {
@@ -258,7 +260,7 @@ Scope {
 
     Timer {
         id: osdTimer
-        interval: 1200
+        interval: 2500
         repeat: false
         onTriggered: sliders.hideOsd()
     }
@@ -268,6 +270,28 @@ Scope {
         interval: 150
         repeat: false
         onTriggered: sliders.refreshAll()
+    }
+
+    Timer {
+        id: volumeWriteTimer
+        interval: 50
+        repeat: false
+        onTriggered: {
+            const target = Math.round(sliders.volumeValue);
+            sliders.launch(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", target + "%"]);
+            if (target > 0)
+                sliders.launch(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
+        }
+    }
+
+    Timer {
+        id: brightnessWriteTimer
+        interval: 50
+        repeat: false
+        onTriggered: {
+            const target = Math.round(sliders.brightnessValue);
+            sliders.launch(["brightnessctl", "set", target + "%", "-q"]);
+        }
     }
 
     Timer {
@@ -321,18 +345,24 @@ Scope {
                         Layout.alignment: Qt.AlignVCenter
                     }
 
-                    Rectangle {
+                    PillSlider {
+                        id: osdSlider
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 10
                         Layout.alignment: Qt.AlignVCenter
-                        radius: 999
-                        color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
+                        value: sliders.osdProgress * 100
+                        from: 0
+                        to: 100
 
-                        Rectangle {
-                            width: parent.width * sliders.osdProgress
-                            height: parent.height
-                            radius: parent.radius
-                            color: Theme.primary
+                        onMoved: {
+                            if (sliders.osdKind === "brightness") {
+                                sliders.setBrightness(value);
+                            } else if (sliders.osdKind === "volume") {
+                                sliders.setVolume(value);
+                            } else if (sliders.osdKind === "nightlight") {
+                                // Value 0-100 maps to 1000-6500K
+                                sliders.setNightLightTemp(1000 + (value / 100) * 5500);
+                            }
+                            sliders.osdTimer.restart();
                         }
                     }
 
@@ -343,6 +373,8 @@ Scope {
                         font.pixelSize: 13
                         font.weight: Font.DemiBold
                         Layout.alignment: Qt.AlignVCenter
+                        Layout.preferredWidth: 60
+                        horizontalAlignment: Text.AlignRight
                     }
                 }
             }
