@@ -9,8 +9,9 @@
 
 The `install/` suite has accumulated a set of critical bugs (test failures, crashes on fresh
 installs, never-called scripts), dirty-system fragility (double prompts, unattended breakage,
-backup collisions), and missing laptop-specific support (hybrid GPU PRIME, power management,
-touchpad). This spec describes all fixes and additions in one cohesive pass.
+backup collisions), missing laptop-specific support (hybrid GPU PRIME, power management,
+touchpad), and insufficient logging that makes diagnosing failures difficult. This spec
+describes all fixes and additions in one cohesive pass.
 
 ---
 
@@ -25,7 +26,13 @@ touchpad). This spec describes all fixes and additions in one cohesive pass.
 | `install/seed-required-applications.sh` | Fix Cloud-center.desktop copy-paste |
 | `install/widget_bridge.sh` | Non-fatal on missing WIDGETS_BRIDGE pattern |
 | `install/setup-system-theme.sh` | UNATTENDED passthrough, fix heredoc indentation |
-| `install/test-install.sh` | No changes needed — aliases added to dependencies.conf fix all test failures |
+| `install/lib.sh` | Timestamps on all log functions, `log_cmd()` helper, fix stderr suppression in pacman/aur helpers |
+| `install/install.sh` | ERR trap with line/command context, `set -E`, per-phase timing, timestamp log functions |
+| `install/deploy-dotfiles.sh` | Timestamps, ERR trap |
+| `install/hyprland-install.sh` | Timestamps (via lib.sh), ERR trap |
+| `install/setup-system-theme.sh` | Timestamps, ERR trap |
+| `install/setup-keyring.sh` | Timestamps, ERR trap |
+| `install/seed-required-applications.sh` | Timestamps, ERR trap |
 
 ---
 
@@ -302,6 +309,99 @@ declare -a PHASE_IDS=(
   "preflight" "dotfiles" "packages" "schema" "shell" "laptop" "keyring" "theme_init" "services" "finalize"
 )
 ```
+
+---
+
+## Section 4: Verbose Logging (Always-On)
+
+The goal: when something fails during install, the user and log file both show exactly what
+command ran, on what line, and what output it produced. No grepping required.
+
+### 4.1 Timestamps on all log functions
+
+Update every `log*` function in every script to prepend `[HH:MM:SS]`:
+
+```bash
+_ts() { date '+%H:%M:%S'; }
+log()       { printf '%s[>>]%s [%s] %s\n'  "$BOLD"   "$RESET" "$(_ts)" "$1"; }
+log_ok()    { printf '%s[✓]%s  [%s] %s\n'  "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()  { printf '%s[!]%s  [%s] %s\n'  "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error() { printf '%s[✗]%s  [%s] %s\n'  "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log_skip()  { printf '%s[-]%s  [%s] %s\n'  "$DIM"    "$RESET" "$(_ts)" "$1"; }
+```
+
+`lib.sh` gets `_ts()` and updates its log functions. All other scripts (which define their own
+inline log functions) get the same treatment.
+
+### 4.2 ERR trap + `set -E` for line/command context
+
+Add to **every** script that uses `set -euo pipefail`:
+
+```bash
+set -euo pipefail -E    # -E: ERR trap inherited by functions/subshells
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+}
+trap '_err_handler' ERR
+```
+
+This means any unhandled failure prints the exact line number and command that failed, in
+every script. No more silent death.
+
+### 4.3 Per-phase timing in `install.sh`
+
+The phase runner already records `start_ts=$SECONDS`. Extend it to record per-phase start/end:
+
+```bash
+log_phase "${PHASE_LABELS[$id]}"
+local phase_start=$SECONDS
+# ... run phase ...
+local phase_elapsed=$(( SECONDS - phase_start ))
+log_ok "${PHASE_LABELS[$id]} complete — ${phase_elapsed}s"
+```
+
+Also log phase start with timestamp so the log file makes the timeline clear.
+
+### 4.4 Fix stderr suppression in `lib.sh` package helpers
+
+`pacman_install` and `aur_install` suppress all output on individual-package retries
+(`&>/dev/null`). When a package fails, nothing is shown. Fix: redirect stdout to /dev/null
+but let stderr through, so error messages from pacman/AUR helper are always visible:
+
+```bash
+# Before (hides errors):
+if sudo pacman -S --needed --noconfirm "$pkg" &>/dev/null; then
+
+# After (shows errors, hides noisy stdout):
+if sudo pacman -S --needed --noconfirm "$pkg" >/dev/null; then
+```
+
+Same change for `aur_install` individual retries.
+
+### 4.5 Log file path displayed at install start
+
+Currently the log path is only shown in `phase_finalize`. Add it right after the banner so
+the user knows where to look from the start:
+
+```bash
+printf '%sLog: %s%s\n\n' "$DIM" "$LOG_FILE" "$RESET"
+```
+
+### 4.6 `log_cmd()` helper in `lib.sh`
+
+For use in any script that wants to log a command before running it:
+
+```bash
+log_cmd() {
+  printf '%s[cmd]%s [%s] %s\n' "$DIM" "$RESET" "$(_ts)" "$*"
+  "$@"
+}
+```
+
+Usage: `log_cmd sudo systemctl enable bluetooth.service` → prints the command, then runs it.
+Used selectively in `phase_services`, `setup-keyring.sh`, and `configure_zram`.
 
 ---
 
