@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euo pipefail -E
 
 # Seeds only required desktop entries into the user's local applications dir.
 # Usage:
@@ -12,20 +12,23 @@ readonly ASSET_SOURCE_DIR="${REPO_DIR}/install/.app-assets/icons"
 readonly ICON_TARGET_DIR="${HOME}/.local/share/icons/cloudyy-apps"
 
 if [[ -t 1 ]]; then
-  GREEN=$'\e[1;32m'
-  YELLOW=$'\e[1;33m'
-  RED=$'\e[1;31m'
-  RESET=$'\e[0m'
+  RED=$'\e[1;31m' GREEN=$'\e[1;32m' YELLOW=$'\e[1;33m'
+  BLUE=$'\e[1;34m' DIM=$'\e[2m' BOLD=$'\e[1m' RESET=$'\e[0m'
 else
-  GREEN=''
-  YELLOW=''
-  RED=''
-  RESET=''
+  RED='' GREEN='' YELLOW='' BLUE='' DIM='' BOLD='' RESET=''
 fi
 
-log_ok() { printf '%s[✓]%s %s\n' "$GREEN" "$RESET" "$1"; }
-log_warn() { printf '%s[!]%s %s\n' "$YELLOW" "$RESET" "$1"; }
-log_write() { printf '%s[+]%s %s\n' "$GREEN" "$RESET" "$1"; }
+_ts() { date '+%H:%M:%S'; }
+log_ok()   { printf '%s[✓]%s  [%s] %s\n' "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn() { printf '%s[!]%s  [%s] %s\n' "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_write(){ printf '%s[+]%s  [%s] %s\n' "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_error(){ printf '%s[✗]%s  [%s] %s\n' "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+}
+trap '_err_handler' ERR
 
 install_icon_asset() {
   local file_name="$1"
@@ -69,7 +72,6 @@ cat >"${TARGET_DIR}/aichat.desktop" <<EOF
 Type=Application
 Name=AIChat
 Comment=Open WebUI for Local AI
-# Change 'firefox' to 'chromium' or 'google-chrome-stable' if you prefer
 Exec=firefoxpwa site launch 01KJ95M10ZZ3KV0ZENF0EJ3XMY
 Icon=${aichat_icon}
 Terminal=false
@@ -113,18 +115,18 @@ cat >"${TARGET_DIR}/Cloud-center.desktop" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Rusty Keys
-Comment=Mechanical keyboard sound daemon
-Exec=bash -c "~/cloudyy_scripts/cloudyy-other/rusty_keys"
+Name=Cloud Center
+Comment=Cloud Center — Hyprland session manager
+Exec=bash -c "python3 ~/cloudyy_scripts/cloud-center-v2/cloud-center.py"
 Icon=${cloud_center_icon}
 Terminal=false
-Categories=Utility;
+Categories=Utility;System;
 StartupNotify=false
-StartupWMClass=org.cloudyy.rustykeys
-X-GNOME-WMClass=org.cloudyy.rustykeys
+StartupWMClass=org.cloudyy.cloudcenter
+X-GNOME-WMClass=org.cloudyy.cloudcenter
 EOF
 chmod 0644 "${TARGET_DIR}/Cloud-center.desktop"
-log_write "Created: rusty_keys.desktop"
+log_write "Created: Cloud-center.desktop"
 
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
