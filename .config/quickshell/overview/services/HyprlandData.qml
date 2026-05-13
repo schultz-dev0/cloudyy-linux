@@ -234,7 +234,7 @@ Singleton {
     function iconSourcesForWindow(window) {
         const candidates = iconCandidatesForWindow(window);
         const sources = [];
-        if (window && window.class && window.class.toLowerCase().includes("matlab")) return ["file:///home/schultz/.local/share/icons/matlab.png"];
+        if (window && window.class && window.class.toLowerCase().includes("matlab")) return [`file://${root.homeDir}/.local/share/icons/matlab.png`];
         for (const iconName of candidates) {
             const candidateSources = iconSourcesForName(iconName);
             for (const source of candidateSources)
