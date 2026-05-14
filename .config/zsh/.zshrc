@@ -1,3 +1,4 @@
+
 ZSH_DISABLE_COMPFIX=true
 
 export ZSH="$HOME/.config/zsh/oh-my-zsh"
@@ -47,19 +48,6 @@ alias icu='sudo pacman -Syu'
 alias zshconfig='nvim ~/.config/zsh/.zshrc'
 alias gparted='sudo -E gparted'
 alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
-alias systemscommit='cd ~/Uni_stuff/control_systems/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
-
-# browser tabs #
-
-alias canvas='xdg-open https://herts.instructure.com/'
-alias studynet='xdg-open https://studynet.herts.ac.uk/studynet'
-alias youtube='xdg-open https://www.youtube.com/'
-alias swayncrestart='swaync-client -rs'
-alias cloudyysync='cd ~/cloudyy-linux/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
-alias Samsungsync='cd ~/cloudyyOS/ && git add . && vared -p "Commit message: " -c msg && git commit -m "$msg" && git push'
-
-# personl
-alias remotedesk='~/cloudyy_scripts/ivanti/uni-rdp.sh'
 
 # power utility
 
@@ -99,12 +87,7 @@ if [ -z "$TMUX" ] && uwsm check may-start && uwsm select; then
     exec uwsm start default
 fi
 
-
-
-
-
-# opencode
-export PATH="$HOME/.opencode/bin:$PATH"
+# Spicetiyfy 
 
 export PATH="$PATH:$HOME/.spicetify"
 

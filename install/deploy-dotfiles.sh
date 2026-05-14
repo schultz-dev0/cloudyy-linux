@@ -453,6 +453,7 @@ reapply_skip_worktree() {
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
     ".config/hypr/hyprland.lua"
+    ".config/zsh/.zshrc"
     ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"
