@@ -123,7 +123,11 @@ echo -e "  ${BOLD}Authenticating...${RESET}"
 sudo -v
 
 # Keep sudo alive
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
 
 # Start logging
 mkdir -p "$LOG_DIR"
@@ -140,5 +144,5 @@ update_aur || true
 update_repos
 clean_up
 
-echo -e "\n${GREEN}${BOLD}  ✨ System fully updated!${RESET}\n"
+echo -e "\n${GREEN}${BOLD}   System fully updated!${RESET}\n"
 echo -e "  ${CYAN}Log:${RESET} ${LOG_FILE}\n"
