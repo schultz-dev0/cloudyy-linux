@@ -979,8 +979,8 @@ Item {
         Item { // Windows & focused workspace indicator
             id: windowSpace
             anchors.centerIn: parent
-            implicitWidth: contentLayout.implicitWidth
-            implicitHeight: contentLayout.implicitHeight
+            width: contentLayout.implicitWidth
+            height: contentLayout.implicitHeight
 
             WheelHandler {
                 target: null
