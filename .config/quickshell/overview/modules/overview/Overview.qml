@@ -61,6 +61,7 @@ Scope {
                         delayedGrabTimer.start();
                     } else {
                         root.focusedSpecialWorkspace = "";
+                        grab.active = false;
                     }
                 }
             }
