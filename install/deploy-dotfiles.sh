@@ -243,8 +243,12 @@ ensure_cloudyy_path() {
   local export_subdir="export PATH=\"\$PATH:\$HOME/${rel_subdir}\""
   local updated=0
 
-  local -a rc_files=("${HOME}/.zshrc" "${HOME}/.bashrc")
+  # zsh is managed via ZDOTDIR (~/.config/zsh/.zshrc), not ~/.zshrc.
+  # Writing to ~/.zshrc on fresh/dirty systems can create a minimal stub
+  # that shadows expected behavior.
+  local -a rc_files=("${HOME}/.config/zsh/.zshrc" "${HOME}/.bashrc")
   for rc in "${rc_files[@]}"; do
+    mkdir -p "$(dirname "$rc")"
     # Broken/circular symlinks (dirty systems) cause touch to fail with ELOOP.
     # Remove them so we can create a plain file in their place.
     if [[ -L "$rc" && ! -e "$rc" ]]; then
