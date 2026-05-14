@@ -40,9 +40,10 @@ export EDITOR="nvim"
 #
 alias i='yay -S'
 alias ir='yay -Rs'
+alias iu='yay -Syu'
 alias ic='sudo pacman -S'
 alias ping='ping -c'
-alias iu='sudo pacman -Syu'
+alias icu='sudo pacman -Syu'
 alias zshconfig='nvim ~/.config/zsh/.zshrc'
 alias gparted='sudo -E gparted'
 alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
