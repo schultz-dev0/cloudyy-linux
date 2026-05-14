@@ -705,8 +705,8 @@ PanelWindow {
             // Battery
             Pill {
                 id: batPill
-                visible: UPower.displayDevice.isPresent
-                readonly property real pct: UPower.displayDevice.percentage
+                visible: UPower.displayDevice.isLaptopBattery
+                readonly property real pct: UPower.displayDevice.percentage * 100
                 readonly property int bstate: UPower.displayDevice.state
                 readonly property bool charging: bstate === UPowerDeviceState.Charging || bstate === UPowerDeviceState.PendingCharge
                 readonly property bool full: bstate === UPowerDeviceState.FullyCharged
