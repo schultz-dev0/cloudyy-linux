@@ -78,12 +78,23 @@ safe_symlink() {
   local src="$1" # Source (inside repo)
   local dst="$2" # Destination (in $HOME or $HOME/.config)
 
-  if [[ ! -e "$src" ]]; then
+  # Strip trailing slash so ln -snf behaves consistently
+  src="${src%/}"
+
+  if [[ ! -e "$src" && ! -L "$src" ]]; then
     log_warn "Source not found, skipping: ${src}"
     return 0
   fi
 
   backup_if_needed "$dst"
+
+  # Guard: if a real (non-symlink) directory survived the backup step, ln -snf
+  # would silently place the new symlink *inside* it rather than replacing it.
+  if [[ -d "$dst" && ! -L "$dst" ]]; then
+    log_error "Cannot symlink ${dst}: real directory still present after backup — skipping."
+    return 1
+  fi
+
   ln -snf "$src" "$dst"
   log_ok "Linked: $(basename "$dst")"
 }
@@ -94,6 +105,14 @@ safe_symlink() {
 
 sync_repo() {
   log_section "Repository"
+
+  # If REPO_DIR exists but has no .git (e.g. failed previous clone), move it
+  # aside so a clean clone can proceed.
+  if [[ -e "${REPO_DIR}" && ! -d "${REPO_DIR}/.git" ]]; then
+    local stale="${REPO_DIR}.stale.$(date +%s)"
+    log_warn "${REPO_DIR} exists but is not a git repo — moving to ${stale}"
+    mv "${REPO_DIR}" "${stale}"
+  fi
 
   if [[ -d "${REPO_DIR}/.git" ]]; then
     log "Repository exists — pulling latest changes..."
@@ -465,6 +484,83 @@ seed_required_applications() {
 }
 
 # =============================================================================
+# PRE-FLIGHT: Conflict scan
+# =============================================================================
+# Enumerate every destination that safe_symlink will touch. Report anything
+# that already exists on disk and isn't already our own symlink, so the user
+# can see exactly what will be backed up before a single file is moved.
+
+_is_our_link() {
+  local p="$1"
+  [[ -L "$p" ]] || return 1
+  local t
+  t="$(readlink -f "$p" 2>/dev/null)" || return 1
+  [[ "$t" == "${REPO_DIR}"* ]]
+}
+
+preflight_conflicts() {
+  log_section "Pre-flight Conflict Scan"
+  local -a conflicts=()
+
+  # Home dotfiles
+  while IFS= read -r -d '' dotfile; do
+    local dst="${HOME}/$(basename "$dotfile")"
+    [[ -e "$dst" || -L "$dst" ]] || continue
+    _is_our_link "$dst" && continue
+    local kind="file"
+    [[ -d "$dst" ]] && kind="dir"
+    [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+    conflicts+=("~/${dst#${HOME}/}  [${kind}]")
+  done < <(find "$REPO_DIR" -maxdepth 1 \
+    -name ".*" \
+    ! -name ".config" \
+    ! -name ".git" \
+    ! -name ".gitignore" \
+    ! -name ".gitmodules" \
+    ! -name ".local" \
+    -print0 2>/dev/null)
+
+  # .config directories
+  local config_src="${REPO_DIR}/.config"
+  if [[ -d "$config_src" ]]; then
+    for dir in "${config_src}"/*/; do
+      [[ -d "$dir" ]] || continue
+      local dirname
+      dirname="$(basename "$dir")"
+      [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]] && continue
+      local dst="${HOME}/.config/${dirname}"
+      [[ -e "$dst" || -L "$dst" ]] || continue
+      _is_our_link "$dst" && continue
+      local kind="dir"
+      [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+      conflicts+=("~/.config/${dirname}  [${kind}]")
+    done
+  fi
+
+  # Extra top-level dirs (Wallpapers, cloudyy_scripts)
+  for pair in "Wallpapers:${HOME}/Wallpapers" "cloudyy_scripts:${HOME}/cloudyy_scripts"; do
+    local src_name="${pair%%:*}" dst="${pair##*:}"
+    [[ -d "${REPO_DIR}/${src_name}" ]] || continue
+    [[ -e "$dst" || -L "$dst" ]] || continue
+    _is_our_link "$dst" && continue
+    local kind="dir"
+    [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+    conflicts+=("~/${src_name}  [${kind}]")
+  done
+
+  if (( ${#conflicts[@]} == 0 )); then
+    log_ok "No conflicts found — clean deployment."
+    return 0
+  fi
+
+  log_warn "${#conflicts[@]} existing path(s) will be backed up before being replaced:"
+  for c in "${conflicts[@]}"; do
+    log_warn "  · ${c}"
+  done
+  log_warn "Backup destination: ${BACKUP_DIR}"
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -496,6 +592,7 @@ main() {
 
   sync_repo
   reapply_skip_worktree
+  preflight_conflicts
   link_home_dotfiles
   link_config_dirs
   link_extra_dirs
