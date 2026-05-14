@@ -300,9 +300,21 @@ ensure_swww() {
   fi
 
   pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
+
   log "Starting ${WALLPAPER_DAEMON_CMD[0]}..."
-  "${WALLPAPER_DAEMON_CMD[@]}" --format xrgb >/dev/null 2>&1 &
-  sleep 1
+  # Do NOT pass --format: modern swww auto-detects the correct pixel format.
+  # Passing xrgb (NVIDIA-only) breaks the daemon on Intel/AMD laptops.
+  "${WALLPAPER_DAEMON_CMD[@]}" >/dev/null 2>&1 &
+
+  # Poll until the daemon is responsive — up to 10 seconds
+  local i=0
+  while (( i < 20 )); do
+    pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
+    sleep 0.5
+    (( ++i ))
+  done
+
+  die "${WALLPAPER_DAEMON_CMD[0]} failed to start after 10 seconds — check your Wayland session and GPU drivers"
 }
 
 pick_transition() {
