@@ -367,9 +367,30 @@ deploy_defaults() {
     fi
   done
   if (( deployed > 0 )); then
-    log_ok "${deployed} default color file(s) deployed."
+    log_ok "${deployed} default color file(s) deployed (incl. starship.toml)."
   else
     log_skip "matugen generated colors"
+  fi
+
+  # Cloud Center terminal settings — seed defaults so .zshrc can load plugins
+  # and respects show_mascot on first boot before Cloud Center runs.
+  local cc_terminal_dir="${HOME}/.config/cloud-center/settings/terminal"
+  mkdir -p "$cc_terminal_dir"
+
+  local plugins_file="${cc_terminal_dir}/active_zsh_plugins.txt"
+  if [[ ! -f "$plugins_file" ]]; then
+    printf 'zsh-autosuggestions\nzsh-syntax-highlighting\n' > "$plugins_file"
+    log_ok "Default zsh plugins seeded (zsh-autosuggestions, zsh-syntax-highlighting)."
+  else
+    log_skip "active_zsh_plugins.txt"
+  fi
+
+  local mascot_file="${cc_terminal_dir}/show_mascot"
+  if [[ ! -f "$mascot_file" ]]; then
+    printf 'true\n' > "$mascot_file"
+    log_ok "show_mascot default seeded."
+  else
+    log_skip "show_mascot"
   fi
 }
 
