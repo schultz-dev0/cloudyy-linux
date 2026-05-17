@@ -345,7 +345,7 @@ Item {
                                 border.width: isFocused ? 2 : 1
                                 border.color: isFocused
                                     ? root.activeBorderColor
-                                    : ColorUtils.applyAlpha(Appearance.colors.colLayer2Border, root.glassMode ? root.glassBorderOpacity * 0.4 : 0.55)
+                                    : ColorUtils.applyAlpha(Appearance.colors.colLayer0Border, root.glassMode ? root.glassBorderOpacity * 0.4 : 0.55)
 
                                 // Window previews
                                 Repeater {
