@@ -30,14 +30,18 @@ Scope {
 
             WlrLayershell.namespace: blurEnabled ? "quickshell:overview-blur" : "quickshell:overview"
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+            WlrLayershell.keyboardFocus: GlobalStates.overviewOpen
+                ? WlrKeyboardFocus.Exclusive
+                : WlrKeyboardFocus.None
             color: "transparent"
 
+            // Only cover the screen while open — full-screen anchors when closed still
+            // leave an Overlay input region that steals dock drags/releases.
             anchors {
-                top: true
-                bottom: true
-                left: true
-                right: true
+                top: GlobalStates.overviewOpen
+                bottom: GlobalStates.overviewOpen
+                left: GlobalStates.overviewOpen
+                right: GlobalStates.overviewOpen
             }
 
             HyprlandFocusGrab {
@@ -59,6 +63,7 @@ Scope {
                         root.tabSelectedAddress = "";
                         root.focusedSpecialWorkspace = "";
                         delayedGrabTimer.start();
+                        Qt.callLater(() => keyHandler.forceActiveFocus());
                     } else {
                         root.focusedSpecialWorkspace = "";
                         grab.active = false;
@@ -72,7 +77,6 @@ Scope {
                 function onFocusedMonitorChanged() {
                     if (!GlobalStates.overviewOpen)
                         return;
-                    // Transfer the grab to the newly focused monitor
                     if (root.monitorIsFocused && !grab.active) {
                         grab.active = true;
                     } else if (!root.monitorIsFocused && grab.active) {
@@ -89,6 +93,8 @@ Scope {
                     if (!grab.canBeActive)
                         return;
                     grab.active = GlobalStates.overviewOpen;
+                    if (GlobalStates.overviewOpen)
+                        Qt.callLater(() => keyHandler.forceActiveFocus());
                 }
             }
 
@@ -96,11 +102,12 @@ Scope {
             implicitWidth: screen.width
             implicitHeight: screen.height
 
-            Item {
+            FocusScope {
                 id: keyHandler
                 anchors.fill: parent
                 visible: GlobalStates.overviewOpen
                 focus: GlobalStates.overviewOpen
+                activeFocusOnTab: true
                 z: 0
 
                 Rectangle {
@@ -117,175 +124,97 @@ Scope {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     enabled: root.closeOnFocusLoss && GlobalStates.overviewOpen
+                    propagateComposedEvents: true
                     z: 0
-                    onPressed: mouse => {
+                    onClicked: mouse => {
+                        const target = keyHandler.childAt(mouse.x, mouse.y);
+                        const clickInsideOverview = target && target !== outsideClickCatcher && target !== backdropLayer;
+                        if (clickInsideOverview) {
+                            mouse.accepted = false;
+                            return;
+                        }
                         GlobalStates.overviewOpen = false;
                         mouse.accepted = true;
                     }
                 }
 
                 Keys.onPressed: event => {
-                    // close: Escape or Enter
                     if (event.key === Qt.Key_Escape || event.key === Qt.Key_Return) {
-                        if (event.key === Qt.Key_Return && root.focusedSpecialWorkspace !== "") {
-                            Hyprland.dispatch("togglespecialworkspace " + root.focusedSpecialWorkspace);
-                        }
-                        GlobalStates.overviewOpen = false;
-                        event.accepted = true;
-                        return;
+                        if (event.key === Qt.Key_Return && root.focusedSpecialWorkspace !== "")
+                            Hyprland.dispatch("togglespecialworkspace " + root.focusedSpecialWorkspace)
+                        GlobalStates.overviewOpen = false
+                        event.accepted = true
+                        return
                     }
 
-                    // Tab / Shift+Tab: cycle through all open windows
                     if (event.key === Qt.Key_Tab) {
                         const wins = HyprlandData.windowList
                             .filter(w => !(w?.workspace?.name ?? "").startsWith("special:"))
-                            .sort((a, b) => (a.focusHistoryID ?? 9999) - (b.focusHistoryID ?? 9999));
+                            .sort((a, b) => (a.focusHistoryID ?? 9999) - (b.focusHistoryID ?? 9999))
                         if (wins.length > 0) {
-                            const dir = (event.modifiers & Qt.ShiftModifier) ? 1 : -1;
-                            let idx = wins.findIndex(w => w.address === root.tabSelectedAddress);
-                            if (idx === -1) idx = dir === -1 ? Math.max(wins.length - 2, 0) : 1;
-                            else idx = ((idx + dir) + wins.length) % wins.length;
-                            root.tabSelectedAddress = wins[idx].address;
-                            Hyprland.dispatch("focuswindow address:" + wins[idx].address);
+                            const dir = (event.modifiers & Qt.ShiftModifier) ? 1 : -1
+                            let idx = wins.findIndex(w => w.address === root.tabSelectedAddress)
+                            if (idx === -1) idx = dir === -1 ? Math.max(wins.length - 2, 0) : 1
+                            else idx = ((idx + dir) + wins.length) % wins.length
+                            root.tabSelectedAddress = wins[idx].address
+                            Hyprland.dispatch("focuswindow address:" + wins[idx].address)
                         }
-                        event.accepted = true;
-                        return;
+                        event.accepted = true
+                        return
                     }
 
-                    // Helper: compute current group bounds
-                    const workspacesPerGroup = Config.options.overview.rows * Config.options.overview.columns;
-                    const currentId = Hyprland.focusedMonitor?.activeWorkspace?.id ?? 1;
-                    const useWorkspaceMap = Config.options.overview.useWorkspaceMap;
-                    const workspaceMap = Config.options.overview.workspaceMap ?? [];
-                    const focusedMonitorId = Hyprland.focusedMonitor?.id ?? root.monitor?.id ?? 0;
-                    const workspaceOffset = useWorkspaceMap ? Number(workspaceMap[focusedMonitorId] ?? 0) : 0;
-                    const currentGroup = Math.floor((currentId - workspaceOffset - 1) / workspacesPerGroup);
-                    const minWorkspaceId = currentGroup * workspacesPerGroup + 1 + workspaceOffset;
-                    const maxWorkspaceId = minWorkspaceId + workspacesPerGroup - 1;
-
-                    const rows = Config.options.overview.rows;
-                    const columns = Config.options.overview.columns;
-                    const reverseColumns = Config.options.overview.orderRightLeft;
-                    const reverseRows = Config.options.overview.orderBottomUp;
-
-                    const clampedIndex = Math.max(0, Math.min(workspacesPerGroup - 1, currentId - minWorkspaceId));
-                    const currentNormalRow = Math.floor(clampedIndex / columns);
-                    const currentNormalColumn = clampedIndex % columns;
-
-                    function toVisualRow(normalRow) {
-                        return reverseRows ? (rows - normalRow - 1) : normalRow;
-                    }
-
-                    function toVisualColumn(normalColumn) {
-                        return reverseColumns ? (columns - normalColumn - 1) : normalColumn;
-                    }
-
-                    function toNormalRow(visualRow) {
-                        return reverseRows ? (rows - visualRow - 1) : visualRow;
-                    }
-
-                    function toNormalColumn(visualColumn) {
-                        return reverseColumns ? (columns - visualColumn - 1) : visualColumn;
-                    }
-
-                    let targetVisualRow = toVisualRow(currentNormalRow);
-                    let targetVisualColumn = toVisualColumn(currentNormalColumn);
-
-                    let targetId = null;
-
-                    const specials = overviewLoader.item ? overviewLoader.item.visibleSpecialWorkspaces : [];
+                    const visibleIds = overviewLoader.item?.visibleWorkspaceIds ?? []
+                    const specials   = overviewLoader.item?.visibleSpecialWorkspaces ?? []
+                    const currentId  = Hyprland.focusedMonitor?.activeWorkspace?.id ?? 1
+                    const currentIdx = visibleIds.indexOf(currentId)
 
                     if (root.focusedSpecialWorkspace !== "") {
-                        let sIdx = specials.indexOf(root.focusedSpecialWorkspace);
-                        if (sIdx === -1) sIdx = 0;
-                        
-                        if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                            if (specials.length > 0) {
-                                root.focusedSpecialWorkspace = specials[(sIdx - 1 + specials.length) % specials.length];
-                            }
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                            if (specials.length > 0) {
-                                root.focusedSpecialWorkspace = specials[(sIdx + 1) % specials.length];
-                            }
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-                            root.focusedSpecialWorkspace = "";
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-                            event.accepted = true;
-                            return;
-                        }
+                        const sIdx = Math.max(0, specials.indexOf(root.focusedSpecialWorkspace))
+                        if (event.key === Qt.Key_Left || event.key === Qt.Key_H)
+                            root.focusedSpecialWorkspace = specials[(sIdx - 1 + specials.length) % specials.length]
+                        else if (event.key === Qt.Key_Right || event.key === Qt.Key_L)
+                            root.focusedSpecialWorkspace = specials[(sIdx + 1) % specials.length]
+                        else if (event.key === Qt.Key_Up || event.key === Qt.Key_K)
+                            root.focusedSpecialWorkspace = ""
+                        event.accepted = true
+                        return
                     }
 
-                    // Arrow keys and vim-style hjkl
                     if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                        targetVisualColumn = (targetVisualColumn - 1 + columns) % columns;
+                        if (currentIdx > 0) Hyprland.dispatch("workspace " + visibleIds[currentIdx - 1])
                     } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                        targetVisualColumn = (targetVisualColumn + 1) % columns;
-                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-                        targetVisualRow = (targetVisualRow - 1 + rows) % rows;
+                        if (currentIdx >= 0 && currentIdx < visibleIds.length - 1)
+                            Hyprland.dispatch("workspace " + visibleIds[currentIdx + 1])
                     } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-                        if (targetVisualRow === rows - 1 && specials.length > 0) {
-                            root.focusedSpecialWorkspace = specials[0];
-                            event.accepted = true;
-                            return;
-                        }
-                        targetVisualRow = (targetVisualRow + 1) % rows;
-                    }
-
-                    // Number keys: jump to workspace within the current group
-                    // 1-9 map to positions 1-9, 0 maps to position 10
-                    else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
-                        const position = event.key - Qt.Key_0; // 1-9
-                        if (position <= workspacesPerGroup) {
-                            targetId = minWorkspaceId + position - 1;
-                        }
+                        if (specials.length > 0) root.focusedSpecialWorkspace = specials[0]
+                    } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
+                        Hyprland.dispatch("workspace " + (event.key - Qt.Key_0))
                     } else if (event.key === Qt.Key_0) {
-                        // 0 = 10th workspace in the group (if group has 10+ workspaces)
-                        if (workspacesPerGroup >= 10) {
-                            targetId = minWorkspaceId + 9; // 10th position = offset 9
+                        Hyprland.dispatch("workspace 10")
+                    }
+
+                    event.accepted = true
+                }
+
+                ColumnLayout {
+                    id: columnLayout
+                    visible: GlobalStates.overviewOpen
+                    z: 1
+                    width: implicitWidth
+                    height: implicitHeight
+                    anchors {
+                        horizontalCenter: parent.horizontalCenter
+                        top: parent.top
+                        topMargin: Config.options.position.topMargin
+                    }
+
+                    Loader {
+                        id: overviewLoader
+                        active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
+                        sourceComponent: OverviewWidget {
+                            panelWindow: root
+                            visible: true
                         }
-                    }
-
-                    if (targetId === null && (
-                        event.key === Qt.Key_Left || event.key === Qt.Key_H ||
-                        event.key === Qt.Key_Right || event.key === Qt.Key_L ||
-                        event.key === Qt.Key_Up || event.key === Qt.Key_K ||
-                        event.key === Qt.Key_Down || event.key === Qt.Key_J
-                    )) {
-                        const targetNormalRow = toNormalRow(targetVisualRow);
-                        const targetNormalColumn = toNormalColumn(targetVisualColumn);
-                        targetId = minWorkspaceId + targetNormalRow * columns + targetNormalColumn;
-                    }
-
-                    if (targetId !== null) {
-                        const clampedTarget = Math.max(minWorkspaceId, Math.min(maxWorkspaceId, targetId));
-                        Hyprland.dispatch("workspace " + clampedTarget);
-                        event.accepted = true;
-                    }
-                }
-            }
-
-            ColumnLayout {
-                id: columnLayout
-                visible: GlobalStates.overviewOpen
-                z: 1
-                anchors {
-                    horizontalCenter: parent.horizontalCenter
-                    top: parent.top
-                    topMargin: Config.options.position.topMargin
-                }
-
-                Loader {
-                    id: overviewLoader
-                    active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
-                    sourceComponent: OverviewWidget {
-                        panelWindow: root
-                        visible: true
                     }
                 }
             }
