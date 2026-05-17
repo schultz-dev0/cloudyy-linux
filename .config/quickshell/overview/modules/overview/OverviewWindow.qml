@@ -104,9 +104,6 @@ Item { // Window
     property bool indicateXWayland: windowData?.xwayland ?? false
     property bool previewCaptureEnabled: true
     property bool initialized: false
-    property bool dragInProgress: false
-    property bool suspendPositionAnimation: false
-    property bool animateSize: true
     property string systemIconTheme: "Papirus-Dark"
     Process {
         command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
@@ -135,19 +132,19 @@ Item { // Window
     Component.onCompleted: Qt.callLater(() => root.initialized = true)
 
     Behavior on x {
-        enabled: root.initialized && !root.dragInProgress && !root.suspendPositionAnimation
+        enabled: root.initialized
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on y {
-        enabled: root.initialized && !root.dragInProgress && !root.suspendPositionAnimation
+        enabled: root.initialized
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on width {
-        enabled: root.initialized && root.animateSize && !root.dragInProgress && !root.suspendPositionAnimation
+        enabled: root.initialized
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
     Behavior on height {
-        enabled: root.initialized && root.animateSize && !root.dragInProgress && !root.suspendPositionAnimation
+        enabled: root.initialized
         animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
     }
 
