@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Wayland
 import "../../common"
 import "../../common/functions"
 
