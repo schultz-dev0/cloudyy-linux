@@ -4,24 +4,18 @@
   },
   "overview": {
     "enable": true,
-    "rows": 2,
-    "columns": 5,
+    "rows": 1,
+    "columns": 10,
     "workspaceSpacing": 12,
     "backgroundPadding": 16,
-    "useWorkspaceMap": false,
-    "workspaceMap": {},
-    "orderBottomUp": false,
-    "orderRightLeft": false,
     "closeOnFocusLoss": true,
     "scale": 0.16,
-    "workspaceNumberBaseSize": 120,
     "effects": {
       "enableBlur": false,
       "enableBackdrop": false,
       "backdropOpacity": 0,
       "panelOpacity": 0.85,
       "workspaceOpacity": 0.6,
-      "emptyWorkspaceWallpaperOverlayOpacity": 0.1,
       "windowOverlayOpacity": 0.15,
       "glassMode": true,
       "glassTintStrength": 0.2,
@@ -30,16 +24,9 @@
     },
     "previewsEnabled": true,
     "previewMode": "live",
-    "includeInactiveMonitorPreviews": true,
     "previewRecaptureDelayMs": 60,
-    "specialWorkspaceColumns": 4,
-    "specialWorkspaceNames": [
-      "magic",
-      "scratchpad"
-    ],
     "showSpecialWorkspaces": true,
-    "emptyWorkspaceWallpaper": null,
-    "specialEmptyWorkspaceWallpaper": null
+    "specialWorkspaces": ["magic", "scratchpad"]
   },
   "appearance": {
     "colorSource": "matugen",
@@ -80,6 +67,6 @@
   },
   "hacks": {
     "hyprlandEventDebounceMs": 50,
-    "arbitraryRaceConditionDelay": 35
+    "arbitraryRaceConditionDelay": 150
   }
 }
