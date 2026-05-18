@@ -4,15 +4,10 @@
 -- ── Application-specific rules ───────────────────────────────────────────────
 
 hl.window_rule({
-	name = "firefox",
-	match = { class = "^(firefox)$" },
-	size = "1080 1080",
+	name = "zen-browser",
+	match = { class = "^(zen)$" },
+	size = "1920 1080",
 	float = true,
-})
-
-hl.window_rule({
-	name = "opaque-youtube",
-	match = { class = "^(firefox)$", title = ".*Youtube.*" },
 	opaque = true,
 })
 

@@ -193,14 +193,12 @@ class _ToggleManager(_ManagedRow):
 
     def _on_toggle(self, row: Adw.SwitchRow, _param: object) -> None:
         state = row.get_active()
+        if self._key:
+            utility.save_setting(self._key, state)
         key = "enabled" if state else "disabled"
         act = self._action.get(key, {})
         if cmd := act.get("command", ""):
             utility.execute_command(cmd, terminal=bool(act.get("terminal", False)))
-        if self._key:
-            threading.Thread(
-                target=utility.save_setting, args=(self._key, state), daemon=True
-            ).start()
 
 
 def ToggleRow(props: dict, action: dict | None, ctx: RowContext) -> Adw.SwitchRow:

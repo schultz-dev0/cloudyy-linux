@@ -38,11 +38,7 @@ hl.bind(
 	hl.dsp.exec_cmd("pkill -x visinput || " .. scripts .. "/cloudyy-other/visinput"),
 	{ desc = "Visual input toggle" }
 )
-hl.bind(
-	mainMod .. " + D",
-	hl.dsp.exec_cmd("quickshell ipc call spotlight toggle"),
-	{ desc = "Open spotlight search" }
-)
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("quickshell ipc call spotlight toggle"), { desc = "Open spotlight search" })
 hl.bind(
 	mainMod .. " + CTRL + C",
 	hl.dsp.exec_cmd("quickshell ipc call calculator toggle"),
@@ -217,11 +213,7 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- ── Misc ──────────────────────────────────────────────────────────────────────
 
 hl.bind("XF86FullScreen", hl.dsp.exec_cmd("hyprctl dispatch fullscreen 0"), { locked = true })
-hl.bind(
-	"XF86LaunchA",
-	hl.dsp.exec_cmd(scripts .. "/rofi-menu.sh --menu || pkill rofi"),
-	{ locked = true }
-)
+hl.bind("XF86LaunchA", hl.dsp.exec_cmd(scripts .. "/rofi-menu.sh --menu || pkill rofi"), { locked = true })
 
 hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"), { desc = "Reload Hyprland" })
 hl.bind(

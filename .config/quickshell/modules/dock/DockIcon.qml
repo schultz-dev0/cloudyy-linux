@@ -142,6 +142,13 @@ Item {
             }
             root.pressed = false;
         }
+        onCanceled: {
+            if (root.leftDragging) {
+                root.dragReorderEnded();
+                root.leftDragging = false;
+            }
+            root.pressed = false;
+        }
     }
 
     TapHandler {
