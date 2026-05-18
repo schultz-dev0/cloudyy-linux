@@ -16,6 +16,10 @@ import "modules/timer" as QuickTimer
 PanelWindow {
     id: bar
 
+    property var assignedScreen: null
+    property bool ipcEnabled: true
+    screen: assignedScreen
+
     // ── Tunables ─────────────────────────────────────────────────────────────
     readonly property int barHeight: 40
     readonly property int topGap: 6
@@ -215,19 +219,27 @@ PanelWindow {
     onSpotlightQueryChanged: spotlightDebounceTimer.restart()
     onSpotlightSelectedIndexChanged: Qt.callLater(() => ensureSpotlightSelectionVisible())
 
-    IpcHandler {
-        target: "spotlight-bar"
-        function toggle() {
-            if (bar.spotlightOpen)
-                bar.hideSpotlight();
-            else
+    Loader {
+        active: bar.ipcEnabled
+        sourceComponent: ipcHandlerComponent
+    }
+
+    Component {
+        id: ipcHandlerComponent
+        IpcHandler {
+            target: "spotlight-bar"
+            function toggle() {
+                if (bar.spotlightOpen)
+                    bar.hideSpotlight();
+                else
+                    bar.showSpotlight();
+            }
+            function show() {
                 bar.showSpotlight();
-        }
-        function show() {
-            bar.showSpotlight();
-        }
-        function hide() {
-            bar.hideSpotlight();
+            }
+            function hide() {
+                bar.hideSpotlight();
+            }
         }
     }
 

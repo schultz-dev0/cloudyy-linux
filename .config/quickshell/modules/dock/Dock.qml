@@ -13,6 +13,9 @@ import "../../overview/services"
 PanelWindow {
     id: dock
 
+    property var assignedScreen: null
+    screen: assignedScreen
+
     property string systemIconTheme: "Papirus-Dark"
     Process {
         command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
@@ -221,6 +224,14 @@ PanelWindow {
         dock.dragGhostLiftScale = 1;
     }
 
+    function abortIconDrag() {
+        dock.dragSourceIndex = -1;
+        dock.dragHoverVisualIndex = -1;
+        dock.interactionBlock = false;
+        dock.clearDragGhost();
+        dock.syncDockVisibility();
+    }
+
     function finishIconDrag() {
         if (dock.dragSourceIndex < 0)
             return;
@@ -308,6 +319,19 @@ PanelWindow {
             command: cmd
         });
         p.running = true;
+    }
+
+    // Overview's full-screen Overlay can steal the mouse release during a dock drag.
+    Connections {
+        target: GlobalStates
+        function onOverviewOpenChanged() {
+            if (dock.dragSourceIndex < 0 && !dock.interactionBlock)
+                return;
+            if (GlobalStates.overviewOpen)
+                dock.abortIconDrag();
+            else if (dock.interactionBlock)
+                dock.abortIconDrag();
+        }
     }
 
     // ── Dock body ──────────────────────────────────────────────────────────
