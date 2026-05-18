@@ -1,10 +1,11 @@
 pragma ComponentBehavior: Bound
 
 // shell.qml
+import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
-import "overview/modules/overview" as QuickOverview
 import "modules/dock" as QuickDock
 import "modules/sliders" as QuickSliders
 import "modules/calendar" as QuickCalendar
@@ -20,6 +21,81 @@ ShellRoot {
     property bool dnd: false
     property bool calendarOpen: false
     property bool calculatorOpen: false
+
+    // ── Multi-monitor shell layout (Cloud Center → quickshell.json) ─────────
+    property bool barOnAllScreens: false
+    property bool dockOnAllScreens: false
+
+    function targetScreens(allScreens) {
+        const screens = Quickshell.screens;
+        if (allScreens || screens.length === 0)
+            return screens;
+
+        const focused = Hyprland.focusedMonitor;
+        if (focused) {
+            for (let i = 0; i < screens.length; i++) {
+                if (Hyprland.monitorFor(screens[i])?.name === focused.name)
+                    return [screens[i]];
+            }
+        }
+        return [screens[0]];
+    }
+
+    readonly property var barScreens: targetScreens(barOnAllScreens)
+    readonly property var dockScreens: targetScreens(dockOnAllScreens)
+
+    function barIpcEnabled(screen) {
+        if (!barOnAllScreens)
+            return true;
+        const monitor = Hyprland.monitorFor(screen);
+        return monitor?.id === Hyprland.focusedMonitor?.id;
+    }
+
+    Process {
+        id: loadShellSettings
+        command: [
+            "python3",
+            "-c",
+            "import json, os\n"
+                + "from pathlib import Path\n"
+                + "cfg = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config'))\n"
+                + "base = cfg / 'cloud-center/settings/monitors/quickshell'\n"
+                + "legacy = cfg / 'cloud-center/settings/monitors/quickshell.json'\n"
+                + "def read_bool(path):\n"
+                + "    if not path.is_file():\n"
+                + "        return False\n"
+                + "    return path.read_text().strip().lower() in ('true', 'yes', '1', 'on')\n"
+                + "bar = read_bool(base / 'bar_on_all_screens')\n"
+                + "dock = read_bool(base / 'dock_on_all_screens')\n"
+                + "if legacy.is_file() and not (base / 'bar_on_all_screens').is_file():\n"
+                + "    data = json.loads(legacy.read_text())\n"
+                + "    bar = bool(data.get('bar_on_all_screens', False))\n"
+                + "    dock = bool(data.get('dock_on_all_screens', False))\n"
+                + "print(json.dumps({'bar_on_all_screens': bar, 'dock_on_all_screens': dock}))",
+        ]
+        stdout: StdioCollector {
+            id: shellSettingsCollector
+            onStreamFinished: {
+                const payload = shellSettingsCollector.text.trim();
+                if (!payload)
+                    return;
+
+                try {
+                    const parsed = JSON.parse(payload);
+                    if (typeof parsed !== "object" || parsed === null)
+                        return;
+                    if (typeof parsed.bar_on_all_screens === "boolean")
+                        root.barOnAllScreens = parsed.bar_on_all_screens;
+                    if (typeof parsed.dock_on_all_screens === "boolean")
+                        root.dockOnAllScreens = parsed.dock_on_all_screens;
+                } catch (error) {
+                    console.warn("shell: failed to parse shell display settings", error);
+                }
+            }
+        }
+    }
+
+    Component.onCompleted: loadShellSettings.running = true
 
     // ── Notification service ─────────────────────────────────────────────────
     NotificationServer {
@@ -101,11 +177,19 @@ ShellRoot {
     // So we don't need the custom IPC handler here anymore.
 
     // ── Components ───────────────────────────────────────────────────────────
-    Bar {
-        notifOpen: root.notifOpen
-        dnd: root.dnd
-        onNotifToggle: root.notifOpen = !root.notifOpen
-        onCalendarToggle: root.calendarOpen = !root.calendarOpen
+    Variants {
+        id: barVariants
+        model: root.barScreens
+
+        Bar {
+            required property var modelData
+            assignedScreen: modelData
+            ipcEnabled: root.barIpcEnabled(modelData)
+            notifOpen: root.notifOpen
+            dnd: root.dnd
+            onNotifToggle: root.notifOpen = !root.notifOpen
+            onCalendarToggle: root.calendarOpen = !root.calendarOpen
+        }
     }
 
     QuickSliders.Sliders {
@@ -128,9 +212,15 @@ ShellRoot {
         notifServer: notifServer
     }
 
-    QuickOverview.Overview {}
+    Variants {
+        id: dockVariants
+        model: root.dockScreens
 
-    QuickDock.Dock {}
+        QuickDock.Dock {
+            required property var modelData
+            assignedScreen: modelData
+        }
+    }
 
     QuickCalendar.CalendarPanel {
         id: calendarPanel

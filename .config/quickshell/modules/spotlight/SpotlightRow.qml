@@ -8,7 +8,7 @@ import "../.."
 Item {
     id: root
 
-    required property var  resultData   // {type,name,icon?,exec?,wmclass?,isRunning?,path?} or {type:"web",query} or {type:"calculator",expression,result}
+    required property var  resultData   // {type,name,...} or {type:"web",query} or {type:"calculator"|"currency",expression,result,subtitle?}
     required property bool isSelected
     required property int  rowWidth
 
@@ -78,6 +78,7 @@ Item {
                 text: {
                     if (root.resultData.type === "file") return "󰈔";
                     if (root.resultData.type === "calculator") return "󰃬";
+                    if (root.resultData.type === "currency") return "󰄔";
                     return "󰖟";
                 }
             }
@@ -94,17 +95,17 @@ Item {
                 text:  {
                     if (root.resultData.type === "web")
                         return `Search DDG for "${root.resultData.query}"`;
-                    if (root.resultData.type === "calculator")
+                    if (root.resultData.type === "calculator" || root.resultData.type === "currency")
                         return root.resultData.result;
                     return root.resultData.name ?? "";
                 }
-                color: root.resultData.type === "calculator"
+                color: (root.resultData.type === "calculator" || root.resultData.type === "currency")
                     ? Theme.on_surface
                     : (root.resultData.type === "web"
                         ? Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6)
                         : Theme.textPrimary)
-                font.pixelSize: root.resultData.type === "calculator" ? 15 : 13
-                font.weight:    root.resultData.type === "calculator" ? Font.Medium : Font.Normal
+                font.pixelSize: (root.resultData.type === "calculator" || root.resultData.type === "currency") ? 15 : 13
+                font.weight:    (root.resultData.type === "calculator" || root.resultData.type === "currency") ? Font.Medium : Font.Normal
                 font.family:    "JetBrainsMono Nerd Font"
                 elide: Text.ElideRight
             }
@@ -112,12 +113,14 @@ Item {
             Text {
                 width:   parent.width
                 visible: root.resultData.type === "app" || root.resultData.type === "file"
-                         || root.resultData.type === "calculator"
+                         || root.resultData.type === "calculator" || root.resultData.type === "currency"
                 text:    {
                     if (root.resultData.type === "app")
                         return root.resultData.isRunning ? "Running" : (root.resultData.exec ?? "");
                     if (root.resultData.type === "calculator")
                         return root.resultData.expression ?? "";
+                    if (root.resultData.type === "currency")
+                        return root.resultData.subtitle ?? root.resultData.expression ?? "";
                     return root.resultData.path ?? "";
                 }
                 color:   Theme.textMuted

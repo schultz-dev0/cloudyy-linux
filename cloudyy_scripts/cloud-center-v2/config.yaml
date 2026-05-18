@@ -255,6 +255,39 @@ pages:
               command: >-
                 ~/cloudyy_scripts/quickshell/switch_preset.sh "{value}"
 
+      - type: section
+        properties:
+          title: Displays
+          description: Show the bar and dock on every connected monitor
+        items:
+          - type: toggle
+            properties:
+              title: Display bar on all screens
+              key: monitors/quickshell/bar_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+          - type: toggle
+            properties:
+              title: Display dock on all screens
+              key: monitors/quickshell/dock_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
   - id: input
     title: Input
     icon: input-keyboard-symbolic

@@ -81,6 +81,39 @@ class MonitorInfo:
         return self.model or self.description or self.name
 
 
+def logical_layout_size(
+    width: int, height: int, transform: int, scale: float = 1.0,
+) -> tuple[int, int]:
+    """Hyprland layout box size (matches transform % 2 swap + scale)."""
+    w, h = (height, width) if transform % 2 == 1 else (width, height)
+    if scale and scale != 1.0:
+        w = max(1, int(round(w / scale)))
+        h = max(1, int(round(h / scale)))
+    return w, h
+
+
+def migrate_rotated_position(
+    width: int, height: int, transform: int, x: int, y: int,
+) -> tuple[int, int, bool]:
+    """Scale x/y from native-width layout coords to logical layout coords."""
+    if transform % 2 != 1 or width <= 0 or height <= 0:
+        return x, y, False
+
+    lw, lh = height, width
+    nx, ny = x, y
+    changed = False
+
+    # Only touch axes that look like native-dimension offsets (e.g. x == -2560).
+    if x != 0 and abs(x) % width == 0:
+        nx = round(x * lw / width)
+        changed = changed or nx != x
+    if y != 0 and abs(y) % height == 0:
+        ny = round(y * lh / height)
+        changed = changed or ny != y
+
+    return nx, ny, changed
+
+
 def _normalise_mode_label(raw_mode: object) -> str:
     """Convert a mode value to a canonical '<w>x<h>@<hz>Hz' label when possible."""
     if raw_mode is None:
@@ -207,7 +240,7 @@ def _fetch_modes_from_monitors_all() -> dict[str, list[str]]:
     return result
 
 
-def _fetch_monitors() -> list[MonitorInfo]:
+def _fetch_monitors() -> tuple[list[MonitorInfo], list[tuple[str, int, int, int, int]]]:
     try:
         out = subprocess.run(
             ["hyprctl", "monitors", "-j"],
@@ -216,7 +249,7 @@ def _fetch_monitors() -> list[MonitorInfo]:
         data = json.loads(out.stdout)
     except Exception as e:
         log.warning("hyprctl monitors failed: %s", e)
-        return []
+        return [], []
 
     # Skip `monitors all` when a HEADLESS output is active — that IPC call can
     # crash Hyprland when wayvnc holds the HEADLESS output (e.g. hypr-display).
@@ -227,11 +260,21 @@ def _fetch_monitors() -> list[MonitorInfo]:
     # Parse config to get workspace assignments
     _, config_workspaces = _parse_conf()
 
-    monitors = []
+    monitors: list[MonitorInfo] = []
+    migrations: list[tuple[str, int, int, int, int]] = []
     for m in data:
         name = m.get("name", "")
+        width = m.get("width", 0)
+        height = m.get("height", 0)
+        transform = m.get("transform", 0)
+        x = m.get("x", 0)
+        y = m.get("y", 0)
+        new_x, new_y, migrated = migrate_rotated_position(width, height, transform, x, y)
+        if migrated:
+            migrations.append((name, x, y, new_x, new_y))
+
         current_mode = _normalise_mode_label(
-            f"{m.get('width', 0)}x{m.get('height', 0)}@{m.get('refreshRate', 60.0)}"
+            f"{width}x{height}@{m.get('refreshRate', 60.0)}"
         )
         modes = _extract_available_modes(m, current_mode)
         if name in fallback_modes:
@@ -247,20 +290,20 @@ def _fetch_monitors() -> list[MonitorInfo]:
             description   = m.get("description", ""),
             make          = m.get("make", ""),
             model         = m.get("model", ""),
-            width         = m.get("width", 0),
-            height        = m.get("height", 0),
+            width         = width,
+            height        = height,
             refresh_rate  = m.get("refreshRate", 60.0),
-            x             = m.get("x", 0),
-            y             = m.get("y", 0),
+            x             = new_x,
+            y             = new_y,
             scale         = m.get("scale", 1.0),
-            transform     = m.get("transform", 0),
+            transform     = transform,
             disabled      = m.get("disabled", False),
             mirror_of     = m.get("mirrorOf", "") or "",
             focused       = m.get("focused", False),
             available_modes = modes,
             assigned_workspaces = config_workspaces.get(name, []),
         ))
-    return monitors
+    return monitors, migrations
 
 
 
@@ -284,9 +327,15 @@ class DisplayLayoutPreview(Gtk.Box):
         self._positions: dict[str, tuple[int, int]] = {
             m.name: (m.x, m.y) for m in monitors
         }
-        self._sizes: dict[str, tuple[int, int]] = {
-            m.name: (max(64, int(m.width)), max(64, int(m.height))) for m in monitors
+        self._native_sizes: dict[str, tuple[int, int]] = {
+            m.name: (m.width, m.height) for m in monitors
         }
+        self._scales: dict[str, float] = {m.name: m.scale for m in monitors}
+        self._transforms: dict[str, int] = {m.name: m.transform for m in monitors}
+        self._sizes: dict[str, tuple[int, int]] = {}
+        for m in monitors:
+            lw, lh = logical_layout_size(m.width, m.height, m.transform, m.scale)
+            self._sizes[m.name] = (max(64, lw), max(64, lh))
         self._enabled: dict[str, bool] = {m.name: not m.disabled for m in monitors}
         self._labels: dict[str, str] = {m.name: m.name for m in monitors}
         self._workspaces: dict[str, list[str]] = {m.name: getattr(m, "assigned_workspaces", []) for m in monitors}
@@ -324,6 +373,16 @@ class DisplayLayoutPreview(Gtk.Box):
         if name not in self._positions:
             return
         self._positions[name] = (x, y)
+        self._area.queue_draw()
+
+    def update_monitor_transform(self, name: str, transform: int) -> None:
+        if name not in self._native_sizes:
+            return
+        self._transforms[name] = transform
+        nw, nh = self._native_sizes[name]
+        scale = self._scales.get(name, 1.0)
+        lw, lh = logical_layout_size(nw, nh, transform, scale)
+        self._sizes[name] = (max(64, lw), max(64, lh))
         self._area.queue_draw()
 
     def update_workspaces(self, name: str, workspaces: list[str]) -> None:
@@ -988,6 +1047,7 @@ class MonitorEditorPage(Gtk.Box):
             self._transform_row.set_selected(
                 next((i for i, (v, _) in enumerate(TRANSFORM_LABELS) if v == mon.transform), 0)
             )
+            self._transform_row.connect("notify::selected", self._on_transform_changed)
             mode_group.add(self._transform_row)
             self._editor_box.append(mode_group)
 
@@ -1286,10 +1346,66 @@ class MonitorEditorPage(Gtk.Box):
         threading.Thread(target=self._do_refresh, daemon=True).start()
 
     def _do_refresh(self) -> None:
-        monitors = _fetch_monitors()
-        GLib.idle_add(self._apply_refresh, monitors)
+        monitors, migrations = _fetch_monitors()
+        GLib.idle_add(self._apply_refresh, monitors, migrations)
 
-    def _apply_refresh(self, monitors: list[MonitorInfo]) -> bool:
+    def _persist_position_migrations(
+        self,
+        migrations: list[tuple[str, int, int, int, int]],
+        monitors: list[MonitorInfo],
+    ) -> None:
+        from lib import utility
+
+        by_name = {m.name: m for m in monitors}
+        for name, old_x, old_y, new_x, new_y in migrations:
+            mon = by_name.get(name)
+            if mon is None or mon.disabled:
+                continue
+
+            mirror = mon.mirror_of if mon.mirror_of and mon.mirror_of.lower() != "none" else ""
+            line = _build_monitor_line(
+                name=mon.name,
+                mode=mon.current_mode_str,
+                pos_x=new_x,
+                pos_y=new_y,
+                scale=mon.scale,
+                transform=mon.transform,
+                enabled=True,
+                mirror_of=mirror,
+            )
+            ok, message = _apply_monitor_line(line)
+            if not ok:
+                log.warning("Failed to migrate position for %s: %s", name, message)
+                utility.toast(
+                    self._toast_ov,
+                    f"Could not adjust {name} position: {message}",
+                )
+                continue
+
+            try:
+                _write_monitor_line(name, line, mon.assigned_workspaces)
+            except Exception as exc:
+                log.warning("Failed to save migrated position for %s: %s", name, exc)
+                utility.toast(self._toast_ov, f"Could not save {name} position: {exc}")
+                continue
+
+            if old_y != new_y:
+                pos_msg = f"({old_x},{old_y}) → ({new_x},{new_y})"
+            else:
+                pos_msg = f"{old_x} → {new_x}"
+            utility.toast(
+                self._toast_ov,
+                f"Adjusted {name} position for rotated layout {pos_msg}",
+            )
+
+    def _apply_refresh(
+        self,
+        monitors: list[MonitorInfo],
+        migrations: list[tuple[str, int, int, int, int]],
+    ) -> bool:
+        if migrations:
+            self._persist_position_migrations(migrations, monitors)
+
         prev_name = self._selected.name if self._selected else None
         self._monitors = monitors
         self._rebuild_list()
@@ -1408,6 +1524,12 @@ class MonitorEditorPage(Gtk.Box):
         x = int(self._pos_x_row.get_value())
         y = int(self._pos_y_row.get_value())
         self._layout_preview.update_monitor_position(self._selected.name, x, y)
+
+    def _on_transform_changed(self, *_args) -> None:
+        if self._selected is None or self._layout_preview is None:
+            return
+        transform = self._get_selected_transform()
+        self._layout_preview.update_monitor_transform(self._selected.name, transform)
 
     def _on_preview_selected(self, monitor_name: str) -> None:
         for i, mon in enumerate(self._monitors):
