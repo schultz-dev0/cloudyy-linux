@@ -12,6 +12,7 @@ TARGET_SETTINGS = [
     Path.home() / ".config/Code/User/settings.json",
     Path.home() / ".config/Code - OSS/User/settings.json",
     Path.home() / ".config/VSCodium/User/settings.json",
+    Path.home() / ".config/Cursor/User/settings.json",
 ]
 
 
