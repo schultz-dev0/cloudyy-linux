@@ -20,7 +20,7 @@ Singleton {
         },
         {
             class: "dev.zed.Zed",
-            exec: "zeditor",
+            exec: "zed",
             icon: "zed"
         },
         {

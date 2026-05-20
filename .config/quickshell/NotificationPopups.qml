@@ -20,6 +20,7 @@ PanelWindow {
     readonly property int popupPadding: 14
     readonly property int popupLifetimeMs: 5000
     readonly property int popupFadeMs: 500
+    readonly property int maxPopups: 4
 
     function enqueueNotification(notif) {
         const popupKey = `popup-${popupSerial++}`;
@@ -36,7 +37,7 @@ PanelWindow {
             urgency: notif.urgency,
             timeoutMs
         });
-        root.popups = next;
+        root.popups = next.slice(0, root.maxPopups);
         return popupKey;
     }
 

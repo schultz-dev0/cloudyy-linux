@@ -16,6 +16,7 @@ Rectangle {
     property string artUrl: ""
     property string playerName: ""
     property real progressFraction: 0
+    property bool active: true
 
     visible: root.title !== ""
     implicitHeight: visible ? cardCol.implicitHeight + 24 : 0
@@ -48,7 +49,6 @@ Rectangle {
                 radius: 8
                 layer.enabled: true
                 gradient: Gradient {
-                    orientation: Gradient.Diagonal
                     GradientStop {
                         position: 0.0
                         color: Theme.primary_container
@@ -166,9 +166,14 @@ Rectangle {
     Timer {
         interval: 2000
         repeat: true
-        running: true
+        running: root.active
         triggeredOnStart: true
         onTriggered: statusProc.running = true
+    }
+
+    onActiveChanged: {
+        if (active)
+            statusProc.running = true;
     }
 
     Process {
