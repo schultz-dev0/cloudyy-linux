@@ -200,7 +200,7 @@ PanelWindow {
             const r = results[idx];
             if (r.type === "app") {
                 if (r.isRunning)
-                    Hyprland.dispatch("focuswindow class:" + r.wmclass);
+                    HyprDispatch.focusWindowByClass(r.wmclass);
                 else
                     launch(["uwsm-app", "--", r.exec]);
             } else if (r.type === "calculator" || r.type === "currency") {

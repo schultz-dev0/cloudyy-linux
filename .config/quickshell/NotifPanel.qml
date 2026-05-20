@@ -25,7 +25,9 @@ PanelWindow {
     readonly property int notifCardShadowSideInset: 18
     readonly property int notifCardShadowTopInset: 10
     readonly property int notifCardShadowBottomInset: 22
+    readonly property int notifPanelMaxVisible: 3
     readonly property bool hasNotifications: (panel.notifServer?.trackedNotifications?.count ?? 0) > 0
+    readonly property var visibleNotifications: panel.hasNotifications ? panel.notifServer.trackedNotifications.values.slice(0, panel.notifPanelMaxVisible) : []
 
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool open: false
@@ -40,6 +42,7 @@ PanelWindow {
         if (open && sliderController)
             sliderController.refreshAll();
         if (open) {
+            panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
             wifibtTile.refresh();
             darkTile.refresh();
         }
@@ -50,7 +53,7 @@ PanelWindow {
     Timer {
         interval: 60000
         repeat: true
-        running: true
+        running: panel.open
         triggeredOnStart: true
         onTriggered: panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm")
     }
@@ -61,9 +64,14 @@ PanelWindow {
         Process {}
     }
     function launch(cmd) {
-        procProto.createObject(panel, {
+        const p = procProto.createObject(panel, {
             command: cmd
-        }).running = true;
+        });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
+        });
+        p.running = true;
     }
 
     // ── Window setup ──────────────────────────────────────────────────────────
@@ -400,6 +408,7 @@ PanelWindow {
             // ── Media card ────────────────────────────────────────────────────
             MediaCard {
                 Layout.fillWidth: true
+                active: panel.open
             }
 
             // ── Notification stack ────────────────────────────────────────────
@@ -416,7 +425,7 @@ PanelWindow {
                 Layout.fillWidth: true
 
                 // ── Tunables ──────────────────────────────────────────────────
-                readonly property int maxVisible: 3
+                readonly property int maxVisible: panel.notifPanelMaxVisible
                 readonly property int peekHeight: 12  // px each card peeks below the one in front
                 readonly property int widthInset:  8  // px inset on each side per depth level
 
@@ -425,7 +434,7 @@ PanelWindow {
                                              + 72
                                              + panel.notifCardShadowBottomInset
 
-                readonly property int notifCount: notifRepeater.count
+                readonly property int notifCount: panel.open ? (panel.notifServer?.trackedNotifications?.count ?? 0) : 0
                 readonly property int shownCount: Math.min(notifCount, maxVisible)
 
                 implicitHeight: notifCount === 0
@@ -438,7 +447,7 @@ PanelWindow {
 
                 Repeater {
                     id: notifRepeater
-                    model: panel.notifServer ? panel.notifServer.trackedNotifications : null
+                    model: panel.open ? panel.visibleNotifications : []
 
                     delegate: Item {
                         id: cardWrapper

@@ -12,6 +12,7 @@ Singleton {
     property bool open: false
     readonly property ListModel timers: ListModel {}
     property string homeDir: ""
+    readonly property bool hasRunningTimers: runningCount > 0
 
     // ── Computed properties for TimerBarPill ──────────────────────────────
     readonly property int runningCount: {
@@ -52,7 +53,7 @@ Singleton {
     // ── Per-second tick ───────────────────────────────────────────────────
     readonly property Timer ticker: Timer {
         interval: 1000
-        running: true
+        running: root.hasRunningTimers
         repeat: true
         onTriggered: {
             for (let i = 0; i < root.timers.count; i++) {

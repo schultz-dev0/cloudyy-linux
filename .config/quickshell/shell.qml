@@ -12,6 +12,7 @@ import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
 import "modules/calculator" as QuickCalculator
 import "modules/timer" as QuickTimer
+import "overview/modules/overview" as QuickOverview
 
 ShellRoot {
     id: root
@@ -42,10 +43,20 @@ ShellRoot {
     }
 
     readonly property var barScreens: targetScreens(barOnAllScreens)
-    readonly property var dockScreens: targetScreens(dockOnAllScreens)
+    readonly property var dockScreens: {
+        const _fm = Hyprland.focusedMonitor; // register as dep so binding re-evaluates on monitor focus change
+        return root.targetScreens(root.dockOnAllScreens);
+    }
 
     function barIpcEnabled(screen) {
         if (!barOnAllScreens)
+            return true;
+        const monitor = Hyprland.monitorFor(screen);
+        return monitor?.id === Hyprland.focusedMonitor?.id;
+    }
+
+    function dockIpcEnabled(screen) {
+        if (!dockOnAllScreens)
             return true;
         const monitor = Hyprland.monitorFor(screen);
         return monitor?.id === Hyprland.focusedMonitor?.id;
@@ -173,8 +184,7 @@ ShellRoot {
         function hide()   { QuickTimer.TimerService.open = false }
     }
 
-    // The overview repo manages its own IPC ("overview") inside its modules!
-    // So we don't need the custom IPC handler here anymore.
+    // Overview owns its own IPC ("overview") inside QuickOverview.Overview.
 
     // ── Components ───────────────────────────────────────────────────────────
     Variants {
@@ -219,8 +229,11 @@ ShellRoot {
         QuickDock.Dock {
             required property var modelData
             assignedScreen: modelData
+            ipcEnabled: root.dockIpcEnabled(modelData)
         }
     }
+
+    QuickOverview.Overview {}
 
     QuickCalendar.CalendarPanel {
         id: calendarPanel

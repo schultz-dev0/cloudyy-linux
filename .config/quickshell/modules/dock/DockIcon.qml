@@ -17,6 +17,7 @@ Item {
     required property var dockBodyRef
     required property var iconsRowRef
     required property int visualIndex
+    required property bool animationActive
     property bool isDragSource: false
 
     property bool hovered: false
@@ -46,7 +47,7 @@ Item {
 
     Timer {
         interval: root.frameMs
-        running: true
+        running: root.animationActive
         repeat: true
         onTriggered: {
             const lerp = 1 - Math.exp(-12 * root.frameMs / 1000);
@@ -54,16 +55,18 @@ Item {
         }
     }
 
+    onAnimationActiveChanged: if (!animationActive) currentScale = 1
+
     Image {
         id: iconImg
 
         property int sourceIndex: 0
-        property var sources: HyprlandData.iconSourcesForName(root.appData.icon ?? "application-x-executable")
+        property var sources: HyprlandData.iconSourcesForName(root.appData.icon ?? "application-default-icon")
 
         width: root.iconSize
         height: root.iconSize
         onSourcesChanged: sourceIndex = 0
-        source: sources[sourceIndex] ?? "image://icon/application-x-executable"
+        source: sources[sourceIndex] ?? HyprlandData.genericIconSource
         sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
         smooth: true
         scale: root.currentScale
@@ -153,7 +156,7 @@ Item {
 
     TapHandler {
         acceptedButtons: Qt.RightButton
-        gesturePolicy: TapHandler.WithinBounds | TapHandler.ReleaseWithinBounds
+        gesturePolicy: TapHandler.ReleaseWithinBounds
         onTapped: root.requestTogglePin()
     }
 
