@@ -46,7 +46,7 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + Tab",
-	hl.dsp.exec_cmd("quickshell ipc call overview togglefloating"),
+	hl.dsp.exec_cmd("quickshell ipc call overview toggle"),
 	{ desc = "Open workspace overview" }
 )
 

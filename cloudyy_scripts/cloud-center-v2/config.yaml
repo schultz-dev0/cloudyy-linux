@@ -622,9 +622,55 @@ pages:
 
           - type: toggle
             properties:
+              title: Shadows
+              description: Drop shadows behind windows
+              icon: weather-overcast-symbolic
+              key: hypr/shadow
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword decoration:shadow:enabled true &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:shadow:enabled true
+              disabled:
+                command: >-
+                  hyprctl keyword decoration:shadow:enabled false &&
+                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:shadow:enabled false
+
+          - type: slider
+            properties:
+              title: Shadow Range
+              description: Shadow size and spread (larger = softer, wider shadow)
+              icon: view-reveal-symbolic
+              key: hypr/shadow_range
+              min: 1
+              max: 60
+              step: 1
+              default: 25
+            on_change:
+              command: >-
+                hyprctl keyword decoration:shadow:range {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:shadow:range {value}
+
+          - type: slider
+            properties:
+              title: Shadow Render Power
+              description: Shadow quality (higher = stronger, more GPU cost; max 4)
+              icon: applications-graphics-symbolic
+              key: hypr/shadow_render_power
+              min: 1
+              max: 4
+              step: 1
+              default: 1
+            on_change:
+              command: >-
+                hyprctl keyword decoration:shadow:render_power {value} &&
+                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:shadow:render_power {value}
+
+          - type: toggle
+            properties:
               title: Blur
               description: Background blur on transparent windows
-              icon: camera-photo-symbolic
+              icon: weather-fog-symbolic
               key: hypr/blur
             on_toggle:
               enabled:
@@ -640,7 +686,7 @@ pages:
             properties:
               title: Blur Passes
               description: More passes = stronger blur, more GPU cost
-              icon: camera-photo-symbolic
+              icon: media-playlist-repeat-symbolic
               key: hypr/blur_passes
               min: 1
               max: 6
@@ -823,4 +869,3 @@ pages:
             properties:
               title: Zsh Extension Browser
               description: Search, enable, and manage all Oh My Zsh plugins natively
-
