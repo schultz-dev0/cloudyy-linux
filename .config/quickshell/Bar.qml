@@ -74,7 +74,25 @@ PanelWindow {
         const p = procProto.createObject(bar, {
             command: cmd
         });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
+        });
         p.running = true;
+    }
+
+    Timer {
+        id: deferredWindowFocusTimer
+        interval: 500
+        repeat: false
+        property string windowTitle: ""
+        onTriggered: HyprDispatch.focusWindowByTitle(windowTitle)
+    }
+
+    function launchAndFocusByTitle(cmd, title) {
+        launch(cmd);
+        deferredWindowFocusTimer.windowTitle = title;
+        deferredWindowFocusTimer.restart();
     }
 
     function showSpotlight() {
@@ -99,7 +117,7 @@ PanelWindow {
             const result = spotlightResults[idx];
             if (result.type === "app") {
                 if (result.isRunning)
-                    Hyprland.dispatch("focuswindow class:" + result.wmclass);
+                    HyprDispatch.focusWindowByClass(result.wmclass);
                 else
                     launch(["uwsm-app", "--", result.exec]);
             } else {
@@ -338,7 +356,9 @@ PanelWindow {
                 property string n: "0"
                 label: "󰏔 " + n
                 width: implicitWidth + bar.pillPadH * 2
-                onClicked: bar.launch(["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh & sleep 0.5; hyprctl dispatch focuswindow title:cloudyy-updater"])
+                onClicked: bar.launchAndFocusByTitle(
+                    ["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh"],
+                    "cloudyy-updater")
                 Timer {
                     interval: 3600000
                     running: true
@@ -532,7 +552,7 @@ PanelWindow {
                                 onCurrentIconSourcesChanged: sourceIndex = 0
                                 sourceSize: Qt.size(28, 28)
                                 smooth: true
-                                source: currentIconSources[sourceIndex] ?? "image://icon/application-x-executable"
+                                source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
                                 layer.enabled: visible
                                 layer.smooth: true
                                 layer.effect: MultiEffect {
@@ -557,8 +577,8 @@ PanelWindow {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: Hyprland.dispatch("workspace " + modelData)
-                                onWheel: e => Hyprland.dispatch(e.angleDelta.y > 0 ? "workspace e-1" : "workspace e+1")
+                                onClicked: HyprDispatch.focusWorkspace(modelData)
+                                onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
                             }
                         }
                     }
@@ -688,7 +708,9 @@ PanelWindow {
                         onRead: d => cpuPill.lbl = "󰍛 " + d.trim() + "%"
                     }
                 }
-                onClicked: bar.launch(["bash", "-c", "kitty --title btop btop & sleep 0.5; hyprctl dispatch focuswindow title:btop"])
+                onClicked: bar.launchAndFocusByTitle(
+                    ["bash", "-c", "kitty --title btop btop"],
+                    "btop")
             }
 
             // Memory

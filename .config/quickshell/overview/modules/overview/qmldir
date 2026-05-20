@@ -1,0 +1,6 @@
+module QuickOverview
+
+Overview 1.0 Overview.qml
+OverviewWidget 1.0 OverviewWidget.qml
+WorkspaceTile 1.0 WorkspaceTile.qml
+WorkspaceIconStrip 1.0 WorkspaceIconStrip.qml
