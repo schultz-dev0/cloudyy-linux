@@ -17,6 +17,17 @@ import "overview/modules/overview" as QuickOverview
 ShellRoot {
     id: root
 
+    // Suppress built-in "config updated" reload toasts (also set QS_NO_RELOAD_POPUP=1 at launch).
+    Connections {
+        target: Quickshell
+        function onReloadCompleted() {
+            Quickshell.inhibitReloadPopup()
+        }
+        function onReloadFailed(errorString) {
+            Quickshell.inhibitReloadPopup()
+        }
+    }
+
     // ── Global state ────────────────────────────────────────────────────────
     property bool notifOpen: false
     property bool dnd: false

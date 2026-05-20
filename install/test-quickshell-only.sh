@@ -148,8 +148,10 @@ echo "[9/9] Checking .config/hypr/source/quickshell.conf for canonical command..
 if [ ! -f ".config/hypr/source/quickshell.conf" ]; then
     echo "  FAIL: source/quickshell.conf does not exist"
     FAILED=1
-elif ! grep -q "exec-once.*qs -d" .config/hypr/source/quickshell.conf; then
+elif ! grep -q "exec-once.*qs .*-d" .config/hypr/source/quickshell.conf; then
     echo "  FAIL: source/quickshell.conf does not contain quickshell startup command"
+elif ! grep -q "QS_NO_RELOAD_POPUP" .config/hypr/source/quickshell.conf; then
+    echo "  FAIL: source/quickshell.conf must set QS_NO_RELOAD_POPUP=1"
     FAILED=1
 else
     echo "  PASS: source/quickshell.conf contains canonical startup command"
