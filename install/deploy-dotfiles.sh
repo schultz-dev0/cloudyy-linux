@@ -466,8 +466,6 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/dark_last"
     ".config/hypr/theme_state/light_last"
     "cloudyy_scripts/theme_controller.sh"
-    "cloudyy_scripts/bridge_scripts/bridge_default.sh"
-    "cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
@@ -657,22 +655,6 @@ main() {
     else
       log_warn "schema_settings.sh not found at ${_schema_script} — skipping"
     fi
-  fi
-
-  # Wire quickshell bridge and restore theme
-  local _self_dir
-  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ ! -f "${_self_dir}/widget_bridge.sh" ]]; then
-    log_error "widget_bridge.sh not found: ${_self_dir}/widget_bridge.sh"
-    exit 1
-  fi
-  if [[ ! -x "${_self_dir}/widget_bridge.sh" ]]; then
-    log_error "widget_bridge.sh is not executable: ${_self_dir}/widget_bridge.sh"
-    exit 1
-  fi
-  if ! bash "${_self_dir}/widget_bridge.sh"; then
-    log_error "widget_bridge.sh failed"
-    exit 1
   fi
 
   if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
