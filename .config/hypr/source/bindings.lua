@@ -146,7 +146,7 @@ hl.bind(mainMod .. " + CTRL + N", hl.dsp.exec_cmd("qs ipc call notifs clearAll")
 
 -- ── quickshell ─────────────────────────────────────────────────────────
 
-hl.bind(mainMod .. " + CTRL, M", hl.dsp.exec_cmd("qs ipc call system toggle"), { desc = "System overview" })
+hl.bind(mainMod .. " + CTRL + M", hl.dsp.exec_cmd("qs ipc call system toggle"), { desc = "System overview" })
 hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd("quickshell ipc call timer toggle"), { desc = "Toggle timer panel" })
 hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("quickshell ipc call calendar toggle"), { desc = "Toggle calendar" })
 
