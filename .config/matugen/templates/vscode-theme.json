@@ -10,6 +10,7 @@
     "editorLineNumber.activeForeground": "{{colors.primary.default.hex}}",
     "editorGutter.modifiedBackground": "{{colors.secondary.default.hex}}",
     "editorGutter.addedBackground": "{{colors.primary.default.hex}}",
+    "editorGutter.max_added_lines_count": "{{colors.primary.default.hex}}",
     "editorGutter.deletedBackground": "{{colors.error.default.hex}}",
     "titleBar.activeBackground": "{{colors.surface_container_lowest.default.hex}}",
     "titleBar.activeForeground": "{{colors.on_surface.default.hex}}",
@@ -43,8 +44,6 @@
     "editor.lineHighlightBackground": "{{colors.surface_container_high.default.hex}}",
     "editorCursor.foreground": "{{colors.primary.default.hex}}",
     "editorWhitespace.foreground": "{{colors.surface_variant.default.hex}}",
-    "editorLineNumber.foreground": "{{colors.on_surface_variant.default.hex}}",
-    "editorLineNumber.activeForeground": "{{colors.primary.default.hex}}",
     "editorIndentGuide.background": "{{colors.surface_variant.default.hex}}",
     "breadcrumb.background": "{{colors.surface.default.hex}}",
     "breadcrumb.foreground": "{{colors.outline.default.hex}}",
@@ -261,130 +260,33 @@
     "merge.incomingContentBackground": "{{colors.surface_container.default.hex}}"
   },
   "editor.tokenColorCustomizations": {
+    "comments": "#000001",
     "textMateRules": [
       {
         "scope": [
           "comment",
+          "comment.line",
+          "comment.block",
+          "comment.block.documentation",
           "punctuation.definition.comment"
         ],
         "settings": {
-          "foreground": "{{colors.outline.default.hex}}",
-          "fontStyle": "italic"
-        }
-      },
-      {
-        "scope": [
-          "keyword",
-          "storage.type",
-          "storage.modifier",
-          "variable.language"
-        ],
-        "settings": {
-          "foreground": "{{colors.primary.default.hex}}",
-          "fontStyle": "bold"
-        }
-      },
-      {
-        "scope": [
-          "string",
-          "punctuation.definition.string"
-        ],
-        "settings": {
-          "foreground": "{{colors.tertiary.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "entity.name.function",
-          "support.function",
-          "meta.function-call"
-        ],
-        "settings": {
-          "foreground": "{{colors.secondary.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "variable",
-          "variable.other",
-          "variable.other.property",
-          "variable.other.object",
-          "entity.name.variable",
-          "support.variable"
-        ],
-        "settings": {
-          "foreground": "{{colors.on_surface.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "constant.numeric",
-          "constant.language",
-          "support.constant"
-        ],
-        "settings": {
-          "foreground": "{{colors.primary.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "entity.name.type",
-          "entity.name.class",
-          "support.type",
-          "support.class"
-        ],
-        "settings": {
-          "foreground": "{{colors.tertiary.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "keyword.operator",
-          "keyword.operator.assignment",
-          "keyword.operator.logical",
-          "keyword.operator.arithmetic",
-          "keyword.operator.comparison"
-        ],
-        "settings": {
-          "foreground": "{{colors.primary.default.hex}}",
-          "fontStyle": "bold"
-        }
-      },
-      {
-        "scope": [
-          "punctuation",
-          "meta.brace"
-        ],
-        "settings": {
-          "foreground": "{{colors.on_surface_variant.default.hex}}"
-        }
-      },
-      {
-        "scope": [
-          "markup.bold"
-        ],
-        "settings": {
-          "foreground": "{{colors.primary.default.hex}}",
-          "fontStyle": "bold"
-        }
-      },
-      {
-        "scope": [
-          "markup.italic"
-        ],
-        "settings": {
-          "foreground": "{{colors.secondary.default.hex}}",
-          "fontStyle": "italic"
-        }
-      },
-      {
-        "scope": [
-          "markup.underline"
-        ],
-        "settings": {
-          "fontStyle": "underline"
+          "foreground": "#000001"
         }
       }
     ]
+  },
+  "editor.semanticTokenColorCustomizations": {
+    "enabled": true,
+    "rules": {
+      "comment": "#000001",
+      "*.comment": "#000001",
+      "comment.line": "#000001",
+      "comment.block": "#000001"
+    }
+  },
+  "editor.semanticHighlighting.enabled": false,
+  "[rust]": {
+    "editor.semanticHighlighting.enabled": false
   }
 }

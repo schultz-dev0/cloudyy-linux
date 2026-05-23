@@ -12,6 +12,9 @@ import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
 import "modules/calculator" as QuickCalculator
 import "modules/timer" as QuickTimer
+import "modules/systemmonitor" as QuickSystemMonitor
+import "modules/island" as QuickIsland
+import "modules/notifpanel" as QuickNotifPanel
 import "overview/modules/overview" as QuickOverview
 
 ShellRoot {
@@ -117,24 +120,110 @@ ShellRoot {
         }
     }
 
-    Component.onCompleted: loadShellSettings.running = true
+    readonly property string screenshotPendingPathFile: "/tmp/cloudyy-screenshot.path"
+    readonly property string recordingPendingPathFile: "/tmp/cloudyy-recording.path"
+
+    Component {
+        id: screenshotActivityComp
+        QuickIsland.ScreenshotActivity {}
+    }
+
+    Component {
+        id: recordingActivityComp
+        QuickIsland.RecordingActivity {}
+    }
+
+    Component {
+        id: recordPickerActivityComp
+        QuickIsland.RecordPickerActivity {}
+    }
+
+    readonly property string recordingsDir: {
+        const home = Quickshell.env("HOME") || "";
+        const videos = Quickshell.env("XDG_VIDEOS_DIR") || (home ? home + "/Videos" : "");
+        return videos ? (videos + "/Captures") : "";
+    }
+
+    readonly property string playSoundScript: {
+        const home = Quickshell.env("HOME") || "";
+        return home ? (home + "/.config/quickshell/play_sound.sh") : "";
+    }
+
+    Component {
+        id: shellProcProto
+        Process {}
+    }
+
+    Process {
+        id: screenshotPathReader
+        running: false
+        stdout: SplitParser {
+            onRead: line => {
+                const path = line.trim();
+                if (path)
+                    QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp);
+            }
+        }
+    }
+
+    Process {
+        id: recordingPathReader
+        running: false
+        stdout: SplitParser {
+            onRead: line => {
+                const path = line.trim();
+                if (path)
+                    QuickIsland.DynamicIslandService.showRecordingPreview(path, recordingActivityComp);
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        QuickIsland.DynamicIslandService.procFactory = shellProcProto;
+        QuickIsland.DynamicIslandService.recordPickerComponent = recordPickerActivityComp;
+        QuickIsland.DynamicIslandService.recordingPreviewComponent = recordingActivityComp;
+        QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
+        QuickIsland.DynamicIslandService.playSoundScript = root.playSoundScript;
+        loadShellSettings.running = true;
+    }
 
     // ── Notification service ─────────────────────────────────────────────────
     NotificationServer {
         id: notifServer
         keepOnReload: true
+        persistenceSupported: true
         onNotification: notif => {
             if (root.dnd) {
                 notif.expire();
                 return;
             }
 
-            notif.tracked = true;
+            // NotifPanel reads trackedNotifications — persist before island/lastGeneration checks.
+            QuickNotifPanel.NotifPanelService.track(notif);
 
             if (notif.lastGeneration)
                 return;
-            const popupKey = notifPopups.enqueueNotification(notif);
-            notif.closed.connect(() => notifPopups.removePopup(popupKey));
+
+            QuickIsland.DynamicIslandService.playNotifSound();
+
+            const islandId = QuickIsland.DynamicIslandService.push({
+                priority:   10,
+                durationMs: QuickIsland.DynamicIslandService.notificationIslandDurationMs(
+                                  notif.expireTimeout),
+                data: {
+                    notificationId: notif.id,
+                    appName:        notif.appName || "",
+                    summary:        notif.summary || "",
+                    body:           notif.body || "",
+                    urgency:        notif.urgency
+                }
+            });
+
+            // Island timeout is visual-only; panel keeps the notification until dismiss/clearAll.
+            notif.closed.connect(() => {
+                QuickIsland.DynamicIslandService.remove(islandId);
+                QuickIsland.DynamicIslandService.removeForNotification(notif.id);
+            });
         }
     }
 
@@ -195,6 +284,44 @@ ShellRoot {
         function hide()   { QuickTimer.TimerService.open = false }
     }
 
+    IpcHandler {
+        target: "system"
+        function toggle() { QuickSystemMonitor.SystemMonitorService.toggleOpen() }
+        function show()   { QuickSystemMonitor.SystemMonitorService.open = true }
+        function hide()   { QuickSystemMonitor.SystemMonitorService.open = false }
+    }
+
+    IpcHandler {
+        target: "screenshot"
+        function showLatest() {
+            screenshotPathReader.command = ["cat", root.screenshotPendingPathFile];
+            screenshotPathReader.running = true;
+        }
+        function show(path: string) {
+            QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp);
+        }
+        function dismiss() {
+            QuickIsland.DynamicIslandService.dismissCurrentScreenshot();
+        }
+    }
+
+    IpcHandler {
+        target: "record"
+        function toggle() {
+            QuickIsland.DynamicIslandService.toggleRecording();
+        }
+        function showLatest() {
+            recordingPathReader.command = ["cat", root.recordingPendingPathFile];
+            recordingPathReader.running = true;
+        }
+        function show(path: string) {
+            QuickIsland.DynamicIslandService.showRecordingPreview(path, recordingActivityComp);
+        }
+        function dismiss() {
+            QuickIsland.DynamicIslandService.dismissCurrentRecording();
+        }
+    }
+
     // Overview owns its own IPC ("overview") inside QuickOverview.Overview.
 
     // ── Components ───────────────────────────────────────────────────────────
@@ -228,10 +355,7 @@ ShellRoot {
         onCalculatorToggle: root.calculatorOpen = !root.calculatorOpen
     }
 
-    NotificationPopups {
-        id: notifPopups
-        notifServer: notifServer
-    }
+    QuickIsland.DynamicIsland {}
 
     Variants {
         id: dockVariants
@@ -260,4 +384,8 @@ ShellRoot {
     QuickSpotlight.Spotlight {}
 
     QuickTimer.TimerPanel {}
+
+    QuickSystemMonitor.SystemOverviewPanel {
+        notifOpen: root.notifOpen
+    }
 }
