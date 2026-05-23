@@ -46,6 +46,9 @@ cloudyy_scripts/pin-ksp.sh
 .config/hypr/hyprland.conf
 .config/matugen/generated/
 
+# matugen output — lives on disk under the quickshell symlink, not in git
+.config/quickshell/Theme.qml
+
 # Python build artifacts
 **/__pycache__/
 *.pyc

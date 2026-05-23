@@ -376,6 +376,21 @@ deploy_defaults() {
     log_skip "matugen generated colors"
   fi
 
+  # quickshell Theme.qml — matugen output; seed once, never tracked in git
+  local qs_theme="${HOME}/.config/quickshell/Theme.qml"
+  local qs_theme_default="${defaults_dir}/quickshell/Theme.qml"
+  if [[ ! -f "$qs_theme" ]]; then
+    if [[ -f "$qs_theme_default" ]]; then
+      mkdir -p "$(dirname "$qs_theme")"
+      cp "$qs_theme_default" "$qs_theme"
+      log_ok "quickshell Theme.qml deployed (default)."
+    else
+      log_warn "No default Theme.qml in ${defaults_dir}/quickshell — quickshell may lack colors until matugen runs."
+    fi
+  else
+    log_skip "quickshell Theme.qml"
+  fi
+
   # Cloud Center terminal settings — seed defaults so .zshrc can load plugins
   # and respects show_mascot on first boot before Cloud Center runs.
   local cc_terminal_dir="${HOME}/.config/cloud-center/settings/terminal"
