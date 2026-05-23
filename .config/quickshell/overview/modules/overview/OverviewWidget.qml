@@ -155,11 +155,13 @@ Item {
         transformOrigin: Item.Center
 
         Behavior on scale {
-            NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 0.4 }
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
         }
 
         Behavior on opacity {
-            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(140); easing.type: Easing.OutCubic }
         }
 
         Row {

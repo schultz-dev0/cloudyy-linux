@@ -136,8 +136,14 @@ PanelWindow {
         opacity: panel.open ? 1 : 0
         scale: panel.open ? 1 : 0.94
         transformOrigin: Item.TopRight
-        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 0.35 } }
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
+        }
+        Behavior on scale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(200); easing.type: Easing.OutCubic }
+        }
 
         ColumnLayout {
             id: contentColumn
