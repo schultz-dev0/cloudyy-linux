@@ -18,6 +18,7 @@ Item {
     required property var iconsRowRef
     required property int visualIndex
     required property bool animationActive
+    required property bool dockIdle
     property bool isDragSource: false
 
     property bool hovered: false
@@ -50,12 +51,17 @@ Item {
         running: root.animationActive
         repeat: true
         onTriggered: {
+            const delta = root.targetScale - root.currentScale;
+            if (Math.abs(delta) < 0.002) {
+                root.currentScale = root.targetScale;
+                return;
+            }
             const lerp = 1 - Math.exp(-12 * root.frameMs / 1000);
-            root.currentScale += (root.targetScale - root.currentScale) * lerp;
+            root.currentScale += delta * lerp;
         }
     }
 
-    onAnimationActiveChanged: if (!animationActive) currentScale = 1
+    onDockIdleChanged: if (dockIdle) currentScale = 1
 
     Image {
         id: iconImg
