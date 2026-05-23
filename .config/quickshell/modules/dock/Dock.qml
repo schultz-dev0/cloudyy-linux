@@ -61,6 +61,7 @@ PanelWindow {
     property real dockMouseX: -9999
     readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHover.hovered
     readonly property bool animationActive: dockVisible || dockHovered || interactionBlock || dragSourceIndex >= 0
+    readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
@@ -493,14 +494,19 @@ PanelWindow {
                     running: dock.animationActive
                     repeat: true
                     onTriggered: {
+                        const delta = searchBtn.targetScale - searchBtn.currentScale;
+                        if (Math.abs(delta) < 0.002) {
+                            searchBtn.currentScale = searchBtn.targetScale;
+                            return;
+                        }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        searchBtn.currentScale += (searchBtn.targetScale - searchBtn.currentScale) * lerp;
+                        searchBtn.currentScale += delta * lerp;
                     }
                 }
                 Connections {
                     target: dock
-                    function onAnimationActiveChanged() {
-                        if (!dock.animationActive)
+                    function onDockIdleChanged() {
+                        if (dock.dockIdle)
                             searchBtn.currentScale = 1.0;
                     }
                 }
@@ -549,6 +555,7 @@ PanelWindow {
                         dockMouseX: dock.dockMouseXEffective
                         iconCenterX: x + dock.iconSize / 2
                         animationActive: dock.animationActive || dock.dragSourceIndex === index
+                        dockIdle: dock.dockIdle
                         isDragSource: dock.dragSourceIndex === index
                         onClicked: {
                             if (modelData.isRunning) {
@@ -590,14 +597,19 @@ PanelWindow {
                     running: dock.animationActive
                     repeat: true
                     onTriggered: {
+                        const delta = appsBtn.targetScale - appsBtn.currentScale;
+                        if (Math.abs(delta) < 0.002) {
+                            appsBtn.currentScale = appsBtn.targetScale;
+                            return;
+                        }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        appsBtn.currentScale += (appsBtn.targetScale - appsBtn.currentScale) * lerp;
+                        appsBtn.currentScale += delta * lerp;
                     }
                 }
                 Connections {
                     target: dock
-                    function onAnimationActiveChanged() {
-                        if (!dock.animationActive)
+                    function onDockIdleChanged() {
+                        if (dock.dockIdle)
                             appsBtn.currentScale = 1.0;
                     }
                 }

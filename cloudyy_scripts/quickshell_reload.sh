@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Full quickshell restart — releases org.freedesktop.Notifications and loads current shell.qml.
+set -euo pipefail
+
+echo "== Stopping all quickshell instances =="
+
+# qs kill stops every instance for this config (more reliable than killall alone).
+qs kill 2>/dev/null || true
+killall -9 quickshell 2>/dev/null || true
+killall -9 qs 2>/dev/null || true
+
+sleep 2
+
+if pgrep -x quickshell >/dev/null; then
+  echo "ERROR: quickshell still running — try: qs kill && killall -9 quickshell" >&2
+  pgrep -a quickshell >&2
+  exit 1
+fi
+
+echo "== Starting quickshell =="
+echo "Verify in another terminal:  qs ipc show | rg screenshot"
+echo "(Do not run this script again while qs is already running — you will get duplicate bars.)"
+
+exec env QS_NO_RELOAD_POPUP=1 qs -d

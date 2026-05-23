@@ -52,8 +52,16 @@ PanelWindow {
     // ── Local form state ──────────────────────────────────────────────────
     property bool showingNewForm: false
     onShowingNewFormChanged: {
-        if (showingNewForm) newTimerForm.activate()
-        else panelRect.forceActiveFocus()
+        if (showingNewForm)
+            newTimerForm.activate();
+    }
+
+    readonly property int _keyboardFocusMode: {
+        if (!TimerService.open)
+            return WlrKeyboardFocus.None;
+        if (timerWindow.showingNewForm)
+            return WlrKeyboardFocus.Exclusive;
+        return WlrKeyboardFocus.OnDemand;
     }
 
     // ── Window ────────────────────────────────────────────────────────────
@@ -66,7 +74,7 @@ PanelWindow {
 
     WlrLayershell.layer:         WlrLayer.Top
     WlrLayershell.namespace:     "quickshell:timer"
-    WlrLayershell.keyboardFocus: TimerService.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: timerWindow._keyboardFocusMode
     WlrLayershell.exclusiveZone: 0
 
     onVisibleChanged: {
@@ -80,7 +88,7 @@ PanelWindow {
     // ── Panel shell ───────────────────────────────────────────────────────
     Rectangle {
         id: panelRect
-        focus: true
+        focus: timerWindow.showingNewForm
         Keys.onEscapePressed: {
             if (timerWindow.showingNewForm) {
                 timerWindow.showingNewForm = false

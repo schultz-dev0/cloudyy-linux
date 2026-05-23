@@ -71,8 +71,16 @@ hl.bind(
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -z -w"), { desc = "Screenshot region and save" })
-hl.bind("Print", hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh"), { desc = "Screenshot popup" })
-hl.bind("ALT + Print", hl.dsp.exec_cmd("hyprcap rec region -c -w"), { desc = "Start screen recording" })
+hl.bind(
+	"Print",
+	hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh --screenshot"),
+	{ desc = "Screenshot popup (island)" }
+)
+hl.bind(
+	"ALT + Print",
+	hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh --record"),
+	{ desc = "Screen record (island)" }
+)
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
 hl.bind(
 	mainMod .. " + SHIFT + W",
@@ -136,11 +144,13 @@ hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("qs ipc call notifs toggle"), { desc 
 hl.bind(mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("qs ipc call notifs dnd"), { desc = "Toggle DND" })
 hl.bind(mainMod .. " + CTRL + N", hl.dsp.exec_cmd("qs ipc call notifs clearAll"), { desc = "Clear all notifications" })
 
--- ── Calendar ───────────────────────────────────────────
+-- ── quickshell ─────────────────────────────────────────────────────────
 
+hl.bind(mainMod .. " + CTRL, M", hl.dsp.exec_cmd("qs ipc call system toggle"), { desc = "System overview" })
+hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd("quickshell ipc call timer toggle"), { desc = "Toggle timer panel" })
 hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("quickshell ipc call calendar toggle"), { desc = "Toggle calendar" })
 
--- ── Window management ─────────────────────────────────────────────────────────
+-- ── Window Management ─────────────────────────────────────────────────────────
 
 hl.bind("ALT + Tab", hl.dsp.window.cycle_next(), { desc = "Cycle windows" })
 hl.bind(mainMod .. " + I", hl.dsp.window.set_prop({ prop = "opaque", value = "toggle" }), { desc = "Toggle opacity" })

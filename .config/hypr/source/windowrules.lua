@@ -198,6 +198,13 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
+	name = "quickshell_island",
+	match = { namespace = "^(.*quickshell:island)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
 	name = "quickshell_calculator",
 	match = { namespace = "^(.*quickshell:calculator)$" },
 	blur = true,

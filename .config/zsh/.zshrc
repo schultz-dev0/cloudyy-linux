@@ -59,6 +59,10 @@ alias poweroff='sudo shutdown now'
 alias reboot='sudo shutdown -r now'
 alias seeya='hyprctl dispatch exit'
 
+# Debug aliases
+
+alias qs_reload='./cloudyy_scripts/quickshell_reload.sh'
+
 # utility aliases
 
 alias wlogout="$HOME/cloudyy_scripts/wlogout.sh"

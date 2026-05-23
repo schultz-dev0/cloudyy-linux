@@ -12,6 +12,7 @@ import Quickshell.Wayland
 import "overview/services"
 import "modules/spotlight" as QuickSpotlight
 import "modules/timer" as QuickTimer
+import "modules/systemmonitor" as QuickSystemMonitor
 
 PanelWindow {
     id: bar
@@ -690,50 +691,27 @@ PanelWindow {
             // CPU
             Pill {
                 id: cpuPill
-                property string lbl: "󰍛 ?"
-                label: lbl
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                label: "󰍛 " + sys.cpuPercent + "%"
                 width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_surface_variant
-                Timer {
-                    interval: 2000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: cpuProc.running = true
-                }
-                Process {
-                    id: cpuProc
-                    command: ["bash", "-c", "python3 -c 'import psutil; print(int(psutil.cpu_percent(0.3)))' 2>/dev/null || cut -d' ' -f1 /proc/loadavg"]
-                    stdout: SplitParser {
-                        onRead: d => cpuPill.lbl = "󰍛 " + d.trim() + "%"
-                    }
-                }
-                onClicked: bar.launchAndFocusByTitle(
-                    ["bash", "-c", "kitty --title btop btop"],
-                    "btop")
+                fg: sys.open ? Theme.primary : Theme.on_surface_variant
+                bg: sys.open
+                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                onClicked: sys.toggleOpen()
             }
 
             // Memory
             Pill {
                 id: memPill
-                property string lbl: "󰘚"
-                label: lbl
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                label: "󰘚 " + sys.ramPercent + "%"
                 width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_surface_variant
-                Timer {
-                    interval: 2000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: memProc.running = true
-                }
-                Process {
-                    id: memProc
-                    command: ["bash", "-c", "free | awk '/Mem:/{printf \"%d\", $3/$2*100}'"]
-                    stdout: SplitParser {
-                        onRead: d => memPill.lbl = "󰘚 " + d.trim() + "%"
-                    }
-                }
+                fg: sys.open ? Theme.primary : Theme.on_surface_variant
+                bg: sys.open
+                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                onClicked: sys.toggleOpen()
             }
 
             // Battery

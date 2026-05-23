@@ -1,0 +1,16 @@
+[package]
+name = "cloudyy-system-monitor"
+version = "0.1.0"
+edition = "2021"
+description = "NDJSON system stats for Quickshell (cloudyy-linux)"
+
+[dependencies]
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

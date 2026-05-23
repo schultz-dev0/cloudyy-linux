@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.qml": "qml",
+    "**/*.qml": "qml"
+  },
+  "workbench.editor.languageDetection": false
+}
