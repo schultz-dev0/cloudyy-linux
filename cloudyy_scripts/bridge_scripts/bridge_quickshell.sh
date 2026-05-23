@@ -35,11 +35,11 @@ LOCKFILE="/tmp/quickshell_bridge.lock"
       # The -n flag (no-duplicate) ensures that if Quickshell is already active,
       # this command exits silently.
       # We explicitly close FD 9 to prevent the daemon from inheriting the lock.
-      env QS_NO_RELOAD_POPUP=1 qs -n -d 9>&-
+      "${HOME}/cloudyy_scripts/quickshell/qs_start.sh" 9>&-
   else
       # Fallback to pgrep check if using the raw binary name
       if ! pgrep -x quickshell >/dev/null; then
-          env QS_NO_RELOAD_POPUP=1 quickshell -d 9>&- 2>/dev/null || true
+          "${HOME}/cloudyy_scripts/quickshell/qs_start.sh" 9>&- 2>/dev/null || true
       fi
   fi
 ) 9>"$LOCKFILE"

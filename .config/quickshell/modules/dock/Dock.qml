@@ -33,7 +33,7 @@ PanelWindow {
     readonly property int iconSize: 48
     readonly property real maxScale: 1.8
     readonly property real spread: 1
-    readonly property int frameMs: 16
+    readonly property int frameMs: Perf.dockFrameMs
     readonly property int triggerHeight: 0
     readonly property int pillHeight: iconSize + paddingV * 2
     readonly property int dockBodyHeight: 110

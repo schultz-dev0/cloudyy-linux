@@ -235,7 +235,8 @@ Item {
                     border.color: root._btnBorder
 
                     Behavior on scale {
-                        NumberAnimation { duration: 80 }
+                        enabled: Perf.animationsEnabled
+                        NumberAnimation { duration: Perf.msHalf(60) }
                     }
 
                     Text {
@@ -290,7 +291,8 @@ Item {
                     border.color: root._btnBorder
 
                     Behavior on scale {
-                        NumberAnimation { duration: 80 }
+                        enabled: Perf.animationsEnabled
+                        NumberAnimation { duration: Perf.msHalf(60) }
                     }
 
                     Text {

@@ -6,13 +6,13 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
-import Quickshell.Services.UPower
 import Quickshell.Io
 import Quickshell.Wayland
 import "overview/services"
 import "modules/spotlight" as QuickSpotlight
 import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
+import "modules/battery" as QuickBattery
 
 PanelWindow {
     id: bar
@@ -273,6 +273,8 @@ PanelWindow {
         signal clicked
         signal scrollUp
         signal scrollDown
+        signal hoverEntered
+        signal hoverExited
 
         height: bar.barHeight - bar.pillPadV * 2
         implicitWidth: pillText.implicitWidth
@@ -296,9 +298,17 @@ PanelWindow {
             onWheel: e => {
                 e.angleDelta.y > 0 ? pill.scrollUp() : pill.scrollDown();
             }
-            onEntered: if (pill.hoverable)
-                pill.color = Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.9)
-            onExited: pill.color = pill.bg
+            onEntered: {
+                if (pill.hoverable) {
+                    pill.color = Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.9);
+                    pill.hoverEntered();
+                }
+            }
+            onExited: {
+                pill.color = pill.bg;
+                if (pill.hoverable)
+                    pill.hoverExited();
+            }
         }
     }
 
@@ -554,8 +564,8 @@ PanelWindow {
                                 sourceSize: Qt.size(28, 28)
                                 smooth: true
                                 source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
-                                layer.enabled: visible
-                                layer.smooth: true
+                                layer.enabled: visible && !Perf.lightweight
+                                layer.smooth: !Perf.lightweight
                                 layer.effect: MultiEffect {
                                     colorization: 1.0
                                     colorizationColor: focused ? Theme.secondary : Theme.outline
@@ -589,6 +599,7 @@ PanelWindow {
 
         // ── RIGHT ─────────────────────────────────────────────────────────────
         Row {
+            id: rightRow
             anchors {
                 right: parent.right
                 rightMargin: 6
@@ -717,22 +728,22 @@ PanelWindow {
             // Battery
             Pill {
                 id: batPill
-                visible: UPower.displayDevice.isLaptopBattery
-                readonly property real pct: UPower.displayDevice.percentage * 100
-                readonly property int bstate: UPower.displayDevice.state
-                readonly property bool charging: bstate === UPowerDeviceState.Charging || bstate === UPowerDeviceState.PendingCharge
-                readonly property bool full: bstate === UPowerDeviceState.FullyCharged
-                label: {
-                    if (full)
-                        return "󰁹 Full";
-                    if (charging)
-                        return "󰂄 " + Math.round(pct) + "%";
-                    const icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂"];
-                    return icons[Math.min(Math.floor(pct / 11), 9)] + " " + Math.round(pct) + "%";
-                }
+                readonly property var bat: QuickBattery.BatteryService
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                visible: bat.available
+                label: bat.barLabel
                 width: visible ? implicitWidth + bar.pillPadH * 2 : 0
-                fg: charging || full ? Theme.tertiary : (pct < 15 ? Theme.on_error_container : Theme.on_surface)
-                bg: charging || full ? Qt.rgba(Theme.tertiary_container.r, Theme.tertiary_container.g, Theme.tertiary_container.b, 0.3) : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6)
+                fg: bat.charging || bat.full
+                    ? Theme.tertiary
+                    : (bat.percent < 15 ? Theme.on_error_container : (sys.open ? Theme.primary : Theme.on_surface))
+                bg: bat.charging || bat.full
+                    ? Qt.rgba(Theme.tertiary_container.r, Theme.tertiary_container.g, Theme.tertiary_container.b, 0.3)
+                    : (sys.open
+                        ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                        : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6))
+                onClicked: sys.toggleOpen()
+                onHoverEntered: batteryTooltip.hovered = true
+                onHoverExited: batteryTooltipHideTimer.restart()
             }
 
             // Power
@@ -745,6 +756,18 @@ PanelWindow {
                 onClicked: bar.launch(["bash", "-c", "~/cloudyy_scripts/wlogout.sh"])
             }
         }
+
+    }
+
+    QuickBattery.BatteryTooltip {
+        id: batteryTooltip
+        anchorItem: batPill
+    }
+
+    Timer {
+        id: batteryTooltipHideTimer
+        interval: 200
+        onTriggered: batteryTooltip.hovered = false
     }
 
     PanelWindow {

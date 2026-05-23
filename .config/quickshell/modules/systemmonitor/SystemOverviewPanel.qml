@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
+import "../battery" as QuickBattery
 
 PanelWindow {
     id: panel
@@ -119,8 +120,14 @@ PanelWindow {
         opacity: svc.open ? 1 : 0
         scale: svc.open ? 1.0 : 0.94
         transformOrigin: Item.TopRight
-        Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: 280; easing.type: Easing.OutBack; easing.overshoot: 0.35 } }
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
+        }
+        Behavior on scale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(200); easing.type: Easing.OutCubic }
+        }
 
         ElevatedEffect { target: panelRect }
 
@@ -196,6 +203,14 @@ PanelWindow {
                         detailLine: svc.ramUsedGb + " / " + svc.ramTotalGb + " GB used"
                             + " · Swap " + svc.swapUsedGb + " / " + svc.swapTotalGb + " GB (" + svc.swapPercent + "%)"
                         history: svc.ramHistory
+                    }
+
+                    QuickBattery.BatterySection {
+                        Layout.fillWidth: true
+                        labelFont: panel.labelFont
+                        valueFont: panel.valueFont
+                        bodyFont: panel.bodyFont
+                        sparklineHeight: panel.sparklineHeight
                     }
 
                     // GPU

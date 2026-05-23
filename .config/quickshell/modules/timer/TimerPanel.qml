@@ -104,10 +104,16 @@ PanelWindow {
         border.width: 1
 
         opacity: TimerService.open ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(160); easing.type: Easing.OutCubic }
+        }
         scale: TimerService.open ? 1.0 : 0.88
         transformOrigin: Item.BottomLeft
-        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
+        Behavior on scale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
+        }
 
         ColumnLayout {
             id: contentCol

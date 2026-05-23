@@ -111,7 +111,8 @@ Item {
             transformOrigin: Item.Center
 
             Behavior on scale {
-                NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                enabled: Perf.animationsEnabled
+                NumberAnimation { duration: Perf.msHalf(80); easing.type: Easing.OutCubic }
             }
 
             Rectangle {
@@ -133,7 +134,8 @@ Item {
                     Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
 
                 Behavior on border.width {
-                    NumberAnimation { duration: 100 }
+                    enabled: Perf.animationsEnabled
+                    NumberAnimation { duration: Perf.msHalf(80) }
                 }
 
                 Image {
@@ -145,19 +147,21 @@ Item {
                                 : "file://" + root.imagePath)
                              : ""
                     fillMode: Image.PreserveAspectFit
-                    smooth:   true
+                    asynchronous: true
+                    smooth: !Perf.lightweight
+                    cache: false
 
                     onStatusChanged: {
                         if (status !== Image.Ready)
                             return;
                         const w = sourceSize.width;
                         const h = sourceSize.height;
-                        if (w <= 0) {
-                            root.previewHeight = 100;
+                        if (w <= 0)
                             return;
-                        }
                         const thumbH = Math.round(h * (root.thumbInnerWidth / w));
-                        root.previewHeight = Math.min(thumbH, root.maxThumbHeight);
+                        const next = Math.min(thumbH, root.maxThumbHeight);
+                        if (Math.abs(root.previewHeight - next) > 2)
+                            root.previewHeight = next;
                     }
                 }
 
@@ -205,7 +209,8 @@ Item {
                         border.color: root._btnBorder
 
                         Behavior on scale {
-                            NumberAnimation { duration: 80 }
+                            enabled: Perf.animationsEnabled
+                            NumberAnimation { duration: Perf.msHalf(60) }
                         }
 
                         Text {
@@ -261,7 +266,8 @@ Item {
                         border.color: root._btnBorder
 
                         Behavior on scale {
-                            NumberAnimation { duration: 80 }
+                            enabled: Perf.animationsEnabled
+                            NumberAnimation { duration: Perf.msHalf(60) }
                         }
 
                         Text {

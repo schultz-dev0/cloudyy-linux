@@ -1,0 +1,4 @@
+module QuickBattery
+singleton BatteryService 1.0 BatteryService.qml
+BatterySection 1.0 BatterySection.qml
+BatteryTooltip 1.0 BatteryTooltip.qml

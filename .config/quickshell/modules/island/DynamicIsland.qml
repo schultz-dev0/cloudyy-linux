@@ -10,60 +10,48 @@ import "." as QuickIsland
 PanelWindow {
     id: island
 
-    // Defined here (not shell.qml) so Loader instances resolve Theme via island import chain.
     readonly property Component notificationActivityComponent: notificationActivityComp
     Component {
         id: notificationActivityComp
         QuickIsland.NotificationActivity {}
     }
 
-    // ── Tunables ──────────────────────────────────────────────────────────────
-    // islandPadding: space between the pill edge and the content inside it.
-    // Every activity's implicitWidth/implicitHeight is the CONTENT size.
-    // The pill becomes (implicitWidth + islandPadding*2) × (implicitHeight + islandPadding*2).
     readonly property int islandPadding: 10
-
-    // pillWidth / pillHeight: size of the tiny pill during pill-in and pill-out.
-    readonly property int pillWidth:  120
-    readonly property int pillHeight:  28
-
-    // pillRadius: border-radius of the pill. Keep high for fully rounded ends.
-    readonly property int pillRadius:  20
-
-    // Must match Bar.qml (topGap + barHeight).
-    readonly property int barHeight:   40
-    readonly property int barTopGap:    6
-
-    // Pixels between bar bottom and pill top (added to window margins.top). Keep >= 0.
+    readonly property int pillWidth: 120
+    readonly property int pillHeight: 28
+    readonly property int pillRadius: 20
+    readonly property int barHeight: 40
+    readonly property int barTopGap: 6
     property int belowBarGap: -45
 
-    // ── State ─────────────────────────────────────────────────────────────────
-    property string islandState: "idle" 
+    // Fixed overlay size — avoids resizing the layer surface every animation frame.
+    readonly property int maxIslandWidth: 272
+    readonly property int maxIslandHeight: 196
 
-    // Computed target size for the expanded pill. Read from content after it loads.
-    property real targetWidth:  pillWidth
+    readonly property int animScaleIn: Perf.msHalf(100)
+    readonly property int animScaleOut: Perf.msHalf(90)
+    readonly property int animExpand: Perf.msHalf(170)
+    readonly property int animContract: Perf.msHalf(140)
+    readonly property int animFade: Perf.msHalf(80)
+
+    property string islandState: "idle"
+    property real targetWidth: pillWidth
     property real targetHeight: pillHeight
 
-    // ── Window setup ─────────────────────────────────────────────────────────
-    // Window top = bar bottom + belowBarGap (do not use negative pill margins — they clip).
     anchors.top: true
     margins {
         top: barHeight + barTopGap + belowBarGap
     }
 
-    implicitWidth:  pill.width
-    implicitHeight: pill.height
-
+    implicitWidth: maxIslandWidth
+    implicitHeight: maxIslandHeight
     exclusiveZone: 0
-    color:         "transparent"
-
-    // Hide the window entirely when idle. Keeps it out of compositor hit-testing.
+    color: "transparent"
     visible: islandState !== "idle"
 
-    WlrLayershell.layer:     WlrLayer.Overlay
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:island"
 
-    // ── Service connection ────────────────────────────────────────────────────
     Connections {
         target: QuickIsland.DynamicIslandService
         function onExitRequested() {
@@ -75,54 +63,89 @@ PanelWindow {
                 island.islandState = "pill-in";
             } else if (act !== null
                        && (island.islandState === "visible" || island.islandState === "expanding")) {
-                contentLoader.active = false;
-                island.islandState = "pill-in";
+                island._swapActivityInPlace();
             } else {
                 island._applyActivityToLoader();
             }
         }
     }
 
-    // ── State machine driver ──────────────────────────────────────────────────
+    function _swapActivityInPlace() {
+        _pillInDone = false;
+        _loaderReady = false;
+        contentLoader.opacity = 0;
+        contentLoader.active = false;
+        contentLoader.active = true;
+        if (islandState === "visible")
+            islandState = "expanding";
+    }
+
     onIslandStateChanged: {
         switch (islandState) {
 
         case "pill-in":
-            // Activate the loader NOW so it loads while the pill animates in.
-            _pillInDone  = false;
+            _pillInDone = false;
             _loaderReady = false;
             contentLoader.active = false;
             pill.width = island.pillWidth;
             pill.height = island.pillHeight;
             contentLoader.opacity = 0;
             contentLoader.active = true;
-            pill.scale = 0;
-            pillScaleInAnim.start();
+            if (animScaleIn <= 0) {
+                pill.scale = 1;
+                _onPillInDone();
+            } else {
+                pill.scale = 0;
+                pillScaleInAnim.start();
+            }
             break;
 
         case "expanding":
-            // Read content's natural size. The Loader item fills the island
-            // minus islandPadding on each side, so content declares its own
-            // implicitWidth/implicitHeight and the island sizes to match.
-            island.targetWidth  = contentLoader.item.implicitWidth  + island.islandPadding * 2;
-            island.targetHeight = contentLoader.item.implicitHeight + island.islandPadding * 2;
-            pillExpandWidthAnim.start();
-            pillExpandHeightAnim.start();
+            island.targetWidth = Math.min(
+                contentLoader.item.implicitWidth + island.islandPadding * 2,
+                maxIslandWidth);
+            island.targetHeight = Math.min(
+                contentLoader.item.implicitHeight + island.islandPadding * 2,
+                maxIslandHeight);
+            pill.height = island.targetHeight;
+            if (animExpand <= 0) {
+                pill.width = island.targetWidth;
+                islandState = "visible";
+            } else {
+                pillExpandWidthAnim.start();
+            }
             break;
 
         case "visible":
-            contentLoader.opacity = 1;
-            contentOpacityInAnim.start();
+            if (animFade <= 0) {
+                contentLoader.opacity = 1;
+            } else {
+                contentOpacityInAnim.start();
+            }
             break;
 
         case "contracting":
-            contentOpacityOutAnim.start();
-            pillContractWidthAnim.start();
-            pillContractHeightAnim.start();
+            pill.height = island.pillHeight;
+            if (animFade <= 0) {
+                contentLoader.opacity = 0;
+            } else {
+                contentOpacityOutAnim.start();
+            }
+            if (animContract <= 0) {
+                pill.width = island.pillWidth;
+                islandState = "pill-out";
+            } else {
+                pillContractWidthAnim.start();
+            }
             break;
 
         case "pill-out":
-            pillScaleOutAnim.start();
+            if (animScaleOut <= 0) {
+                pill.scale = 0;
+                _finishPillOut();
+            } else {
+                pillScaleOutAnim.start();
+            }
             break;
 
         case "idle":
@@ -135,22 +158,19 @@ PanelWindow {
         }
     }
 
-    // ── Pill ──────────────────────────────────────────────────────────────────
     Rectangle {
         id: pill
 
         anchors {
-            top:                 parent.top
-            horizontalCenter:    parent.horizontalCenter
+            top: parent.top
+            horizontalCenter: parent.horizontalCenter
         }
 
-        // width/height start at pillWidth/pillHeight; state machine animates them.
-        width:  island.pillWidth
+        width: island.pillWidth
         height: island.pillHeight
         radius: island.pillRadius
-        scale:  0
+        scale: 0
 
-        // Color: check urgency from current activity's data.
         color: {
             const d = QuickIsland.DynamicIslandService.currentActivity?.data ?? {};
             return (d.urgency === 2)
@@ -166,13 +186,13 @@ PanelWindow {
                 : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
         }
 
-        // ── Content loader ────────────────────────────────────────────────────
         Loader {
             id: contentLoader
-            anchors.fill:    parent
+            anchors.fill: parent
             anchors.margins: island.islandPadding
-            active:          false
-            opacity:         0  
+            active: false
+            opacity: 0
+            asynchronous: true
 
             sourceComponent: {
                 const act = QuickIsland.DynamicIslandService.currentActivity;
@@ -187,36 +207,29 @@ PanelWindow {
             }
         }
 
-        // ── +N pending badge ──────────────────────────────────────────────────
-        // Shows how many activities are queued behind the current one.
-        // Safe to overlap because all activities are left-aligned inside the pill.
         Text {
             visible: QuickIsland.DynamicIslandService.pendingCount > 0
                   && island.islandState === "visible"
-            text:   "+" + QuickIsland.DynamicIslandService.pendingCount
-            color:  Qt.rgba(Theme.on_surface_variant.r,
+            text: "+" + QuickIsland.DynamicIslandService.pendingCount
+            color: Qt.rgba(Theme.on_surface_variant.r,
                             Theme.on_surface_variant.g,
                             Theme.on_surface_variant.b, 0.8)
-            font.family:    "JetBrainsMono Nerd Font"
+            font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 9
-
-            anchors.right:          parent.right
-            anchors.rightMargin:    island.islandPadding
+            anchors.right: parent.right
+            anchors.rightMargin: island.islandPadding
             anchors.verticalCenter: parent.verticalCenter
         }
     }
 
-    // ── Race-condition guard ──────────────────────────────────────────────────
-    // pill-in scale anim and Loader load are both async. We advance to "expanding"
-    // only when BOTH have finished. These flags track each side.
-    property bool _pillInDone:   false
-    property bool _loaderReady:  false
+    property bool _pillInDone: false
+    property bool _loaderReady: false
 
     function _tryAdvanceToExpanding() {
         if (_pillInDone && _loaderReady) {
-            _pillInDone  = false;
+            _pillInDone = false;
             _loaderReady = false;
-            islandState  = "expanding";
+            islandState = "expanding";
         }
     }
     function _onPillInDone() {
@@ -224,9 +237,28 @@ PanelWindow {
         _tryAdvanceToExpanding();
     }
     function _onLoaderReady() {
-        if (islandState !== "pill-in") return;  // guard stale signals
-        _loaderReady = true;
-        _tryAdvanceToExpanding();
+        if (islandState !== "pill-in" && islandState !== "expanding")
+            return;
+        if (islandState === "pill-in") {
+            _loaderReady = true;
+            _tryAdvanceToExpanding();
+            return;
+        }
+        if (islandState === "expanding") {
+            island.targetWidth = Math.min(
+                contentLoader.item.implicitWidth + island.islandPadding * 2,
+                maxIslandWidth);
+            island.targetHeight = Math.min(
+                contentLoader.item.implicitHeight + island.islandPadding * 2,
+                maxIslandHeight);
+            pill.height = island.targetHeight;
+            if (animExpand <= 0) {
+                pill.width = island.targetWidth;
+                islandState = "visible";
+            } else if (!pillExpandWidthAnim.running) {
+                pillExpandWidthAnim.start();
+            }
+        }
     }
 
     function _applyActivityToLoader() {
@@ -258,91 +290,73 @@ PanelWindow {
         item.summary = line || "New notification";
     }
 
-    // ── Animations ────────────────────────────────────────────────────────────
+    function _finishPillOut() {
+        QuickIsland.DynamicIslandService.popCurrent();
+        if (QuickIsland.DynamicIslandService.currentActivity === null)
+            island.islandState = "idle";
+        else
+            island.islandState = "pill-in";
+    }
 
-    // pill-in: tiny pill springs into existence
     NumberAnimation {
-        id:       pillScaleInAnim
-        target:   pill
+        id: pillScaleInAnim
+        target: pill
         property: "scale"
-        from:     0; to: 1
-        duration: 150
-        easing.type: Easing.OutBack
-        easing.overshoot: 1.5
+        from: 0
+        to: 1
+        duration: island.animScaleIn
+        easing.type: Easing.OutCubic
         onFinished: island._onPillInDone()
     }
 
-    // expanding: pill grows to content size
     NumberAnimation {
-        id:       pillExpandWidthAnim
-        target:   pill
+        id: pillExpandWidthAnim
+        target: pill
         property: "width"
-        to:       island.targetWidth
-        duration: 250
+        to: island.targetWidth
+        duration: island.animExpand
         easing.type: Easing.OutCubic
-    }
-    NumberAnimation {
-        id:       pillExpandHeightAnim
-        target:   pill
-        property: "height"
-        to:       island.targetHeight
-        duration: 250
-        easing.type: Easing.OutCubic
-        onFinished: island.islandState = "visible"   // height anim is authoritative
+        onFinished: island.islandState = "visible"
     }
 
-    // visible: content fades in
     NumberAnimation {
-        id:       contentOpacityInAnim
-        target:   contentLoader
+        id: contentOpacityInAnim
+        target: contentLoader
         property: "opacity"
-        from:     0; to: 1
-        duration: 120
+        from: 0
+        to: 1
+        duration: island.animFade
         easing.type: Easing.OutQuad
     }
 
-    // contracting: content fades out, pill shrinks back to tiny pill
     NumberAnimation {
-        id:       contentOpacityOutAnim
-        target:   contentLoader
+        id: contentOpacityOutAnim
+        target: contentLoader
         property: "opacity"
-        from:     1; to: 0
-        duration: 120
+        from: 1
+        to: 0
+        duration: island.animFade
         easing.type: Easing.InQuad
     }
+
     NumberAnimation {
-        id:       pillContractWidthAnim
-        target:   pill
+        id: pillContractWidthAnim
+        target: pill
         property: "width"
-        to:       island.pillWidth
-        duration: 200
+        to: island.pillWidth
+        duration: island.animContract
         easing.type: Easing.InCubic
-    }
-    NumberAnimation {
-        id:       pillContractHeightAnim
-        target:   pill
-        property: "height"
-        to:       island.pillHeight
-        duration: 200
-        easing.type: Easing.InCubic
-        onFinished: island.islandState = "pill-out" 
+        onFinished: island.islandState = "pill-out"
     }
 
-    // pill-out: tiny pill shrinks to nothing
     NumberAnimation {
-        id:       pillScaleOutAnim
-        target:   pill
+        id: pillScaleOutAnim
+        target: pill
         property: "scale"
-        from:     1; to: 0
-        duration: 150
-        easing.type: Easing.InBack
-        easing.overshoot: 1.5
-        onFinished: {
-            QuickIsland.DynamicIslandService.popCurrent();
-            if (QuickIsland.DynamicIslandService.currentActivity === null)
-                island.islandState = "idle";
-            else
-                island.islandState = "pill-in";
-        }
+        from: 1
+        to: 0
+        duration: island.animScaleOut
+        easing.type: Easing.InCubic
+        onFinished: island._finishPillOut()
     }
 }
