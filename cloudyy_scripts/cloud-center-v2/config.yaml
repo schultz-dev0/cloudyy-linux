@@ -288,6 +288,26 @@ pages:
                   cd ~/cloudyy_scripts/cloud-center-v2 &&
                   python3 -m lib.quickshell_display_settings --restart
 
+      - type: section
+        properties:
+          title: Performance
+          description: Lighter animations for weaker GPUs — restarts the shell when changed
+        items:
+          - type: toggle
+            properties:
+              title: Lightweight animations
+              description: Faster island, panels, and dock; disables heavy transitions
+              key: quickshell/lightweight
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
   - id: input
     title: Input
     icon: input-keyboard-symbolic
