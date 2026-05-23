@@ -21,4 +21,4 @@ echo "== Starting quickshell =="
 echo "Verify in another terminal:  qs ipc show | rg screenshot"
 echo "(Do not run this script again while qs is already running — you will get duplicate bars.)"
 
-exec env QS_NO_RELOAD_POPUP=1 qs -d
+exec "${HOME}/cloudyy_scripts/quickshell/qs_start.sh"

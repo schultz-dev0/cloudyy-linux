@@ -231,7 +231,10 @@ Rectangle {
                 height: parent.height
                 radius: parent.radius
                 color:  card.isWarning ? Theme.error : Theme.primary
-                Behavior on width { NumberAnimation { duration: 800; easing.type: Easing.Linear } }
+                Behavior on width {
+                    enabled: Perf.animationsEnabled
+                    NumberAnimation { duration: Perf.lightweight ? 0 : 400; easing.type: Easing.Linear }
+                }
                 Behavior on color { ColorAnimation { duration: 300 } }
             }
         }
