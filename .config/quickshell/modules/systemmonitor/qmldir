@@ -1,0 +1,6 @@
+module QuickSystemMonitor
+singleton SystemMonitorService 1.0 SystemMonitorService.qml
+SystemOverviewPanel 1.0 SystemOverviewPanel.qml
+MetricSparkline 1.0 MetricSparkline.qml
+StorageRow 1.0 StorageRow.qml
+SystemMetricSection 1.0 SystemMetricSection.qml

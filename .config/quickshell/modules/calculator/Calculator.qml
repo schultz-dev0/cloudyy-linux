@@ -45,7 +45,7 @@ PanelWindow {
 
     WlrLayershell.layer:         WlrLayer.Top
     WlrLayershell.namespace:     "quickshell:calculator"
-    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     onOpenChanged: {
         if (open) {
