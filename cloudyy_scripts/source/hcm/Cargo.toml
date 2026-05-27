@@ -1,0 +1,21 @@
+[package]
+name = "hcm"
+version = "0.1.0"
+edition = "2021"
+description = "Cloud Center / Hyprland config manager (Rust port of hypr_persist_lua.py + hcm_lua.py persistence layer)"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rayon = "1.10"
+walkdir = "2.5"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1

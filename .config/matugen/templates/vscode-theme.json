@@ -1,4 +1,7 @@
 {
+  "window.autoDetectColorScheme": true,
+  "workbench.preferredDarkColorTheme": "Default Dark Modern",
+  "workbench.preferredLightColorTheme": "Default Light Modern",
   "workbench.colorCustomizations": {
     "focusBorder": "{{colors.primary.default.hex}}",
     "foreground": "{{colors.on_surface.default.hex}}",
@@ -260,7 +263,7 @@
     "merge.incomingContentBackground": "{{colors.surface_container.default.hex}}"
   },
   "editor.tokenColorCustomizations": {
-    "comments": "#000001",
+    "comments": "{{colors.outline.default.hex}}",
     "textMateRules": [
       {
         "scope": [
@@ -271,7 +274,7 @@
           "punctuation.definition.comment"
         ],
         "settings": {
-          "foreground": "#000001"
+          "foreground": "{{colors.outline.default.hex}}"
         }
       }
     ]
@@ -279,10 +282,10 @@
   "editor.semanticTokenColorCustomizations": {
     "enabled": true,
     "rules": {
-      "comment": "#000001",
-      "*.comment": "#000001",
-      "comment.line": "#000001",
-      "comment.block": "#000001"
+      "comment": "{{colors.outline.default.hex}}",
+      "*.comment": "{{colors.outline.default.hex}}",
+      "comment.line": "{{colors.outline.default.hex}}",
+      "comment.block": "{{colors.outline.default.hex}}"
     }
   },
   "editor.semanticHighlighting.enabled": false,
