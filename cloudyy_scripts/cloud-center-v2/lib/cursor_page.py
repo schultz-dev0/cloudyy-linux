@@ -11,7 +11,7 @@ from gi.repository import Adw, Gtk
 import lib.rules_startup_page as rules_startup_page
 import lib.utility as utility
 
-PERSIST = str(Path(__file__).resolve().parents[1] / "hypr_persist.sh")
+PERSIST = "hcm set"
 
 
 def _run(cmd: str) -> None:
@@ -84,9 +84,7 @@ class CursorPage(Gtk.Box):
 
         def on_change(r: Adw.SwitchRow, _param: object) -> None:
             val = "true" if r.get_active() else "false"
-            _run(
-                f"hyprctl keyword {hypr_key} {val} && {PERSIST} {hypr_key} {val} && hyprctl reload"
-            )
+            _run(f"hyprctl keyword {hypr_key} {val} && {PERSIST} {hypr_key} {val} && hyprctl reload")
             _save(setting_key, r.get_active())
 
         row.connect("notify::active", on_change)
@@ -117,9 +115,7 @@ class CursorPage(Gtk.Box):
             if idx >= len(options):
                 return
             val = vals[idx]
-            _run(
-                f"hyprctl keyword {hypr_key} {val} && {PERSIST} {hypr_key} {val} && hyprctl reload"
-            )
+            _run(f"hyprctl keyword {hypr_key} {val} && {PERSIST} {hypr_key} {val} && hyprctl reload")
             _save(setting_key, options[idx])
 
         row.connect("notify::selected", on_change)
@@ -158,9 +154,7 @@ class CursorPage(Gtk.Box):
                 if digits == 0
                 else f"{val:.{digits}f}".rstrip("0").rstrip(".")
             )
-            _run(
-                f"hyprctl keyword {hypr_key} {val_str} && {PERSIST} {hypr_key} {val_str} && hyprctl reload"
-            )
+            _run(f"hyprctl keyword {hypr_key} {val_str} && {PERSIST} {hypr_key} {val_str} && hyprctl reload")
             _save(setting_key, val)
 
         spin.connect("value-changed", on_change)

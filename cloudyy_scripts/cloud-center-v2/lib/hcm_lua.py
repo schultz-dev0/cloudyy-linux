@@ -8,6 +8,7 @@ matching user module exists and hyprland.lua actively requires it.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -19,8 +20,6 @@ from pathlib import Path
 from typing import Optional
 
 from gi.repository import Adw, GLib, Gtk, Pango
-
-from lib.hyprlua_runtime import ensure_source_active, ensure_user_override_active
 
 log = logging.getLogger(__name__)
 
@@ -83,25 +82,15 @@ def _read_lua_description(path: Path) -> str:
 
 
 # ── Logic ─────────────────────────────────────────────────────────────────────
+#
+# All persistence and activation now lives in the `hcm` Rust binary
+# (~/.local/bin/hcm). These Python functions are thin wrappers that shell out
+# and translate the JSON wire format back into the GTK page's existing types.
 
-def _normalize_require_line(line: str) -> str:
-    stripped = line.strip()
-    if "--" not in stripped:
-        return " ".join(stripped.split())
-    code, comment = stripped.split("--", 1)
-    normalized_code = " ".join(code.split())
-    normalized_comment = " ".join(comment.split())
-    return f"{normalized_code} -- {normalized_comment}"
-
-
-def _active_require_lines() -> set[str]:
-    if not MAIN_LUA.exists():
-        return set()
-    return {
-        _normalize_require_line(line)
-        for line in MAIN_LUA.read_text(encoding="utf-8").splitlines()
-        if line.strip().startswith('require("')
-    }
+_STATUS_FROM_JSON = {
+    "distro": LuaFileStatus.DISTRO,
+    "user_override": LuaFileStatus.USER_OVERRIDE,
+}
 
 
 def _user_module_path(path: Path) -> Path:
@@ -115,29 +104,23 @@ def _preview_path_for(cf: LuaConfigFile) -> Path:
     return cf.path
 
 
-def switch_to_user_override(cf: LuaConfigFile) -> UserOverrideResult:
-    edit_path = _user_module_path(cf.path)
-    created_override = not edit_path.exists()
-    if not edit_path.exists():
-        USER_DIR.mkdir(parents=True, exist_ok=True)
-        edit_path.write_text(cf.path.read_text(encoding="utf-8"), encoding="utf-8")
-    if not MAIN_LUA.exists():
-        verb = "Created" if created_override else "Saved"
-        return UserOverrideResult(
-            edit_path=edit_path,
-            activated=False,
-            message=f"{verb} {edit_path.name}, but could not activate it because hyprland.lua is missing",
-        )
-
-    updated_main = ensure_user_override_active(
-        MAIN_LUA.read_text(encoding="utf-8"),
-        cf.path.stem,
+def _hcm_json(*args: str) -> dict | list:
+    """Run `hcm` and return parsed JSON stdout. Raises on non-zero exit."""
+    result = subprocess.run(
+        ["hcm", *args],
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    MAIN_LUA.write_text(updated_main, encoding="utf-8")
+    return json.loads(result.stdout)
+
+
+def switch_to_user_override(cf: LuaConfigFile) -> UserOverrideResult:
+    data = _hcm_json("activate", cf.path.stem)
     return UserOverrideResult(
-        edit_path=edit_path,
-        activated=True,
-        message=f"Saved {edit_path.name} — user override activated",
+        edit_path=Path(data["edit_path"]),
+        activated=bool(data["activated"]),
+        message=data["message"],
     )
 
 
@@ -145,47 +128,20 @@ def scan_lua_files() -> list[LuaConfigFile]:
     """Scan SOURCE_DIR and annotate each file as distro or user override."""
     if not SOURCE_DIR.exists():
         return []
-
-    active = _active_require_lines()
-    files: list[LuaConfigFile] = []
-    for p in sorted(SOURCE_DIR.glob("*.lua")):
-        user_path = _user_module_path(p)
-        status = LuaFileStatus.USER_OVERRIDE if (
-            user_path.exists()
-            and f'require("user-configs.user_{p.stem}") -- managed by Cloud Center' in active
-        ) else LuaFileStatus.DISTRO
-        files.append(LuaConfigFile(
-            filename=p.name,
-            path=p,
-            description=_read_lua_description(p),
-            status=status,
-        ))
-    return files
+    return [
+        LuaConfigFile(
+            filename=item["filename"],
+            path=Path(item["path"]),
+            description=item["description"],
+            status=_STATUS_FROM_JSON[item["status"]],
+        )
+        for item in _hcm_json("scan", "--json")
+    ]
 
 
 def revert_to_baseline(cf: LuaConfigFile) -> tuple[bool, str]:
-    user_path = _user_module_path(cf.path)
-
-    if not user_path.exists():
-        return False, "No user override found — already using distro source"
-
-    try:
-        user_path.unlink()
-    except OSError as e:
-        return False, f"Could not delete user override: {e}"
-
-    if not MAIN_LUA.exists():
-        return False, (
-            f"Deleted {user_path.name}, but could not activate distro source because "
-            "hyprland.lua is missing"
-        )
-
-    updated_main = ensure_source_active(
-        MAIN_LUA.read_text(encoding="utf-8"),
-        cf.path.stem,
-    )
-    MAIN_LUA.write_text(updated_main, encoding="utf-8")
-    return True, f"Reverted {cf.filename} to distro source"
+    data = _hcm_json("revert", cf.path.stem)
+    return bool(data["ok"]), data["message"]
 
 
 def _preview_lines(path: Path, max_lines: int = 60) -> str:
@@ -203,8 +159,6 @@ class LuaConfigManagerPage(Gtk.Box):
     Two-panel config manager for source/*.lua modules.
     Left:  scrollable file list with distro/override badges.
     Right: description, status, preview, Edit button.
-
-    Structurally mirrors ConfigManagerPage from hcm.py.
     """
 
     def __init__(self, toast_overlay: Adw.ToastOverlay) -> None:

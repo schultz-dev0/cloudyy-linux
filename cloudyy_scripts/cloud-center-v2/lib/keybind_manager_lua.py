@@ -6,8 +6,6 @@ Lua keybind manager for ~/.config/hypr/source/bindings.lua and
 Writes/reads a Cloud Center-managed section delimited by:
   -- --- Cloud Center Additions (managed by Cloud Center) ---
   -- --- End Cloud Center Additions ---
-
-NOT wired into the Cloud Center UI yet — logic layer only.
 """
 from __future__ import annotations
 
@@ -24,7 +22,8 @@ from typing import Optional
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
 import lib.hcm_lua as hcm_lua
-from lib.hyprlua_runtime import ensure_user_override_active
+# lib.hyprlua_runtime was replaced by the `hcm` Rust binary; we shell out
+# via subprocess (already imported above) when we need to flip activation.
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ _CC_BEGIN = '-- --- Cloud Center Additions (managed by Cloud Center) ---'
 _CC_END   = '-- --- End Cloud Center Additions ---'
 
 
-# ── Dispatcher categories (same as keybind_manager.py) ───────────────────────
+# ── Dispatcher categories ─────────────────────────────────────────────────────
 
 DISPATCHER_CATEGORIES = [
     {"id": "workspace", "label": "Workspace Navigation", "icon": "shell-overview-symbolic"},
@@ -289,17 +288,15 @@ def _ensure_user_bindings_lua() -> None:
         if not result.activated:
             raise FileNotFoundError(result.message)
     else:
+        # No source/bindings.lua to copy from — write a minimal stub by hand
+        # and ask hcm to flip the activation line.
         hcm_lua.USER_DIR.mkdir(parents=True, exist_ok=True)
         BINDINGS_LUA.write_text(
             f"{_CC_BEGIN}\n{_CC_END}\n",
             encoding="utf-8",
         )
         if MAIN_LUA.exists():
-            updated_main = ensure_user_override_active(
-                MAIN_LUA.read_text(encoding="utf-8"),
-                "bindings",
-            )
-            MAIN_LUA.write_text(updated_main, encoding="utf-8")
+            subprocess.run(["hcm", "activate", "bindings"], check=False)
     _ensure_cc_markers(BINDINGS_LUA)
 
 
@@ -344,10 +341,13 @@ def _write_cc_section(lines: list[str]) -> None:
 
 def _active_bindings_path() -> Path | None:
     if MAIN_LUA.exists():
-        files = {cf.filename: cf for cf in hcm_lua.scan_lua_files()}
-        bindings = files.get("bindings.lua")
-        if bindings is not None:
-            return hcm_lua._preview_path_for(bindings)
+        try:
+            files = {cf.filename: cf for cf in hcm_lua.scan_lua_files()}
+            bindings = files.get("bindings.lua")
+            if bindings is not None:
+                return hcm_lua._preview_path_for(bindings)
+        except Exception as exc:
+            log.warning("hcm scan unavailable, falling back to file presence: %s", exc)
     if BINDINGS_LUA.exists():
         return BINDINGS_LUA
     if SOURCE_BINDINGS_LUA.exists():
@@ -444,11 +444,7 @@ def update_keybind(old: LuaKeybindEntry, new: LuaKeybindEntry) -> tuple[bool, st
 # ── Edit dialog ───────────────────────────────────────────────────────────────
 
 class LuaKeybindEditDialog(Adw.Dialog):
-    """
-    Keybind edit dialog for Lua bindings.
-    Structurally mirrors KeybindEditDialog from keybind_manager.py.
-    Produces hl.bind("KEYS", hl.dsp.exec_cmd("cmd"), opts) lines.
-    """
+    """Keybind edit dialog for Lua bindings (hl.bind lines)."""
 
     def __init__(
         self,
@@ -675,11 +671,7 @@ class LuaKeybindEditDialog(Adw.Dialog):
 # ── Main Page ─────────────────────────────────────────────────────────────────
 
 class LuaKeybindManagerPage(Gtk.Box):
-    """
-    Keybind manager page for Lua bindings.
-    Structurally mirrors KeybindManagerPage from keybind_manager.py.
-    NOT wired into cloud-center.py yet.
-    """
+    """Keybind manager page for Lua bindings."""
 
     def __init__(self, toast_overlay: Adw.ToastOverlay) -> None:
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL)
@@ -756,7 +748,11 @@ class LuaKeybindManagerPage(Gtk.Box):
         threading.Thread(target=self._do_refresh, daemon=True).start()
 
     def _do_refresh(self) -> None:
-        entries = scan_keybinds()
+        try:
+            entries = scan_keybinds()
+        except Exception:
+            log.exception("Failed to scan Lua keybinds")
+            entries = []
         GLib.idle_add(self._apply_refresh, entries)
 
     def _apply_refresh(self, entries: list[LuaKeybindEntry]) -> bool:
@@ -875,8 +871,18 @@ class LuaKeybindManagerPage(Gtk.Box):
         action_lbl.add_css_class("keybind-action")
         action_lbl.add_css_class("dim-label")
 
+        src_text = entry.source_name or "unknown"
+        if entry.line_no > 0:
+            src_text = f"{src_text}:{entry.line_no}"
+        source_lbl = Gtk.Label(label=f"Source: {src_text}")
+        source_lbl.set_xalign(0)
+        source_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        source_lbl.add_css_class("caption")
+        source_lbl.add_css_class("dim-label")
+
         box.append(top)
         box.append(action_lbl)
+        box.append(source_lbl)
         outer.append(box)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)

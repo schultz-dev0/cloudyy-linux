@@ -163,6 +163,13 @@ phase_dotfiles() {
   bash "${SCRIPT_DIR}/deploy-dotfiles.sh" "${_flags[@]}"
 }
 
+# --- Phase: Binary Seeder ----------------------------------------------------
+# Symlinks shipped binaries (cloudyy_scripts/cloudyy-other/) into ~/.local/bin/
+# so they end up on PATH without a custom export.
+phase_bin_seed() {
+  bash "${SCRIPT_DIR}/bin_check.sh" seed "$(dirname "${SCRIPT_DIR}")"
+}
+
 # --- Phase: Shell Setup -------------------------------------------------------
 # Runs after packages so zsh is guaranteed to be installed.
 phase_shell() {
@@ -321,6 +328,7 @@ phase_finalize() {
 declare -a PHASE_IDS=(
   "preflight"
   "dotfiles"
+  "bin_seed"
   "packages"
   "schema"
   "shell"
@@ -334,6 +342,7 @@ declare -a PHASE_IDS=(
 declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
   [dotfiles]="Dotfiles Deployment"
+  [bin_seed]="Binary Seeder"
   [packages]="Hardware & Package Installation"
   [schema]="XDG Portal & Schema Settings"
   [shell]="Shell Configuration"

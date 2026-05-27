@@ -9,7 +9,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import gi
 gi.require_version("GdkPixbuf", "2.0")
@@ -42,11 +42,21 @@ def _make_prefix_icon(icon_name: str) -> Gtk.Widget:
 # ── Shared context passed to every row ───────────────────────────────────────
 
 class RowContext:
-    def __init__(self, toast_overlay: Adw.ToastOverlay):
+    def __init__(
+        self,
+        toast_overlay: Adw.ToastOverlay,
+        navigate_to_page: Callable[[str], bool] | None = None,
+    ):
         self.toast_overlay = toast_overlay
+        self._navigate_to_page = navigate_to_page
 
     def toast(self, msg: str) -> None:
         utility.toast(self.toast_overlay, msg)
+
+    def navigate_to_page(self, page_id: str) -> bool:
+        if self._navigate_to_page is None:
+            return False
+        return self._navigate_to_page(page_id)
 
 
 # ── Base widget lifecycle helper ──────────────────────────────────────────────
@@ -108,6 +118,12 @@ class ButtonRow(Adw.ActionRow, _ManagedRow):
         action_id = self._props.get("action", "")
         if action_id == "bezier_editor":
             self._open_bezier_editor()
+            return
+        if action_id.startswith("navigate_page:"):
+            target = action_id.split(":", 1)[1].strip()
+            if target and self._ctx.navigate_to_page(target):
+                return
+            self._ctx.toast("Navigation target unavailable")
             return
 
         cmd = self._action.get("command", "")

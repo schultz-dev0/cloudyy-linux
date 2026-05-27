@@ -16,12 +16,16 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 from gi.repository import Gtk as _Gtk
-from lib.hyprlua_runtime import ensure_user_override_active
+# lib.hyprlua_runtime was replaced by the `hcm` Rust binary; we now shell out
+# via subprocess (already imported above) for the activate-line transform.
+from lib import hyprlua_reader
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 HYPR_DIR  = Path.home() / '.config' / 'hypr'
 CONF_PATH = HYPR_DIR / 'user-configs' / 'user_rules_startup.lua'
+SOURCE_WINDOWRULES = HYPR_DIR / 'source' / 'windowrules.lua'
+SOURCE_AUTOSTART   = HYPR_DIR / 'source' / 'autostart.lua'
 MANAGED_STATE_PREFIX = '-- @cloud-center-state = '
 
 # Section markers
@@ -389,12 +393,7 @@ def _write_conf(
     tmp.write_text('\n'.join(out), encoding='utf-8')
     tmp.replace(path)
 
-    main_lua = HYPR_DIR / 'hyprland.lua'
-    if main_lua.exists():
-        updated = ensure_user_override_active(main_lua.read_text(encoding='utf-8'), 'rules_startup')
-        tmp_main = main_lua.with_name(main_lua.name + '.tmp')
-        tmp_main.write_text(updated, encoding='utf-8')
-        tmp_main.replace(main_lua)
+    subprocess.run(['hcm', 'activate', 'rules_startup'], check=False)
 
 
 def upsert_env_vars(updates: dict[str, str], path: Path | None = None) -> None:
@@ -1209,6 +1208,54 @@ def _make_list_header(title: str, on_add) -> tuple:
     return box, count
 
 
+def _make_baseline_row(primary: str, secondary: str, pills: list[str], origin: str):
+    """Read-only list row for entries discovered in distro source files or the
+    user file body outside the Cloud-Center-managed sentinel block."""
+    Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
+    row = Gtk.ListBoxRow()
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+    box.set_margin_start(12)
+    box.set_margin_end(8)
+    box.set_margin_top(8)
+    box.set_margin_bottom(8)
+
+    top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    prim_lbl = Gtk.Label(label=primary or '(unnamed)')
+    prim_lbl.set_xalign(0)
+    prim_lbl.set_hexpand(True)
+    prim_lbl.add_css_class('heading')
+    prim_lbl.add_css_class('dim-label')
+    prim_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+
+    origin_lbl = Gtk.Label(label=origin)
+    origin_lbl.add_css_class('caption')
+    origin_lbl.add_css_class('tag')
+    top.append(prim_lbl)
+    top.append(origin_lbl)
+    box.append(top)
+
+    if secondary:
+        sub = Gtk.Label(label=secondary)
+        sub.set_xalign(0)
+        sub.add_css_class('dim-label')
+        sub.add_css_class('caption')
+        sub.set_ellipsize(Pango.EllipsizeMode.END)
+        box.append(sub)
+
+    if pills:
+        pill_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        pill_box.set_margin_top(2)
+        for text in pills:
+            p = Gtk.Label(label=text)
+            p.add_css_class('caption')
+            p.add_css_class('tag')
+            pill_box.append(p)
+        box.append(pill_box)
+
+    row.set_child(box)
+    return row
+
+
 def _make_rule_row(primary: str, secondary: str, pills: list[str], on_edit, on_delete):
     """Generic list row: primary heading, optional subtitle, pill tags, Edit/Delete buttons."""
     Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
@@ -1269,6 +1316,7 @@ class _WindowRulesTab(_Gtk.Box):
         self._page = page
         self._items:    list[WindowRule] = []
         self._baseline: list[WindowRule] = []
+        self._readonly: list[tuple[WindowRule, str]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -1291,9 +1339,22 @@ class _WindowRulesTab(_Gtk.Box):
         self._baseline = list(items)
         self._refresh()
 
+    def set_readonly(self, items: list[tuple[WindowRule, str]]) -> None:
+        self._readonly = list(items)
+        self._refresh()
+
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
+        for rule, origin in self._readonly:
+            matcher_str = ' · '.join(f'{k} {v}' for k, v in rule.matchers)
+            pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
+            self._list.append(_make_baseline_row(
+                primary=rule.name or matcher_str,
+                secondary=matcher_str if rule.name else '',
+                pills=pills,
+                origin=origin,
+            ))
         for i, rule in enumerate(self._items):
             matcher_str = ' · '.join(f'{k} {v}' for k, v in rule.matchers)
             pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
@@ -1304,7 +1365,7 @@ class _WindowRulesTab(_Gtk.Box):
                 on_edit=lambda idx=i: self._on_edit(idx),
                 on_delete=lambda idx=i: self._on_delete(idx),
             ))
-        self._count_lbl.set_text(str(len(self._items)))
+        self._count_lbl.set_text(str(len(self._items) + len(self._readonly)))
 
     def _on_add(self) -> None:
         _WindowRuleDialog(self, self._mutate_add)
@@ -1344,6 +1405,7 @@ class _LayerRulesTab(_Gtk.Box):
         self._page = page
         self._items:    list[LayerRule] = []
         self._baseline: list[LayerRule] = []
+        self._readonly: list[tuple[LayerRule, str]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -1366,9 +1428,21 @@ class _LayerRulesTab(_Gtk.Box):
         self._baseline = list(items)
         self._refresh()
 
+    def set_readonly(self, items: list[tuple[LayerRule, str]]) -> None:
+        self._readonly = list(items)
+        self._refresh()
+
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
+        for rule, origin in self._readonly:
+            pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
+            self._list.append(_make_baseline_row(
+                primary=rule.name or rule.namespace or '(unnamed)',
+                secondary=rule.namespace if rule.name else '',
+                pills=pills,
+                origin=origin,
+            ))
         for i, rule in enumerate(self._items):
             pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
             self._list.append(_make_rule_row(
@@ -1378,7 +1452,7 @@ class _LayerRulesTab(_Gtk.Box):
                 on_edit=lambda idx=i: self._on_edit(idx),
                 on_delete=lambda idx=i: self._on_delete(idx),
             ))
-        self._count_lbl.set_text(str(len(self._items)))
+        self._count_lbl.set_text(str(len(self._items) + len(self._readonly)))
 
     def _on_add(self) -> None:
         _LayerRuleDialog(self, self._mutate_add)
@@ -1418,6 +1492,7 @@ class _AutostartTab(_Gtk.Box):
         self._page = page
         self._items:    list[AutostartEntry] = []
         self._baseline: list[AutostartEntry] = []
+        self._readonly: list[tuple[AutostartEntry, str]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -1440,9 +1515,20 @@ class _AutostartTab(_Gtk.Box):
         self._baseline = list(items)
         self._refresh()
 
+    def set_readonly(self, items: list[tuple[AutostartEntry, str]]) -> None:
+        self._readonly = list(items)
+        self._refresh()
+
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
+        for entry, origin in self._readonly:
+            self._list.append(_make_baseline_row(
+                primary=entry.command,
+                secondary='',
+                pills=['exec-once' if entry.exec_once else 'exec'],
+                origin=origin,
+            ))
         for i, entry in enumerate(self._items):
             self._list.append(_make_rule_row(
                 primary=entry.command,
@@ -1451,7 +1537,7 @@ class _AutostartTab(_Gtk.Box):
                 on_edit=lambda idx=i: self._on_edit(idx),
                 on_delete=lambda idx=i: self._on_delete(idx),
             ))
-        self._count_lbl.set_text(str(len(self._items)))
+        self._count_lbl.set_text(str(len(self._items) + len(self._readonly)))
 
     def _on_add(self) -> None:
         _AutostartDialog(self, self._mutate_add)
@@ -1491,6 +1577,7 @@ class _EnvVarsTab(_Gtk.Box):
         self._page = page
         self._items:    list[EnvVar] = []
         self._baseline: list[EnvVar] = []
+        self._readonly: list[tuple[EnvVar, str]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -1513,9 +1600,20 @@ class _EnvVarsTab(_Gtk.Box):
         self._baseline = list(items)
         self._refresh()
 
+    def set_readonly(self, items: list[tuple[EnvVar, str]]) -> None:
+        self._readonly = list(items)
+        self._refresh()
+
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
+        for var, origin in self._readonly:
+            self._list.append(_make_baseline_row(
+                primary=var.name,
+                secondary=var.value,
+                pills=[],
+                origin=origin,
+            ))
         for i, var in enumerate(self._items):
             self._list.append(_make_rule_row(
                 primary=var.name,
@@ -1524,7 +1622,7 @@ class _EnvVarsTab(_Gtk.Box):
                 on_edit=lambda idx=i: self._on_edit(idx),
                 on_delete=lambda idx=i: self._on_delete(idx),
             ))
-        self._count_lbl.set_text(str(len(self._items)))
+        self._count_lbl.set_text(str(len(self._items) + len(self._readonly)))
 
     def _on_add(self) -> None:
         _EnvVarDialog(self, self._mutate_add)
@@ -1626,16 +1724,80 @@ class RulesStartupPage(_Gtk.Box):
         return box
 
     def _load_from_file(self) -> None:
-        if not CONF_PATH.exists():
-            return
+        user_text = ''
+        if CONF_PATH.exists():
+            try:
+                user_text = CONF_PATH.read_text(encoding='utf-8')
+                sections = _parse_conf(user_text)
+                self._window_tab.parse(sections['window_rules'])
+                self._layer_tab.parse(sections['layer_rules'])
+                self._autostart_tab.parse(sections['autostart'])
+                self._env_tab.parse(sections['env_vars'])
+            except Exception as e:
+                log.warning('Failed to load rules conf: %s', e)
+
+        # Read-only baseline: rules/autostart entries living in the distro
+        # source files plus anything the user has hand-edited into the user file
+        # body outside of the sentinel-managed section. These are *not*
+        # editable — Apply rewrites the whole file body from the sentinel.
         try:
-            sections = _parse_conf(CONF_PATH.read_text(encoding='utf-8'))
-            self._window_tab.parse(sections['window_rules'])
-            self._layer_tab.parse(sections['layer_rules'])
-            self._autostart_tab.parse(sections['autostart'])
-            self._env_tab.parse(sections['env_vars'])
+            distro_text = ''
+            if SOURCE_WINDOWRULES.exists():
+                distro_text += SOURCE_WINDOWRULES.read_text(encoding='utf-8')
+            distro_autostart_text = (
+                SOURCE_AUTOSTART.read_text(encoding='utf-8')
+                if SOURCE_AUTOSTART.exists() else ''
+            )
+
+            distro_windows = [
+                WindowRule(**w) for w in hyprlua_reader.parse_window_rules(distro_text)
+            ]
+            distro_layers = [
+                LayerRule(**l) for l in hyprlua_reader.parse_layer_rules(distro_text)
+            ]
+            distro_autostart = [
+                AutostartEntry(**a) for a in hyprlua_reader.parse_autostart(distro_autostart_text)
+            ]
+
+            sentinel_windows  = list(self._window_tab._items)
+            sentinel_layers   = list(self._layer_tab._items)
+            sentinel_autostart = list(self._autostart_tab._items)
+            sentinel_env      = list(self._env_tab._items)
+
+            body_windows = [
+                WindowRule(**w) for w in hyprlua_reader.parse_window_rules(user_text)
+                if WindowRule(**w) not in sentinel_windows
+            ]
+            body_layers = [
+                LayerRule(**l) for l in hyprlua_reader.parse_layer_rules(user_text)
+                if LayerRule(**l) not in sentinel_layers
+            ]
+            body_autostart = [
+                AutostartEntry(**a) for a in hyprlua_reader.parse_autostart(user_text)
+                if AutostartEntry(**a) not in sentinel_autostart
+            ]
+            body_env = [
+                EnvVar(**e) for e in hyprlua_reader.parse_env_vars(user_text)
+                if EnvVar(**e) not in sentinel_env
+            ]
+
+            self._window_tab.set_readonly(
+                [(r, 'distro') for r in distro_windows]
+                + [(r, 'user-manual') for r in body_windows]
+            )
+            self._layer_tab.set_readonly(
+                [(r, 'distro') for r in distro_layers]
+                + [(r, 'user-manual') for r in body_layers]
+            )
+            self._autostart_tab.set_readonly(
+                [(r, 'distro') for r in distro_autostart]
+                + [(r, 'user-manual') for r in body_autostart]
+            )
+            self._env_tab.set_readonly(
+                [(r, 'user-manual') for r in body_env]
+            )
         except Exception as e:
-            log.warning('Failed to load rules conf: %s', e)
+            log.warning('Failed to load read-only baseline: %s', e)
 
     def apply_live(self) -> None:
         """Write conf + reload. Called by tabs after any mutation."""
