@@ -84,6 +84,7 @@ SIDEBAR_WIDTH   = 200   # px
 CLI_PAGE_ALIASES: dict[str, str] = {
     "home": "home",
     "appearance": "appearance",
+    "wallpapers": "wallpapers",
     "hyprland": "hyprland",
     "input": "input",
     "wifi": "__wifi__",
@@ -210,7 +211,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         self._config   = load_config()
         self._toast_ov = Adw.ToastOverlay()
-        self._ctx      = RowContext(self._toast_ov)
+        self._ctx      = RowContext(self._toast_ov, self.navigate_to_page)
         self._has_touchpad = detect_touchpad()
 
         # All searchable items: (title, subtitle, widget_builder)
@@ -312,7 +313,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__rules__": {"id": "__rules__", "title": "Rules & Startup", "icon": "preferences-system-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
-            ("Visuals",         ["appearance", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
+            ("Visuals",         ["appearance", "wallpapers", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
             ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
             ("System",          ["__bt__", "__wifi__", "__audio__", "__rgb__"]),
         ]
@@ -807,6 +808,7 @@ class CloudCenter(Adw.Application):
         flag_specs = [
             ("home", "Open Home page"),
             ("appearance", "Open Appearance page"),
+            ("wallpapers", "Open Wallpapers page"),
             ("hyprland", "Open Hyprland page"),
             ("input", "Open Input page"),
             ("wifi", "Open Wi-Fi page"),
@@ -837,7 +839,7 @@ class CloudCenter(Adw.Application):
             self._requested_page = CLI_PAGE_ALIASES.get(requested, requested)
 
         for flag in (
-            "home", "appearance", "hyprland", "input",
+            "home", "appearance", "wallpapers", "hyprland", "input",
             "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
             "config-manager", "lua-config-manager",
             "keybind-manager", "keybinds",

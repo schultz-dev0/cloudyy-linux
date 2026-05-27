@@ -23,8 +23,6 @@ from typing import Optional
 
 from gi.repository import Adw, GLib, Gtk, Pango
 
-from lib.hyprlua_runtime import ensure_user_override_active
-
 log = logging.getLogger(__name__)
 
 HYPR_DIR       = Path.home() / ".config" / "hypr"
@@ -743,12 +741,10 @@ def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
         os.fsync(f.fileno())
     Path(tmp_path).replace(MONITORS_CONF)
 
-    main_lua = HYPR_DIR / "hyprland.lua"
-    if main_lua.exists():
-        updated = ensure_user_override_active(main_lua.read_text(encoding="utf-8"), "monitors")
-        tmp_main = main_lua.with_name(main_lua.name + ".tmp")
-        tmp_main.write_text(updated, encoding="utf-8")
-        os.replace(tmp_main, main_lua)
+    # Make user_monitors.lua the active require in hyprland.lua. hcm sees the
+    # user file already exists (we just wrote it above) and only updates the
+    # activation line in hyprland.lua.
+    subprocess.run(["hcm", "activate", "monitors"], check=False)
 
     log.info("Wrote monitor config for %s: %s (workspaces: %s)", name, line, workspaces)
 
