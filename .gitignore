@@ -71,6 +71,10 @@ cloudyy_scripts/pin-ksp.sh
 .config/kitty/kitty-colors.conf
 .config/btop/themes/matugen.theme
 .config/nvim/lua/current_mode.lua
+cloudyy_scripts/source/*
+!cloudyy_scripts/source/hcm/
+cloudyy_scripts/source/hcm/target/
+cloudyy_scripts/source/hcm/tests/
 
 # Local AI tooling
 .claude*
