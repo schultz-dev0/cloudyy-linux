@@ -1,22 +1,20 @@
 Disclaimer: Some of the things in this projects are written with AI, as this is a work in progress project I will overwrite and fix things as I go, but AI makes my student life easier. Thanks! Enjoy the dotfiles.
 
-A Hyprland rice for Arch Linux — Material-You theming via matugen, dynamic light/dark switching, and a full interactive installer.
+A Hyprland rice for Arch Linux (and SOON NixOS). The theme is utility and eyecandy, a lot of things are inspired by MacOS. A lot of the utility in this rice is adjusted specific for developers. 
 
 ## Install
 
-DISCLAIMER!!!! Currently installer script suite is broken, I was stupid enough to trust AI to help me with the install script, it messed everything up, and yes I am aware that it is my fault! Please do not attempt to download UNLESS you know what you are doing and can fix broken files or configs! Standby for repair commit!
-
 ```bash
-sudo pacman -S git
 git clone https://github.com/schultz-dev0/cloudyy-linux ~/cloudyy-linux
 ~/cloudyy-linux/install/install.sh
 ```
 
-Follow the prompts — the installer handles GPU detection, package selection, dotfiles symlinking, and service setup automatically. Resumes from the last checkpoint if interrupted.
+Follow the prompts, the installer handles GPU detection, package selection, dotfiles symlinking, and service setup automatically. Resumes from the last checkpoint if interrupted.
 
 ## Usage
 
-Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
+!Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
+New video soon with the latest feature set. 
 
 - **Theme toggle**: `~/cloudyy_scripts/theme_controller.sh toggle`
 - **Rofi launcher**: `Super + Alt + Space` — includes app launcher, keybind help, theme picker, and more
