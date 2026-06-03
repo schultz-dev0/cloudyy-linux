@@ -11,7 +11,7 @@
 # - Creates necessary directories and config files
 # =============================================================================
 
-set -euo pipefail
+set -euo pipefail -E
 
 # --- Colors (TTY-aware) ---
 if [[ -t 1 ]]; then
@@ -22,14 +22,19 @@ else
 fi
 
 # --- Logging ---
-log() { printf '%s[*]%s %s\n' "$BLUE" "$RESET" "$1"; }
-log_ok() { printf '%s[✓]%s %s\n' "$GREEN" "$RESET" "$1"; }
-log_warn() { printf '%s[!]%s %s\n' "$YELLOW" "$RESET" "$1"; }
-log_error() { printf '%s[✗]%s %s\n' "$RED" "$RESET" "$1" >&2; }
-log_skip() { printf '%s[-]%s %s %s(skipped)%s\n' "$CYAN" "$RESET" "$1" "$YELLOW" "$RESET"; }
-log_section() {
-  printf '\n%s%s── %s%s\n' "$BOLD" "$CYAN" "$1" "$RESET"
+_ts() { date '+%H:%M:%S'; }
+log()         { printf '%s[*]%s  [%s] %s\n'               "$BLUE"   "$RESET" "$(_ts)" "$1"; }
+log_ok()      { printf '%s[✓]%s  [%s] %s\n'               "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()    { printf '%s[!]%s  [%s] %s\n'               "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error()   { printf '%s[✗]%s  [%s] %s\n'               "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log_skip()    { printf '%s[-]%s  [%s] %s %s(skipped)%s\n' "$CYAN"   "$RESET" "$(_ts)" "$1" "$YELLOW" "$RESET"; }
+log_section() { printf '\n%s%s── %s%s\n'                   "$BOLD"   "$CYAN"  "$1"     "$RESET"; }
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
 }
+trap '_err_handler' ERR
 
 # --- Configuration ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
@@ -65,8 +70,8 @@ add_to_shell_rc() {
 
   cat >>"$rc_file" <<EOF
 
-    ${SHELL_THEME_BEGIN}
-    # Apply system theme environment variables (cloudyy-linux)
+${SHELL_THEME_BEGIN}
+# Apply system theme environment variables (cloudyy-linux)
 if [[ -f "${HOME}/.config/hypr/theme_state/system_theme.env" ]]; then
   # shellcheck source=/dev/null
   source "${HOME}/.config/hypr/theme_state/system_theme.env"
@@ -74,7 +79,7 @@ fi
 
 # Ensure Qt uses appropriate theme
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-kvantum}"
-    ${SHELL_THEME_END}
+${SHELL_THEME_END}
 EOF
 
   log_ok "Updated $(basename "$rc_file")"
@@ -186,6 +191,11 @@ setup_hyprland_integration() {
 
   log_warn "Optional: Add theme auto-apply to Hyprland config?"
   log "This will add: exec-once = ~/cloudyy_scripts/theme_controller.sh restore"
+
+  if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
+    log "Unattended mode — skipping optional Hyprland config prompt."
+    return 0
+  fi
 
   read -rp "Add to Hyprland config? [Y/n]: " _confirm
   if [[ "${_confirm,,}" != "n" ]]; then

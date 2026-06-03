@@ -6,14 +6,20 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
-import Quickshell.Services.UPower
 import Quickshell.Io
 import Quickshell.Wayland
 import "overview/services"
 import "modules/spotlight" as QuickSpotlight
+import "modules/timer" as QuickTimer
+import "modules/systemmonitor" as QuickSystemMonitor
+import "modules/battery" as QuickBattery
 
 PanelWindow {
     id: bar
+
+    property var assignedScreen: null
+    property bool ipcEnabled: true
+    screen: assignedScreen
 
     // ── Tunables ─────────────────────────────────────────────────────────────
     readonly property int barHeight: 40
@@ -38,6 +44,7 @@ PanelWindow {
     property bool dnd: false
     property bool spotlightOpen: false
     property string spotlightQuery: ""
+    property string keyboardLayoutLabel: "--"
     property var spotlightResults: []
     property int spotlightSelectedIndex: 0
     signal notifToggle
@@ -68,7 +75,25 @@ PanelWindow {
         const p = procProto.createObject(bar, {
             command: cmd
         });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
+        });
         p.running = true;
+    }
+
+    Timer {
+        id: deferredWindowFocusTimer
+        interval: 500
+        repeat: false
+        property string windowTitle: ""
+        onTriggered: HyprDispatch.focusWindowByTitle(windowTitle)
+    }
+
+    function launchAndFocusByTitle(cmd, title) {
+        launch(cmd);
+        deferredWindowFocusTimer.windowTitle = title;
+        deferredWindowFocusTimer.restart();
     }
 
     function showSpotlight() {
@@ -93,7 +118,7 @@ PanelWindow {
             const result = spotlightResults[idx];
             if (result.type === "app") {
                 if (result.isRunning)
-                    Hyprland.dispatch("focuswindow class:" + result.wmclass);
+                    HyprDispatch.focusWindowByClass(result.wmclass);
                 else
                     launch(["uwsm-app", "--", result.exec]);
             } else {
@@ -115,6 +140,22 @@ PanelWindow {
             y += 46;
         }
         return y + 28;
+    }
+
+    function updateKeyboardLayout(devices) {
+        const keyboards = devices?.keyboards ?? [];
+        const activeKeyboard = keyboards.find(keyboard => keyboard?.main) || keyboards[0];
+
+        if (!activeKeyboard) {
+            keyboardLayoutLabel = "--";
+            return;
+        }
+
+        const layouts = `${activeKeyboard.layout ?? ""}`.split(",").map(part => part.trim()).filter(Boolean);
+        const layoutIndex = Math.max(0, Number(activeKeyboard.active_layout_index ?? 0));
+        const activeLayout = layouts[layoutIndex] ?? layouts[0] ?? "";
+
+        keyboardLayoutLabel = activeLayout.length > 0 ? activeLayout.toUpperCase() : "--";
     }
 
     function ensureSpotlightSelectionVisible() {
@@ -155,6 +196,27 @@ PanelWindow {
         }
     }
 
+    Component.onCompleted: getKeyboardDevices.running = true
+
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event) {
+            const eventName = `${event?.name ?? event?.event ?? event?.type ?? ""}`;
+            if (eventName === "activelayout" || eventName === "configreloaded")
+                getKeyboardDevices.running = true;
+        }
+    }
+
+    Process {
+        id: getKeyboardDevices
+        command: ["hyprctl", "devices", "-j"]
+        stdout: StdioCollector {
+            id: keyboardDevicesCollector
+            onStreamFinished: bar.updateKeyboardLayout(JSON.parse(keyboardDevicesCollector.text))
+        }
+    }
+
     Timer {
         id: spotlightDebounceTimer
         interval: bar.spotlightDebounceMs
@@ -176,19 +238,27 @@ PanelWindow {
     onSpotlightQueryChanged: spotlightDebounceTimer.restart()
     onSpotlightSelectedIndexChanged: Qt.callLater(() => ensureSpotlightSelectionVisible())
 
-    IpcHandler {
-        target: "spotlight"
-        function toggle() {
-            if (bar.spotlightOpen)
-                bar.hideSpotlight();
-            else
+    Loader {
+        active: bar.ipcEnabled
+        sourceComponent: ipcHandlerComponent
+    }
+
+    Component {
+        id: ipcHandlerComponent
+        IpcHandler {
+            target: "spotlight-bar"
+            function toggle() {
+                if (bar.spotlightOpen)
+                    bar.hideSpotlight();
+                else
+                    bar.showSpotlight();
+            }
+            function show() {
                 bar.showSpotlight();
-        }
-        function show() {
-            bar.showSpotlight();
-        }
-        function hide() {
-            bar.hideSpotlight();
+            }
+            function hide() {
+                bar.hideSpotlight();
+            }
         }
     }
 
@@ -203,6 +273,8 @@ PanelWindow {
         signal clicked
         signal scrollUp
         signal scrollDown
+        signal hoverEntered
+        signal hoverExited
 
         height: bar.barHeight - bar.pillPadV * 2
         implicitWidth: pillText.implicitWidth
@@ -226,9 +298,17 @@ PanelWindow {
             onWheel: e => {
                 e.angleDelta.y > 0 ? pill.scrollUp() : pill.scrollDown();
             }
-            onEntered: if (pill.hoverable)
-                pill.color = Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.9)
-            onExited: pill.color = pill.bg
+            onEntered: {
+                if (pill.hoverable) {
+                    pill.color = Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.9);
+                    pill.hoverEntered();
+                }
+            }
+            onExited: {
+                pill.color = pill.bg;
+                if (pill.hoverable)
+                    pill.hoverExited();
+            }
         }
     }
 
@@ -287,7 +367,9 @@ PanelWindow {
                 property string n: "0"
                 label: "󰏔 " + n
                 width: implicitWidth + bar.pillPadH * 2
-                onClicked: bar.launch(["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh & sleep 0.5; hyprctl dispatch focuswindow title:cloudyy-updater"])
+                onClicked: bar.launchAndFocusByTitle(
+                    ["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh"],
+                    "cloudyy-updater")
                 Timer {
                     interval: 3600000
                     running: true
@@ -414,6 +496,8 @@ PanelWindow {
                     }
                 }
             }
+
+            QuickTimer.TimerBarPill {}
         }
 
         // ── CENTER ────────────────────────────────────────────────────────────
@@ -479,9 +563,9 @@ PanelWindow {
                                 onCurrentIconSourcesChanged: sourceIndex = 0
                                 sourceSize: Qt.size(28, 28)
                                 smooth: true
-                                source: currentIconSources[sourceIndex] ?? "image://icon/application-x-executable"
-                                layer.enabled: visible
-                                layer.smooth: true
+                                source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
+                                layer.enabled: visible && !Perf.lightweight
+                                layer.smooth: !Perf.lightweight
                                 layer.effect: MultiEffect {
                                     colorization: 1.0
                                     colorizationColor: focused ? Theme.secondary : Theme.outline
@@ -504,8 +588,8 @@ PanelWindow {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: Hyprland.dispatch("workspace " + modelData)
-                                onWheel: e => Hyprland.dispatch(e.angleDelta.y > 0 ? "workspace e-1" : "workspace e+1")
+                                onClicked: HyprDispatch.focusWorkspace(modelData)
+                                onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
                             }
                         }
                     }
@@ -515,6 +599,7 @@ PanelWindow {
 
         // ── RIGHT ─────────────────────────────────────────────────────────────
         Row {
+            id: rightRow
             anchors {
                 right: parent.right
                 rightMargin: 6
@@ -542,6 +627,16 @@ PanelWindow {
                     player.next()
                 onScrollDown: if (player)
                     player.previous()
+            }
+
+            Pill {
+                id: keyboardLayoutPill
+                label: " " + bar.keyboardLayoutLabel
+                width: implicitWidth + bar.pillPadH * 2
+                iconSize: 14
+                fg: Theme.on_secondary_container
+                bg: Qt.rgba(Theme.secondary_container.r, Theme.secondary_container.g, Theme.secondary_container.b, 0.45)
+                hoverable: false
             }
 
             // Network
@@ -607,70 +702,48 @@ PanelWindow {
             // CPU
             Pill {
                 id: cpuPill
-                property string lbl: "󰍛 ?"
-                label: lbl
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                label: "󰍛 " + sys.cpuPercent + "%"
                 width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_surface_variant
-                Timer {
-                    interval: 2000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: cpuProc.running = true
-                }
-                Process {
-                    id: cpuProc
-                    command: ["bash", "-c", "python3 -c 'import psutil; print(int(psutil.cpu_percent(0.3)))' 2>/dev/null || cut -d' ' -f1 /proc/loadavg"]
-                    stdout: SplitParser {
-                        onRead: d => cpuPill.lbl = "󰍛 " + d.trim() + "%"
-                    }
-                }
-                onClicked: bar.launch(["bash", "-c", "kitty --title btop btop & sleep 0.5; hyprctl dispatch focuswindow title:btop"])
+                fg: sys.open ? Theme.primary : Theme.on_surface_variant
+                bg: sys.open
+                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                onClicked: sys.toggleOpen()
             }
 
             // Memory
             Pill {
                 id: memPill
-                property string lbl: "󰘚"
-                label: lbl
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                label: "󰘚 " + sys.ramPercent + "%"
                 width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_surface_variant
-                Timer {
-                    interval: 2000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: memProc.running = true
-                }
-                Process {
-                    id: memProc
-                    command: ["bash", "-c", "free | awk '/Mem:/{printf \"%d\", $3/$2*100}'"]
-                    stdout: SplitParser {
-                        onRead: d => memPill.lbl = "󰘚 " + d.trim() + "%"
-                    }
-                }
-                onClicked: bar.launch(["bash", "-a", "~/cloudyy_scripts/cloudyy-other/RAMtui"])
+                fg: sys.open ? Theme.primary : Theme.on_surface_variant
+                bg: sys.open
+                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
+                onClicked: sys.toggleOpen()
             }
 
             // Battery
             Pill {
                 id: batPill
-                visible: UPower.displayDevice.isPresent
-                readonly property real pct: UPower.displayDevice.percentage
-                readonly property int bstate: UPower.displayDevice.state
-                readonly property bool charging: bstate === UPowerDeviceState.Charging || bstate === UPowerDeviceState.PendingCharge
-                readonly property bool full: bstate === UPowerDeviceState.FullyCharged
-                label: {
-                    if (full)
-                        return "󰁹 Full";
-                    if (charging)
-                        return "󰂄 " + Math.round(pct) + "%";
-                    const icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂"];
-                    return icons[Math.min(Math.floor(pct / 11), 9)] + " " + Math.round(pct) + "%";
-                }
+                readonly property var bat: QuickBattery.BatteryService
+                readonly property var sys: QuickSystemMonitor.SystemMonitorService
+                visible: bat.available
+                label: bat.barLabel
                 width: visible ? implicitWidth + bar.pillPadH * 2 : 0
-                fg: charging || full ? Theme.tertiary : (pct < 15 ? Theme.on_error_container : Theme.on_surface)
-                bg: charging || full ? Qt.rgba(Theme.tertiary_container.r, Theme.tertiary_container.g, Theme.tertiary_container.b, 0.3) : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6)
+                fg: bat.charging || bat.full
+                    ? Theme.tertiary
+                    : (bat.percent < 15 ? Theme.on_error_container : (sys.open ? Theme.primary : Theme.on_surface))
+                bg: bat.charging || bat.full
+                    ? Qt.rgba(Theme.tertiary_container.r, Theme.tertiary_container.g, Theme.tertiary_container.b, 0.3)
+                    : (sys.open
+                        ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
+                        : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6))
+                onClicked: sys.toggleOpen()
+                onHoverEntered: batteryTooltip.hovered = true
+                onHoverExited: batteryTooltipHideTimer.restart()
             }
 
             // Power
@@ -683,6 +756,18 @@ PanelWindow {
                 onClicked: bar.launch(["bash", "-c", "~/cloudyy_scripts/wlogout.sh"])
             }
         }
+
+    }
+
+    QuickBattery.BatteryTooltip {
+        id: batteryTooltip
+        anchorItem: batPill
+    }
+
+    Timer {
+        id: batteryTooltipHideTimer
+        interval: 200
+        onTriggered: batteryTooltip.hovered = false
     }
 
     PanelWindow {

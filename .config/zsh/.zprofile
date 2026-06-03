@@ -5,4 +5,4 @@ fi
 
 
 # Created by `pipx` on 2026-02-18 23:28:17
-export PATH="$PATH:/home/schultz/.local/bin"
+export PATH="$PATH:$HOME/.local/bin"

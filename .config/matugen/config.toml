@@ -86,11 +86,6 @@ output_path = '~/.config/quickshell/Theme.qml'
 input_path = '~/.config/matugen/templates/obsidian-theme.css'
 output_path = '~/MyLife/.obsidian/snippets/matugen-theme.css'
 
-[templates.pywalfox]
-input_path = '~/.config/matugen/templates/pywal.json'
-output_path = '~/.cache/wal/colors.json'
-post_hook = 'pywalfox update'
-
 [templates.vscodium]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
 output_path = '~/.config/matugen/generated/vscode.json'
@@ -114,18 +109,3 @@ fi
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/matugen/generated/colors.css'
 post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
-
-# Zen Browser UI (userChrome.css)
-[templates.zen_chrome]
-input_path = '~/.config/matugen/templates/userChrome.css.tera'
-output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/userChrome.css'
-
-# Zen Browser Content (userContent.css)
-[templates.zen_content]
-input_path = '~/.config/matugen/templates/userContent.css.tera'
-output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/userContent.css'
-
-# Zen Browser Colors (shared by chrome/content)
-[templates.zen_colors]
-input_path = '~/.config/matugen/templates/colors.css.tera'
-output_path = '~/.config/mozilla/firefox/7i31mCQb.Profile 1/chrome/colors.css'

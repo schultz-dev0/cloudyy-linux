@@ -9,7 +9,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import gi
 gi.require_version("GdkPixbuf", "2.0")
@@ -17,6 +17,7 @@ from gi.repository import Adw, GLib, GdkPixbuf, Gtk
 
 import lib.utility as utility
 import lib.wallpaper_browser as wallpaper_browser
+import lib.extension_browser as extension_browser
 
 log = logging.getLogger(__name__)
 
@@ -41,11 +42,21 @@ def _make_prefix_icon(icon_name: str) -> Gtk.Widget:
 # ── Shared context passed to every row ───────────────────────────────────────
 
 class RowContext:
-    def __init__(self, toast_overlay: Adw.ToastOverlay):
+    def __init__(
+        self,
+        toast_overlay: Adw.ToastOverlay,
+        navigate_to_page: Callable[[str], bool] | None = None,
+    ):
         self.toast_overlay = toast_overlay
+        self._navigate_to_page = navigate_to_page
 
     def toast(self, msg: str) -> None:
         utility.toast(self.toast_overlay, msg)
+
+    def navigate_to_page(self, page_id: str) -> bool:
+        if self._navigate_to_page is None:
+            return False
+        return self._navigate_to_page(page_id)
 
 
 # ── Base widget lifecycle helper ──────────────────────────────────────────────
@@ -107,6 +118,12 @@ class ButtonRow(Adw.ActionRow, _ManagedRow):
         action_id = self._props.get("action", "")
         if action_id == "bezier_editor":
             self._open_bezier_editor()
+            return
+        if action_id.startswith("navigate_page:"):
+            target = action_id.split(":", 1)[1].strip()
+            if target and self._ctx.navigate_to_page(target):
+                return
+            self._ctx.toast("Navigation target unavailable")
             return
 
         cmd = self._action.get("command", "")
@@ -192,14 +209,12 @@ class _ToggleManager(_ManagedRow):
 
     def _on_toggle(self, row: Adw.SwitchRow, _param: object) -> None:
         state = row.get_active()
+        if self._key:
+            utility.save_setting(self._key, state)
         key = "enabled" if state else "disabled"
         act = self._action.get(key, {})
         if cmd := act.get("command", ""):
             utility.execute_command(cmd, terminal=bool(act.get("terminal", False)))
-        if self._key:
-            threading.Thread(
-                target=utility.save_setting, args=(self._key, state), daemon=True
-            ).start()
 
 
 def ToggleRow(props: dict, action: dict | None, ctx: RowContext) -> Adw.SwitchRow:
@@ -683,28 +698,37 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
             # Mirror theme_controller.sh behavior: prefer mode-specific dir if present.
             mode = _read_theme_mode()
             mode_dir = base / mode.capitalize()
+            user_mode_dir = base / "user_wallpapers" / mode.capitalize()
             if mode_dir.is_dir():
-                scan_root = mode_dir
+                scan_roots = [mode_dir]
+                if user_mode_dir.is_dir():
+                    scan_roots.append(user_mode_dir)
                 use_recursive = True
             else:
-                scan_root = base
+                scan_roots = [base]
                 use_recursive = False
 
+            paths: list[Path] = []
+            seen: set[str] = set()
             if use_recursive:
-                paths = [
-                    p for p in scan_root.rglob("*")
-                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
-                ]
+                for scan_root in scan_roots:
+                    for p in scan_root.rglob("*"):
+                        if p.is_file() and p.suffix.lower() in _WALL_EXTS:
+                            key = str(p.resolve())
+                            if key not in seen:
+                                seen.add(key)
+                                paths.append(p)
             else:
-                # Stay shallow in flat dir so Light/ and Dark/ siblings are not mixed.
-                paths = [
-                    p for p in scan_root.iterdir()
-                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
-                ]
+                for p in scan_roots[0].iterdir():
+                    if p.is_file() and p.suffix.lower() in _WALL_EXTS:
+                        key = str(p.resolve())
+                        if key not in seen:
+                            seen.add(key)
+                            paths.append(p)
 
             paths.sort(key=lambda p: p.stat().st_mtime, reverse=True)
             paths = paths[: self._max_items]
-            self._directory = scan_root
+            self._directory = scan_roots[0]
         except Exception as exc:
             log.warning("WallpaperPicker: cannot list %s: %s", self._directory, exc)
             paths = []
@@ -850,6 +874,8 @@ def build_row(item: dict, ctx: RowContext) -> Gtk.Widget | None:
                 return WallpaperPickerRow(props, item.get("on_select"), ctx)
             case "online_wallpaper_browser":
                 return wallpaper_browser.OnlineWallpaperBrowserRow(props, item.get("on_search"), ctx)
+            case "extension_browser":
+                return extension_browser.ExtensionBrowserRow(props, item.get("on_action"), ctx)
             case _:
                 log.warning("Unknown row type: %s", itype)
                 return None

@@ -22,7 +22,7 @@ WALLPAPER_DAEMON_CMD=()
 
 # --- CONFIGURATION (cont.) ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
-WIDGETS_BRIDGE="/home/schultz/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
+WIDGETS_BRIDGE="${HOME}/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
 readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
 readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
 readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
@@ -119,14 +119,6 @@ set_system_theme() {
 
   # Firefox: keep profile prefs aligned with system mode for "Automatic".
   set_firefox_theme "$mode"
-
-  # pywalfox: tell the Firefox extension which colour variant to use.
-  # "pywalfox dark" / "pywalfox light" switches the extension's palette;
-  # matugen's post_hook already runs "pywalfox update" to push new colours.
-  if command -v pywalfox >/dev/null 2>&1; then
-    pywalfox "$mode" 2>/dev/null &
-    log "pywalfox switched to $mode"
-  fi
 }
 
 set_gtk_theme() {
@@ -160,7 +152,6 @@ set_firefox_theme() {
 
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value" "$content_override"
   _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value" "$content_override"
-  _apply_firefox_profiles_ini "$ZEN_PROFILES_INI" "$dark_value" "$content_override"
 }
 
 _apply_firefox_profiles_ini() {
@@ -309,9 +300,21 @@ ensure_swww() {
   fi
 
   pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
+
   log "Starting ${WALLPAPER_DAEMON_CMD[0]}..."
-  "${WALLPAPER_DAEMON_CMD[@]}" --format xrgb >/dev/null 2>&1 &
-  sleep 1
+  # Do NOT pass --format: modern swww auto-detects the correct pixel format.
+  # Passing xrgb (NVIDIA-only) breaks the daemon on Intel/AMD laptops.
+  "${WALLPAPER_DAEMON_CMD[@]}" >/dev/null 2>&1 &
+
+  # Poll until the daemon is responsive — up to 10 seconds
+  local i=0
+  while (( i < 20 )); do
+    pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
+    sleep 0.5
+    (( ++i ))
+  done
+
+  die "${WALLPAPER_DAEMON_CMD[0]} failed to start after 10 seconds — check your Wayland session and GPU drivers"
 }
 
 pick_transition() {
@@ -332,7 +335,10 @@ run_matugen() {
   # --- CRITICAL: Release lock before running background processes ---
   # We lock ONLY the matugen generation part to prevent corruption.
   # We close FD 9 (if it was used) and other common FDs to prevent inheritance.
+  # NOTE: matugen_active_mode is written inside the lock so post_hooks always read
+  # the correct mode even when two theme switches happen in quick succession.
   flock -x "$lockfile" bash -c "
+    echo \"$mode\" > /tmp/matugen_active_mode
     printf '\033[1;34m[THEME]\033[0m Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})...\n'
     matugen image \"$img\" -m \"$mode\" --source-color-index 0 ${extra_args[*]} 9>&- 8>&- 7>&- 6>&- 5>&- 4>&- 3>&-
   " || {

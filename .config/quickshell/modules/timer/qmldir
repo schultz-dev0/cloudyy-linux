@@ -1,0 +1,6 @@
+module QuickTimer
+singleton TimerService 1.0 TimerService.qml
+TimerPanel 1.0 TimerPanel.qml
+TimerCard 1.0 TimerCard.qml
+NewTimerForm 1.0 NewTimerForm.qml
+TimerBarPill 1.0 TimerBarPill.qml

@@ -1,6 +1,6 @@
 pragma ComponentBehavior: Bound
 
-// NotifPanel.qml
+// NotifPanel.qml — lists NotificationServer.trackedNotifications (see NotifPanelService.track in shell.qml).
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -25,7 +25,44 @@ PanelWindow {
     readonly property int notifCardShadowSideInset: 18
     readonly property int notifCardShadowTopInset: 10
     readonly property int notifCardShadowBottomInset: 22
-    readonly property bool hasNotifications: (panel.notifServer?.trackedNotifications?.count ?? 0) > 0
+    readonly property int notifPanelMaxVisible: 3
+    property var visibleNotifications: []
+
+    readonly property int trackedCount: {
+        const vals = panel.notifServer?.trackedNotifications?.values;
+        return vals ? vals.length : 0;
+    }
+    readonly property bool hasNotifications: panel.trackedCount > 0
+
+    function refreshVisibleNotifications() {
+        const vals = panel.notifServer?.trackedNotifications?.values;
+        if (!vals || vals.length === 0) {
+            panel.visibleNotifications = [];
+            return;
+        }
+        const n = panel.notifPanelMaxVisible;
+        // Newest last in model — show most recent at the front of the stack.
+        panel.visibleNotifications = vals.length <= n
+            ? vals.slice().reverse()
+            : vals.slice(vals.length - n).reverse();
+    }
+
+    Connections {
+        target: panel.notifServer
+        function onTrackedNotificationsChanged() {
+            panel.refreshVisibleNotifications();
+        }
+    }
+
+    Connections {
+        target: panel.notifServer?.trackedNotifications
+        enabled: panel.notifServer !== null
+        function onValuesChanged() {
+            panel.refreshVisibleNotifications();
+        }
+    }
+
+    Component.onCompleted: panel.refreshVisibleNotifications()
 
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool open: false
@@ -40,6 +77,8 @@ PanelWindow {
         if (open && sliderController)
             sliderController.refreshAll();
         if (open) {
+            panel.refreshVisibleNotifications();
+            panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
             wifibtTile.refresh();
             darkTile.refresh();
         }
@@ -50,7 +89,7 @@ PanelWindow {
     Timer {
         interval: 60000
         repeat: true
-        running: true
+        running: panel.open
         triggeredOnStart: true
         onTriggered: panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm")
     }
@@ -61,9 +100,14 @@ PanelWindow {
         Process {}
     }
     function launch(cmd) {
-        procProto.createObject(panel, {
+        const p = procProto.createObject(panel, {
             command: cmd
-        }).running = true;
+        });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
+        });
+        p.running = true;
     }
 
     // ── Window setup ──────────────────────────────────────────────────────────
@@ -82,11 +126,24 @@ PanelWindow {
 
     // ── Panel shell ───────────────────────────────────────────────────────────
     Rectangle {
+        id: panelShell
         anchors.fill: parent
         radius: panel.panelRadius
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
+
+        opacity: panel.open ? 1 : 0
+        scale: panel.open ? 1 : 0.94
+        transformOrigin: Item.TopRight
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
+        }
+        Behavior on scale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(200); easing.type: Easing.OutCubic }
+        }
 
         ColumnLayout {
             id: contentColumn
@@ -174,6 +231,16 @@ PanelWindow {
                         Layout.fillWidth: true
                         open: panel.calculatorOpen
                         onClicked: panel.calculatorToggle()
+                    }
+                }
+
+                // ── Third section: system overview tile ───────────────────────
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    SystemTile {
+                        Layout.fillWidth: true
                     }
                 }
             }
@@ -400,6 +467,7 @@ PanelWindow {
             // ── Media card ────────────────────────────────────────────────────
             MediaCard {
                 Layout.fillWidth: true
+                active: panel.open
             }
 
             // ── Notification stack ────────────────────────────────────────────
@@ -416,7 +484,7 @@ PanelWindow {
                 Layout.fillWidth: true
 
                 // ── Tunables ──────────────────────────────────────────────────
-                readonly property int maxVisible: 3
+                readonly property int maxVisible: panel.notifPanelMaxVisible
                 readonly property int peekHeight: 12  // px each card peeks below the one in front
                 readonly property int widthInset:  8  // px inset on each side per depth level
 
@@ -425,7 +493,7 @@ PanelWindow {
                                              + 72
                                              + panel.notifCardShadowBottomInset
 
-                readonly property int notifCount: notifRepeater.count
+                readonly property int notifCount: panel.open ? panel.trackedCount : 0
                 readonly property int shownCount: Math.min(notifCount, maxVisible)
 
                 implicitHeight: notifCount === 0
@@ -438,7 +506,7 @@ PanelWindow {
 
                 Repeater {
                     id: notifRepeater
-                    model: panel.notifServer ? panel.notifServer.trackedNotifications : null
+                    model: panel.open ? panel.visibleNotifications : []
 
                     delegate: Item {
                         id: cardWrapper

@@ -53,8 +53,8 @@ ACTIVE_SHELL_TAB = "quickshell"
 
 import lib.rows as rows
 from lib.rows import RowContext
-import lib.hcm as hcm
-import lib.keybind_manager as keybind_manager
+import lib.hcm_lua as hcm
+import lib.keybind_manager_lua as keybind_manager
 import lib.monitor_editor as monitor_editor
 import lib.edit_dialog as edit_dialog
 import lib.bluetooth_page as bluetooth_page
@@ -62,6 +62,7 @@ import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
 import lib.rgb_page as rgb_page
 import lib.cursor_page as cursor_page
+import lib.rules_startup_page as rules_startup_page
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -83,6 +84,7 @@ SIDEBAR_WIDTH   = 200   # px
 CLI_PAGE_ALIASES: dict[str, str] = {
     "home": "home",
     "appearance": "appearance",
+    "wallpapers": "wallpapers",
     "hyprland": "hyprland",
     "input": "input",
     "wifi": "__wifi__",
@@ -92,6 +94,9 @@ CLI_PAGE_ALIASES: dict[str, str] = {
     "audio": "__audio__",
     "rgb": "__rgb__",
     "lighting": "__rgb__",
+    "config-manager": "__hcm__",
+    "lua-config-manager": "__hcm__",
+    "hcm": "__hcm__",
     "keybind-manager": "__hkbm__",
     "keybinds": "__hkbm__",
     "cursor": "__cursor__",
@@ -206,7 +211,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         self._config   = load_config()
         self._toast_ov = Adw.ToastOverlay()
-        self._ctx      = RowContext(self._toast_ov)
+        self._ctx      = RowContext(self._toast_ov, self.navigate_to_page)
         self._has_touchpad = detect_touchpad()
 
         # All searchable items: (title, subtitle, widget_builder)
@@ -224,6 +229,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
         self._build_ui()
         self._setup_shortcuts()
+        self._search_entry.grab_focus()
         log.info("Window ready")
 
     # ── UI construction ───────────────────────────────────────────────────────
@@ -304,9 +310,10 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__audio__": {"id": "__audio__", "title": "Audio", "icon": "audio-speakers-symbolic"},
             "__rgb__": {"id": "__rgb__", "title": "RGB Lighting", "icon": "applications-games-symbolic"},
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
+            "__rules__": {"id": "__rules__", "title": "Rules & Startup", "icon": "preferences-system-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
-            ("Visuals",         ["appearance", ACTIVE_SHELL_TAB, "hyprland"]),
+            ("Visuals",         ["appearance", "wallpapers", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
             ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
             ("System",          ["__bt__", "__wifi__", "__audio__", "__rgb__"]),
         ]
@@ -453,7 +460,8 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__bt__":    lambda: bluetooth_page.BluetoothPage(self._toast_ov),
             "__wifi__":  lambda: wifi_page.WiFiPage(self._toast_ov),
             "__mon__":   lambda: monitor_editor.MonitorEditorPage(self._toast_ov),
-            "__hkbm__":  lambda: keybind_manager.KeybindManagerPage(self._toast_ov),
+            "__hkbm__":  lambda: keybind_manager.LuaKeybindManagerPage(self._toast_ov),
+            "__rules__": lambda: rules_startup_page.RulesStartupPage(self._toast_ov),
             "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
             "__rgb__":   lambda: rgb_page.RGBPage(self._toast_ov),
         }
@@ -669,13 +677,66 @@ class CloudCenterWindow(Adw.ApplicationWindow):
 
     def _on_key(self, ctrl, keyval, keycode, state) -> bool:
         mods = state & Gdk.ModifierType.CONTROL_MASK
+        alt_mods = state & Gdk.ModifierType.ALT_MASK
+        
+        # ── Global Shortcuts ──────────────────────────────────────────────────
+        
+        # Ctrl+Q: Quit
+        if mods and keyval == Gdk.KEY_q:
+            self.close()
+            return True
+            
+        # Ctrl+R: Reload
         if mods and keyval == Gdk.KEY_r:
             self._reload()
             return True
+
+        # Ctrl+F or '/': Focus search
+        if (mods and keyval == Gdk.KEY_f) or (not mods and keyval == Gdk.KEY_slash):
+            self._search_entry.grab_focus()
+            return True
+
+        # Ctrl+H: Go Home
+        if mods and keyval == Gdk.KEY_h:
+            self.navigate_to_page("home")
+            return True
+
+        # Ctrl+Tab: Cycle focus between sidebar and search/content
+        if mods and keyval == Gdk.KEY_Tab:
+            focus = self.get_focus()
+            if focus and (focus is self._nav_list or focus is self._pinned_list or focus.get_ancestor(Gtk.ListBox) in (self._nav_list, self._pinned_list)):
+                self._search_entry.grab_focus()
+            else:
+                if self._nav_list:
+                    self._nav_list.grab_focus()
+            return True
+
+        # Alt+1-9: Jump to pages
+        if alt_mods and Gdk.KEY_1 <= keyval <= Gdk.KEY_9:
+            index = keyval - Gdk.KEY_1
+            page_ids = list(self._nav_rows.keys())
+            if index < len(page_ids):
+                self.navigate_to_page(page_ids[index])
+                return True
+
+        # ── Contextual Handling ───────────────────────────────────────────────
+
         if keyval == Gdk.KEY_Escape:
             self._on_search_stop(self._search_entry)
+            # Clear focus from whatever was focused
+            self.set_focus(None)
             return True
+
         focus = self.get_focus()
+        
+        # Search entry specific navigation
+        if focus is self._search_entry:
+            # Down arrow from search entry: focus first result
+            if keyval == Gdk.KEY_Down:
+                if self._search_rows:
+                    self._search_rows[0].grab_focus()
+                    return True
+
         if focus is not None:
             # Do not hijack typing when the user is editing text in a row widget.
             if isinstance(focus, (Gtk.Entry, Gtk.SearchEntry, Gtk.SpinButton, Gtk.TextView)):
@@ -683,9 +744,14 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             editable = getattr(Gtk, "Editable", None)
             if editable is not None and isinstance(focus, editable):
                 return False
-        # Focus search on any printable key
-        if not mods and keyval not in (Gdk.KEY_Tab, Gdk.KEY_Return):
-            self._search_entry.grab_focus()
+
+        # Focus search on any printable key (Type-to-search)
+        if not mods and not alt_mods and keyval not in (Gdk.KEY_Tab, Gdk.KEY_Return, Gdk.KEY_ISO_Left_Tab):
+            # Check if it's a printable character
+            if Gdk.keyval_to_unicode(keyval) != 0:
+                self._search_entry.grab_focus()
+                # We don't return True here so the key event propagates to the entry
+        
         return False
 
     def _reload(self, show_toast: bool = True) -> None:
@@ -742,6 +808,7 @@ class CloudCenter(Adw.Application):
         flag_specs = [
             ("home", "Open Home page"),
             ("appearance", "Open Appearance page"),
+            ("wallpapers", "Open Wallpapers page"),
             ("hyprland", "Open Hyprland page"),
             ("input", "Open Input page"),
             ("wifi", "Open Wi-Fi page"),
@@ -750,6 +817,8 @@ class CloudCenter(Adw.Application):
             ("audio", "Open Audio page"),
             ("rgb", "Open RGB Lighting page"),
             ("lighting", "Open RGB Lighting page"),
+            ("config-manager", "Open Lua Config Manager page"),
+            ("lua-config-manager", "Open Lua Config Manager page"),
             ("keybind-manager", "Open Keybind Manager page"),
             ("keybinds", "Open Keybind Manager page"),
         ]
@@ -770,8 +839,9 @@ class CloudCenter(Adw.Application):
             self._requested_page = CLI_PAGE_ALIASES.get(requested, requested)
 
         for flag in (
-            "home", "appearance", "hyprland", "input",
+            "home", "appearance", "wallpapers", "hyprland", "input",
             "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
+            "config-manager", "lua-config-manager",
             "keybind-manager", "keybinds",
         ):
             if options.contains(flag):

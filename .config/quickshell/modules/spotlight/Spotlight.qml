@@ -9,6 +9,7 @@ import Quickshell.Hyprland
 import "../.."
 import "../../overview/services"
 import "../calculator/backend" as CalcBackend
+import "../currency/backend" as CurrencyBackend
 
 PanelWindow {
     id: spotlight
@@ -37,6 +38,13 @@ PanelWindow {
     CalcBackend.Calculator {
         id: calculator
     }
+
+    // ── Currency Backend ────────────────────────────────────────────────────
+    CurrencyBackend.CurrencyConverter {
+        id: currencyConverter
+    }
+
+    readonly property string currencyFetchScript: Qt.resolvedUrl("../currency/backend/fetch_rate.sh").toString().replace("file://", "")
 
     // ── State ─────────────────────────────────────────────────────────────
     property bool spotlightVisible: false
@@ -77,6 +85,43 @@ PanelWindow {
 
     // ── Search backend ────────────────────────────────────────────────────
     readonly property string searchScript: Qt.resolvedUrl("search.sh").toString().replace("file://", "")
+
+    function prependCurrencyResult(data) {
+        const parsed = currencyConverter.parseQuery(query);
+        if (!parsed)
+            return;
+
+        const entry = {
+            type:       "currency",
+            expression: query,
+            result:     currencyConverter.formatResult(parsed.amount, parsed.from, parsed.to, data.converted, data.date),
+            subtitle:   currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, data.rate, data.date)
+        };
+
+        const rest = results.filter(r => r.type !== "currency");
+        results = [entry, ...rest];
+    }
+
+    Process {
+        id: currencyProc
+        property string fetchQuery: ""
+        stdout: StdioCollector {
+            id: currencyCollector
+            onStreamFinished: {
+                if (spotlight.query !== currencyProc.fetchQuery)
+                    return;
+                const text = currencyCollector.text.trim();
+                if (text.length === 0)
+                    return;
+                try {
+                    const data = JSON.parse(text);
+                    if (data.error)
+                        return;
+                    spotlight.prependCurrencyResult(data);
+                } catch (_) {}
+            }
+        }
+    }
 
     Process {
         id: searchProc
@@ -126,6 +171,20 @@ PanelWindow {
                 }
             }
 
+            // Fetch live exchange rates for currency queries
+            const currencyParsed = currencyConverter.parseQuery(spotlight.query);
+            if (currencyParsed) {
+                currencyProc.running = false;
+                currencyProc.fetchQuery = spotlight.query;
+                currencyProc.command = [
+                    "bash", spotlight.currencyFetchScript,
+                    currencyParsed.amount.toString(),
+                    currencyParsed.from,
+                    currencyParsed.to
+                ];
+                currencyProc.running = true;
+            }
+
             // Then run file/app search
             searchProc.running = false;
             searchProc.command = ["bash", spotlight.searchScript, spotlight.query];
@@ -141,11 +200,10 @@ PanelWindow {
             const r = results[idx];
             if (r.type === "app") {
                 if (r.isRunning)
-                    Hyprland.dispatch("focuswindow class:" + r.wmclass);
+                    HyprDispatch.focusWindowByClass(r.wmclass);
                 else
                     launch(["uwsm-app", "--", r.exec]);
-            } else if (r.type === "calculator") {
-                // Copy result to clipboard
+            } else if (r.type === "calculator" || r.type === "currency") {
                 launch(["wl-copy", r.result]);
             } else {
                 launch(["xdg-open", r.path]);
@@ -223,7 +281,7 @@ PanelWindow {
                     Text {
                         visible: searchInput.text.length === 0
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Search apps, files, web…"
+                        text: "Search apps, files, 100 USD to EUR…"
                         color: Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.4)
                         font.pixelSize: 16
                         font.family: "JetBrainsMono Nerd Font"
@@ -307,6 +365,8 @@ PanelWindow {
                                     return "FILES";
                                 if (modelData.type === "calculator")
                                     return "CALCULATOR";
+                                if (modelData.type === "currency")
+                                    return "CURRENCY";
                                 return "";
                             }
                             font.pixelSize: 10
@@ -367,7 +427,7 @@ PanelWindow {
 
     // ── IPC ───────────────────────────────────────────────────────────────
     IpcHandler {
-        target: "spotlight-dock"
+        target: "spotlight"
         function toggle() {
             spotlight.spotlightVisible = !spotlight.spotlightVisible;
         }

@@ -42,13 +42,14 @@ show_browser_keybinds() {
 show_learn_menu() {
   local choice
   choice=$(menu "Learn" \
-    "󰣇 Arch Wiki\n Hyprland Wiki\n󱊨 Keybinds\n󰈹 Zen Binds")
+    "󰣇 Arch Wiki\n Hyprland Wiki\n󱊨 Keybinds\n󰈹 Zen Binds\n󰄛 TMUX Cheatsheet")
 
   case "${choice,,}" in
   *arch*) run_app xdg-open "https://wiki.archlinux.org/" ;;
   *hypr*) run_app xdg-open "https://wiki.hypr.land/" ;;
   *zen*) show_browser_keybinds ;;
   *key*) show_keybind_tips ;;
+  *tmux*) run_app xdg-open "https://tmuxcheatsheet.com/" ;;
   *) back_to_main ;;
   esac
 }

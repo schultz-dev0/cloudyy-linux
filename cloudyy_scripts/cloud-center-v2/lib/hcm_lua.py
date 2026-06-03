@@ -1,22 +1,20 @@
 """
 Cloud Center — lib/hcm_lua.py
-Lua config manager: mirrors hcm.py but targets ~/.config/hypr/.hyprlua/
+Lua config manager for ~/.config/hypr/source/*.lua and
+~/.config/hypr/user-configs/user_*.lua.
 
-The Lua config has no distro/user-override split at the file level — modules in
-.hyprlua/ are the live files.  This manager lets the UI list them, show previews,
-and open them for editing.  A "modified" badge is tracked by comparing current
-content against a SHA-256 stored in .hyprlua/.defaults_sha/ on first scan.
-
-NOT wired into the Cloud Center UI yet — logic layer only.
+The manager lists distro source modules and marks them as overridden when a
+matching user module exists and hyprland.lua actively requires it.
 """
 from __future__ import annotations
 
-import hashlib
+import json
 import logging
 import os
 import re
 import subprocess
 import threading
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
@@ -27,18 +25,18 @@ log = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-HYPR_DIR      = Path.home() / ".config" / "hypr"
-HYPRLUA_DIR   = HYPR_DIR / ".hyprlua"
-MAIN_LUA      = HYPR_DIR / "hyprland.lua"
-SHA_DIR       = HYPRLUA_DIR / ".defaults_sha"
+HYPR_DIR = Path.home() / ".config" / "hypr"
+SOURCE_DIR = HYPR_DIR / "source"
+USER_DIR = HYPR_DIR / "user-configs"
+MAIN_LUA = HYPR_DIR / "hyprland.lua"
+HYPRLUA_DIR = SOURCE_DIR
 
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 class LuaFileStatus(Enum):
-    PRISTINE = auto()   # matches the stored baseline hash
-    MODIFIED = auto()   # content has changed since baseline
-    NEW      = auto()   # no baseline hash recorded yet
+    DISTRO = auto()
+    USER_OVERRIDE = auto()
 
 
 class LuaConfigFile:
@@ -49,33 +47,11 @@ class LuaConfigFile:
         self.status      = status
 
 
-# ── Baseline hash helpers ─────────────────────────────────────────────────────
-
-def _sha_path(filename: str) -> Path:
-    return SHA_DIR / (filename + ".sha256")
-
-
-def _file_sha256(path: Path) -> str:
-    try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-    except OSError:
-        return ""
-
-
-def _record_baseline(path: Path) -> None:
-    """Store the current file hash as the baseline."""
-    SHA_DIR.mkdir(parents=True, exist_ok=True)
-    sha = _file_sha256(path)
-    if sha:
-        _sha_path(path.name).write_text(sha, encoding="utf-8")
-
-
-def _baseline_sha(filename: str) -> str:
-    p = _sha_path(filename)
-    try:
-        return p.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+@dataclass(frozen=True)
+class UserOverrideResult:
+    edit_path: Path
+    activated: bool
+    message: str
 
 
 # ── Description parsing ───────────────────────────────────────────────────────
@@ -106,52 +82,66 @@ def _read_lua_description(path: Path) -> str:
 
 
 # ── Logic ─────────────────────────────────────────────────────────────────────
+#
+# All persistence and activation now lives in the `hcm` Rust binary
+# (~/.local/bin/hcm). These Python functions are thin wrappers that shell out
+# and translate the JSON wire format back into the GTK page's existing types.
+
+_STATUS_FROM_JSON = {
+    "distro": LuaFileStatus.DISTRO,
+    "user_override": LuaFileStatus.USER_OVERRIDE,
+}
+
+
+def _user_module_path(path: Path) -> Path:
+    return USER_DIR / f"user_{path.name}"
+
+
+def _preview_path_for(cf: LuaConfigFile) -> Path:
+    user_path = _user_module_path(cf.path)
+    if cf.status == LuaFileStatus.USER_OVERRIDE and user_path.exists():
+        return user_path
+    return cf.path
+
+
+def _hcm_json(*args: str) -> dict | list:
+    """Run `hcm` and return parsed JSON stdout. Raises on non-zero exit."""
+    result = subprocess.run(
+        ["hcm", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return json.loads(result.stdout)
+
+
+def switch_to_user_override(cf: LuaConfigFile) -> UserOverrideResult:
+    data = _hcm_json("activate", cf.path.stem)
+    return UserOverrideResult(
+        edit_path=Path(data["edit_path"]),
+        activated=bool(data["activated"]),
+        message=data["message"],
+    )
+
 
 def scan_lua_files() -> list[LuaConfigFile]:
-    """Scan HYPRLUA_DIR for .lua module files and return annotated list."""
-    if not HYPRLUA_DIR.exists():
+    """Scan SOURCE_DIR and annotate each file as distro or user override."""
+    if not SOURCE_DIR.exists():
         return []
-
-    files: list[LuaConfigFile] = []
-    for p in sorted(HYPRLUA_DIR.iterdir()):
-        if not p.is_file() or p.suffix != ".lua":
-            continue
-
-        current_sha  = _file_sha256(p)
-        baseline     = _baseline_sha(p.name)
-
-        if not baseline:
-            status = LuaFileStatus.NEW
-        elif current_sha == baseline:
-            status = LuaFileStatus.PRISTINE
-        else:
-            status = LuaFileStatus.MODIFIED
-
-        files.append(LuaConfigFile(
-            filename    = p.name,
-            path        = p,
-            description = _read_lua_description(p),
-            status      = status,
-        ))
-    return files
-
-
-def record_all_baselines() -> None:
-    """Record baselines for every .lua file that doesn't have one yet."""
-    for f in scan_lua_files():
-        if f.status == LuaFileStatus.NEW:
-            _record_baseline(f.path)
+    return [
+        LuaConfigFile(
+            filename=item["filename"],
+            path=Path(item["path"]),
+            description=item["description"],
+            status=_STATUS_FROM_JSON[item["status"]],
+        )
+        for item in _hcm_json("scan", "--json")
+    ]
 
 
 def revert_to_baseline(cf: LuaConfigFile) -> tuple[bool, str]:
-    """
-    Not directly supported — Lua files have no distro source to copy from.
-    Returns an explanatory message.
-    """
-    return False, (
-        f"{cf.filename} has no distro source to revert to. "
-        "Edit the file manually or restore from git."
-    )
+    data = _hcm_json("revert", cf.path.stem)
+    return bool(data["ok"]), data["message"]
 
 
 def _preview_lines(path: Path, max_lines: int = 60) -> str:
@@ -166,12 +156,9 @@ def _preview_lines(path: Path, max_lines: int = 60) -> str:
 
 class LuaConfigManagerPage(Gtk.Box):
     """
-    Two-panel config manager for .hyprlua/ Lua modules.
-    Left:  scrollable file list with pristine/modified badges.
+    Two-panel config manager for source/*.lua modules.
+    Left:  scrollable file list with distro/override badges.
     Right: description, status, preview, Edit button.
-
-    Structurally mirrors ConfigManagerPage from hcm.py.
-    NOT wired into cloud-center.py yet.
     """
 
     def __init__(self, toast_overlay: Adw.ToastOverlay) -> None:
@@ -288,6 +275,17 @@ class LuaConfigManagerPage(Gtk.Box):
         self._edit_btn.set_sensitive(False)
         self._edit_btn.connect("clicked", self._on_edit_clicked)
 
+        self._revert_btn = Gtk.Button()
+        revert_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        revert_box.append(Gtk.Image.new_from_icon_name("edit-undo-symbolic"))
+        revert_box.append(Gtk.Label(label="Revert to distro"))
+        self._revert_btn.set_child(revert_box)
+        self._revert_btn.add_css_class("flat")
+        self._revert_btn.add_css_class("destructive-action")
+        self._revert_btn.set_sensitive(False)
+        self._revert_btn.set_tooltip_text("Delete user override and restore distro source")
+        self._revert_btn.connect("clicked", self._on_revert_clicked)
+
         spacer = Gtk.Box()
         spacer.set_hexpand(True)
 
@@ -297,6 +295,7 @@ class LuaConfigManagerPage(Gtk.Box):
         self._reload_btn.connect("clicked", self._on_reload_clicked)
 
         action_bar.append(self._edit_btn)
+        action_bar.append(self._revert_btn)
         action_bar.append(spacer)
         action_bar.append(self._reload_btn)
         right.append(action_bar)
@@ -373,13 +372,13 @@ class LuaConfigManagerPage(Gtk.Box):
         for cf in filtered:
             self._list_box.append(self._make_row(cf))
 
-        total    = len(self._files)
-        modified = sum(1 for cf in self._files if cf.status == LuaFileStatus.MODIFIED)
+        total = len(self._files)
+        overrides = sum(1 for cf in self._files if cf.status == LuaFileStatus.USER_OVERRIDE)
         if q:
             self._file_count.set_text(f"{len(filtered)}/{total}")
         else:
             self._file_count.set_text(
-                f"{total} modules  •  {modified} modified"
+                f"{total} modules  •  {overrides} overrides"
             )
 
         for i, cf in enumerate(filtered):
@@ -399,24 +398,25 @@ class LuaConfigManagerPage(Gtk.Box):
         box.set_margin_top(7)
         box.set_margin_bottom(7)
 
-        is_modified = cf.status == LuaFileStatus.MODIFIED
+        is_override = cf.status == LuaFileStatus.USER_OVERRIDE
 
-        icon_name = "emblem-default-symbolic" if is_modified else "text-x-script-symbolic"
+        icon_name = "emblem-default-symbolic" if is_override else "text-x-script-symbolic"
         icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_icon_size(Gtk.IconSize.NORMAL)
-        if not is_modified:
+        if not is_override:
             icon.add_css_class("dim-label")
+        icon.set_tooltip_text("User override active" if is_override else "Distro module active")
 
         lbl = Gtk.Label(label=cf.filename)
         lbl.set_xalign(0)
         lbl.set_hexpand(True)
         from gi.repository import Pango
         lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        if is_modified:
+        if is_override:
             lbl.add_css_class("accent")
 
-        badge_text = "modified" if is_modified else ("new" if cf.status == LuaFileStatus.NEW else "pristine")
-        badge_css  = "hcm-badge-override" if is_modified else "hcm-badge-distro"
+        badge_text = "override" if is_override else "distro"
+        badge_css = "hcm-badge-override" if is_override else "hcm-badge-distro"
         badge = Gtk.Label(label=badge_text)
         badge.add_css_class("caption")
         badge.add_css_class("manager-badge")
@@ -434,6 +434,7 @@ class LuaConfigManagerPage(Gtk.Box):
         if row is None:
             self._selected = None
             self._edit_btn.set_sensitive(False)
+            self._revert_btn.set_sensitive(False)
             return
 
         cf = getattr(row, "_cf", None)
@@ -443,39 +444,35 @@ class LuaConfigManagerPage(Gtk.Box):
 
         self._desc_label.set_text(cf.description)
 
-        is_modified = cf.status == LuaFileStatus.MODIFIED
-        if is_modified:
+        is_override = cf.status == LuaFileStatus.USER_OVERRIDE
+        if is_override:
             self._status_icon.set_from_icon_name("emblem-default-symbolic")
-            self._status_label.set_text("File has been modified from baseline")
-            self._status_badge.set_label("modified")
+            self._status_label.set_text("User override is active")
+            self._status_badge.set_label("override")
             self._status_badge.remove_css_class("hcm-badge-distro")
             self._status_badge.add_css_class("hcm-badge-override")
-        elif cf.status == LuaFileStatus.NEW:
-            self._status_icon.set_from_icon_name("document-new-symbolic")
-            self._status_label.set_text("No baseline recorded yet")
-            self._status_badge.set_label("new")
-            self._status_badge.remove_css_class("hcm-badge-override")
-            self._status_badge.add_css_class("hcm-badge-distro")
         else:
-            self._status_icon.set_from_icon_name("emblem-default-symbolic")
-            self._status_label.set_text("File matches baseline")
-            self._status_badge.set_label("pristine")
+            self._status_icon.set_from_icon_name("dialog-information-symbolic")
+            self._status_label.set_text("Distro module is active")
+            self._status_badge.set_label("distro")
             self._status_badge.remove_css_class("hcm-badge-override")
             self._status_badge.add_css_class("hcm-badge-distro")
 
         self._edit_btn.set_sensitive(True)
+        self._revert_btn.set_sensitive(is_override)
 
         threading.Thread(
             target=self._load_preview, args=(cf,), daemon=True
         ).start()
 
     def _load_preview(self, cf: LuaConfigFile) -> None:
-        text = _preview_lines(cf.path)
+        path = _preview_path_for(cf)
+        text = _preview_lines(path)
         try:
-            total_lines = len(cf.path.read_text(encoding="utf-8", errors="replace").splitlines())
+            total_lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
         except OSError:
             total_lines = 0
-        GLib.idle_add(self._apply_preview, text, cf.filename, total_lines)
+        GLib.idle_add(self._apply_preview, text, path.name, total_lines)
 
     def _apply_preview(self, text: str, filename: str, line_count: int) -> bool:
         self._preview_buf.set_text(text)
@@ -490,26 +487,56 @@ class LuaConfigManagerPage(Gtk.Box):
 
     def _do_edit(self, cf: LuaConfigFile) -> None:
         try:
+            result = switch_to_user_override(cf)
+        except Exception as e:
+            GLib.idle_add(self._edit_done, f"Failed to create user override: {e}")
+            return
+        edit_path = result.edit_path
+        try:
             subprocess.run(
                 ["kitty", "--class", "hcm-editor",
                  "--title", f"Editing {cf.filename}",
-                 "--", self._editor, str(cf.path)],
+                 "--", self._editor, str(edit_path)],
                 check=False,
             )
         except FileNotFoundError:
             try:
                 subprocess.run(
-                    ["bash", "-c", f'{self._editor} "{cf.path}"'],
+                    ["bash", "-c", f'{self._editor} "{edit_path}"'],
                     check=False,
                 )
             except Exception as e:
                 GLib.idle_add(self._edit_done, f"Editor launch failed: {e}")
                 return
 
-        subprocess.run(["hyprctl", "reload"], capture_output=True)
-        GLib.idle_add(self._edit_done, f"Saved {cf.filename} — Hyprland reloaded")
+        message = result.message
+        if result.activated:
+            subprocess.run(["hyprctl", "reload"], capture_output=True)
+            message = f"{message} — Hyprland reloaded"
+        GLib.idle_add(self._edit_done, message)
 
     def _edit_done(self, msg: str) -> bool:
+        from lib import utility
+        utility.toast(self._toast_ov, msg)
+        self._edit_btn.set_sensitive(True)
+        self.refresh()
+        return GLib.SOURCE_REMOVE
+
+    def _on_revert_clicked(self, _btn: Gtk.Button) -> None:
+        if self._selected is None or self._selected.status != LuaFileStatus.USER_OVERRIDE:
+            return
+        self._revert_btn.set_sensitive(False)
+        self._edit_btn.set_sensitive(False)
+        threading.Thread(target=self._do_revert, args=(self._selected,), daemon=True).start()
+
+    def _do_revert(self, cf: LuaConfigFile) -> None:
+        ok, msg = revert_to_baseline(cf)
+        if ok:
+            subprocess.run(["hyprctl", "reload"], capture_output=True)
+            msg += " — Hyprland reloaded"
+        GLib.idle_add(self._revert_done, msg)
+
+    def _revert_done(self, msg: str) -> bool:
         from lib import utility
         utility.toast(self._toast_ov, msg)
         self._edit_btn.set_sensitive(True)

@@ -1,17 +1,8 @@
-// ElevatedEffect.qml
+// ElevatedEffect.qml — disabled permanently (card drop shadows removed from the shell).
+// Call sites are kept as no-ops so layouts stay unchanged; do not re-enable RectangularShadow here.
 import QtQuick
-import QtQuick.Effects
 
-RectangularShadow {
+Item {
     required property var target
-
-    anchors.fill: target
-    visible: target.visible
-    z: -1
-    radius: target.radius
-    blur: 22
-    spread: 0
-    offset: Qt.vector2d(0, 8)
-    color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.28)
-    cached: true
+    visible: false
 }

@@ -672,17 +672,15 @@ class BezierEditorWidget(Gtk.Box):
                 GLib.idle_add(self._toast, f"Curve saved, but activation failed: {err}")
                 return
 
-            # Persist both keywords via the shared persistence script.
-            persist_script = Path(__file__).resolve().parent.parent / "hypr_persist.sh"
-            if persist_script.exists():
-                subprocess.run(
-                    [str(persist_script), "animations:bezier", bezier_str],
-                    capture_output=True, text=True, timeout=5,
-                )
-                subprocess.run(
-                    [str(persist_script), "animations:animation", anim_value],
-                    capture_output=True, text=True, timeout=5,
-                )
+            # Persist both keywords via the hcm binary.
+            subprocess.run(
+                ["hcm", "set", "animations:bezier", bezier_str],
+                capture_output=True, text=True, timeout=5,
+            )
+            subprocess.run(
+                ["hcm", "set", "animations:animation", anim_value],
+                capture_output=True, text=True, timeout=5,
+            )
 
             GLib.idle_add(self._toast, f'Applied "{name}" to Hyprland windows animation')
         except Exception as exc:

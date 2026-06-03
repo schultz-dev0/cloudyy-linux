@@ -45,7 +45,7 @@ PanelWindow {
 
     WlrLayershell.layer:         WlrLayer.Top
     WlrLayershell.namespace:     "quickshell:calculator"
-    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     onOpenChanged: {
         if (open) {
@@ -85,11 +85,17 @@ PanelWindow {
 
         // Popout from top-left: scale + fade
         opacity: calcWindow.open ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(160); easing.type: Easing.OutCubic }
+        }
 
         scale: calcWindow.open ? 1.0 : 0.88
         transformOrigin: Item.TopLeft
-        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack; easing.overshoot: 0.5 } }
+        Behavior on scale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
+        }
 
         ColumnLayout {
             id: contentCol
