@@ -3,5 +3,5 @@
 set -euo pipefail
 
 CC_DIR="${HOME}/cloudyy_scripts/cloud-center-v2"
-cd "$CC_DIR"
+export PYTHONPATH="${CC_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m lib.quickshell_display_settings --daemon

@@ -85,6 +85,7 @@ def start_daemon(extra_args: list[str] | None = None) -> tuple[bool, str]:
         subprocess.Popen(
             cmd,
             env=launch_env(),
+            cwd=os.path.expanduser("~"),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,

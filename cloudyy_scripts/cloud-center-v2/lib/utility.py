@@ -31,6 +31,11 @@ XDG_CONFIG: Final[Path] = _xdg("XDG_CONFIG_HOME", ".config")
 CACHE_DIR:    Final[Path] = XDG_CACHE  / "cloud-center"
 SETTINGS_DIR: Final[Path] = XDG_CONFIG / "cloud-center" / "settings"
 
+# Primary key -> legacy keys still read until the primary file exists.
+_SETTING_ALIASES: Final[dict[str, tuple[str, ...]]] = {
+    "terminal/multiplexer_autostart": ("terminal/tmux_autostart",),
+}
+
 
 def setup_cache() -> None:
     """Point pycache to XDG cache dir (call before any imports)."""
@@ -118,6 +123,10 @@ def save_setting(key: str, value: bool | int | float | str) -> bool:
             f.flush()
             os.fsync(f.fileno())
         Path(tmp).rename(target)
+        for alias in _SETTING_ALIASES.get(key, ()):
+            alias_path = _safe_path(alias)
+            if alias_path and alias_path.exists():
+                alias_path.unlink(missing_ok=True)
         return True
     except OSError as e:
         log.error("save_setting failed for %s: %s", key, e)
@@ -135,13 +144,24 @@ def load_setting(key: str, default: str) -> str: ...
 @overload
 def load_setting(key: str, default: None = None) -> str | None: ...
 
-def load_setting(key, default=None):
+def _read_setting_file(key: str) -> str | None:
     target = _safe_path(key)
     if not target:
-        return default
+        return None
     try:
-        raw = target.read_text(encoding="utf-8").strip()
+        return target.read_text(encoding="utf-8").strip()
     except (FileNotFoundError, OSError):
+        return None
+
+
+def load_setting(key, default=None):
+    raw = _read_setting_file(key)
+    if raw is None:
+        for alias in _SETTING_ALIASES.get(key, ()):
+            raw = _read_setting_file(alias)
+            if raw is not None:
+                break
+    if raw is None:
         return default
     try:
         match default:
