@@ -37,36 +37,49 @@ export CACHE_DIR THUMB_SIZE
 # =============================================================================
 
 select_wallpaper() {
-  local CURRENT_MODE DISPLAY_MODE WALL_DIR
+  local CURRENT_MODE DISPLAY_MODE
   CURRENT_MODE=$(get_current_mode)
   DISPLAY_MODE="$(tr '[:lower:]' '[:upper:]' <<<"${CURRENT_MODE:0:1}")${CURRENT_MODE:1}"
-  WALL_DIR="${BASE_WALL_DIR}/${DISPLAY_MODE}"
-  
+
+  local mode_dir="${BASE_WALL_DIR}/${DISPLAY_MODE}"
+  local user_mode_dir="${USER_WALL_DIR}/${DISPLAY_MODE}"
   local find_args=()
-  if [[ -d "$WALL_DIR" && -r "$WALL_DIR" ]]; then
-    log "Searching wallpapers in: $WALL_DIR"
+  local search_dirs=()
+
+  if [[ -d "$mode_dir" && -r "$mode_dir" ]]; then
+    search_dirs+=("$mode_dir")
+    [[ -d "$user_mode_dir" && -r "$user_mode_dir" ]] && search_dirs+=("$user_mode_dir")
+    log "Searching wallpapers in: ${search_dirs[*]}"
   else
-    WALL_DIR="$BASE_WALL_DIR"
-    # When falling back to base dir, don't recurse into Dark/Light subdirs.
+    search_dirs+=("$BASE_WALL_DIR")
     find_args+=(-maxdepth 1)
-    log "Searching wallpapers in base dir (fallback): $WALL_DIR"
+    log "Searching wallpapers in base dir (fallback): $BASE_WALL_DIR"
   fi
 
-  [[ ! -d "$WALL_DIR" || ! -r "$WALL_DIR" ]] && {
-    notify-send "Error" "Cannot access: $WALL_DIR"
-    return 1
-  }
+  local dir
+  for dir in "${search_dirs[@]}"; do
+    [[ -d "$dir" && -r "$dir" ]] || {
+      notify-send "Error" "Cannot access: $dir"
+      return 1
+    }
+  done
 
   # Generate thumbnails in parallel
-  find -L "$WALL_DIR" "${find_args[@]}" -type f \
-    \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
-    -print0 2>/dev/null |
-    xargs -0 -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
+  for dir in "${search_dirs[@]}"; do
+    find -L "$dir" "${find_args[@]}" -type f \
+      \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
+      -print0 2>/dev/null
+  done | sort -z | xargs -0 -P "$MAX_JOBS" -I {} bash -c 'gen_thumb "$@"' _ {}
 
-  declare -A wallpaper_paths
+  declare -A wallpaper_paths seen_realpaths
   >"$TEMP_INPUT"
 
   while IFS= read -r -d '' img; do
+    local real_img
+    real_img="$(realpath "$img" 2>/dev/null || echo "$img")"
+    [[ -n "${seen_realpaths[$real_img]:-}" ]] && continue
+    seen_realpaths[$real_img]=1
+
     local basename_img
     basename_img="$(basename "$img")"
     local hash
@@ -74,7 +87,6 @@ select_wallpaper() {
     local thumb="${CACHE_DIR}/${hash}.png"
 
     if [[ -f "$thumb" ]]; then
-      # If multiple wallpapers have the same basename, append a suffix or use unique label
       local display_name="$basename_img"
       if [[ -n "${wallpaper_paths[$display_name]:-}" ]]; then
          display_name="${display_name} ($(basename "$(dirname "$img")"))"
@@ -83,12 +95,16 @@ select_wallpaper() {
       echo -en "${display_name}\0icon\x1f${thumb}\n" >>"$TEMP_INPUT"
       wallpaper_paths["$display_name"]="$img"
     fi
-  done < <(find -L "$WALL_DIR" "${find_args[@]}" -type f \
-    \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
-    -print0 2>/dev/null | sort -z)
+  done < <(
+    for dir in "${search_dirs[@]}"; do
+      find -L "$dir" "${find_args[@]}" -type f \
+        \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
+        -print0 2>/dev/null
+    done | sort -z
+  )
 
   [[ ! -s "$TEMP_INPUT" ]] && {
-    notify-send "No Wallpapers" "No images found in $WALL_DIR"
+    notify-send "No Wallpapers" "No images found in ${search_dirs[*]}"
     return 1
   }
 

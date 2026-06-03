@@ -1,37 +1,102 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import Quickshell.Hyprland
-import "../../common"
+import Quickshell.Wayland
+import "../../../"
 import "../../services"
-import "."
 
 Scope {
-    id: overviewScope
-    Variants {
-        id: overviewVariants
-        model: Quickshell.screens
-        PanelWindow {
-            id: root
-            required property var modelData
-            readonly property HyprlandMonitor monitor: Hyprland.monitorFor(root.screen)
-            property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
-            property bool blurEnabled: Config.options.overview.effects.enableBlur
-            property bool backdropEnabled: Config.options.overview.effects.enableBackdrop
-            property real backdropOpacity: Math.max(0, Math.min(1, Config.options.overview.effects.backdropOpacity))
-            property bool closeOnFocusLoss: Config.options.overview.closeOnFocusLoss ?? true
-            property string tabSelectedAddress: ""
-            property string focusedSpecialWorkspace: ""
-            screen: modelData
-            visible: GlobalStates.overviewOpen
+    id: root
 
-            WlrLayershell.namespace: blurEnabled ? "quickshell:overview-blur" : "quickshell:overview"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    function open() {
+        GlobalStates.overviewOpen = true;
+    }
+
+    function close() {
+        GlobalStates.overviewOpen = false;
+    }
+
+    function toggle() {
+        GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+    }
+
+    Component {
+        id: procProto
+
+        Process {}
+    }
+
+    function launch(cmd) {
+        if (!cmd || cmd.length === 0)
+            return;
+
+        const p = procProto.createObject(root, {
+            command: cmd
+        });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
+        });
+        p.running = true;
+    }
+
+    function focusWorkspace(workspaceId) {
+        HyprDispatch.focusWorkspace(workspaceId);
+        close();
+    }
+
+    function focusWindow(windowData) {
+        HyprDispatch.focusWindow(windowData);
+        close();
+    }
+
+    function closeWindow(windowData) {
+        HyprDispatch.closeWindowByAddress(windowData?.address);
+    }
+
+    function closeWorkspace(workspaceId) {
+        const id = Number(workspaceId);
+        if (!Number.isFinite(id) || id < 1)
+            return;
+
+        const windows = (HyprlandData.windowList ?? []).filter(window => Number(window?.workspace?.id ?? -1) === id);
+        for (const window of windows)
+            closeWindow(window);
+    }
+
+    IpcHandler {
+        target: "overview"
+
+        function open() {
+            root.open();
+        }
+
+        function close() {
+            root.close();
+        }
+
+        function toggle() {
+            root.toggle();
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            id: overlay
+
+            required property var modelData
+            readonly property var monitorData: Hyprland.monitorFor(modelData)
+            readonly property bool isFocusedScreen: monitorData?.id === Hyprland.focusedMonitor?.id
+
+            screen: modelData
+            visible: GlobalStates.overviewOpen && isFocusedScreen
             color: "transparent"
+            exclusiveZone: 0
 
             anchors {
                 top: true
@@ -40,272 +105,101 @@ Scope {
                 right: true
             }
 
-            HyprlandFocusGrab {
-                id: grab
-                windows: [root]
-                property bool canBeActive: root.monitorIsFocused
-                active: false
-                onCleared: () => {
-                    // Only the monitor that owns the grab may close the overview
-                    if (root.closeOnFocusLoss && !active && canBeActive)
-                        GlobalStates.overviewOpen = false;
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "quickshell:overview"
+            WlrLayershell.keyboardFocus: GlobalStates.overviewOpen && isFocusedScreen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+            function focusOverview() {
+                if (!GlobalStates.overviewOpen || !overlay.isFocusedScreen)
+                    return;
+
+                if (overviewLoader.item)
+                    overviewLoader.item.resetSelectionToActive();
+                focusSurface.forceActiveFocus();
+            }
+
+            Rectangle {
+                id: focusSurface
+
+                anchors.fill: parent
+                color: "transparent"
+                focus: GlobalStates.overviewOpen
+
+                Keys.onPressed: event => {
+                    const overviewWidget = overviewLoader.item;
+                    if (!overviewWidget)
+                        return;
+
+                    if (event.key === Qt.Key_Escape) {
+                        root.close();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+                        overviewWidget.selectPrevious();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+                        overviewWidget.selectNext();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Tab) {
+                        if (event.modifiers & Qt.ShiftModifier)
+                            overviewWidget.selectPrevious();
+                        else
+                            overviewWidget.selectNext();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K || event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        overviewWidget.activateSelected();
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Backspace) {
+                        overviewWidget.closeSelectedWorkspace();
+                        event.accepted = true;
+                    } else if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
+                        const workspaceId = event.key === Qt.Key_0 ? 10 : event.key - Qt.Key_0;
+                        if (overviewWidget.selectWorkspace(workspaceId))
+                            overviewWidget.activateSelected();
+                        event.accepted = true;
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    onClicked: root.close()
+                }
+
+                Loader {
+                    id: overviewLoader
+                    z: 1
+                    anchors.fill: parent
+                    active: GlobalStates.overviewOpen && overlay.isFocusedScreen
+                    sourceComponent: OverviewWidget {
+                        screenModel: overlay.modelData
+                        monitorData: overlay.monitorData
+                        overviewActive: overlay.visible
+                        onRequestWorkspace: workspaceId => root.focusWorkspace(workspaceId)
+                        onRequestFocusWindow: windowData => root.focusWindow(windowData)
+                        onRequestCloseWindow: windowData => root.closeWindow(windowData)
+                        onRequestCloseWorkspace: workspaceId => root.closeWorkspace(workspaceId)
+                    }
+                    onLoaded: Qt.callLater(() => overlay.focusOverview())
                 }
             }
 
             Connections {
                 target: GlobalStates
+
                 function onOverviewOpenChanged() {
-                    if (GlobalStates.overviewOpen) {
-                        root.tabSelectedAddress = "";
-                        root.focusedSpecialWorkspace = "";
-                        delayedGrabTimer.start();
-                    } else {
-                        root.focusedSpecialWorkspace = "";
-                    }
+                    if (GlobalStates.overviewOpen)
+                        Qt.callLater(() => overlay.focusOverview());
+                    else
+                        focusSurface.focus = false;
                 }
             }
 
-            // Re-evaluate grab ownership when focused monitor changes
-            Connections {
-                target: Hyprland
-                function onFocusedMonitorChanged() {
-                    if (!GlobalStates.overviewOpen)
-                        return;
-                    // Transfer the grab to the newly focused monitor
-                    if (root.monitorIsFocused && !grab.active) {
-                        grab.active = true;
-                    } else if (!root.monitorIsFocused && grab.active) {
-                        grab.active = false;
-                    }
-                }
+            onIsFocusedScreenChanged: {
+                if (isFocusedScreen)
+                    Qt.callLater(() => overlay.focusOverview());
             }
-
-            Timer {
-                id: delayedGrabTimer
-                interval: Config.options.hacks.arbitraryRaceConditionDelay
-                repeat: false
-                onTriggered: {
-                    if (!grab.canBeActive)
-                        return;
-                    grab.active = GlobalStates.overviewOpen;
-                }
-            }
-
-            // Keep the layershell surface full-screen so backdrop/blur are not constrained by content size.
-            implicitWidth: screen.width
-            implicitHeight: screen.height
-
-            Item {
-                id: keyHandler
-                anchors.fill: parent
-                visible: GlobalStates.overviewOpen
-                focus: GlobalStates.overviewOpen
-                z: 0
-
-                Rectangle {
-                    id: backdropLayer
-                    anchors.fill: parent
-                    visible: root.backdropEnabled
-                    color: "#000000"
-                    opacity: root.backdropOpacity
-                    z: 0
-                }
-
-                MouseArea {
-                    id: outsideClickCatcher
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                    enabled: root.closeOnFocusLoss && GlobalStates.overviewOpen
-                    z: 0
-                    onPressed: mouse => {
-                        GlobalStates.overviewOpen = false;
-                        mouse.accepted = true;
-                    }
-                }
-
-                Keys.onPressed: event => {
-                    // close: Escape or Enter
-                    if (event.key === Qt.Key_Escape || event.key === Qt.Key_Return) {
-                        if (event.key === Qt.Key_Return && root.focusedSpecialWorkspace !== "") {
-                            Hyprland.dispatch("togglespecialworkspace " + root.focusedSpecialWorkspace);
-                        }
-                        GlobalStates.overviewOpen = false;
-                        event.accepted = true;
-                        return;
-                    }
-
-                    // Tab / Shift+Tab: cycle through all open windows
-                    if (event.key === Qt.Key_Tab) {
-                        const wins = HyprlandData.windowList
-                            .filter(w => !(w?.workspace?.name ?? "").startsWith("special:"))
-                            .sort((a, b) => (a.focusHistoryID ?? 9999) - (b.focusHistoryID ?? 9999));
-                        if (wins.length > 0) {
-                            const dir = (event.modifiers & Qt.ShiftModifier) ? 1 : -1;
-                            let idx = wins.findIndex(w => w.address === root.tabSelectedAddress);
-                            if (idx === -1) idx = dir === -1 ? Math.max(wins.length - 2, 0) : 1;
-                            else idx = ((idx + dir) + wins.length) % wins.length;
-                            root.tabSelectedAddress = wins[idx].address;
-                            Hyprland.dispatch("focuswindow address:" + wins[idx].address);
-                        }
-                        event.accepted = true;
-                        return;
-                    }
-
-                    // Helper: compute current group bounds
-                    const workspacesPerGroup = Config.options.overview.rows * Config.options.overview.columns;
-                    const currentId = Hyprland.focusedMonitor?.activeWorkspace?.id ?? 1;
-                    const useWorkspaceMap = Config.options.overview.useWorkspaceMap;
-                    const workspaceMap = Config.options.overview.workspaceMap ?? [];
-                    const focusedMonitorId = Hyprland.focusedMonitor?.id ?? root.monitor?.id ?? 0;
-                    const workspaceOffset = useWorkspaceMap ? Number(workspaceMap[focusedMonitorId] ?? 0) : 0;
-                    const currentGroup = Math.floor((currentId - workspaceOffset - 1) / workspacesPerGroup);
-                    const minWorkspaceId = currentGroup * workspacesPerGroup + 1 + workspaceOffset;
-                    const maxWorkspaceId = minWorkspaceId + workspacesPerGroup - 1;
-
-                    const rows = Config.options.overview.rows;
-                    const columns = Config.options.overview.columns;
-                    const reverseColumns = Config.options.overview.orderRightLeft;
-                    const reverseRows = Config.options.overview.orderBottomUp;
-
-                    const clampedIndex = Math.max(0, Math.min(workspacesPerGroup - 1, currentId - minWorkspaceId));
-                    const currentNormalRow = Math.floor(clampedIndex / columns);
-                    const currentNormalColumn = clampedIndex % columns;
-
-                    function toVisualRow(normalRow) {
-                        return reverseRows ? (rows - normalRow - 1) : normalRow;
-                    }
-
-                    function toVisualColumn(normalColumn) {
-                        return reverseColumns ? (columns - normalColumn - 1) : normalColumn;
-                    }
-
-                    function toNormalRow(visualRow) {
-                        return reverseRows ? (rows - visualRow - 1) : visualRow;
-                    }
-
-                    function toNormalColumn(visualColumn) {
-                        return reverseColumns ? (columns - visualColumn - 1) : visualColumn;
-                    }
-
-                    let targetVisualRow = toVisualRow(currentNormalRow);
-                    let targetVisualColumn = toVisualColumn(currentNormalColumn);
-
-                    let targetId = null;
-
-                    const specials = overviewLoader.item ? overviewLoader.item.visibleSpecialWorkspaces : [];
-
-                    if (root.focusedSpecialWorkspace !== "") {
-                        let sIdx = specials.indexOf(root.focusedSpecialWorkspace);
-                        if (sIdx === -1) sIdx = 0;
-                        
-                        if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                            if (specials.length > 0) {
-                                root.focusedSpecialWorkspace = specials[(sIdx - 1 + specials.length) % specials.length];
-                            }
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                            if (specials.length > 0) {
-                                root.focusedSpecialWorkspace = specials[(sIdx + 1) % specials.length];
-                            }
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-                            root.focusedSpecialWorkspace = "";
-                            event.accepted = true;
-                            return;
-                        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-                            event.accepted = true;
-                            return;
-                        }
-                    }
-
-                    // Arrow keys and vim-style hjkl
-                    if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
-                        targetVisualColumn = (targetVisualColumn - 1 + columns) % columns;
-                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
-                        targetVisualColumn = (targetVisualColumn + 1) % columns;
-                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
-                        targetVisualRow = (targetVisualRow - 1 + rows) % rows;
-                    } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
-                        if (targetVisualRow === rows - 1 && specials.length > 0) {
-                            root.focusedSpecialWorkspace = specials[0];
-                            event.accepted = true;
-                            return;
-                        }
-                        targetVisualRow = (targetVisualRow + 1) % rows;
-                    }
-
-                    // Number keys: jump to workspace within the current group
-                    // 1-9 map to positions 1-9, 0 maps to position 10
-                    else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
-                        const position = event.key - Qt.Key_0; // 1-9
-                        if (position <= workspacesPerGroup) {
-                            targetId = minWorkspaceId + position - 1;
-                        }
-                    } else if (event.key === Qt.Key_0) {
-                        // 0 = 10th workspace in the group (if group has 10+ workspaces)
-                        if (workspacesPerGroup >= 10) {
-                            targetId = minWorkspaceId + 9; // 10th position = offset 9
-                        }
-                    }
-
-                    if (targetId === null && (
-                        event.key === Qt.Key_Left || event.key === Qt.Key_H ||
-                        event.key === Qt.Key_Right || event.key === Qt.Key_L ||
-                        event.key === Qt.Key_Up || event.key === Qt.Key_K ||
-                        event.key === Qt.Key_Down || event.key === Qt.Key_J
-                    )) {
-                        const targetNormalRow = toNormalRow(targetVisualRow);
-                        const targetNormalColumn = toNormalColumn(targetVisualColumn);
-                        targetId = minWorkspaceId + targetNormalRow * columns + targetNormalColumn;
-                    }
-
-                    if (targetId !== null) {
-                        const clampedTarget = Math.max(minWorkspaceId, Math.min(maxWorkspaceId, targetId));
-                        Hyprland.dispatch("workspace " + clampedTarget);
-                        event.accepted = true;
-                    }
-                }
-            }
-
-            ColumnLayout {
-                id: columnLayout
-                visible: GlobalStates.overviewOpen
-                z: 1
-                anchors {
-                    horizontalCenter: parent.horizontalCenter
-                    top: parent.top
-                    topMargin: Config.options.position.topMargin
-                }
-
-                Loader {
-                    id: overviewLoader
-                    active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
-                    sourceComponent: OverviewWidget {
-                        panelWindow: root
-                        visible: true
-                    }
-                }
-            }
-        }
-    }
-
-    IpcHandler {
-        target: "overview"
-
-        function togglefloating() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-
-        function toggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
-        }
-        function close() {
-            GlobalStates.overviewOpen = false;
-        }
-        function open() {
-            GlobalStates.overviewOpen = true;
         }
     }
 }

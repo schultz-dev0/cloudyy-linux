@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Screenshot + screen recording for the Dynamic Island preview flow.
+#   --screenshot  frozen region capture → island drag/upload (temp PNG in /tmp)
+#   --record      island picker → record → Alt+Print again → island drag/upload (Videos/Captures)
+set -uo pipefail
+
+readonly SCREENSHOT_PATH_FILE="/tmp/cloudyy-screenshot.path"
+
+usage() {
+    cat <<'EOF'
+Usage: capture.sh [--screenshot | --record]
+
+  --screenshot, -s   Region screenshot (frozen) → island preview (default)
+  --record, -r       Island target picker → record; run again to stop → island preview
+EOF
+}
+
+qs_ipc() {
+    qs ipc call "$@" 2>/dev/null
+}
+
+# ── Screenshot ────────────────────────────────────────────────────────────────
+
+cmd_screenshot() {
+    local temp_file="/tmp/screenshot-popup-$(date +%s%N).png"
+    local fname="${temp_file##*/}"
+
+    if ! hyprcap shot region -z -w -o /tmp -f "$fname" -c -N; then
+        exit 0
+    fi
+
+    if [[ ! -f "$temp_file" ]]; then
+        exit 0
+    fi
+
+    printf '%s' "$temp_file" >"$SCREENSHOT_PATH_FILE"
+
+    if ! qs_ipc screenshot showLatest; then
+        echo "screenshot: island IPC failed — reload quickshell: ~/cloudyy_scripts/quickshell_reload.sh" >&2
+        echo "  then verify: qs ipc show | rg screenshot" >&2
+        exit 1
+    fi
+}
+
+# ── Recording (orchestrated by quickshell island + hyprcap) ───────────────────
+
+cmd_record() {
+    if ! qs_ipc record toggle; then
+        echo "record: island IPC failed — reload quickshell: ~/cloudyy_scripts/quickshell_reload.sh" >&2
+        echo "  then verify: qs ipc show | rg record" >&2
+        exit 1
+    fi
+}
+
+# ── Entry ─────────────────────────────────────────────────────────────────────
+
+main() {
+    case "${1:---screenshot}" in
+        --screenshot | -s) cmd_screenshot ;;
+        --record | -r) cmd_record ;;
+        -h | --help) usage ;;
+        *)
+            echo "capture.sh: unknown option: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

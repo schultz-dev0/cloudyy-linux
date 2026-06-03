@@ -38,5 +38,9 @@ hl.on("hyprland.start", function()
         error("FATAL: No exec-once command found in " .. qs_conf)
     end
 
+    hl.exec_cmd("systemctl --user stop swaync.service 2>/dev/null || true")
+    hl.exec_cmd("systemctl --user mask swaync.service 2>/dev/null || true")
+    hl.exec_cmd("killall swaync 2>/dev/null || true")
+
     hl.exec_cmd(qs_cmd)
 end)

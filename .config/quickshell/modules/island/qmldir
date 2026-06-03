@@ -1,0 +1,7 @@
+module QuickIsland
+NotificationActivity 1.0 NotificationActivity.qml
+ScreenshotActivity 1.0 ScreenshotActivity.qml
+RecordingActivity 1.0 RecordingActivity.qml
+RecordPickerActivity 1.0 RecordPickerActivity.qml
+singleton DynamicIslandService 1.0 DynamicIslandService.qml
+DynamicIsland 1.0 DynamicIsland.qml

@@ -4,15 +4,13 @@
 # Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
-# Every Hyprland setting chains:  hyprctl keyword … && hypr_persist.sh keyword value
+# Every Hyprland setting chains:  hyprctl keyword … && hcm set keyword value
 #
-# hypr_persist.sh copies ~/.config/hypr/source/lookandfeel.conf →
-# user-configs/user_lookandfeel.conf, source/animations.conf →
-# user_animations.conf, and source/input.conf → user_input.conf,
-# then appends Cloud Center overrides at the bottom of each file.
-# It replaces the existing "source = .../source/<name>.conf" line in
-# hyprland.conf with the user-configs/ path — never adding a duplicate.
-# Uses the same convention as the hcm config manager TUI.
+# hcm writes Lua overrides under ~/.config/hypr/user-configs/
+# (user_lookandfeel.lua, user_animations.lua, user_input.lua, user_cursor.lua).
+# It updates hyprland.lua with the shared Lua activation helpers so Cloud Center
+# toggles exact require("source.*") and require("user-configs.user_*") lines.
+# Source modules stay distro-owned; user modules carry Cloud Center-managed overrides.
 
 pages:
   - id: home
@@ -201,32 +199,34 @@ pages:
       - type: section
         properties:
           title: Online Wallpapers
-          description: Browse and download from online wallpaper sources
+          description: Open the dedicated wallpaper browser page
+        items:
+          - type: button
+            properties:
+              title: Wallpaper Browser
+              description: Open full-page browser with apply controls
+              icon: preferences-desktop-wallpaper-symbolic
+              button_text: Open
+              action: navigate_page:wallpapers
+
+  - id: wallpapers
+    title: Wallpapers
+    icon: preferences-desktop-wallpaper-symbolic
+    layout:
+      - type: section
+        properties:
+          title: Wallpaper Browser
+          description: Browse, download, and apply wallpapers from Wallhaven
         items:
           - type: online_wallpaper_browser
             properties:
               title: Wallpaper Browser
-              description: Browse and download wallpapers
+              description: Infinite browsing with light/dark save targets
               light_directory: ~/Wallpapers/Light
               dark_directory: ~/Wallpapers/Dark
-              wallpapershome_base: https://wallpapershome.com
-              height: 420
-
-      - type: section
-        properties:
-          title: Distro Defaults
-          description: Reset Appearance page to distro defaults
-        items:
-          - type: button
-            properties:
-              title: Use Distro Defaults
-              description: Clear saved theme choices and regenerate from defaults
-              icon: edit-clear-symbolic
-              button_text: Reset
-            on_press:
-              command: >-
-                rm -rf ~/.config/cloud-center/settings/theme &&
-                ~/cloudyy_scripts/theme_controller.sh refresh neutral 0
+              per_page: 60
+              height: 700
+              apply_command: ~/cloudyy_scripts/theme_controller.sh set-image {path}
 
   - id: quickshell
     title: Shell
@@ -256,6 +256,59 @@ pages:
             on_change:
               command: >-
                 ~/cloudyy_scripts/quickshell/switch_preset.sh "{value}"
+
+      - type: section
+        properties:
+          title: Displays
+          description: Show the bar and dock on every connected monitor
+        items:
+          - type: toggle
+            properties:
+              title: Display bar on all screens
+              key: monitors/quickshell/bar_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+          - type: toggle
+            properties:
+              title: Display dock on all screens
+              key: monitors/quickshell/dock_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+      - type: section
+        properties:
+          title: Performance
+          description: Lighter animations for weaker GPUs — restarts the shell when changed
+        items:
+          - type: toggle
+            properties:
+              title: Lightweight animations
+              description: Faster island, panels, and dock; disables heavy transitions
+              key: quickshell/lightweight
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
 
   - id: input
     title: Input
@@ -308,7 +361,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:kb_layout {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:kb_layout {value}
+                hcm set input:kb_layout {value}
 
           - type: selection
             properties:
@@ -332,7 +385,7 @@ pages:
               command: >-
                 V="{value}"; [ "$V" = "basic" ] && V="";
                 hyprctl keyword input:kb_variant "$V" &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:kb_variant "$V"
+                hcm set input:kb_variant "$V"
 
           - type: slider
             properties:
@@ -347,7 +400,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:repeat_delay {value_i} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:repeat_delay {value_i}
+                hcm set input:repeat_delay {value_i}
 
           - type: slider
             properties:
@@ -362,7 +415,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:repeat_rate {value_i} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:repeat_rate {value_i}
+                hcm set input:repeat_rate {value_i}
 
           - type: toggle
             properties:
@@ -374,11 +427,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword input:numlock_by_default true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:numlock_by_default true
+                  hcm set input:numlock_by_default true
               disabled:
                 command: >-
                   hyprctl keyword input:numlock_by_default false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:numlock_by_default false
+                  hcm set input:numlock_by_default false
 
       - type: section
         properties:
@@ -399,7 +452,7 @@ pages:
               command: >-
                 V=$(awk 'BEGIN { printf "%.2f", ({value}) / 100 }') &&
                 hyprctl keyword input:sensitivity $V &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:sensitivity $V
+                hcm set input:sensitivity $V
 
           - type: selection
             properties:
@@ -413,7 +466,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:accel_profile {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:accel_profile {value}
+                hcm set input:accel_profile {value}
 
           - type: selection
             properties:
@@ -432,7 +485,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:follow_mouse {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:follow_mouse {value}
+                hcm set input:follow_mouse {value}
 
       - type: section
         properties:
@@ -450,11 +503,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword input:touchpad:natural_scroll true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:natural_scroll true
+                  hcm set input:touchpad:natural_scroll true
               disabled:
                 command: >-
                   hyprctl keyword input:touchpad:natural_scroll false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:natural_scroll false
+                  hcm set input:touchpad:natural_scroll false
 
           - type: toggle
             properties:
@@ -466,11 +519,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword input:touchpad:disable_while_typing true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:disable_while_typing true
+                  hcm set input:touchpad:disable_while_typing true
               disabled:
                 command: >-
                   hyprctl keyword input:touchpad:disable_while_typing false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:disable_while_typing false
+                  hcm set input:touchpad:disable_while_typing false
 
           - type: toggle
             properties:
@@ -482,11 +535,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword input:touchpad:tap-to-click true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:tap-to-click true
+                  hcm set input:touchpad:tap-to-click true
               disabled:
                 command: >-
                   hyprctl keyword input:touchpad:tap-to-click false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:tap-to-click false
+                  hcm set input:touchpad:tap-to-click false
 
           - type: selection
             properties:
@@ -503,7 +556,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword input:touchpad:clickfinger_behavior {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:clickfinger_behavior {value}
+                hcm set input:touchpad:clickfinger_behavior {value}
 
           - type: toggle
             properties:
@@ -515,11 +568,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword input:touchpad:middle_button_emulation true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:middle_button_emulation true
+                  hcm set input:touchpad:middle_button_emulation true
               disabled:
                 command: >-
                   hyprctl keyword input:touchpad:middle_button_emulation false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:middle_button_emulation false
+                  hcm set input:touchpad:middle_button_emulation false
 
           - type: slider
             properties:
@@ -535,7 +588,7 @@ pages:
               command: >-
                 V=$(echo "scale=2; {value}/100" | bc) &&
                 hyprctl keyword input:touchpad:scroll_factor $V &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh input:touchpad:scroll_factor $V
+                hcm set input:touchpad:scroll_factor $V
 
       - type: section
         properties:
@@ -549,7 +602,7 @@ pages:
               icon: edit-clear-symbolic
               button_text: Reset
             on_press:
-              command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page input
+              command: hcm reset-page input
 
   - id: hyprland
     title: Hyprland
@@ -572,7 +625,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword general:border_size {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:border_size {value}
+                hcm set general:border_size {value}
 
           - type: slider
             properties:
@@ -587,29 +640,75 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword decoration:rounding {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:rounding {value}
+                hcm set decoration:rounding {value}
+
+          - type: toggle
+            properties:
+              title: Shadows
+              description: Drop shadows behind windows
+              icon: weather-overcast-symbolic
+              key: hypr/shadow
+            on_toggle:
+              enabled:
+                command: >-
+                  hyprctl keyword decoration:shadow:enabled true &&
+                  hcm set decoration:shadow:enabled true
+              disabled:
+                command: >-
+                  hyprctl keyword decoration:shadow:enabled false &&
+                  hcm set decoration:shadow:enabled false
+
+          - type: slider
+            properties:
+              title: Shadow Range
+              description: Shadow size and spread (larger = softer, wider shadow)
+              icon: view-reveal-symbolic
+              key: hypr/shadow_range
+              min: 1
+              max: 60
+              step: 1
+              default: 25
+            on_change:
+              command: >-
+                hyprctl keyword decoration:shadow:range {value} &&
+                hcm set decoration:shadow:range {value}
+
+          - type: slider
+            properties:
+              title: Shadow Render Power
+              description: Shadow quality (higher = stronger, more GPU cost; max 4)
+              icon: applications-graphics-symbolic
+              key: hypr/shadow_render_power
+              min: 1
+              max: 4
+              step: 1
+              default: 1
+            on_change:
+              command: >-
+                hyprctl keyword decoration:shadow:render_power {value} &&
+                hcm set decoration:shadow:render_power {value}
 
           - type: toggle
             properties:
               title: Blur
               description: Background blur on transparent windows
-              icon: camera-photo-symbolic
+              icon: weather-fog-symbolic
               key: hypr/blur
             on_toggle:
               enabled:
                 command: >-
                   hyprctl keyword decoration:blur:enabled true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:enabled true
+                  hcm set decoration:blur:enabled true
               disabled:
                 command: >-
                   hyprctl keyword decoration:blur:enabled false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:enabled false
+                  hcm set decoration:blur:enabled false
 
           - type: slider
             properties:
               title: Blur Passes
               description: More passes = stronger blur, more GPU cost
-              icon: camera-photo-symbolic
+              icon: media-playlist-repeat-symbolic
               key: hypr/blur_passes
               min: 1
               max: 6
@@ -618,7 +717,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword decoration:blur:passes {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:passes {value}
+                hcm set decoration:blur:passes {value}
 
           - type: slider
             properties:
@@ -633,7 +732,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword decoration:blur:size {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:blur:size {value}
+                hcm set decoration:blur:size {value}
 
           - type: slider
             properties:
@@ -650,7 +749,7 @@ pages:
               command: >-
                 V=$(echo "scale=2; {value}/100" | bc) &&
                 hyprctl keyword decoration:active_opacity $V &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:active_opacity $V
+                hcm set decoration:active_opacity $V
 
           - type: slider
             properties:
@@ -666,7 +765,7 @@ pages:
               command: >-
                 V=$(echo "scale=2; {value}/100" | bc) &&
                 hyprctl keyword decoration:inactive_opacity $V &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh decoration:inactive_opacity $V
+                hcm set decoration:inactive_opacity $V
 
       - type: section
         properties:
@@ -685,7 +784,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword general:gaps_out {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:gaps_out {value}
+                hcm set general:gaps_out {value}
 
           - type: slider
             properties:
@@ -700,7 +799,7 @@ pages:
             on_change:
               command: >-
                 hyprctl keyword general:gaps_in {value} &&
-                ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh general:gaps_in {value}
+                hcm set general:gaps_in {value}
 
       - type: section
         properties:
@@ -716,27 +815,11 @@ pages:
               enabled:
                 command: >-
                   hyprctl keyword animations:enabled true &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh animations:enabled true
+                  hcm set animations:enabled true
               disabled:
                 command: >-
                   hyprctl keyword animations:enabled false &&
-                  ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh animations:enabled false
-
-          - type: slider
-            properties:
-              title: Animation Speed
-              description: "Lower = faster (runtime only — bezier curves can't be expressed as a simple conf value)"
-              icon: media-playlist-shuffle-symbolic
-              key: hypr/anim_speed
-              min: 1
-              max: 10
-              step: 1
-              default: 4
-            on_change:
-              # Bezier pair is runtime only — not persisted
-              command: >-
-                hyprctl keyword animations:bezier "myBezier,0.05,0.9,0.1,1.05" &&
-                hyprctl keyword animations:animation "windows,1,{value},myBezier"
+                  hcm set animations:enabled false
 
           - type: button
             properties:
@@ -758,4 +841,37 @@ pages:
               icon: edit-clear-symbolic
               button_text: Reset
             on_press:
-              command: ~/cloudyy_scripts/cloud-center-v2/hypr_persist.sh reset-page hyprland
+              command: hcm reset-page hyprland
+
+  - id: terminal
+    title: Terminal
+    icon: utilities-terminal-symbolic
+    layout:
+      - type: section
+        properties:
+          title: Terminal Mascot
+          description: Manage startup images in Kitty
+        items:
+          - type: toggle
+            properties:
+              title: Show Mascot
+              description: Show Hyprchan mascot on terminal startup
+              icon: face-smile-symbolic
+              key: terminal/show_mascot
+
+      - type: section
+        properties:
+          title: Shell & Multiplexer
+          description: Workflow and plugin management
+        items:
+          - type: toggle
+            properties:
+              title: Multiplexer Autostart
+              description: Attach to default session (zellij or tmux, whichever is installed)
+              icon: application-x-executable-symbolic
+              key: terminal/multiplexer_autostart
+
+          - type: extension_browser
+            properties:
+              title: Zsh Extension Browser
+              description: Search, enable, and manage all Oh My Zsh plugins natively

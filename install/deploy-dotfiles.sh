@@ -9,7 +9,7 @@
 # Called by install.sh. Can also be run standalone.
 # =============================================================================
 
-set -euo pipefail
+set -euo pipefail -E
 
 # --- Configuration -----------------------------------------------------------
 readonly REPO_URL="https://github.com/schultz-dev0/cloudyy-linux"
@@ -25,20 +25,25 @@ else
 fi
 
 # --- Logging -----------------------------------------------------------------
-log() { printf '%s[*]%s %s\n' "$BLUE" "$RESET" "$1"; }
-log_ok() { printf '%s[✓]%s %s\n' "$GREEN" "$RESET" "$1"; }
-log_warn() { printf '%s[!]%s %s\n' "$YELLOW" "$RESET" "$1"; }
-log_error() { printf '%s[✗]%s %s\n' "$RED" "$RESET" "$1" >&2; }
-log_skip() { printf '%s[-]%s %s %s(unchanged)%s\n' "$CYAN" "$RESET" "$1" "$YELLOW" "$RESET"; }
-log_section() {
-  printf '\n%s%s── %s%s\n' "$BOLD" "$CYAN" "$1" "$RESET"
-}
+_ts() { date '+%H:%M:%S'; }
+log()         { printf '%s[*]%s  [%s] %s\n'              "$BLUE"   "$RESET" "$(_ts)" "$1"; }
+log_ok()      { printf '%s[✓]%s  [%s] %s\n'              "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()    { printf '%s[!]%s  [%s] %s\n'              "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error()   { printf '%s[✗]%s  [%s] %s\n'              "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log_skip()    { printf '%s[-]%s  [%s] %s %s(unchanged)%s\n' "$CYAN" "$RESET" "$(_ts)" "$1" "$YELLOW" "$RESET"; }
+log_section() { printf '\n%s%s── %s%s\n'                  "$BOLD"   "$CYAN"  "$1"     "$RESET"; }
 
 # --- Guards ------------------------------------------------------------------
 if [[ $EUID -eq 0 ]]; then
   log_error "Do not run as root."
   exit 1
 fi
+
+_err_handler() {
+  log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+}
+trap '_err_handler' ERR
 
 # =============================================================================
 # HELPERS
@@ -60,11 +65,12 @@ backup_if_needed() {
     fi
   fi
 
-  # It's a real file/dir that will be replaced — back it up
-  mkdir -p "$BACKUP_DIR"
-  local dest="${BACKUP_DIR}/$(basename "$target")"
+  # It's a real file/dir that will be replaced — back it up, mirroring its path
+  local rel_path="${target#${HOME}/}"
+  local dest="${BACKUP_DIR}/${rel_path}"
+  mkdir -p "$(dirname "$dest")"
   mv "$target" "$dest"
-  log_warn "Backed up: $(basename "$target") → ${BACKUP_DIR}/"
+  log_warn "Backed up: ${rel_path} → ${BACKUP_DIR}/${rel_path}"
 }
 
 # Create a symlink, backing up whatever was there first
@@ -72,12 +78,23 @@ safe_symlink() {
   local src="$1" # Source (inside repo)
   local dst="$2" # Destination (in $HOME or $HOME/.config)
 
-  if [[ ! -e "$src" ]]; then
+  # Strip trailing slash so ln -snf behaves consistently
+  src="${src%/}"
+
+  if [[ ! -e "$src" && ! -L "$src" ]]; then
     log_warn "Source not found, skipping: ${src}"
     return 0
   fi
 
   backup_if_needed "$dst"
+
+  # Guard: if a real (non-symlink) directory survived the backup step, ln -snf
+  # would silently place the new symlink *inside* it rather than replacing it.
+  if [[ -d "$dst" && ! -L "$dst" ]]; then
+    log_error "Cannot symlink ${dst}: real directory still present after backup — skipping."
+    return 1
+  fi
+
   ln -snf "$src" "$dst"
   log_ok "Linked: $(basename "$dst")"
 }
@@ -88,6 +105,14 @@ safe_symlink() {
 
 sync_repo() {
   log_section "Repository"
+
+  # If REPO_DIR exists but has no .git (e.g. failed previous clone), move it
+  # aside so a clean clone can proceed.
+  if [[ -e "${REPO_DIR}" && ! -d "${REPO_DIR}/.git" ]]; then
+    local stale="${REPO_DIR}.stale.$(date +%s)"
+    log_warn "${REPO_DIR} exists but is not a git repo — moving to ${stale}"
+    mv "${REPO_DIR}" "${stale}"
+  fi
 
   if [[ -d "${REPO_DIR}/.git" ]]; then
     log "Repository exists — pulling latest changes..."
@@ -185,6 +210,8 @@ link_extra_dirs() {
   # Wallpapers
   if [[ -d "${REPO_DIR}/Wallpapers" ]]; then
     safe_symlink "${REPO_DIR}/Wallpapers" "${HOME}/Wallpapers"
+    mkdir -p "${REPO_DIR}/Wallpapers/user_wallpapers/Dark" \
+             "${REPO_DIR}/Wallpapers/user_wallpapers/Light"
   fi
 
   # cloudyy_scripts — also make them executable
@@ -218,8 +245,18 @@ ensure_cloudyy_path() {
   local export_subdir="export PATH=\"\$PATH:\$HOME/${rel_subdir}\""
   local updated=0
 
-  local -a rc_files=("${HOME}/.zshrc" "${HOME}/.bashrc")
+  # zsh is managed via ZDOTDIR (~/.config/zsh/.zshrc), not ~/.zshrc.
+  # Writing to ~/.zshrc on fresh/dirty systems can create a minimal stub
+  # that shadows expected behavior.
+  local -a rc_files=("${HOME}/.config/zsh/.zshrc" "${HOME}/.bashrc")
   for rc in "${rc_files[@]}"; do
+    mkdir -p "$(dirname "$rc")"
+    # Broken/circular symlinks (dirty systems) cause touch to fail with ELOOP.
+    # Remove them so we can create a plain file in their place.
+    if [[ -L "$rc" && ! -e "$rc" ]]; then
+      log_warn "$(basename "$rc"): broken symlink detected — removing before recreating."
+      rm -f "$rc"
+    fi
     [[ -f "$rc" ]] || touch "$rc"
 
     local needs_root=1 needs_subdir=1
@@ -243,6 +280,138 @@ ensure_cloudyy_path() {
 
   if ((updated == 0)); then
     log_ok "No PATH changes needed."
+  fi
+}
+
+# =============================================================================
+# STEP 4.2: Shell Setup — zsh default + oh-my-zsh
+# =============================================================================
+
+setup_shell() {
+  log_section "Shell Setup"
+
+  # Set zsh as default shell if it isn't already
+  local zsh_path
+  zsh_path="$(command -v zsh 2>/dev/null || true)"
+  if [[ -z "$zsh_path" ]]; then
+    log_warn "zsh not found — skipping shell setup."
+    return 0
+  fi
+
+  if [[ "$SHELL" != "$zsh_path" ]]; then
+    log "Setting zsh as default shell..."
+    if chsh -s "$zsh_path" 2>/dev/null; then
+      log_ok "Default shell set to zsh (takes effect on next login)."
+    else
+      log_warn "chsh failed — run: chsh -s ${zsh_path}"
+    fi
+  else
+    log_skip "zsh already default shell"
+  fi
+
+  # Install oh-my-zsh to ~/.config/zsh/oh-my-zsh (matches $ZSH in .zshrc)
+  local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
+  if [[ ! -d "$omz_dir" ]]; then
+    log "Installing oh-my-zsh..."
+    if ZSH="$omz_dir" RUNZSH=no CHSH=no \
+       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+       "" --unattended 2>/dev/null; then
+      log_ok "oh-my-zsh installed."
+    else
+      log_warn "oh-my-zsh install failed (non-fatal — run manually later)."
+    fi
+  else
+    log_skip "oh-my-zsh already installed"
+  fi
+
+  # Symlink system-installed plugins into oh-my-zsh custom plugins dir
+  local custom_plugins="${omz_dir}/custom/plugins"
+  mkdir -p "$custom_plugins"
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    local sys_path="/usr/share/zsh/plugins/${plugin}"
+    if [[ -d "$sys_path" && ! -e "${custom_plugins}/${plugin}" ]]; then
+      ln -snf "$sys_path" "${custom_plugins}/${plugin}"
+      log_ok "Plugin linked: ${plugin}"
+    fi
+  done
+}
+
+# =============================================================================
+# STEP 4.5: Deploy First-Boot Defaults
+# =============================================================================
+# Copies distro defaults for files that are gitignored (generated at runtime).
+# Only runs if the target doesn't already exist — never overwrites user files.
+
+deploy_defaults() {
+  log_section "First-Boot Defaults"
+
+  local defaults_dir="${REPO_DIR}/install/default-theme"
+
+  # hyprland.conf — gitignored; deploy once so Hyprland can start cleanly
+  local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
+  if [[ ! -f "$hypr_conf" ]]; then
+    if [[ -f "${defaults_dir}/hyprland.conf" ]]; then
+      cp "${defaults_dir}/hyprland.conf" "$hypr_conf"
+      log_ok "hyprland.conf deployed (default)."
+    else
+      log_warn "No default hyprland.conf in ${defaults_dir} — Hyprland may not start until configured."
+    fi
+  else
+    log_skip "hyprland.conf"
+  fi
+
+  # matugen generated colors — gitignored; deploy so Hyprland + rofi have colors
+  local generated_dir="${HOME}/.config/matugen/generated"
+  mkdir -p "$generated_dir"
+  local deployed=0
+  for src in "${defaults_dir}/matugen/"*; do
+    [[ -f "$src" ]] || continue
+    local dst="${generated_dir}/$(basename "$src")"
+    if [[ ! -f "$dst" ]]; then
+      cp "$src" "$dst"
+      (( ++deployed )) || true
+    fi
+  done
+  if (( deployed > 0 )); then
+    log_ok "${deployed} default color file(s) deployed (incl. starship.toml)."
+  else
+    log_skip "matugen generated colors"
+  fi
+
+  # quickshell Theme.qml — matugen output; seed once, never tracked in git
+  local qs_theme="${HOME}/.config/quickshell/Theme.qml"
+  local qs_theme_default="${defaults_dir}/quickshell/Theme.qml"
+  if [[ ! -f "$qs_theme" ]]; then
+    if [[ -f "$qs_theme_default" ]]; then
+      mkdir -p "$(dirname "$qs_theme")"
+      cp "$qs_theme_default" "$qs_theme"
+      log_ok "quickshell Theme.qml deployed (default)."
+    else
+      log_warn "No default Theme.qml in ${defaults_dir}/quickshell — quickshell may lack colors until matugen runs."
+    fi
+  else
+    log_skip "quickshell Theme.qml"
+  fi
+
+  # Cloud Center terminal settings — seed defaults so .zshrc can load plugins
+  # and respects show_mascot on first boot before Cloud Center runs.
+  local cc_terminal_dir="${HOME}/.config/cloud-center/settings/terminal"
+  mkdir -p "$cc_terminal_dir"
+
+  local plugins_file="${cc_terminal_dir}/active_zsh_plugins.txt"
+  if [[ ! -f "$plugins_file" ]]; then
+    printf 'zsh-autosuggestions\nzsh-syntax-highlighting\n' > "$plugins_file"
+    log_ok "Default zsh plugins seeded (zsh-autosuggestions, zsh-syntax-highlighting)."
+  else
+    log_skip "active_zsh_plugins.txt"
+  fi
+
+  local mascot_file="${cc_terminal_dir}/show_mascot"
+  if [[ ! -f "$mascot_file" ]]; then
+    printf 'true\n' > "$mascot_file"
+    log_ok "show_mascot default seeded."
+  else
+    log_skip "show_mascot"
   fi
 }
 
@@ -299,11 +468,11 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/dark_last"
     ".config/hypr/theme_state/light_last"
     "cloudyy_scripts/theme_controller.sh"
-    "cloudyy_scripts/bridge_scripts/bridge_default.sh"
-    "cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
+    ".config/hypr/hyprland.lua"
+    ".config/zsh/.zshrc"
     ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"
@@ -357,10 +526,94 @@ seed_required_applications() {
 }
 
 # =============================================================================
+# PRE-FLIGHT: Conflict scan
+# =============================================================================
+# Enumerate every destination that safe_symlink will touch. Report anything
+# that already exists on disk and isn't already our own symlink, so the user
+# can see exactly what will be backed up before a single file is moved.
+
+_is_our_link() {
+  local p="$1"
+  [[ -L "$p" ]] || return 1
+  local t
+  t="$(readlink -f "$p" 2>/dev/null)" || return 1
+  [[ "$t" == "${REPO_DIR}"* ]]
+}
+
+preflight_conflicts() {
+  log_section "Pre-flight Conflict Scan"
+  local -a conflicts=()
+
+  # Home dotfiles
+  while IFS= read -r -d '' dotfile; do
+    local dst="${HOME}/$(basename "$dotfile")"
+    [[ -e "$dst" || -L "$dst" ]] || continue
+    _is_our_link "$dst" && continue
+    local kind="file"
+    [[ -d "$dst" ]] && kind="dir"
+    [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+    conflicts+=("~/${dst#${HOME}/}  [${kind}]")
+  done < <(find "$REPO_DIR" -maxdepth 1 \
+    -name ".*" \
+    ! -name ".config" \
+    ! -name ".git" \
+    ! -name ".gitignore" \
+    ! -name ".gitmodules" \
+    ! -name ".local" \
+    -print0 2>/dev/null)
+
+  # .config directories
+  local config_src="${REPO_DIR}/.config"
+  if [[ -d "$config_src" ]]; then
+    for dir in "${config_src}"/*/; do
+      [[ -d "$dir" ]] || continue
+      local dirname
+      dirname="$(basename "$dir")"
+      [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]] && continue
+      local dst="${HOME}/.config/${dirname}"
+      [[ -e "$dst" || -L "$dst" ]] || continue
+      _is_our_link "$dst" && continue
+      local kind="dir"
+      [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+      conflicts+=("~/.config/${dirname}  [${kind}]")
+    done
+  fi
+
+  # Extra top-level dirs (Wallpapers, cloudyy_scripts)
+  for pair in "Wallpapers:${HOME}/Wallpapers" "cloudyy_scripts:${HOME}/cloudyy_scripts"; do
+    local src_name="${pair%%:*}" dst="${pair##*:}"
+    [[ -d "${REPO_DIR}/${src_name}" ]] || continue
+    [[ -e "$dst" || -L "$dst" ]] || continue
+    _is_our_link "$dst" && continue
+    local kind="dir"
+    [[ -L "$dst" ]] && kind="symlink→$(readlink "$dst" 2>/dev/null)"
+    conflicts+=("~/${src_name}  [${kind}]")
+  done
+
+  if (( ${#conflicts[@]} == 0 )); then
+    log_ok "No conflicts found — clean deployment."
+    return 0
+  fi
+
+  log_warn "${#conflicts[@]} existing path(s) will be backed up before being replaced:"
+  for c in "${conflicts[@]}"; do
+    log_warn "  · ${c}"
+  done
+  log_warn "Backup destination: ${BACKUP_DIR}"
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
 main() {
+  # Parse flags
+  for _arg in "$@"; do
+    case "$_arg" in
+      --unattended|-u) CLOUDYY_UNATTENDED=1 ;;
+    esac
+  done
+
   printf '\n%s%s── cloudyy-linux Dotfiles Deployment ──%s\n' "$BOLD" "$CYAN" "$RESET"
   printf 'Repo URL : %s\n' "$REPO_URL"
   printf 'Repo dir : %s\n' "$REPO_DIR"
@@ -369,36 +622,41 @@ main() {
   printf '%sExisting files will be backed up before being replaced.%s\n' "$YELLOW" "$RESET"
   printf 'Nothing is deleted — backups live in:\n  %s\n\n' "$BACKUP_DIR"
 
-  read -rp "Proceed with dotfiles deployment? [Y/n]: " _confirm
-  [[ "${_confirm,,}" == "n" ]] && {
-    log "Cancelled."
-    exit 0
-  }
+  if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
+    log "Unattended mode — proceeding with dotfiles deployment."
+  else
+    read -rp "Proceed with dotfiles deployment? [Y/n]: " _confirm
+    [[ "${_confirm,,}" == "n" ]] && {
+      log "Cancelled."
+      exit 0
+    }
+  fi
 
   sync_repo
   reapply_skip_worktree
+  preflight_conflicts
   link_home_dotfiles
   link_config_dirs
   link_extra_dirs
+  # Only run shell setup when not orchestrated by install.sh
+  # (install.sh has a dedicated phase_shell that runs after packages are installed)
+  [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]] && setup_shell
+  deploy_defaults
   ensure_cloudyy_path
   verify_deployment
   setup_system_theme
   seed_required_applications
 
-  # Wire quickshell bridge and restore theme
-  local _self_dir
-  _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ ! -f "${_self_dir}/widget_bridge.sh" ]]; then
-    log_error "widget_bridge.sh not found: ${_self_dir}/widget_bridge.sh"
-    exit 1
-  fi
-  if [[ ! -x "${_self_dir}/widget_bridge.sh" ]]; then
-    log_error "widget_bridge.sh is not executable: ${_self_dir}/widget_bridge.sh"
-    exit 1
-  fi
-  if ! bash "${_self_dir}/widget_bridge.sh"; then
-    log_error "widget_bridge.sh failed"
-    exit 1
+  # Run schema settings (XDG portal + pywalfox) — only in standalone mode;
+  # install.sh has a dedicated phase_schema for this.
+  if [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]]; then
+    local _schema_script
+    _schema_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/schema_settings.sh"
+    if [[ -f "$_schema_script" ]]; then
+      bash "$_schema_script" || log_warn "schema_settings.sh encountered issues (non-fatal)"
+    else
+      log_warn "schema_settings.sh not found at ${_schema_script} — skipping"
+    fi
   fi
 
   if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then

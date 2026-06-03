@@ -24,6 +24,11 @@
 !.vscode-oss/extensions/matugen-theme
 cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
 
+# Private user wallpapers — never commit images
+Wallpapers/user_wallpapers/**/*
+!Wallpapers/user_wallpapers/**/
+!Wallpapers/user_wallpapers/**/.gitkeep
+
 # Local scripts and private data
 cloudyy_scripts/cloudyy-other/folio-gtk
 cloudyy_scripts/cloudyy-other/keypunch
@@ -45,6 +50,9 @@ cloudyy_scripts/pin-ksp.sh
 !.config/hypr/theme_state/apply_theme.sh
 .config/hypr/hyprland.conf
 .config/matugen/generated/
+
+# matugen output — lives on disk under the quickshell symlink, not in git
+.config/quickshell/Theme.qml
 
 # Python build artifacts
 **/__pycache__/
@@ -68,6 +76,10 @@ cloudyy_scripts/pin-ksp.sh
 .config/kitty/kitty-colors.conf
 .config/btop/themes/matugen.theme
 .config/nvim/lua/current_mode.lua
+cloudyy_scripts/source/*
+!cloudyy_scripts/source/hcm/
+cloudyy_scripts/source/hcm/target/
+cloudyy_scripts/source/hcm/tests/
 
 # Local AI tooling
 .claude*
@@ -87,3 +99,6 @@ cloudyy_scripts/pin-ksp.sh
 .config/waybar/.vertical_side
 .config/waypaper/config.ini
 **/.superpowers/
+
+# Superpowers spec docs (local only)
+docs/

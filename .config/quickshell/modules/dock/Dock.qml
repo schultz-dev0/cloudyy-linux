@@ -6,12 +6,15 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import "../.."
 import "../../overview/services"
 
 PanelWindow {
     id: dock
+
+    property var assignedScreen: null
+    screen: assignedScreen
+    property bool ipcEnabled: true
 
     property string systemIconTheme: "Papirus-Dark"
     Process {
@@ -30,7 +33,7 @@ PanelWindow {
     readonly property int iconSize: 48
     readonly property real maxScale: 1.8
     readonly property real spread: 1
-    readonly property int frameMs: 16
+    readonly property int frameMs: Perf.dockFrameMs
     readonly property int triggerHeight: 0
     readonly property int pillHeight: iconSize + paddingV * 2
     readonly property int dockBodyHeight: 110
@@ -40,39 +43,25 @@ PanelWindow {
     readonly property int bottomGap: 0
     readonly property int activationHeight: 16
 
-    // ── Pinned apps — EDIT THIS ────────────────────────────────────────────
-    readonly property var pinnedApps: [
-        {
-            class: "zen",
-            exec: "zen-browser",
-            icon: "zen-browser"
-        },
-        {
-            class: "dev.zed.Zed",
-            exec: "zeditor",
-            icon: "zed"
-        },
-        {
-            class: "kitty",
-            exec: "kitty",
-            icon: "kitty"
-        },
-        {
-            class: "thunar",
-            exec: "thunar",
-            icon: "xfce-filemanager"
-        },
-        {
-            class: "spotify",
-            exec: "spotify",
-            icon: "spotify"
-        }
-    ]
+    // ── Drag / interaction ─────────────────────────────────────────────────
+    property int dragSourceIndex: -1
+    property int dragHoverVisualIndex: -1
+    property bool interactionBlock: false
+    property var dragGhostAppData: null
+    property real dragGhostTargetCenterX: 0
+    property real dragGhostTargetCenterY: 0
+    property real dragGhostVisualCenterX: 0
+    property real dragGhostVisualCenterY: 0
+    property real dragGhostLiftScale: 1
+
+    readonly property var effectivePinnedApps: DockStore.loaded ? DockStore.pinnedApps : DockStore.defaultPinnedApps
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
     property real dockMouseX: -9999
     readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHover.hovered
+    readonly property bool animationActive: dockVisible || dockHovered || interactionBlock || dragSourceIndex >= 0
+    readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
@@ -89,6 +78,11 @@ PanelWindow {
     onDockHoveredChanged: syncDockVisibility()
 
     function syncDockVisibility() {
+        if (interactionBlock) {
+            hideTimer.stop();
+            dockVisible = true;
+            return;
+        }
         if (anyFullscreen) {
             hideTimer.stop();
             dockMouseX = -9999;
@@ -107,50 +101,295 @@ PanelWindow {
             hideTimer.restart();
     }
 
+    function stripDesktopExecField(s) {
+        const t = `${s ?? ""}`.trim();
+        if (!t)
+            return "";
+        return t.replace(/%[A-Za-z]/g, "").trim();
+    }
+
+    function shellQuote(s) {
+        const t = `${s ?? ""}`;
+        return `'${t.replace(/'/g, `'\\''`)}'`;
+    }
+
+    function desktopEntryForClass(className) {
+        return DesktopEntries.heuristicLookup(className);
+    }
+
+    function desktopExecForClass(className) {
+        const entry = dock.desktopEntryForClass(className);
+        if (!entry)
+            return "";
+        const raw = entry.exec ?? entry.Exec ?? entry.commandLine ?? entry.commandline ?? "";
+        return stripDesktopExecField(raw);
+    }
+
+    function iconForApp(app) {
+        if (!app)
+            return "";
+        const entry = dock.desktopEntryForClass(app.class);
+        if (entry?.icon) {
+            const ic = HyprlandData.normalizeIconName(entry.icon);
+            if (ic.length > 0)
+                return ic;
+        }
+        const pinIcon = `${app.icon ?? ""}`.trim();
+        if (pinIcon.length > 0)
+            return pinIcon;
+        return `${app.class ?? ""}`.trim();
+    }
+
+    function execForPinnedApp(app) {
+        if (!app)
+            return "";
+        if (Array.isArray(app.exec))
+            return app.exec;
+
+        const desktopExec = dock.desktopExecForClass(app.class);
+        if (desktopExec.length > 0)
+            return desktopExec;
+
+        const pinnedExec = stripDesktopExecField(app.exec);
+        if (pinnedExec.length > 0)
+            return pinnedExec;
+
+        return `${app.class ?? ""}`.toLowerCase();
+    }
+
+    function execFromWindow(w) {
+        if (!w)
+            return "";
+        const st = desktopExecForClass(w.class || w.initialClass || w.initialTitle);
+        if (st.length > 0)
+            return st;
+        return (w.class || "").toLowerCase();
+    }
+
     // ── App list: pinned + running, deduplicated ───────────────────────────
-    readonly property var mergedApps: {
-        const pinnedClasses = new Set(pinnedApps.map(a => a.class.toLowerCase()));
-        const runningMap = {};
-        HyprlandData.windowList.forEach(w => {
-            const cls = (w.class || "").toLowerCase();
-            if (cls && !runningMap[cls])
-                runningMap[cls] = w;
-        });
+    readonly property var runningWindows: HyprlandData.windowList
+    property var mergedApps: []
 
-        const result = pinnedApps.map(app => ({
-                    class: app.class,
-                    exec: app.exec,
-                    icon: app.icon,
-                    isRunning: !!runningMap[app.class.toLowerCase()],
-                    window: null,
-                    isPinned: true
-                }));
+    onRunningWindowsChanged: rebuildMergedApps()
+    onEffectivePinnedAppsChanged: rebuildMergedApps()
 
-        Object.keys(runningMap).forEach(cls => {
-            if (!pinnedClasses.has(cls)) {
-                const w = runningMap[cls];
-                // Use DesktopEntries lookup for a proper icon name; fall back to
-                // the raw class only if no desktop entry is found
-                const candidates = HyprlandData.iconCandidatesForWindow(w);
-                let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || cls);
-                if (w.class && w.class.toLowerCase().includes("matlab")) iconName = "/home/schultz/.local/share/icons/matlab.png";
-                result.push({
-                    class: w.class,
-                    exec: w.class.toLowerCase(),
-                    icon: iconName,
-                    isRunning: true,
-                    window: w,
-                    isPinned: false
-                });
+    function windowMatchScore(window, pinnedClass) {
+        const pCls = `${pinnedClass ?? ""}`.toLowerCase().trim();
+        if (!pCls) return 0;
+        const pParts = pCls.split(".");
+        const pLast = pParts[pParts.length - 1] ?? "";
+        const wCls = `${window.class ?? ""}`.toLowerCase();
+        const wInit = `${window.initialClass ?? ""}`.toLowerCase();
+        const wParts = wCls.split(".");
+        const wLast = wParts[wParts.length - 1] ?? "";
+        if (wCls === pCls || wInit === pCls) return 3;
+        if (wCls === pLast || wInit === pLast) return 2;
+        if (wLast === pCls) return 2;
+        if (pLast.length > 2 && wLast === pLast) return 1;
+        return 0;
+    }
+
+    function findWindowForClass(pinnedClass, windowList) {
+        let best = null, bestScore = 0;
+        windowList.forEach(w => {
+            const s = dock.windowMatchScore(w, pinnedClass);
+            if (s > bestScore || (s > 0 && s === bestScore &&
+                    (w.focusHistoryID ?? 9999) < (best?.focusHistoryID ?? 9999))) {
+                best = w;
+                bestScore = s;
             }
         });
+        return best;
+    }
 
-        return result;
+    function windowAppKey(window) {
+        return `${window?.class || window?.initialClass || ""}`.toLowerCase().trim();
+    }
+
+    function moreRecentWindow(current, candidate) {
+        return !current || ((candidate?.focusHistoryID ?? 9999) < (current?.focusHistoryID ?? 9999));
+    }
+
+    function rebuildMergedApps() {
+        const windows = dock.runningWindows;
+        const pinnedApps = dock.effectivePinnedApps;
+
+        const result = pinnedApps.map(app => {
+            const win = dock.findWindowForClass(app.class, windows);
+            return {
+                class: app.class,
+                exec: app.exec,
+                icon: dock.iconForApp(app),
+                isRunning: win != null,
+                window: win,
+                isPinned: true
+            };
+        });
+
+        const unpinnedByKey = ({});
+        windows.forEach(w => {
+            if (pinnedApps.some(app => dock.windowMatchScore(w, app.class) > 0))
+                return;
+            const key = dock.windowAppKey(w);
+            if (!key)
+                return;
+            if (dock.moreRecentWindow(unpinnedByKey[key], w))
+                unpinnedByKey[key] = w;
+        });
+
+        Object.keys(unpinnedByKey).forEach(key => {
+            const w = unpinnedByKey[key];
+            const candidates = HyprlandData.iconCandidatesForWindow(w);
+            let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || "");
+            if (w.class && w.class.toLowerCase().includes("matlab"))
+                iconName = `${HyprlandData.homeDir}/.local/share/icons/matlab.png`;
+            result.push({
+                class: w.class,
+                exec: dock.execFromWindow(w),
+                icon: dock.iconForApp({ class: w.class, icon: iconName }),
+                isRunning: true,
+                window: w,
+                isPinned: false
+            });
+        });
+
+        dock.mergedApps = result;
+    }
+
+    function visualIndexAtRowX(rowLocalX) {
+        const slot = dock.iconSize + dock.iconSpacing;
+        const n = dock.mergedApps.length;
+        if (n <= 0)
+            return 0;
+        let i = Math.floor((rowLocalX + slot * 0.5) / slot);
+        if (i < 0)
+            i = 0;
+        if (i >= n)
+            i = n - 1;
+        return i;
+    }
+
+    function clampDragGhostCenterX(cx) {
+        const half = dock.iconSize * dock.maxScale * 0.5 + 4;
+        const w = dockBody.width;
+        if (w <= half * 2)
+            return w * 0.5;
+        return Math.max(half, Math.min(w - half, cx));
+    }
+
+    function clampDragGhostCenterY(cy) {
+        const half = (dock.iconSize * dock.maxScale + 6) * 0.5;
+        const h = dockBody.height;
+        if (h <= half * 2)
+            return h * 0.5;
+        return Math.max(half + 2, Math.min(h - half - 2, cy));
+    }
+
+    function setDragGhostTargetFromBodyPoint(bodyX, bodyY) {
+        dock.dragGhostTargetCenterX = dock.clampDragGhostCenterX(bodyX);
+        dock.dragGhostTargetCenterY = dock.clampDragGhostCenterY(bodyY);
+    }
+
+    function beginIconDrag(visualIndex, ghostCenterBodyX, ghostCenterBodyY) {
+        dock.dragGhostAppData = dock.mergedApps[visualIndex] ?? null;
+        const cx = dock.clampDragGhostCenterX(ghostCenterBodyX);
+        const cy = dock.clampDragGhostCenterY(ghostCenterBodyY);
+        dock.dragGhostTargetCenterX = cx;
+        dock.dragGhostTargetCenterY = cy;
+        dock.dragGhostVisualCenterX = cx;
+        dock.dragGhostVisualCenterY = cy;
+        dock.dragGhostLiftScale = 1.12;
+        dock.dragSourceIndex = visualIndex;
+        dock.dragHoverVisualIndex = visualIndex;
+        dock.interactionBlock = true;
+        dock.syncDockVisibility();
+    }
+
+    function updateDragHoverFromRowX(rowLocalX) {
+        dock.dragHoverVisualIndex = dock.visualIndexAtRowX(rowLocalX);
+    }
+
+    function updateDragFromBodyPoint(bodyX, bodyY) {
+        dock.setDragGhostTargetFromBodyPoint(bodyX, bodyY);
+        const lp = dockBody.mapToItem(iconsRow, bodyX, bodyY);
+        dock.updateDragHoverFromRowX(lp.x);
+    }
+
+    function clearDragGhost() {
+        dock.dragGhostAppData = null;
+        dock.dragGhostLiftScale = 1;
+    }
+
+    function abortIconDrag() {
+        dock.dragSourceIndex = -1;
+        dock.dragHoverVisualIndex = -1;
+        dock.interactionBlock = false;
+        dock.clearDragGhost();
+        dock.syncDockVisibility();
+    }
+
+    function finishIconDrag() {
+        if (dock.dragSourceIndex < 0)
+            return;
+        const src = dock.dragSourceIndex;
+        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
+        const list = dock.mergedApps;
+        const pinnedCount = DockStore.pinnedApps.length;
+        if (src >= list.length) {
+            dock.dragSourceIndex = -1;
+            dock.dragHoverVisualIndex = -1;
+            dock.interactionBlock = false;
+            dock.clearDragGhost();
+            dock.syncDockVisibility();
+            return;
+        }
+        const srcEntry = list[src];
+        const srcPinned = !!srcEntry.isPinned;
+        const dstClamped = Math.min(dst, Math.max(0, list.length - 1));
+
+        if (srcPinned) {
+            if (dstClamped < pinnedCount) {
+                if (src !== dstClamped)
+                    DockStore.movePinned(src, dstClamped);
+            } else {
+                if (pinnedCount > 0 && src !== pinnedCount - 1)
+                    DockStore.movePinned(src, pinnedCount - 1);
+            }
+        } else {
+            const insertAt = Math.min(dstClamped, pinnedCount);
+            DockStore.pinEntry({
+                class: srcEntry.class,
+                exec: dock.execForPinnedApp(srcEntry),
+                icon: dock.iconForApp(srcEntry)
+            }, insertAt);
+        }
+
+        dock.dragSourceIndex = -1;
+        dock.dragHoverVisualIndex = -1;
+        dock.interactionBlock = false;
+        dock.clearDragGhost();
+        dock.syncDockVisibility();
+    }
+
+    function togglePinAtIndex(visualIndex) {
+        const list = dock.mergedApps;
+        if (visualIndex < 0 || visualIndex >= list.length)
+            return;
+        const e = list[visualIndex];
+        if (e.isPinned)
+            DockStore.unpinClass(e.class);
+        else
+            DockStore.pinEntry({
+                class: e.class,
+                exec: dock.execForPinnedApp(e),
+                icon: dock.iconForApp(e)
+            }, DockStore.pinnedApps.length);
     }
 
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
+    readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseX
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -171,11 +410,49 @@ PanelWindow {
     function launch(cmd) {
         if (!cmd || cmd.length === 0)
             return;
-        console.log("Dock Launching:", JSON.stringify(cmd));
+        const inner = cmd.map(a => dock.shellQuote(`${a}`)).join(" ");
         const p = procProto.createObject(dock, {
-            command: cmd
+            command: ["bash", "-lc", `cd "$HOME" && exec ${inner}`]
+        });
+        p.runningChanged.connect(() => {
+            if (!p.running)
+                p.destroy();
         });
         p.running = true;
+    }
+
+    function launchApp(app) {
+        const e = dock.execForPinnedApp(app);
+        if (Array.isArray(e)) {
+            dock.launch(e);
+        } else if (e) {
+            dock.launch(["uwsm-app", "--", e]);
+        } else {
+            console.warn("dock: no launch command for", app?.class ?? "<unknown>");
+        }
+    }
+
+    function focusWindow(window) {
+        HyprDispatch.focusWindow(window);
+    }
+
+    function focusClass(className) {
+        HyprDispatch.focusWindowByClass(className);
+    }
+
+    Component.onCompleted: rebuildMergedApps()
+
+    // Overview's full-screen Overlay can steal the mouse release during a dock drag.
+    Connections {
+        target: GlobalStates
+        function onOverviewOpenChanged() {
+            if (dock.dragSourceIndex < 0 && !dock.interactionBlock)
+                return;
+            if (GlobalStates.overviewOpen)
+                dock.abortIconDrag();
+            else if (dock.interactionBlock)
+                dock.abortIconDrag();
+        }
     }
 
     // ── Dock body ──────────────────────────────────────────────────────────
@@ -218,20 +495,32 @@ PanelWindow {
 
                 readonly property real btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
                 readonly property real targetScale: {
-                    if (dock.dockMouseX < -1000)
+                    if (dock.dockMouseXEffective < -1000)
                         return 1.0;
-                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
                     const sigma = dock.iconSize * dock.spread;
                     return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
                 }
                 property real currentScale: 1.0
                 Timer {
                     interval: dock.frameMs
-                    running: true
+                    running: dock.animationActive
                     repeat: true
                     onTriggered: {
+                        const delta = searchBtn.targetScale - searchBtn.currentScale;
+                        if (Math.abs(delta) < 0.002) {
+                            searchBtn.currentScale = searchBtn.targetScale;
+                            return;
+                        }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        searchBtn.currentScale += (searchBtn.targetScale - searchBtn.currentScale) * lerp;
+                        searchBtn.currentScale += delta * lerp;
+                    }
+                }
+                Connections {
+                    target: dock
+                    function onDockIdleChanged() {
+                        if (dock.dockIdle)
+                            searchBtn.currentScale = 1.0;
                     }
                 }
 
@@ -255,7 +544,7 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: Hyprland.dispatch("exec quickshell ipc call spotlight-dock toggle")
+                    onClicked: dock.launch(["quickshell", "ipc", "call", "spotlight", "toggle"])
                 }
             }
 
@@ -268,24 +557,34 @@ PanelWindow {
                     DockIcon {
                         required property var modelData
                         required property int index
+                        dockBodyRef: dockBody
+                        iconsRowRef: iconsRow
+                        visualIndex: index
                         appData: modelData
                         iconSize: dock.iconSize
                         maxScale: dock.maxScale
                         spread: dock.spread
                         frameMs: dock.frameMs
-                        dockMouseX: dock.dockMouseX
+                        dockMouseX: dock.dockMouseXEffective
                         iconCenterX: x + dock.iconSize / 2
+                        animationActive: dock.animationActive || dock.dragSourceIndex === index
+                        dockIdle: dock.dockIdle
+                        isDragSource: dock.dragSourceIndex === index
                         onClicked: {
-                            if (modelData.isRunning)
-                                Hyprland.dispatch("focuswindow class:" + modelData.class);
-                            else {
-                                const e = modelData.exec;
-                                if (Array.isArray(e)) {
-                                    dock.launch(e);
-                                } else if (e) {
-                                    dock.launch(["uwsm-app", "--", e]);
-                                }
+                            if (modelData.isRunning) {
+                                if (modelData.window?.address)
+                                    dock.focusWindow(modelData.window);
+                                else
+                                    dock.focusClass(modelData.class);
+                            } else {
+                                dock.launchApp(modelData);
                             }
+                        }
+                        onRequestTogglePin: dock.togglePinAtIndex(index)
+                        onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
+                        onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
+                        onDragReorderEnded: {
+                            dock.finishIconDrag();
                         }
                     }
                 }
@@ -299,20 +598,32 @@ PanelWindow {
 
                 readonly property real btnCenterX: iconsRow.width + dock.iconSpacing + dock.iconSize / 2
                 readonly property real targetScale: {
-                    if (dock.dockMouseX < -1000)
+                    if (dock.dockMouseXEffective < -1000)
                         return 1.0;
-                    const d = Math.abs(dock.dockMouseX - btnCenterX);
+                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
                     const sigma = dock.iconSize * dock.spread;
                     return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
                 }
                 property real currentScale: 1.0
                 Timer {
                     interval: dock.frameMs
-                    running: true
+                    running: dock.animationActive
                     repeat: true
                     onTriggered: {
+                        const delta = appsBtn.targetScale - appsBtn.currentScale;
+                        if (Math.abs(delta) < 0.002) {
+                            appsBtn.currentScale = appsBtn.targetScale;
+                            return;
+                        }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        appsBtn.currentScale += (appsBtn.targetScale - appsBtn.currentScale) * lerp;
+                        appsBtn.currentScale += delta * lerp;
+                    }
+                }
+                Connections {
+                    target: dock
+                    function onDockIdleChanged() {
+                        if (dock.dockIdle)
+                            appsBtn.currentScale = 1.0;
                     }
                 }
 
@@ -341,6 +652,76 @@ PanelWindow {
             }
         }
 
+        Item {
+            id: dragGhostLayer
+            z: 5000
+            visible: dock.dragSourceIndex >= 0 && dock.dragGhostAppData !== null
+            width: dock.iconSize
+            height: dock.iconSize * dock.maxScale + 6
+            x: dock.dragGhostVisualCenterX - width / 2
+            y: dock.dragGhostVisualCenterY - height / 2
+            scale: dock.dragGhostLiftScale
+            transformOrigin: Item.Bottom
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Image {
+                id: ghostImg
+                property int sourceIndex: 0
+                property var ghostSources: dock.dragGhostAppData && dock.dragGhostAppData.icon ? HyprlandData.iconSourcesForName(dock.dragGhostAppData.icon) : [HyprlandData.genericIconSource]
+
+                anchors {
+                    bottom: parent.bottom
+                    bottomMargin: 6
+                    horizontalCenter: parent.horizontalCenter
+                }
+                width: dock.iconSize
+                height: dock.iconSize
+                onGhostSourcesChanged: sourceIndex = 0
+                source: ghostSources[sourceIndex] ?? HyprlandData.genericIconSource
+                sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
+                smooth: true
+                scale: dock.maxScale * 0.92
+                transformOrigin: Item.Bottom
+                onStatusChanged: {
+                    if (status === Image.Error && ghostImg.sourceIndex < ghostSources.length - 1)
+                        Qt.callLater(() => {
+                            ghostImg.sourceIndex++;
+                        });
+                }
+            }
+
+            Rectangle {
+                visible: dock.dragGhostAppData && dock.dragGhostAppData.isRunning
+                width: 4
+                height: 4
+                radius: 2
+                color: Theme.primary
+                anchors {
+                    bottom: parent.bottom
+                    horizontalCenter: parent.horizontalCenter
+                }
+            }
+        }
+
+        Timer {
+            id: dragGhostLerpTimer
+            interval: dock.frameMs
+            running: dock.dragSourceIndex >= 0
+            repeat: true
+            onTriggered: {
+                const dt = dock.frameMs / 1000.0;
+                const k = 1 - Math.exp(-24 * dt);
+                dock.dragGhostVisualCenterX += (dock.dragGhostTargetCenterX - dock.dragGhostVisualCenterX) * k;
+                dock.dragGhostVisualCenterY += (dock.dragGhostTargetCenterY - dock.dragGhostVisualCenterY) * k;
+            }
+        }
+
         // HoverHandler tracks pointer inside dockBody without competing with
         // child MouseAreas for hover events — fixes hide timer firing on icon hover.
         HoverHandler {
@@ -351,6 +732,8 @@ PanelWindow {
             onPointChanged: {
                 if (hovered)
                     dock.dockMouseX = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
+                if (dock.dragSourceIndex >= 0 && hovered)
+                    dock.updateDragFromBodyPoint(point.position.x, point.position.y);
             }
         }
     }
@@ -380,16 +763,19 @@ PanelWindow {
     }
 
     // ── IPC ────────────────────────────────────────────────────────────────
-    IpcHandler {
-        target: "dock"
-        function toggle() {
-            dock.dockVisible = !dock.dockVisible;
-        }
-        function show() {
-            dock.dockVisible = true;
-        }
-        function hide() {
-            dock.dockVisible = false;
+    Loader {
+        active: dock.ipcEnabled
+        sourceComponent: IpcHandler {
+            target: "dock"
+            function toggle() {
+                dock.dockVisible = !dock.dockVisible;
+            }
+            function show() {
+                dock.dockVisible = true;
+            }
+            function hide() {
+                dock.dockVisible = false;
+            }
         }
     }
 }
