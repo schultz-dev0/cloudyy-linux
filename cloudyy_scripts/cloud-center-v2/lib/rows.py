@@ -165,7 +165,10 @@ class _ToggleManager(_ManagedRow):
         self._interval = int(props.get("interval", 5))
 
         if self._key:
-            row.set_active(utility.load_setting(self._key, False))
+            default = props.get("default", False)
+            if not isinstance(default, bool):
+                default = str(default).lower() in {"true", "yes", "1", "on"}
+            row.set_active(utility.load_setting(self._key, default))
 
         self._handler_id = row.connect("notify::active", self._on_toggle)
         row.connect("destroy", lambda _: self._cleanup())

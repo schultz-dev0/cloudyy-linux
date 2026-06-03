@@ -185,6 +185,40 @@ restart_portal() {
 }
 
 # =============================================================================
+# STEP 5: Thunar full path in window title (for cwd_walk.sh)
+# =============================================================================
+
+setup_thunar_full_path_title() {
+  log_section "Thunar Full Path Window Title"
+
+  if ! command -v xfconf-query &>/dev/null; then
+    log_skip "xfconf-query not found — set Thunar title style manually for cwd_walk"
+    return 0
+  fi
+
+  local style="THUNAR_WINDOW_TITLE_STYLE_FULL_PATH_WITHOUT_THUNAR_SUFFIX"
+  local current=""
+  current=$(xfconf-query -c thunar -p /misc-window-title-style 2>/dev/null || true)
+
+  if [[ "$current" == "$style" \
+     || "$current" == "THUNAR_WINDOW_TITLE_STYLE_FULL_PATH_WITH_THUNAR_SUFFIX" ]]; then
+    log_skip "Thunar window title already shows full path"
+    return 0
+  fi
+
+  if xfconf-query --channel thunar \
+      --property /misc-window-title-style \
+      --create --type string \
+      --set "$style"; then
+    log_ok "Set Thunar misc-window-title-style to full path"
+    log "Restart Thunar (thunar -q) for cwd_walk to read folder paths from the title"
+  else
+    log_error "Failed to set Thunar window title style"
+    return 1
+  fi
+}
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -193,11 +227,12 @@ main() {
 
   local errors=0
 
-  setup_gsettings_schemas  || ((++errors))
-  setup_portal_config      || ((++errors))
-  setup_pywalfox           || ((++errors))
-  setup_system_font        || ((++errors))
-  restart_portal           || true  # non-fatal; re-login is an acceptable fallback
+  setup_gsettings_schemas       || ((++errors))
+  setup_portal_config           || ((++errors))
+  setup_pywalfox                || ((++errors))
+  setup_system_font             || ((++errors))
+  setup_thunar_full_path_title  || ((++errors))
+  restart_portal                || true  # non-fatal; re-login is an acceptable fallback
 
   printf '\n'
   if ((errors > 0)); then

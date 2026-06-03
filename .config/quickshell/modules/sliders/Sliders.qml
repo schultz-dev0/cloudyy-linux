@@ -155,7 +155,7 @@ Scope {
 
     function refreshNightLight() {
         nightLightState.running = false;
-        nightLightState.command = ["sh", "-c", "if ! command -v hyprsunset >/dev/null 2>&1; then echo 'available=0'; exit 0; fi; active=0; if pgrep -x hyprsunset >/dev/null 2>&1; then active=1; fi; temp=$(cat \"$HOME/.cache/wltemp\" 2>/dev/null || echo 3500); printf 'available=1 active=%s temp=%s\\n' \"$active\" \"$temp\""];
+        nightLightState.command = ["sh", "-c", "if ! command -v hyprsunset >/dev/null 2>&1; then echo 'available=0'; exit 0; fi; active=0; if [ -f \"$HOME/.cache/wlnight_active\" ] && [ \"$(tr '[:upper:]' '[:lower:]' < \"$HOME/.cache/wlnight_active\")\" = true ]; then active=1; fi; temp=$(cat \"$HOME/.cache/wltemp\" 2>/dev/null || echo 3500); printf 'available=1 active=%s temp=%s\\n' \"$active\" \"$temp\""];
         nightLightState.running = true;
     }
 

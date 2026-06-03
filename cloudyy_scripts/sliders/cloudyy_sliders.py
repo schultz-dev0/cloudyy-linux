@@ -23,6 +23,7 @@ except ImportError as e:
 
 APP_ID         = "org.cloudyy.sliders"
 TEMP_CACHE     = Path.home() / ".cache" / "wltemp"
+ACTIVE_CACHE   = Path.home() / ".cache" / "wlnight_active"
 TEMP_MIN       = 1000
 TEMP_MAX       = 6500
 TEMP_DEFAULT   = 3500
@@ -121,6 +122,30 @@ def _write_temp(val: float) -> None:
             try: os.unlink(tmp)
             except OSError: pass
 
+def _read_active() -> bool:
+    try:
+        return ACTIVE_CACHE.read_text().strip().lower() in {"true", "yes", "1", "on"}
+    except Exception:
+        return False
+
+def _write_active(val: bool) -> None:
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(dir=ACTIVE_CACHE.parent, prefix=".wlnight_", suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            f.write("true" if val else "false"); f.flush(); os.fsync(f.fileno())
+        os.replace(tmp, ACTIVE_CACHE); tmp = None
+    except OSError:
+        pass
+    finally:
+        if tmp:
+            try: os.unlink(tmp)
+            except OSError: pass
+
+def _ipc_identity() -> None:
+    subprocess.Popen(["hyprctl", "hyprsunset", "identity"],
+                     close_fds=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def _ipc_temp(val: int) -> None:
     subprocess.Popen(["hyprctl", "hyprsunset", "temperature", str(val)],
                      close_fds=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -141,17 +166,16 @@ def set_hyprsunset(val: float) -> None:
     _hs_timer = GLib.timeout_add(200, _debounce_fire, _hs_pending)
 
 def _hs_start_thread(temp: int) -> None:
-    r = subprocess.run(["systemctl", "--user", "start", "hyprsunset.service"],
-                       capture_output=True)
-    if r.returncode != 0:
-        try:
-            subprocess.run(["pgrep", "-x", "hyprsunset"],
-                           check=True, stdout=subprocess.DEVNULL)
-        except subprocess.CalledProcessError:
+    if subprocess.run(["pgrep", "-x", "hyprsunset"],
+                      capture_output=True).returncode != 0:
+        r = subprocess.run(["systemctl", "--user", "start", "hyprsunset.service"],
+                           capture_output=True)
+        if r.returncode != 0:
             subprocess.Popen(["hyprsunset"], start_new_session=True, close_fds=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    import time; time.sleep(0.3)
+        import time; time.sleep(0.3)
     _ipc_temp(temp)
+    _write_active(True)
 
 def hs_start(temp: int) -> None:
     global _hs_active
@@ -161,10 +185,8 @@ def hs_start(temp: int) -> None:
 def hs_stop() -> None:
     global _hs_active
     _hs_active = False
-    r = subprocess.run(["systemctl", "--user", "stop", "hyprsunset.service"],
-                       capture_output=True)
-    if r.returncode != 0:
-        subprocess.run(["pkill", "-x", "hyprsunset"], capture_output=True)
+    _ipc_identity()
+    _write_active(False)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # WIDGETS
@@ -402,8 +424,12 @@ class App(Adw.Application):
         self.set_accels_for_action("app.close", ["Escape"])
 
         global _hs_active
-        _hs_active = subprocess.run(
-            ["pgrep", "-x", "hyprsunset"], capture_output=True).returncode == 0
+        _hs_active = _read_active()
+        if _hs_active and subprocess.run(
+            ["pgrep", "-x", "hyprsunset"], capture_output=True
+        ).returncode != 0:
+            _hs_active = False
+            _write_active(False)
 
         self._win = Win(self)
         self._win.realize()
