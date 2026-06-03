@@ -12,6 +12,7 @@ Singleton {
     property bool open: false
     readonly property ListModel timers: ListModel {}
     property string homeDir: ""
+    property bool loaded: false
     readonly property bool hasRunningTimers: runningCount > 0
 
     // ── Computed properties for TimerBarPill ──────────────────────────────
@@ -66,6 +67,7 @@ Singleton {
                     i--
                 }
             }
+            root._scheduleSave()
         }
     }
 
@@ -82,6 +84,79 @@ Singleton {
         p.running = true
     }
 
+    // ── Persistence ─────────────────────────────────────────────────────
+    readonly property Timer _saveDebounce: Timer {
+        interval: 250
+        repeat: false
+        onTriggered: root._saveNow()
+    }
+
+    function _scheduleSave() {
+        if (!root.loaded) return
+        _saveDebounce.restart()
+    }
+
+    function _saveNow() {
+        if (!root.loaded) return
+        const payload = JSON.stringify({
+            version: 1,
+            savedAt: Math.floor(Date.now() / 1000),
+            timers: root._serializeTimers()
+        })
+        saveProc.environment = ({ "QS_DATA": payload })
+        saveProc.running = false
+        saveProc.running = true
+    }
+
+    function _serializeTimers() {
+        const list = []
+        for (let i = 0; i < timers.count; i++) {
+            const t = timers.get(i)
+            list.push({
+                timerId:        t.timerId,
+                label:          t.label,
+                mode:           t.mode,
+                targetSeconds:  t.targetSeconds,
+                elapsedSeconds: t.elapsedSeconds,
+                timerState:     t.timerState
+            })
+        }
+        return list
+    }
+
+    function _restoreTimers(rawList, savedAt) {
+        const now = Math.floor(Date.now() / 1000)
+        const delta = savedAt > 0 ? Math.max(0, now - savedAt) : 0
+
+        for (let i = 0; i < rawList.length; i++) {
+            const raw = rawList[i]
+            if (!raw || !raw.timerId) continue
+
+            let elapsed = parseInt(raw.elapsedSeconds, 10) || 0
+            const state = raw.timerState === "paused" ? "paused" : "running"
+            if (state === "running" && delta > 0)
+                elapsed += delta
+
+            const mode = raw.mode === "countdown" ? "countdown" : "stopwatch"
+            const target = parseInt(raw.targetSeconds, 10) || 0
+            const label = `${raw.label ?? ""}`.trim() || "Timer"
+
+            if (mode === "countdown" && state === "running" && target > 0 && elapsed >= target) {
+                _writeLog(label, target, mode, target)
+                continue
+            }
+
+            timers.append({
+                timerId:        `${raw.timerId}`,
+                label:          label,
+                mode:           mode,
+                targetSeconds:  target,
+                elapsedSeconds: elapsed,
+                timerState:     state
+            })
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
     function _findTimer(timerId) {
         for (let i = 0; i < timers.count; i++)
@@ -93,6 +168,7 @@ Singleton {
         const t = timers.get(idx)
         _writeLog(t.label, t.elapsedSeconds, t.mode, t.targetSeconds)
         timers.remove(idx)
+        _scheduleSave()
     }
 
     // ── Public API ────────────────────────────────────────────────────────
@@ -105,16 +181,23 @@ Singleton {
             elapsedSeconds: 0,
             timerState:     "running"
         })
+        _scheduleSave()
     }
 
     function pauseTimer(timerId) {
         const idx = _findTimer(timerId)
-        if (idx >= 0) timers.setProperty(idx, "timerState", "paused")
+        if (idx >= 0) {
+            timers.setProperty(idx, "timerState", "paused")
+            _scheduleSave()
+        }
     }
 
     function resumeTimer(timerId) {
         const idx = _findTimer(timerId)
-        if (idx >= 0) timers.setProperty(idx, "timerState", "running")
+        if (idx >= 0) {
+            timers.setProperty(idx, "timerState", "running")
+            _scheduleSave()
+        }
     }
 
     function stopTimer(timerId) {
@@ -124,11 +207,60 @@ Singleton {
 
     function dismissTimer(timerId) {
         const idx = _findTimer(timerId)
-        if (idx >= 0) timers.remove(idx)
+        if (idx >= 0) {
+            timers.remove(idx)
+            _scheduleSave()
+        }
     }
 
     function renameTimer(timerId, newLabel) {
         const idx = _findTimer(timerId)
-        if (idx >= 0) timers.setProperty(idx, "label", newLabel)
+        if (idx >= 0) {
+            timers.setProperty(idx, "label", newLabel)
+            _scheduleSave()
+        }
+    }
+
+    Process {
+        id: initProc
+        command: [
+            "sh", "-lc",
+            "dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/timer\";" +
+            "mkdir -p \"$dir\";" +
+            "[ -r \"$dir/active.json\" ] && cat \"$dir/active.json\" || echo '{}'"
+        ]
+        stdout: StdioCollector {
+            id: initCollector
+            onStreamFinished: {
+                const text = initCollector.text.trim()
+                if (text && text !== "{}") {
+                    try {
+                        const parsed = JSON.parse(text)
+                        const list = Array.isArray(parsed.timers) ? parsed.timers : []
+                        const savedAt = parseInt(parsed.savedAt, 10) || 0
+                        if (list.length > 0)
+                            root._restoreTimers(list, savedAt)
+                    } catch (err) {
+                        console.warn("timer: failed to parse active.json:", err)
+                    }
+                }
+                root.loaded = true
+            }
+        }
+    }
+
+    Process {
+        id: saveProc
+        running: false
+        command: [
+            "sh", "-lc",
+            "dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/timer\";" +
+            "mkdir -p \"$dir\";" +
+            "printf '%s' \"$QS_DATA\" > \"$dir/active.json\""
+        ]
+    }
+
+    Component.onCompleted: {
+        initProc.running = true
     }
 }

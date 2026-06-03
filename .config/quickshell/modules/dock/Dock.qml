@@ -108,18 +108,36 @@ PanelWindow {
         return t.replace(/%[A-Za-z]/g, "").trim();
     }
 
+    function shellQuote(s) {
+        const t = `${s ?? ""}`;
+        return `'${t.replace(/'/g, `'\\''`)}'`;
+    }
+
+    function desktopEntryForClass(className) {
+        return DesktopEntries.heuristicLookup(className);
+    }
+
     function desktopExecForClass(className) {
-        const entry = DesktopEntries.heuristicLookup(className);
+        const entry = dock.desktopEntryForClass(className);
         if (!entry)
             return "";
         const raw = entry.exec ?? entry.Exec ?? entry.commandLine ?? entry.commandline ?? "";
         return stripDesktopExecField(raw);
     }
 
-    function isStalePinnedExec(app, exec) {
-        const cls = `${app?.class ?? ""}`.toLowerCase();
-        const value = `${exec ?? ""}`.toLowerCase().trim();
-        return cls.includes("zed") && value === "zeditor";
+    function iconForApp(app) {
+        if (!app)
+            return "";
+        const entry = dock.desktopEntryForClass(app.class);
+        if (entry?.icon) {
+            const ic = HyprlandData.normalizeIconName(entry.icon);
+            if (ic.length > 0)
+                return ic;
+        }
+        const pinIcon = `${app.icon ?? ""}`.trim();
+        if (pinIcon.length > 0)
+            return pinIcon;
+        return `${app.class ?? ""}`.trim();
     }
 
     function execForPinnedApp(app) {
@@ -128,17 +146,11 @@ PanelWindow {
         if (Array.isArray(app.exec))
             return app.exec;
 
-        const pinnedExec = stripDesktopExecField(app.exec);
-        if (pinnedExec.length > 0 && !dock.isStalePinnedExec(app, pinnedExec))
-            return pinnedExec;
-
-        if (`${app.class ?? ""}`.toLowerCase().includes("zed"))
-            return "zed";
-
         const desktopExec = dock.desktopExecForClass(app.class);
         if (desktopExec.length > 0)
             return desktopExec;
 
+        const pinnedExec = stripDesktopExecField(app.exec);
         if (pinnedExec.length > 0)
             return pinnedExec;
 
@@ -207,7 +219,7 @@ PanelWindow {
             return {
                 class: app.class,
                 exec: app.exec,
-                icon: app.icon,
+                icon: dock.iconForApp(app),
                 isRunning: win != null,
                 window: win,
                 isPinned: true
@@ -234,7 +246,7 @@ PanelWindow {
             result.push({
                 class: w.class,
                 exec: dock.execFromWindow(w),
-                icon: iconName,
+                icon: dock.iconForApp({ class: w.class, icon: iconName }),
                 isRunning: true,
                 window: w,
                 isPinned: false
@@ -347,8 +359,8 @@ PanelWindow {
             const insertAt = Math.min(dstClamped, pinnedCount);
             DockStore.pinEntry({
                 class: srcEntry.class,
-                exec: srcEntry.exec,
-                icon: srcEntry.icon
+                exec: dock.execForPinnedApp(srcEntry),
+                icon: dock.iconForApp(srcEntry)
             }, insertAt);
         }
 
@@ -369,8 +381,8 @@ PanelWindow {
         else
             DockStore.pinEntry({
                 class: e.class,
-                exec: e.exec,
-                icon: e.icon
+                exec: dock.execForPinnedApp(e),
+                icon: dock.iconForApp(e)
             }, DockStore.pinnedApps.length);
     }
 
@@ -398,8 +410,9 @@ PanelWindow {
     function launch(cmd) {
         if (!cmd || cmd.length === 0)
             return;
+        const inner = cmd.map(a => dock.shellQuote(`${a}`)).join(" ");
         const p = procProto.createObject(dock, {
-            command: cmd
+            command: ["bash", "-lc", `cd "$HOME" && exec ${inner}`]
         });
         p.runningChanged.connect(() => {
             if (!p.running)
