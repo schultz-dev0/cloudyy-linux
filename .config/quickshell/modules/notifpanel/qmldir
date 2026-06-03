@@ -1,0 +1,2 @@
+module QuickNotifPanel
+singleton NotifPanelService 1.0 NotifPanelService.qml

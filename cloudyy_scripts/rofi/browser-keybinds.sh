@@ -6,7 +6,27 @@
 
 set -uo pipefail
 
-readonly PROFILE_DIR="/home/schultz/.config/mozilla/firefox/7i31mCQb.Profile 1"
+# Auto-detect Zen profile directory by scanning profiles.ini for the profile
+# that contains zen-keyboard-shortcuts.json
+_detect_zen_profile() {
+  local ini="${HOME}/.config/zen/profiles.ini"
+  [[ -f "$ini" ]] || return 1
+  local path
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^Path=(.+)$ ]]; then
+      path="${BASH_REMATCH[1]}"
+      [[ "$path" != /* ]] && path="${HOME}/.config/zen/${path}"
+      [[ -f "${path}/zen-keyboard-shortcuts.json" ]] && { echo "$path"; return 0; }
+    fi
+  done < "$ini"
+  return 1
+}
+
+PROFILE_DIR="$(_detect_zen_profile)" || {
+  notify-send -u critical "Zen Binds" "Zen profile not found" 2>/dev/null
+  exit 1
+}
+readonly PROFILE_DIR
 readonly JSON_FILE="${PROFILE_DIR}/zen-keyboard-shortcuts.json"
 readonly DELIM=$'\x1f'
 

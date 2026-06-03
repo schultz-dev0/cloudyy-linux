@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wallpaper Browser UI Reference</title>
+  <style>
+    :root {
+      --bg: #f0f0f4;
+      --surface: #ffffff;
+      --muted: #6c6f7a;
+      --text: #23252d;
+      --line: #d8d9e0;
+      --accent: #7a86ff;
+      --btn: #ececf2;
+      --btn-hover: #e3e5ee;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 8px 24px rgba(14, 16, 23, 0.06);
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.01em;
+    }
+    .header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .sticky-controls {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      margin-top: 16px;
+      background: linear-gradient(var(--surface), var(--surface) 88%, rgba(255,255,255,0));
+      padding-bottom: 12px;
+    }
+    .mode-row, .search-row, .filters-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .label { color: var(--muted); font-size: 14px; }
+    .segmented {
+      display: inline-flex;
+      background: var(--btn);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .segmented button {
+      border: none;
+      padding: 9px 16px;
+      background: transparent;
+      font-weight: 600;
+      cursor: pointer;
+      color: #474b58;
+    }
+    .segmented button.active {
+      background: #dfe2ee;
+      color: #1e2230;
+    }
+    .save-path {
+      color: var(--muted);
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 260px;
+      flex: 1;
+    }
+    .search {
+      flex: 1;
+      min-width: 260px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8f8fc;
+      padding: 11px 12px;
+      font-size: 15px;
+    }
+    .button {
+      border: none;
+      border-radius: 10px;
+      background: var(--btn);
+      color: #2e323f;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .button:hover { background: var(--btn-hover); }
+    .button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .chip {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f9f9fd;
+      color: #444857;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .chip.active {
+      background: #e8ebff;
+      border-color: #c8d0ff;
+      color: #2d3570;
+      font-weight: 600;
+    }
+    .results {
+      margin-top: 8px;
+      display: grid;
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 12px;
+    }
+    .thumb {
+      border-radius: 10px;
+      background: linear-gradient(140deg, #bfd1ff, #f9c0cf);
+      min-height: 180px;
+      border: 1px solid #d5dbef;
+    }
+    .meta h3 {
+      margin: 4px 0 6px;
+      font-size: 19px;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .badge {
+      font-size: 12px;
+      color: #515769;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #f8f9fd;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .bottom {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+    }
+    @media (max-width: 900px) {
+      .card { grid-template-columns: 1fr; }
+      .thumb { min-height: 160px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="header">
+      <h1>Wallpaper Browser</h1>
+      <p>Reference mockup: bigger browsing surface, sticky controls, better discovery.</p>
+    </section>
+
+    <section class="sticky-controls">
+      <div class="mode-row">
+        <span class="label">Save to:</span>
+        <div class="segmented">
+          <button class="active">Dark</button>
+          <button>Light</button>
+        </div>
+      </div>
+
+      <div class="search-row">
+        <input class="search" placeholder="Search wallpapers" />
+        <button class="button">Search</button>
+      </div>
+
+      <div class="filters-row">
+        <button class="chip active">Hot</button>
+        <button class="chip">Top Week</button>
+        <button class="chip">Top Month</button>
+        <button class="chip">16:9</button>
+        <button class="chip">21:9</button>
+        <button class="chip">1080p+</button>
+        <button class="chip">4K+</button>
+      </div>
+    </section>
+
+    <section class="results">
+      <article class="card">
+        <div class="thumb"></div>
+        <div class="meta">
+          <h3>Wallhaven yqvwrx</h3>
+          <div class="badges">
+            <span class="badge">4669x3502</span>
+            <span class="badge">Wallhaven</span>
+            <span class="badge">Hot</span>
+          </div>
+          <div class="actions">
+            <button class="button">Open</button>
+            <button class="button">Preview</button>
+            <button class="button">Download</button>
+            <button class="button primary">Apply</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="thumb" style="background: linear-gradient(140deg, #bbd2de, #f4efe5);"></div>
+        <div class="meta">
+          <h3>Wallhaven ly2r7y</h3>
+          <div class="badges">
+            <span class="badge">2370x1000</span>
+            <span class="badge">Wallhaven</span>
+            <span class="badge">New</span>
+          </div>
+          <div class="actions">
+            <button class="button">Open</button>
+            <button class="button">Preview</button>
+            <button class="button">Download</button>
+            <button class="button primary">Apply</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div class="bottom">
+      <button class="button">Load more</button>
+    </div>
+  </main>
+</body>
+</html>

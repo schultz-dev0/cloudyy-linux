@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import threading
 import webbrowser
 from dataclasses import dataclass
@@ -23,6 +22,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Adw, GLib, GdkPixbuf, Gtk
+import lib.utility as utility
 
 if TYPE_CHECKING:
     from lib.rows import RowContext
@@ -61,7 +61,9 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
         self._ctx = ctx
         self._query = ""
-        self._page = 1
+        self._next_page = 1
+        self._has_more = True
+        self._mode = "dark"
         self._busy = False
         self._results: list[WallpaperItem] = []
         self._thumb_sema = threading.BoundedSemaphore(6)
@@ -71,11 +73,17 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
             return Path(os.path.expandvars(p)).expanduser()
 
         self._light_dir = _expand(props.get("light_directory", "~/Wallpapers/Light"))
-        self._dark_dir  = _expand(props.get("dark_directory",  "~/Wallpapers/Dark"))
-        self._download_dir = self._dark_dir   # default to dark
+        self._dark_dir = _expand(props.get("dark_directory", "~/Wallpapers/Dark"))
+        self._download_dir = self._dark_dir
+        self._per_page = max(1, min(24, int(props.get("per_page", 24))))
+        self._apply_cmd_tmpl = props.get("apply_command", "~/cloudyy_scripts/theme_controller.sh set-image {path}")
+        self._sorting = "hot"
+        self._top_range = "1w"
+        self._ratio = ""
+        self._atleast = ""
 
         self._build_widget(props)
-        self._set_status("Ready")
+        GLib.idle_add(self._start_search, True)
 
     def _build_widget(self, props: dict[str, Any]) -> None:
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -106,11 +114,10 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
         dir_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         dir_box.add_css_class("online-wall-row")
-        dir_lbl = Gtk.Label(label="Save to:", xalign=0)
+        dir_lbl = Gtk.Label(label="Mode:", xalign=0)
         dir_lbl.add_css_class("dim-label")
         dir_box.append(dir_lbl)
 
-        # Light / Dark toggle (linked button pair)
         mode_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         mode_box.add_css_class("linked")
         self._btn_dark = Gtk.ToggleButton(label="Dark")
@@ -122,13 +129,6 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         mode_box.append(self._btn_light)
         dir_box.append(mode_box)
 
-        self._save_dir_lbl = Gtk.Label(label=str(self._download_dir), xalign=0)
-        self._save_dir_lbl.add_css_class("dim-label")
-        self._save_dir_lbl.add_css_class("caption")
-        self._save_dir_lbl.set_hexpand(True)
-        self._save_dir_lbl.set_ellipsize(__import__("gi.repository.Pango", fromlist=["EllipsizeMode"]).EllipsizeMode.START)
-        dir_box.append(self._save_dir_lbl)
-
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         controls.add_css_class("online-wall-row")
         self._search_entry = Gtk.SearchEntry()
@@ -136,17 +136,33 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._search_entry.set_placeholder_text("Search wallpapers")
         self._search_entry.connect("activate", self._on_search_clicked)
 
-        prev_btn = Gtk.Button(label="Prev")
-        prev_btn.connect("clicked", self._on_prev_clicked)
-        next_btn = Gtk.Button(label="Next")
-        next_btn.connect("clicked", self._on_next_clicked)
         search_btn = Gtk.Button(label="Search")
         search_btn.connect("clicked", self._on_search_clicked)
 
         controls.append(self._search_entry)
-        controls.append(prev_btn)
-        controls.append(next_btn)
         controls.append(search_btn)
+
+        tags = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        tags.add_css_class("online-wall-row")
+        tags.add_css_class("online-wall-tags")
+        self._chips: dict[str, Gtk.ToggleButton] = {}
+
+        def _chip(label: str, key: str, active: bool = False) -> Gtk.ToggleButton:
+            btn = Gtk.ToggleButton(label=label)
+            btn.add_css_class("pill")
+            btn.set_active(active)
+            btn.connect("toggled", self._on_chip_toggled, key)
+            self._chips[key] = btn
+            tags.append(btn)
+            return btn
+
+        _chip("Hot", "sort:hot", active=True)
+        _chip("Top Week", "top:1w")
+        _chip("Top Month", "top:1M")
+        _chip("16:9", "ratio:16x9")
+        _chip("21:9", "ratio:21x9")
+        _chip("1080p+", "atleast:1920x1080")
+        _chip("4K+", "atleast:3840x2160")
 
         self._status = Gtk.Label(label="", xalign=0)
         self._status.add_css_class("dim-label")
@@ -156,87 +172,129 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._list_box.set_selection_mode(Gtk.SelectionMode.NONE)
         self._list_box.add_css_class("boxed-list")
         self._list_box.add_css_class("online-wall-list")
+        self._list_box.set_hexpand(True)
 
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_min_content_height(int(props.get("height", 340)))
-        scroll.set_child(self._list_box)
-        scroll.add_css_class("online-wall-scroll")
+        self._scroll = Gtk.ScrolledWindow()
+        self._scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self._scroll.set_min_content_height(int(props.get("height", 640)))
+        self._scroll.set_child(self._list_box)
+        self._scroll.add_css_class("online-wall-scroll")
+
+        self._load_more_btn = Gtk.Button(label="Load more")
+        self._load_more_btn.connect("clicked", self._on_load_more_clicked)
+        self._load_more_btn.set_halign(Gtk.Align.CENTER)
+        self._load_more_btn.set_margin_top(6)
+        self._load_more_btn.set_margin_bottom(6)
 
         outer.append(header)
         outer.append(dir_box)
         outer.append(controls)
+        outer.append(tags)
         outer.append(self._status)
-        outer.append(scroll)
+        outer.append(self._scroll)
+        outer.append(self._load_more_btn)
 
         self.set_child(outer)
 
     def _set_status(self, text: str) -> None:
-        self._status.set_label(f"Page {self._page} | {text}")
+        self._status.set_label(text)
 
     def _on_mode_toggled(self, _btn: Gtk.ToggleButton) -> None:
         if self._btn_light.get_active():
+            self._mode = "light"
             self._download_dir = self._light_dir
         else:
+            self._mode = "dark"
             self._download_dir = self._dark_dir
-        self._save_dir_lbl.set_label(str(self._download_dir))
 
-    def _on_prev_clicked(self, _btn: Gtk.Button) -> None:
-        if self._busy:
+    def _on_chip_toggled(self, btn: Gtk.ToggleButton, key: str) -> None:
+        if not btn.get_active():
             return
-        if self._page > 1:
-            self._page -= 1
-            self._start_search()
 
-    def _on_next_clicked(self, _btn: Gtk.Button) -> None:
-        if self._busy:
-            return
-        self._page += 1
-        self._start_search()
+        group, value = key.split(":", 1)
+        for k, chip in self._chips.items():
+            if k == key:
+                continue
+            if k.startswith(group + ":"):
+                chip.set_active(False)
+
+        if group == "sort":
+            self._sorting = value
+            self._top_range = "1w"
+        elif group == "top":
+            self._sorting = "toplist"
+            self._top_range = value
+        elif group == "ratio":
+            self._ratio = value
+        elif group == "atleast":
+            self._atleast = value
+
+        self._start_search(reset=True)
 
     def _on_search_clicked(self, _btn: Gtk.Widget) -> None:
+        self._start_search(reset=True)
+
+    def _on_load_more_clicked(self, _btn: Gtk.Button) -> None:
+        self._start_search(reset=False)
+
+    def _start_search(self, reset: bool = False) -> bool:
         if self._busy:
-            return
-        self._page = max(1, self._page)
-        self._start_search()
+            return GLib.SOURCE_REMOVE
+        if reset:
+            self._next_page = 1
+            self._has_more = True
+            self._results = []
+            self._query = self._search_entry.get_text().strip()
+            while child := self._list_box.get_first_child():
+                self._list_box.remove(child)
+            vadj = self._scroll.get_vadjustment()
+            if vadj is not None:
+                vadj.set_value(vadj.get_lower())
+        if not self._has_more:
+            return GLib.SOURCE_REMOVE
 
-    def _start_search(self) -> None:
         self._busy = True
-        self._query = self._search_entry.get_text().strip()
-        self._set_status("Searching...")
-        threading.Thread(target=self._search_worker, daemon=True).start()
+        self._load_more_btn.set_sensitive(False)
+        self._set_status("")
+        page = self._next_page
+        query = self._query
+        threading.Thread(target=self._search_worker, args=(query, page), daemon=True).start()
+        return GLib.SOURCE_REMOVE
 
-    def _search_worker(self) -> None:
+    def _search_worker(self, query: str, page: int) -> None:
         try:
-            items = self._search_wallhaven(self._query, self._page)
-            GLib.idle_add(self._apply_results, items, None)
+            items, has_more = self._search_wallhaven(query, page)
+            GLib.idle_add(self._apply_results, items, has_more, page, None)
         except Exception as exc:
-            GLib.idle_add(self._apply_results, [], str(exc))
+            GLib.idle_add(self._apply_results, [], self._has_more, page, str(exc))
 
-    def _apply_results(self, items: list[WallpaperItem], err: str | None) -> bool:
+    def _apply_results(self, items: list[WallpaperItem], has_more: bool, page: int, err: str | None) -> bool:
         self._busy = False
-        self._results = items
-
-        while child := self._list_box.get_first_child():
-            self._list_box.remove(child)
+        self._load_more_btn.set_sensitive(True)
 
         if err:
             self._set_status(f"Error: {err}")
             return GLib.SOURCE_REMOVE
 
-        self._set_status(f"Loaded {len(items)} wallpapers")
+        self._results.extend(items)
+        self._has_more = has_more
+        self._next_page = page + 1
 
         for item in items:
             row = self._build_result_row(item)
             self._list_box.append(row)
 
-        if not items:
+        if not self._results:
             empty = Gtk.Label(label="No wallpapers found.")
             empty.add_css_class("dim-label")
             empty.set_margin_top(8)
             empty.set_margin_bottom(8)
             self._list_box.append(empty)
+            self._has_more = False
 
+        if not self._has_more:
+            self._load_more_btn.set_sensitive(False)
+        self._set_status("")
         return GLib.SOURCE_REMOVE
 
     def _build_result_row(self, item: WallpaperItem) -> Gtk.Widget:
@@ -248,7 +306,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
         thumb_host = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         thumb_host.add_css_class("online-wall-thumb-host")
-        thumb_host.set_size_request(180, 102)
+        thumb_host.set_size_request(260, 146)
         placeholder = Gtk.Image.new_from_icon_name("image-x-generic-symbolic")
         placeholder.add_css_class("online-wall-thumb-placeholder")
         thumb_host.append(placeholder)
@@ -272,9 +330,13 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         prev_btn.connect("clicked", self._on_preview_clicked, item)
         dl_btn = Gtk.Button(label="Download")
         dl_btn.connect("clicked", self._on_download_clicked, item)
+        apply_btn = Gtk.Button(label="Apply")
+        apply_btn.add_css_class("suggested-action")
+        apply_btn.connect("clicked", self._on_apply_clicked, item)
         btns.append(open_btn)
         btns.append(prev_btn)
         btns.append(dl_btn)
+        btns.append(apply_btn)
 
         content.append(t)
         content.append(meta)
@@ -337,8 +399,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
             self._thumb_cache[preview_url] = pixbuf
 
-            # Cover-scale: fill 180×102 without distortion
-            scaled = self._scale_cover(pixbuf, 180, 102)
+            scaled = self._scale_cover(pixbuf, 260, 146)
             if scaled is None:
                 return
 
@@ -359,7 +420,7 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
             pic.set_content_fit(Gtk.ContentFit.COVER)
         except AttributeError:
             pic.set_can_shrink(True)
-        pic.set_size_request(180, 102)
+        pic.set_size_request(260, 146)
         pic.add_css_class("online-wall-thumb")
         host.append(pic)
         return GLib.SOURCE_REMOVE
@@ -405,8 +466,17 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         if self._busy:
             return
         self._busy = True
+        self._load_more_btn.set_sensitive(False)
         self._set_status(f"Downloading {item.title}...")
         threading.Thread(target=self._download_worker, args=(item,), daemon=True).start()
+
+    def _on_apply_clicked(self, _btn: Gtk.Button, item: WallpaperItem) -> None:
+        if self._busy:
+            return
+        self._busy = True
+        self._load_more_btn.set_sensitive(False)
+        self._set_status(f"Applying {item.title}...")
+        threading.Thread(target=self._apply_worker, args=(item,), daemon=True).start()
 
     def _next_number(self, directory: Path) -> int:
         nums = [int(f.stem) for f in directory.iterdir() if f.is_file() and f.stem.isdigit()]
@@ -414,57 +484,101 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
 
     def _download_worker(self, item: WallpaperItem) -> None:
         try:
-            image_url = item.image_url
-            if not image_url:
-                raise RuntimeError("No image URL available for this wallpaper")
-
-            src_dir = self._download_dir
-            src_dir.mkdir(parents=True, exist_ok=True)
-
-            parsed = urlparse(image_url)
-            ext = Path(parsed.path).suffix.lower() or ".jpg"
-            file_path = src_dir / f"{self._next_number(src_dir)}{ext}"
-
-            data = self._http_get(image_url, binary=True)
-            if not isinstance(data, bytes):
-                raise RuntimeError("Failed to fetch image bytes")
-            file_path.write_bytes(data)
-
-            self._append_library({
-                "title": item.title,
-                "source": item.source,
-                "page_url": item.page_url,
-                "image_url": image_url,
-                "resolution": item.resolution,
-                "saved_path": str(file_path),
-                "downloaded_at": datetime.now(tz=timezone.utc).isoformat(),
-            })
-
+            file_path = self._download_item(item)
             GLib.idle_add(self._download_done, f"Saved {file_path}", True)
         except Exception as exc:
             GLib.idle_add(self._download_done, f"Download failed: {exc}", False)
 
+    def _apply_worker(self, item: WallpaperItem) -> None:
+        try:
+            file_path = self._download_item(item)
+            cmd = self._apply_cmd_tmpl.replace("{path}", str(file_path))
+            if not utility.execute_command(cmd):
+                raise RuntimeError("Could not execute apply command")
+            GLib.idle_add(self._apply_done, f"Applied {file_path}", True)
+        except Exception as exc:
+            GLib.idle_add(self._apply_done, f"Apply failed: {exc}", False)
+
+    def _download_item(self, item: WallpaperItem) -> Path:
+        image_url = item.image_url
+        if not image_url:
+            raise RuntimeError("No image URL available for this wallpaper")
+
+        src_dir = self._download_dir
+        src_dir.mkdir(parents=True, exist_ok=True)
+
+        parsed = urlparse(image_url)
+        ext = Path(parsed.path).suffix.lower() or ".jpg"
+        file_path = src_dir / f"{self._next_number(src_dir)}{ext}"
+
+        data = self._http_get(image_url, binary=True)
+        if not isinstance(data, bytes):
+            raise RuntimeError("Failed to fetch image bytes")
+        file_path.write_bytes(data)
+
+        self._append_library({
+            "title": item.title,
+            "source": item.source,
+            "page_url": item.page_url,
+            "image_url": image_url,
+            "resolution": item.resolution,
+            "saved_path": str(file_path),
+            "downloaded_at": datetime.now(tz=timezone.utc).isoformat(),
+            "mode": self._mode,
+        })
+        return file_path
+
     def _download_done(self, msg: str, ok: bool) -> bool:
         self._busy = False
-        self._set_status(msg)
+        self._load_more_btn.set_sensitive(self._has_more)
+        self._set_status("" if ok else msg)
         self._ctx.toast("Downloaded wallpaper" if ok else "Download failed")
         return GLib.SOURCE_REMOVE
 
-    def _search_wallhaven(self, query: str, page: int) -> list[WallpaperItem]:
+    def _apply_done(self, msg: str, ok: bool) -> bool:
+        self._busy = False
+        self._load_more_btn.set_sensitive(self._has_more)
+        self._set_status("" if ok else msg)
+        self._ctx.toast("Applied wallpaper" if ok else "Apply failed")
+        return GLib.SOURCE_REMOVE
+
+    def _search_wallhaven(self, query: str, page: int) -> tuple[list[WallpaperItem], bool]:
         def fetch(params: dict[str, str]) -> dict[str, Any]:
             url = "https://wallhaven.cc/api/v1/search?" + urlencode(params)
             return json.loads(self._http_get(url, binary=False))
 
         if query:
-            params: dict[str, str] = {"page": str(page), "sorting": "relevance", "purity": "100", "q": query}
+            params: dict[str, str] = {
+                "page": str(page),
+                "sorting": "relevance",
+                "purity": "100",
+                "q": query,
+                "per_page": str(self._per_page),
+            }
         else:
-            params = {"page": str(page), "sorting": "hot", "purity": "100"}
+            params = {
+                "page": str(page),
+                "sorting": self._sorting,
+                "purity": "100",
+                "per_page": str(self._per_page),
+            }
+            if self._sorting == "toplist":
+                params["topRange"] = self._top_range
+        if self._ratio:
+            params["ratios"] = self._ratio
+        if self._atleast:
+            params["atleast"] = self._atleast
 
         payload = fetch(params)
         data = payload.get("data", [])
 
         if not data and query:
-            fallback_params = {"page": str(page), "sorting": "hot", "purity": "100"}
+            fallback_params = {
+                "page": str(page),
+                "sorting": "hot",
+                "purity": "100",
+                "per_page": str(self._per_page),
+            }
             payload = fetch(fallback_params)
             data = payload.get("data", [])
 
@@ -480,11 +594,11 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
                     resolution=entry.get("resolution", ""),
                 )
             )
-        return out
-
-    def _extract_resolution(self, text: str) -> str:
-        m = re.search(r"\b(\d{3,5}x\d{3,5})\b", text)
-        return m.group(1) if m else ""
+        meta = payload.get("meta") or {}
+        current_page = int(meta.get("current_page") or page)
+        last_page = int(meta.get("last_page") or current_page)
+        has_more = current_page < last_page
+        return out, has_more
 
     def _append_library(self, entry: dict[str, Any]) -> None:
         _LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)

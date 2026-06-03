@@ -6,10 +6,11 @@
 #   ./install.sh              Normal run (resumes if previous session exists)
 #   ./install.sh --dry-run    Preview phases without executing anything
 #   ./install.sh --reset      Clear saved state and start from the beginning
+#   ./install.sh --unattended Silent install — skip post-install config prompt
 #   ./install.sh --help       Show this message
 # =============================================================================
 
-set -euo pipefail
+set -euo pipefail -E
 
 # --- Paths & Constants -------------------------------------------------------
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +19,9 @@ readonly LOG_DIR="${STATE_DIR}/logs"
 readonly LOG_FILE="${LOG_DIR}/install_$(date +%Y%m%d_%H%M%S).log"
 readonly STATE_FILE="${STATE_DIR}/.install_state"
 readonly LOCK_FILE="/tmp/cloudyy_install_${UID}.lock"
+
+# --- Script-Level Variables -------------------------------------------------
+UNATTENDED=0
 
 # --- Colors (TTY-aware) ------------------------------------------------------
 if [[ -t 1 ]]; then
@@ -36,10 +40,11 @@ setup_logging() {
   exec > >(tee >(sed 's/\x1B\[[0-9;:]*[mK]//g; s/\x1B(B//g' >>"$LOG_FILE")) 2>&1
 }
 
-log() { printf '%s[>>]%s %s\n' "$BOLD" "$RESET" "$1"; }
-log_ok() { printf '%s[✓]%s  %s\n' "$GREEN" "$RESET" "$1"; }
-log_warn() { printf '%s[!]%s  %s\n' "$YELLOW" "$RESET" "$1"; }
-log_error() { printf '%s[✗]%s  %s\n' "$RED" "$RESET" "$1" >&2; }
+_ts() { date '+%H:%M:%S'; }
+log()       { printf '%s[>>]%s [%s] %s\n' "$BOLD"   "$RESET" "$(_ts)" "$1"; }
+log_ok()    { printf '%s[✓]%s  [%s] %s\n' "$GREEN"  "$RESET" "$(_ts)" "$1"; }
+log_warn()  { printf '%s[!]%s  [%s] %s\n' "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error() { printf '%s[✗]%s  [%s] %s\n' "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
 log_phase() {
   printf '\n%s%s┌──────────────────────────────────────┐%s\n' "$BOLD" "$CYAN" "$RESET"
   printf '%s%s│  %-37s│%s\n' "$BOLD" "$CYAN" "$1" "$RESET"
@@ -153,7 +158,101 @@ phase_keyring() {
 
 # --- Phase: Dotfiles ---------------------------------------------------------
 phase_dotfiles() {
-  bash "${SCRIPT_DIR}/deploy-dotfiles.sh"
+  local _flags=()
+  [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]] && _flags+=("--unattended")
+  bash "${SCRIPT_DIR}/deploy-dotfiles.sh" "${_flags[@]}"
+}
+
+# --- Phase: Binary Seeder ----------------------------------------------------
+# Symlinks shipped binaries (cloudyy_scripts/cloudyy-other/) into ~/.local/bin/
+# so they end up on PATH without a custom export.
+phase_bin_seed() {
+  bash "${SCRIPT_DIR}/bin_check.sh" seed "$(dirname "${SCRIPT_DIR}")"
+}
+
+# --- Phase: Shell Setup -------------------------------------------------------
+# Runs after packages so zsh is guaranteed to be installed.
+phase_shell() {
+  log "Configuring zsh shell..."
+
+  local zsh_path
+  zsh_path="$(command -v zsh 2>/dev/null || true)"
+  if [[ -z "$zsh_path" ]]; then
+    log_warn "zsh not found — skipping (zsh should have been installed in packages phase)."
+    return 0
+  fi
+
+  if [[ "$SHELL" != "$zsh_path" ]]; then
+    if chsh -s "$zsh_path" 2>/dev/null; then
+      log_ok "Default shell set to zsh (takes effect on next login)."
+    else
+      log_warn "chsh failed — run: chsh -s ${zsh_path}"
+    fi
+  else
+    log_ok "zsh already default shell."
+  fi
+
+  local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
+  if [[ ! -d "$omz_dir" ]]; then
+    log "Installing oh-my-zsh..."
+    if ZSH="$omz_dir" RUNZSH=no CHSH=no \
+       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+       "" --unattended 2>/dev/null; then
+      log_ok "oh-my-zsh installed."
+    else
+      log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    fi
+  else
+    log_ok "oh-my-zsh already installed."
+  fi
+
+  # Symlink system-installed plugins into oh-my-zsh custom plugins dir
+  local custom_plugins="${omz_dir}/custom/plugins"
+  mkdir -p "$custom_plugins"
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    local sys_path="/usr/share/zsh/plugins/${plugin}"
+    if [[ -d "$sys_path" && ! -e "${custom_plugins}/${plugin}" ]]; then
+      ln -snf "$sys_path" "${custom_plugins}/${plugin}"
+      log_ok "Plugin linked: ${plugin}"
+    fi
+  done
+
+  log_ok "Shell configured."
+}
+
+# --- Phase: Schema Settings --------------------------------------------------
+phase_schema() {
+  local schema_script="${SCRIPT_DIR}/schema_settings.sh"
+  if [[ ! -f "$schema_script" ]]; then
+    log_warn "schema_settings.sh not found — skipping XDG portal + pywalfox setup."
+    return 0
+  fi
+  bash "$schema_script"
+}
+
+# --- Phase: Laptop Support ---------------------------------------------------
+phase_laptop() {
+  # Skip on desktop systems (no battery detected)
+  if ! ls /sys/class/power_supply/BAT* &>/dev/null; then
+    log "No battery detected — skipping laptop configuration."
+    return 0
+  fi
+
+  log "Laptop detected — enabling power management..."
+
+  # Touchpad defaults are in source/input.lua (loaded by hyprland.lua on all systems).
+  # No per-machine config injection needed.
+
+  # Enable power-profiles-daemon if available
+  if command -v powerprofilesctl &>/dev/null; then
+    if sudo systemctl enable --now power-profiles-daemon.service 2>/dev/null; then
+      log_ok "power-profiles-daemon enabled."
+    else
+      log_warn "Could not enable power-profiles-daemon (non-fatal)."
+    fi
+  fi
+
+  log_ok "Laptop configuration complete."
 }
 
 phase_services() {
@@ -162,6 +261,7 @@ phase_services() {
   local -a services=(
     "bluetooth.service"
     "NetworkManager.service"
+    "power-profiles-daemon.service"
   )
 
   for svc in "${services[@]}"; do
@@ -179,10 +279,24 @@ phase_services() {
 # Runs after packages so matugen is available to generate hyprcolors.conf.
 phase_theme_init() {
   local controller="${HOME}/cloudyy_scripts/theme_controller.sh"
+  local state_conf="${HOME}/.config/hypr/theme_state/state.conf"
+  local default_wall="${HOME}/Wallpapers/Dark/cloudyy.jpg"
+
   if [[ ! -x "$controller" ]]; then
     log_warn "theme_controller.sh not found — skipping theme bootstrap."
     return 0
   fi
+
+  # Seed state.conf with the default wallpaper so restore has something to run matugen against.
+  # Only seeds if no wallpaper is already saved.
+  if [[ -f "$state_conf" ]] && grep -q 'CURRENT_WALL="[^"]' "$state_conf" 2>/dev/null; then
+    log "Existing theme state found — preserving."
+  elif [[ -f "$default_wall" ]]; then
+    mkdir -p "$(dirname "$state_conf")"
+    printf 'THEME_MODE="dark"\nCURRENT_WALL="%s"\n' "$default_wall" >"$state_conf"
+    log "Default wallpaper seeded into theme state."
+  fi
+
   if "$controller" restore >/dev/null 2>&1; then
     log_ok "Theme colours generated."
   else
@@ -196,6 +310,12 @@ phase_finalize() {
   printf '%s  🎉  cloudyy-linux installation complete!  %s\n' "$BOLD" "$RESET"
   printf '%s%s════════════════════════════════════════════%s\n\n' "$BOLD" "$GREEN" "$RESET"
   printf 'Log saved to:\n  %s%s%s\n\n' "$CYAN" "$LOG_FILE" "$RESET"
+
+  local config_script="${HOME}/cloudyy_scripts/cloudyy-config"
+  if [[ "${UNATTENDED}" != "1" ]] && [[ -x "$config_script" ]]; then
+    "$config_script" --first-run
+  fi
+
   printf '%sNext steps:%s\n' "$YELLOW" "$RESET"
   printf '  1. Log out of your current session\n'
   printf '  2. Select Hyprland at your display manager, or run: %sHyprland%s\n' "$BOLD" "$RESET"
@@ -208,7 +328,11 @@ phase_finalize() {
 declare -a PHASE_IDS=(
   "preflight"
   "dotfiles"
+  "bin_seed"
   "packages"
+  "schema"
+  "shell"
+  "laptop"
   "keyring"
   "theme_init"
   "services"
@@ -218,7 +342,11 @@ declare -a PHASE_IDS=(
 declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
   [dotfiles]="Dotfiles Deployment"
+  [bin_seed]="Binary Seeder"
   [packages]="Hardware & Package Installation"
+  [schema]="XDG Portal & Schema Settings"
+  [shell]="Shell Configuration"
+  [laptop]="Laptop Hardware Support"
   [keyring]="Keyring Configuration"
   [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
@@ -232,9 +360,10 @@ main() {
   # --- Argument Handling ---
   case "${1:-}" in
   --help | -h)
-    printf 'Usage: %s [--dry-run | --reset | --help]\n' "$(basename "$0")"
-    printf '\n  --dry-run   Preview phases without making changes\n'
-    printf '  --reset     Clear saved progress and start from scratch\n\n'
+    printf 'Usage: %s [--dry-run | --reset | --unattended | --help]\n' "$(basename "$0")"
+    printf '\n  --dry-run      Preview phases without making changes\n'
+    printf '  --reset        Clear saved progress and start from scratch\n'
+    printf '  --unattended   Silent install — skip post-install config prompt\n\n'
     exit 0
     ;;
   --reset)
@@ -257,6 +386,10 @@ main() {
     printf '\n'
     exit 0
     ;;
+  --unattended | -u)
+    UNATTENDED=1
+    export CLOUDYY_UNATTENDED=1
+    ;;
   "") ;;
   *)
     printf '%sUnknown option: %s%s\n' "$RED" "$1" "$RESET" >&2
@@ -270,6 +403,12 @@ main() {
     log_error "Do not run as root. This script manages sudo internally."
     exit 1
   fi
+
+  _err_handler() {
+    log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+    log_error "  in ${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}:${FUNCNAME[1]:-main}"
+  }
+  trap '_err_handler' ERR
 
   # --- Concurrent Execution Guard ---
   exec 9>"$LOCK_FILE"
@@ -306,13 +445,17 @@ BANNER
   if ((completed_count > 0 && completed_count < total_phases)); then
     printf '%s>>> Previous session detected (%d/%d phases complete)%s\n' \
       "$YELLOW" "$completed_count" "$total_phases" "$RESET"
-    read -rp "    [C]ontinue where you left off, or [S]tart over? [C/s]: " _session_choice
-    if [[ "${_session_choice,,}" == "s" ]]; then
-      rm -f "$STATE_FILE"
-      load_state
-      log_ok "Starting fresh."
+    if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
+      log "Unattended mode — resuming from last checkpoint."
     else
-      log_ok "Resuming from last checkpoint."
+      read -rp "    [C]ontinue where you left off, or [S]tart over? [C/s]: " _session_choice
+      if [[ "${_session_choice,,}" == "s" ]]; then
+        rm -f "$STATE_FILE"
+        load_state
+        log_ok "Starting fresh."
+      else
+        log_ok "Resuming from last checkpoint."
+      fi
     fi
   fi
 
@@ -331,14 +474,19 @@ BANNER
   printf '\n'
   printf '%sThis may take 10–30 minutes depending on your internet speed.%s\n' "$YELLOW" "$RESET"
   printf '\n'
-  read -rp "Proceed? [Y/n]: " _confirm
-  [[ "${_confirm,,}" == "n" ]] && {
-    log "Cancelled by user."
-    exit 0
-  }
+  if [[ "${CLOUDYY_UNATTENDED:-0}" != "1" ]]; then
+    read -rp "Proceed? [Y/n]: " _confirm
+    [[ "${_confirm,,}" == "n" ]] && {
+      log "Cancelled by user."
+      exit 0
+    }
+  else
+    log "Unattended mode — proceeding automatically."
+  fi
 
   # --- Acquire Sudo ---
   touch "$STATE_FILE"
+  export CLOUDYY_INSTALL_ORCHESTRATED=1
   start_sudo_heartbeat
 
   # --- Execute Phases ---
@@ -353,38 +501,44 @@ BANNER
     log_phase "${PHASE_LABELS[$id]}"
 
     local phase_rc=0
+    local _phase_start=$SECONDS
     "phase_${id}" || phase_rc=$?
+    local _phase_elapsed=$(( SECONDS - _phase_start ))
 
     if ((phase_rc == 0)); then
       mark_done "$id"
-      log_ok "${PHASE_LABELS[$id]} — complete."
+      log_ok "${PHASE_LABELS[$id]} — complete. (${_phase_elapsed}s)"
     else
       log_error "${PHASE_LABELS[$id]} failed (exit code: ${phase_rc})."
-      printf '\n%sWhat would you like to do?%s\n' "$YELLOW" "$RESET"
-      printf '  [R] Retry this phase\n'
-      printf '  [S] Skip and continue\n'
-      printf '  [Q] Quit (progress is saved — re-run to resume)\n\n'
-      read -rp "Choice [r/s/Q]: " _fail_choice
+      if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
+        log_warn "Unattended mode — skipping failed phase: ${PHASE_LABELS[$id]}"
+      else
+        printf '\n%sWhat would you like to do?%s\n' "$YELLOW" "$RESET"
+        printf '  [R] Retry this phase\n'
+        printf '  [S] Skip and continue\n'
+        printf '  [Q] Quit (progress is saved — re-run to resume)\n\n'
+        read -rp "Choice [r/s/Q]: " _fail_choice
 
-      case "${_fail_choice,,}" in
-      r)
-        log "Retrying ${PHASE_LABELS[$id]}..."
-        if "phase_${id}"; then
-          mark_done "$id"
-          log_ok "${PHASE_LABELS[$id]} — complete on retry."
-        else
-          log_error "Retry also failed."
-          log_warn "Skipping ${PHASE_LABELS[$id]} — you can re-run later."
-        fi
-        ;;
-      s)
-        log_warn "Skipping ${PHASE_LABELS[$id]} by user request."
-        ;;
-      *)
-        log "Exiting. Run ./install.sh to resume from this phase."
-        exit 1
-        ;;
-      esac
+        case "${_fail_choice,,}" in
+        r)
+          log "Retrying ${PHASE_LABELS[$id]}..."
+          if "phase_${id}"; then
+            mark_done "$id"
+            log_ok "${PHASE_LABELS[$id]} — complete on retry."
+          else
+            log_error "Retry also failed."
+            log_warn "Skipping ${PHASE_LABELS[$id]} — you can re-run later."
+          fi
+          ;;
+        s)
+          log_warn "Skipping ${PHASE_LABELS[$id]} by user request."
+          ;;
+        *)
+          log "Exiting. Run ./install.sh to resume from this phase."
+          exit 1
+          ;;
+        esac
+      fi
     fi
   done
 

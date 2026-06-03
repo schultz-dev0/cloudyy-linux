@@ -5,7 +5,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
-import "../common"
 
 /**
  * Provides access to some Hyprland data not available in Quickshell.Hyprland.
@@ -14,28 +13,26 @@ Singleton {
     id: root
     property string systemIconTheme: "Papirus-Dark"
     property string homeDir: ""
+    readonly property string genericIconSource: "file:///usr/share/icons/Papirus/128x128/apps/application-default-icon.svg"
+    property int maxIconSourcesPerWindow: 96
+    property var iconSourcesByNameCache: ({})
+    property var iconSourcesByWindowCache: ({})
     property var windowList: []
     property var addresses: []
     property var windowByAddress: ({})
+    property var windowsByWorkspace: ({})
     property var workspaces: []
-    property var allWorkspaces: []
     property var workspaceIds: []
     property var workspaceById: ({})
     property var activeWorkspace: null
     property var monitors: []
-    property var layers: ({})
     property bool pendingWindowsUpdate: false
     property bool pendingMonitorsUpdate: false
-    property bool pendingLayersUpdate: false
     property bool pendingWorkspacesUpdate: false
     property bool pendingActiveWorkspaceUpdate: false
 
     function updateWindowList() {
         getClients.running = true;
-    }
-
-    function updateLayers() {
-        getLayers.running = true;
     }
 
     function updateMonitors() {
@@ -48,17 +45,16 @@ Singleton {
     }
 
     function updateAll() {
-        scheduleUpdates(true, true, true, true, true);
+        scheduleUpdates(true, true, true, true);
     }
 
-    function scheduleUpdates(windows, monitors, layers, workspaces, activeWorkspace) {
+    function scheduleUpdates(windows, monitors, workspaces, activeWorkspace) {
         pendingWindowsUpdate = pendingWindowsUpdate || !!windows;
         pendingMonitorsUpdate = pendingMonitorsUpdate || !!monitors;
-        pendingLayersUpdate = pendingLayersUpdate || !!layers;
         pendingWorkspacesUpdate = pendingWorkspacesUpdate || !!workspaces;
         pendingActiveWorkspaceUpdate = pendingActiveWorkspaceUpdate || !!activeWorkspace;
 
-        const debounceMs = Math.max(0, Config.options.hacks.hyprlandEventDebounceMs);
+        const debounceMs = Math.max(0, 50);
         if (debounceMs === 0) {
             flushPendingUpdates();
         } else {
@@ -76,10 +72,6 @@ Singleton {
             pendingMonitorsUpdate = false;
             updateMonitors();
         }
-        if (pendingLayersUpdate) {
-            pendingLayersUpdate = false;
-            updateLayers();
-        }
         if (pendingWorkspacesUpdate) {
             pendingWorkspacesUpdate = false;
             getWorkspaces.running = true;
@@ -91,7 +83,7 @@ Singleton {
     }
 
     function biggestWindowForWorkspace(workspaceId) {
-        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId);
+        const windowsInThisWorkspace = root.windowsByWorkspace[workspaceId] ?? [];
         return windowsInThisWorkspace.reduce((maxWin, win) => {
             const maxArea = (maxWin?.size?.[0] ?? 0) * (maxWin?.size?.[1] ?? 0);
             const winArea = (win?.size?.[0] ?? 0) * (win?.size?.[1] ?? 0);
@@ -100,7 +92,7 @@ Singleton {
     }
 
     function mostRecentWindowForWorkspace(workspaceId) {
-        const windowsInThisWorkspace = root.windowList.filter(win => (win?.workspace?.id ?? -1) === workspaceId);
+        const windowsInThisWorkspace = root.windowsByWorkspace[workspaceId] ?? [];
         return windowsInThisWorkspace.reduce((mostRecentWin, win) => {
             const currentHistory = mostRecentWin?.focusHistoryID ?? 999999;
             const nextHistory = win?.focusHistoryID ?? 999999;
@@ -119,6 +111,88 @@ Singleton {
         if (normalized.length === 0 || values.includes(normalized))
             return;
         values.push(normalized);
+    }
+
+    function pushUniqueSource(values, value) {
+        const source = `${value ?? ""}`.trim();
+        if (source.length === 0 || values.includes(source))
+            return;
+        values.push(source);
+    }
+
+    function clearIconCaches() {
+        iconSourcesByNameCache = {};
+        iconSourcesByWindowCache = {};
+    }
+
+    function parseJson(text, fallback, label) {
+        const trimmed = `${text ?? ""}`.trim();
+        if (trimmed.length === 0)
+            return fallback;
+
+        try {
+            return JSON.parse(trimmed);
+        } catch (err) {
+            console.warn("hyprland-data: failed to parse", label, err);
+            return fallback;
+        }
+    }
+
+    function cacheObjectSize(cache) {
+        return Object.keys(cache ?? {}).length;
+    }
+
+    function maybeTrimIconCaches() {
+        if (cacheObjectSize(iconSourcesByNameCache) > 128)
+            iconSourcesByNameCache = {};
+        if (cacheObjectSize(iconSourcesByWindowCache) > 128)
+            iconSourcesByWindowCache = {};
+    }
+
+    function resolveIconLookupName(iconName) {
+        const normalized = normalizeIconName(iconName);
+        if (normalized === "xfce-filemanager" || normalized === "thunar")
+            return "org.xfce.thunar";
+        if (normalized === "cursor")
+            return "co.anysphere.cursor";
+        if (normalized === "zen" || normalized === "zen-bin")
+            return "zen-browser";
+        if (normalized === "vesktop" || normalized === "dev.vencord.vesktop")
+            return "dev.vencord.Vesktop";
+        if (normalized === "dev.zed.zed" || normalized === "zeditor")
+            return "dev.zed.Zed";
+        return normalized;
+    }
+
+    function pushThemeIconSources(sources, lookupName) {
+        const themes = [];
+        const active = `${root.systemIconTheme ?? ""}`.trim();
+        if (active.length > 0)
+            themes.push(active);
+        for (const fallback of ["hicolor", "Papirus-Dark", "Papirus"]) {
+            if (!themes.includes(fallback))
+                themes.push(fallback);
+        }
+
+        // Keep candidate list small — probing dozens of missing paths per icon stresses Qt on reload.
+        const sizes = ["128x128", "64x64", "48x48"];
+        const exts = ["svg", "png"];
+        const iconRoots = ["/usr/share/icons"];
+
+        for (const rootPath of iconRoots) {
+            for (const theme of themes) {
+                for (const size of sizes) {
+                    for (const ext of exts)
+                        pushUniqueSource(sources, `file://${rootPath}/${theme}/${size}/apps/${lookupName}.${ext}`);
+                }
+                pushUniqueSource(sources, `file://${rootPath}/${theme}/scalable/apps/${lookupName}.svg`);
+            }
+        }
+
+        pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
+        pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
+        if (lookupName === "co.anysphere.cursor")
+            pushUniqueSource(sources, "file:///usr/share/pixmaps/co.anysphere.cursor.png");
     }
 
     function iconCandidatesForWindow(window) {
@@ -160,8 +234,14 @@ Singleton {
             pushUnique(candidates, "spotify");
         if (lowerClass.includes("discord"))
             pushUnique(candidates, "discord");
-        if (lowerClass.includes("thunar"))
-            pushUnique(candidates, "thunar");
+        if (lowerClass.includes("vesktop") || lowerInitialClass.includes("vesktop")) {
+            pushUnique(candidates, "dev.vencord.Vesktop");
+            pushUnique(candidates, "vesktop");
+        }
+        if (lowerClass.includes("thunar") || lowerClass.includes("xfce"))
+            pushUnique(candidates, "org.xfce.thunar");
+        if (lowerClass.includes("curseforge"))
+            pushUnique(candidates, "curseforge");
         if (lowerClass.includes("matlab"))
             pushUnique(candidates, "matlab");
 
@@ -171,14 +251,15 @@ Singleton {
         if (lowerClass.includes("freecad") || lowerInitialClass.includes("freecad"))
             pushUnique(candidates, "org.freecad.FreeCAD");
 
-        pushUnique(candidates, "application-x-executable");
+        pushUnique(candidates, "application-default-icon");
         return candidates;
     }
 
     function iconSourcesForName(iconName) {
         const normalized = normalizeIconName(iconName);
         if (normalized.length === 0)
-            return ["image://icon/application-x-executable"];
+            return [root.genericIconSource];
+        const lookupName = resolveIconLookupName(normalized);
 
         if (normalized.startsWith("/"))
             return [`file://${normalized}`];
@@ -187,64 +268,49 @@ Singleton {
             return [`file://${root.homeDir}${normalized.substring(1)}`];
 
         const currentTheme = `${root.systemIconTheme ?? "Papirus-Dark"}`.trim() || "Papirus-Dark";
-        const strippedTheme = currentTheme.replace(/-(Dark|Light)$/i, "");
-        const themeNames = [];
-        [currentTheme, strippedTheme, "Papirus-Dark", "Papirus", "Papirus-Light", "hicolor"].forEach(theme => pushUnique(themeNames, theme));
-
-        const directories = [
-            "48x48/apps",
-            "scalable/apps",
-            "64x64/apps",
-            "32x32/apps",
-            "24x24/apps",
-            "16x16/apps",
-            "128x128/apps",
-            "256x256/apps",
-            "48x48/devices",
-            "scalable/devices",
-            "48x48/places",
-            "scalable/places",
-            "48x48/categories",
-            "scalable/categories"
-        ];
+        const cacheKey = `${currentTheme}|${root.homeDir}|${normalized}`;
+        if (root.iconSourcesByNameCache[cacheKey])
+            return root.iconSourcesByNameCache[cacheKey];
 
         const sources = [];
-
-        for (const theme of themeNames) {
-            for (const directory of directories) {
-                sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.svg`);
-                sources.push(`file:///usr/share/icons/${theme}/${directory}/${normalized}.png`);
-            }
-        }
-        // pixmaps fallback
-        sources.push(`file:///usr/share/pixmaps/${normalized}.svg`);
-        sources.push(`file:///usr/share/pixmaps/${normalized}.png`);
-        // user icon dirs
-        if (root.homeDir.length > 0) {
-            sources.push(`file://${root.homeDir}/.local/share/icons/${normalized}.svg`);
-            sources.push(`file://${root.homeDir}/.local/share/icons/${normalized}.png`);
-            sources.push(`file://${root.homeDir}/.icons/${normalized}.svg`);
-            sources.push(`file://${root.homeDir}/.icons/${normalized}.png`);
-        }
-        sources.push(Quickshell.iconPath(normalized, "image://icon/application-x-executable"));
-        sources.push("image://icon/application-x-executable");
+        pushThemeIconSources(sources, lookupName);
+        pushUniqueSource(sources, root.genericIconSource);
+        root.iconSourcesByNameCache[cacheKey] = sources;
+        maybeTrimIconCaches();
         return sources;
     }
 
     function iconSourcesForWindow(window) {
         const candidates = iconCandidatesForWindow(window);
+        const cacheKey = candidates.join("|");
+        if (root.iconSourcesByWindowCache[cacheKey])
+            return root.iconSourcesByWindowCache[cacheKey];
+
         const sources = [];
-        if (window && window.class && window.class.toLowerCase().includes("matlab")) return ["file:///home/schultz/.local/share/icons/matlab.png"];
+        if (window && window.class && window.class.toLowerCase().includes("matlab"))
+            return [`file://${root.homeDir}/.local/share/icons/matlab.png`];
+
         for (const iconName of candidates) {
             const candidateSources = iconSourcesForName(iconName);
-            for (const source of candidateSources)
-                sources.push(source);
+            for (const source of candidateSources) {
+                pushUniqueSource(sources, source);
+                if (sources.length >= root.maxIconSourcesPerWindow) {
+                    root.iconSourcesByWindowCache[cacheKey] = sources;
+                    maybeTrimIconCaches();
+                    return sources;
+                }
+            }
         }
+        root.iconSourcesByWindowCache[cacheKey] = sources;
+        maybeTrimIconCaches();
         return sources;
     }
 
+    onSystemIconThemeChanged: clearIconCaches()
+    onHomeDirChanged: clearIconCaches()
+
     Component.onCompleted: {
-        scheduleUpdates(true, true, true, true, true);
+        scheduleUpdates(true, true, true, true);
         flushPendingUpdates();
     }
 
@@ -257,27 +323,27 @@ Singleton {
                 return;
 
             if (eventName === "openwindow" || eventName === "closewindow" || eventName === "movewindow" || eventName === "movewindowv2" || eventName === "windowtitle") {
-                scheduleUpdates(true, false, false, true, false);
+                scheduleUpdates(true, false, true, false);
                 return;
             }
 
             if (eventName === "workspace" || eventName === "workspacev2" || eventName === "focusedmon" || eventName === "focusedmonv2" || eventName === "activewindow" || eventName === "activewindowv2") {
-                scheduleUpdates(eventName === "activewindow" || eventName === "activewindowv2", false, false, true, true);
+                scheduleUpdates(eventName === "activewindow" || eventName === "activewindowv2", false, true, true);
                 return;
             }
 
             if (eventName.startsWith("monitor") || eventName === "configreloaded") {
-                scheduleUpdates(true, true, false, true, true);
+                scheduleUpdates(true, true, true, true);
                 return;
             }
 
-            scheduleUpdates(true, true, true, true, true);
+            scheduleUpdates(true, true, true, true);
         }
     }
 
     Timer {
         id: eventDebounceTimer
-        interval: Math.max(0, Config.options.hacks.hyprlandEventDebounceMs)
+        interval: Math.max(0, 50)
         repeat: false
         onTriggered: root.flushPendingUpdates()
     }
@@ -313,13 +379,21 @@ Singleton {
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
-                root.windowList = JSON.parse(clientsCollector.text)
+                root.windowList = root.parseJson(clientsCollector.text, [], "clients");
                 let tempWinByAddress = {};
+                let tempWindowsByWorkspace = {};
                 for (var i = 0; i < root.windowList.length; ++i) {
                     var win = root.windowList[i];
                     tempWinByAddress[win.address] = win;
+                    const workspaceId = Number(win?.workspace?.id ?? -1);
+                    if (Number.isFinite(workspaceId) && workspaceId > 0) {
+                        if (!tempWindowsByWorkspace[workspaceId])
+                            tempWindowsByWorkspace[workspaceId] = [];
+                        tempWindowsByWorkspace[workspaceId].push(win);
+                    }
                 }
                 root.windowByAddress = tempWinByAddress;
+                root.windowsByWorkspace = tempWindowsByWorkspace;
                 root.addresses = root.windowList.map(win => win.address);
             }
         }
@@ -331,18 +405,7 @@ Singleton {
         stdout: StdioCollector {
             id: monitorsCollector
             onStreamFinished: {
-                root.monitors = JSON.parse(monitorsCollector.text);
-            }
-        }
-    }
-
-    Process {
-        id: getLayers
-        command: ["hyprctl", "layers", "-j"]
-        stdout: StdioCollector {
-            id: layersCollector
-            onStreamFinished: {
-                root.layers = JSON.parse(layersCollector.text);
+                root.monitors = root.parseJson(monitorsCollector.text, [], "monitors");
             }
         }
     }
@@ -353,8 +416,7 @@ Singleton {
         stdout: StdioCollector {
             id: workspacesCollector
             onStreamFinished: {
-                const rawWorkspaces = JSON.parse(workspacesCollector.text);
-                root.allWorkspaces = rawWorkspaces;
+                const rawWorkspaces = root.parseJson(workspacesCollector.text, [], "workspaces");
                 root.workspaces = rawWorkspaces.filter(ws => ws.id >= 1 && ws.id <= 100);
                 let tempWorkspaceById = {};
                 for (var i = 0; i < root.workspaces.length; ++i) {
@@ -373,7 +435,7 @@ Singleton {
         stdout: StdioCollector {
             id: activeWorkspaceCollector
             onStreamFinished: {
-                root.activeWorkspace = JSON.parse(activeWorkspaceCollector.text);
+                root.activeWorkspace = root.parseJson(activeWorkspaceCollector.text, root.activeWorkspace, "activeworkspace");
             }
         }
     }
