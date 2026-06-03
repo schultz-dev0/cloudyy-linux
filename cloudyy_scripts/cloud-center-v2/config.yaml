@@ -861,6 +861,19 @@ pages:
 
       - type: section
         properties:
+          title: Terminal Launch
+          description: SUPER+Return behavior
+        items:
+          - type: toggle
+            properties:
+              title: Open in Focused Directory
+              description: Open a terminal in Thunar's current folder or the focused terminal's working directory
+              icon: folder-symbolic
+              key: terminal/cwd_walk
+              default: true
+
+      - type: section
+        properties:
           title: Shell & Multiplexer
           description: Workflow and plugin management
         items:

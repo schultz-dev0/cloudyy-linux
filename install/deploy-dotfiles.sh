@@ -413,6 +413,14 @@ deploy_defaults() {
   else
     log_skip "show_mascot"
   fi
+
+  local cwd_walk_file="${cc_terminal_dir}/cwd_walk"
+  if [[ ! -f "$cwd_walk_file" ]]; then
+    printf 'true\n' > "$cwd_walk_file"
+    log_ok "cwd_walk default seeded."
+  else
+    log_skip "cwd_walk"
+  fi
 }
 
 # =============================================================================
