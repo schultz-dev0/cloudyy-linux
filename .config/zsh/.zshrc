@@ -25,6 +25,8 @@ if [[ ! -f "$STARSHIP_CACHE" ]]; then
 fi
 source "$STARSHIP_CACHE"
 
+source $HOME/cloudyy_scripts/ssh-auth.sh
+
 
 # Path management
 
@@ -85,10 +87,8 @@ if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" && "$SHOW_PIC" != "false" ]
     fi
 fi
 
-# ── Tmux Autostart (Cloud Center) ───────────────────────────────────────────
-if [[ -z "$TMUX" && $(cat ~/.config/cloud-center/settings/terminal/tmux_autostart 2>/dev/null | tr '[:upper:]' '[:lower:]') == "true" ]]; then
-    tmux attach-session -t default 2>/dev/null || tmux new-session -s default
-fi
+# ── Multiplexer Autostart (Cloud Center) ────────────────────────────────────
+~/cloudyy_scripts/terminal/multiplexer_autostart.sh 2>/dev/null
 
 if [ -z "$TMUX" ] && uwsm check may-start && uwsm select; then
     exec uwsm start default

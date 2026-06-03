@@ -866,10 +866,10 @@ pages:
         items:
           - type: toggle
             properties:
-              title: Tmux Autostart
-              description: Automatically start/attach to tmux session
+              title: Multiplexer Autostart
+              description: Attach to default session (zellij or tmux, whichever is installed)
               icon: application-x-executable-symbolic
-              key: terminal/tmux_autostart
+              key: terminal/multiplexer_autostart
 
           - type: extension_browser
             properties:

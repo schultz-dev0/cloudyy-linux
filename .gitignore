@@ -24,6 +24,11 @@
 !.vscode-oss/extensions/matugen-theme
 cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
 
+# Private user wallpapers — never commit images
+Wallpapers/user_wallpapers/**/*
+!Wallpapers/user_wallpapers/**/
+!Wallpapers/user_wallpapers/**/.gitkeep
+
 # Local scripts and private data
 cloudyy_scripts/cloudyy-other/folio-gtk
 cloudyy_scripts/cloudyy-other/keypunch

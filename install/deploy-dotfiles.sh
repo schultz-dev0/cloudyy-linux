@@ -210,6 +210,8 @@ link_extra_dirs() {
   # Wallpapers
   if [[ -d "${REPO_DIR}/Wallpapers" ]]; then
     safe_symlink "${REPO_DIR}/Wallpapers" "${HOME}/Wallpapers"
+    mkdir -p "${REPO_DIR}/Wallpapers/user_wallpapers/Dark" \
+             "${REPO_DIR}/Wallpapers/user_wallpapers/Light"
   fi
 
   # cloudyy_scripts — also make them executable

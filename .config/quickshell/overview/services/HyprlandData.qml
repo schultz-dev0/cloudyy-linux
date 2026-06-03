@@ -151,28 +151,48 @@ Singleton {
 
     function resolveIconLookupName(iconName) {
         const normalized = normalizeIconName(iconName);
-        if (normalized === "xfce-filemanager")
-            return "thunar";
+        if (normalized === "xfce-filemanager" || normalized === "thunar")
+            return "org.xfce.thunar";
         if (normalized === "cursor")
             return "co.anysphere.cursor";
-        if (normalized === "zen")
+        if (normalized === "zen" || normalized === "zen-bin")
             return "zen-browser";
         if (normalized === "vesktop" || normalized === "dev.vencord.vesktop")
             return "dev.vencord.Vesktop";
+        if (normalized === "dev.zed.zed" || normalized === "zeditor")
+            return "dev.zed.Zed";
         return normalized;
     }
 
-    function knownIconSource(iconName) {
-        const lookupName = resolveIconLookupName(iconName);
-        const knownPapirusIcons = [
-            "zen-browser", "zed", "thunar", "kitty", "spotify", "discord", "obsidian",
-            "vesktop", "dev.vencord.Vesktop"
-        ];
-        if (knownPapirusIcons.includes(lookupName))
-            return `file:///usr/share/icons/Papirus/128x128/apps/${lookupName}.svg`;
+    function pushThemeIconSources(sources, lookupName) {
+        const themes = [];
+        const active = `${root.systemIconTheme ?? ""}`.trim();
+        if (active.length > 0)
+            themes.push(active);
+        for (const fallback of ["hicolor", "Papirus-Dark", "Papirus"]) {
+            if (!themes.includes(fallback))
+                themes.push(fallback);
+        }
+
+        // Keep candidate list small — probing dozens of missing paths per icon stresses Qt on reload.
+        const sizes = ["128x128", "64x64", "48x48"];
+        const exts = ["svg", "png"];
+        const iconRoots = ["/usr/share/icons"];
+
+        for (const rootPath of iconRoots) {
+            for (const theme of themes) {
+                for (const size of sizes) {
+                    for (const ext of exts)
+                        pushUniqueSource(sources, `file://${rootPath}/${theme}/${size}/apps/${lookupName}.${ext}`);
+                }
+                pushUniqueSource(sources, `file://${rootPath}/${theme}/scalable/apps/${lookupName}.svg`);
+            }
+        }
+
+        pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
+        pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
         if (lookupName === "co.anysphere.cursor")
-            return "file:///usr/share/pixmaps/co.anysphere.cursor.png";
-        return "";
+            pushUniqueSource(sources, "file:///usr/share/pixmaps/co.anysphere.cursor.png");
     }
 
     function iconCandidatesForWindow(window) {
@@ -218,8 +238,10 @@ Singleton {
             pushUnique(candidates, "dev.vencord.Vesktop");
             pushUnique(candidates, "vesktop");
         }
-        if (lowerClass.includes("thunar"))
-            pushUnique(candidates, "thunar");
+        if (lowerClass.includes("thunar") || lowerClass.includes("xfce"))
+            pushUnique(candidates, "org.xfce.thunar");
+        if (lowerClass.includes("curseforge"))
+            pushUnique(candidates, "curseforge");
         if (lowerClass.includes("matlab"))
             pushUnique(candidates, "matlab");
 
@@ -251,23 +273,7 @@ Singleton {
             return root.iconSourcesByNameCache[cacheKey];
 
         const sources = [];
-        const known = knownIconSource(lookupName);
-        pushUniqueSource(sources, known);
-        // Only probe pixmap/home paths when Papirus has no known icon (avoids QML load warnings).
-        if (known.length === 0) {
-            if (lookupName.includes(".")) {
-                pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
-                pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
-            }
-            pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
-            pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
-            if (root.homeDir.length > 0) {
-                pushUniqueSource(sources, `file://${root.homeDir}/.local/share/icons/${lookupName}.png`);
-                pushUniqueSource(sources, `file://${root.homeDir}/.local/share/icons/${lookupName}.svg`);
-                pushUniqueSource(sources, `file://${root.homeDir}/.icons/${lookupName}.png`);
-                pushUniqueSource(sources, `file://${root.homeDir}/.icons/${lookupName}.svg`);
-            }
-        }
+        pushThemeIconSources(sources, lookupName);
         pushUniqueSource(sources, root.genericIconSource);
         root.iconSourcesByNameCache[cacheKey] = sources;
         maybeTrimIconCaches();

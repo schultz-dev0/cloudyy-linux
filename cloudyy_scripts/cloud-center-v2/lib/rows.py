@@ -698,28 +698,37 @@ class WallpaperPickerRow(Adw.PreferencesRow, _ManagedRow):
             # Mirror theme_controller.sh behavior: prefer mode-specific dir if present.
             mode = _read_theme_mode()
             mode_dir = base / mode.capitalize()
+            user_mode_dir = base / "user_wallpapers" / mode.capitalize()
             if mode_dir.is_dir():
-                scan_root = mode_dir
+                scan_roots = [mode_dir]
+                if user_mode_dir.is_dir():
+                    scan_roots.append(user_mode_dir)
                 use_recursive = True
             else:
-                scan_root = base
+                scan_roots = [base]
                 use_recursive = False
 
+            paths: list[Path] = []
+            seen: set[str] = set()
             if use_recursive:
-                paths = [
-                    p for p in scan_root.rglob("*")
-                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
-                ]
+                for scan_root in scan_roots:
+                    for p in scan_root.rglob("*"):
+                        if p.is_file() and p.suffix.lower() in _WALL_EXTS:
+                            key = str(p.resolve())
+                            if key not in seen:
+                                seen.add(key)
+                                paths.append(p)
             else:
-                # Stay shallow in flat dir so Light/ and Dark/ siblings are not mixed.
-                paths = [
-                    p for p in scan_root.iterdir()
-                    if p.is_file() and p.suffix.lower() in _WALL_EXTS
-                ]
+                for p in scan_roots[0].iterdir():
+                    if p.is_file() and p.suffix.lower() in _WALL_EXTS:
+                        key = str(p.resolve())
+                        if key not in seen:
+                            seen.add(key)
+                            paths.append(p)
 
             paths.sort(key=lambda p: p.stat().st_mtime, reverse=True)
             paths = paths[: self._max_items]
-            self._directory = scan_root
+            self._directory = scan_roots[0]
         except Exception as exc:
             log.warning("WallpaperPicker: cannot list %s: %s", self._directory, exc)
             paths = []

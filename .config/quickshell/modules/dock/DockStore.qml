@@ -15,13 +15,13 @@ Singleton {
     readonly property var defaultPinnedApps: [
         {
             class: "zen",
-            exec: "zen-browser",
+            exec: "/opt/zen-browser-bin/zen-bin",
             icon: "zen-browser"
         },
         {
             class: "dev.zed.Zed",
-            exec: "zed",
-            icon: "zed"
+            exec: "zeditor",
+            icon: "dev.zed.Zed"
         },
         {
             class: "kitty",
@@ -31,7 +31,7 @@ Singleton {
         {
             class: "thunar",
             exec: "thunar",
-            icon: "xfce-filemanager"
+            icon: "org.xfce.thunar"
         },
         {
             class: "spotify",
@@ -39,6 +39,27 @@ Singleton {
             icon: "spotify"
         }
     ]
+
+    function stripDesktopExecField(s) {
+        const t = `${s ?? ""}`.trim();
+        if (!t)
+            return "";
+        return t.replace(/%[A-Za-z]/g, "").trim();
+    }
+
+    function enrichFromDesktop(e) {
+        const norm = normalizeEntry(e);
+        const entry = DesktopEntries.heuristicLookup(norm.class);
+        if (!entry)
+            return norm;
+        const deExec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");
+        const deIcon = `${entry.icon ?? ""}`.trim();
+        if (deExec.length > 0)
+            norm.exec = deExec;
+        if (deIcon.length > 0)
+            norm.icon = deIcon;
+        return norm;
+    }
 
     function normalizeEntry(e) {
         return {
@@ -49,7 +70,7 @@ Singleton {
     }
 
     function cloneList(list) {
-        return list.map(a => normalizeEntry(a));
+        return list.map(a => enrichFromDesktop(a));
     }
 
     function save() {
@@ -62,7 +83,7 @@ Singleton {
     }
 
     function pinEntry(entry, insertIndex) {
-        const norm = normalizeEntry(entry);
+        const norm = enrichFromDesktop(entry);
         const cls = norm.class.toLowerCase();
         if (!cls)
             return;
@@ -132,13 +153,15 @@ Singleton {
                 }
                 try {
                     const parsed = JSON.parse(text);
-                    if (Array.isArray(parsed))
-                        root.pinnedApps = cloneList(parsed);
-                    else
-                        root.pinnedApps = cloneList(root.defaultPinnedApps);
+                    const raw = Array.isArray(parsed) ? parsed : root.defaultPinnedApps;
+                    root.pinnedApps = raw.map(a => enrichFromDesktop(a));
+                    const migrated = JSON.stringify(root.pinnedApps) !== JSON.stringify(raw.map(a => normalizeEntry(a)));
+                    if (migrated)
+                        root.save();
                 } catch (err) {
                     console.warn("dock: failed to parse pinned.json:", err);
                     root.pinnedApps = cloneList(root.defaultPinnedApps);
+                    root.save();
                 }
                 root.loaded = true;
             }
