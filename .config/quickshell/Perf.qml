@@ -12,6 +12,11 @@ QtObject {
         return v === "1" || v === "true" || v === "yes" || v === "on";
     }
 
+    readonly property bool lightweightOverview: {
+        const v = (Quickshell.env("CLOUDYY_LIGHTWEIGHT_OVERVIEW") || "").toLowerCase();
+        return v === "1" || v === "true" || v === "yes" || v === "on";
+    }
+
     readonly property bool animationsEnabled: !lightweight
 
     function ms(normal) {

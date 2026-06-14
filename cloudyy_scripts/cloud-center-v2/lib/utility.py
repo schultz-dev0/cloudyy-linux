@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,7 @@ log = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 _TILDE = re.compile(r"(?:^|(?<=\s))~(?=/|$|\s)")
+_HCM = re.compile(r"\bhcm\b")
 
 # ── XDG paths ────────────────────────────────────────────────────────────────
 
@@ -66,35 +68,56 @@ def preflight_check() -> None:
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-# ── Command execution (GLib.spawn_async — no fork() lock issues) ─────────────
+# ── Command execution ─────────────────────────────────────────────────────────
+
+_HCM_BIN: Final[Path] = Path(
+    os.environ.get("HCM_BIN", "")
+    or shutil.which("hcm")
+    or (Path.home() / ".local" / "bin" / "hcm")
+)
+
+
+def _command_env() -> dict[str, str]:
+    """Ensure user-local tools (hcm, etc.) are reachable from GUI-launched shells."""
+    env = os.environ.copy()
+    local_bin = str(Path.home() / ".local" / "bin")
+    path = env.get("PATH", "")
+    if local_bin not in path.split(":"):
+        env["PATH"] = f"{local_bin}:{path}" if path else local_bin
+    return env
+
 
 def execute_command(cmd: str, title: str = "", terminal: bool = False) -> bool:
-    """Launch a command detached via GLib. Safe from GTK thread."""
+    """Run a shell command off the GTK thread with a GUI-safe PATH."""
     if not cmd.strip():
         return False
 
     expanded = os.path.expandvars(_TILDE.sub(str(Path.home()), cmd)).strip()
+    expanded = _HCM.sub(str(_HCM_BIN), expanded)
 
-    if terminal:
-        argv = ["kitty", "--", "bash", "-c", expanded]
-    else:
-        argv = ["bash", "-c", expanded]
+    argv = (
+        ["kitty", "--", "bash", "-c", expanded]
+        if terminal
+        else ["bash", "-c", expanded]
+    )
 
-    from gi.repository import GLib
-    try:
-        result = GLib.spawn_async(
-            argv,
-            flags=GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
-        )
-        # pygobject ≥ 3.42 returns (pid, stdin_fd, stdout_fd, stderr_fd).
-        # Older versions returned (ok: bool, pid: int).
-        # In both cases the first element is truthy on success (pid > 0 or ok=True).
-        if isinstance(result, (list, tuple)):
-            return bool(result[0])
-        return bool(result)
-    except Exception as e:
-        log.error("spawn failed for %r: %s", cmd, e)
-        return False
+    def _run() -> None:
+        try:
+            result = subprocess.run(
+                argv,
+                env=_command_env(),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                err = (result.stderr or result.stdout or "unknown error").strip()
+                log.error("command failed (%s): %s\n  cmd: %s", result.returncode, err, cmd)
+        except Exception as e:
+            log.error("command failed for %r: %s", cmd, e)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
 
 
 # ── Settings persistence (atomic write) ──────────────────────────────────────
