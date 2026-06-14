@@ -41,11 +41,47 @@ Singleton {
         launch(["hyprctl", "dispatch", expression]);
     }
 
-    function focusWorkspace(workspaceId) {
-        const id = Number(workspaceId);
+    function monitorNameForWorkspace(workspaceId) {
+        const id = Math.trunc(Number(workspaceId));
+        const ws = HyprlandData.workspaceById?.[id];
+        if (ws?.monitor)
+            return `${ws.monitor}`.trim();
+
+        for (const window of HyprlandData.windowsByWorkspace?.[id] ?? []) {
+            const monitorId = Number(window?.monitor ?? -1);
+            const monitor = (HyprlandData.monitors ?? []).find(m => Number(m?.id ?? -2) === monitorId);
+            if (monitor?.name)
+                return monitor.name;
+        }
+
+        return "";
+    }
+
+    function applyWorkspaceFocus(workspaceId) {
+        const id = Math.trunc(Number(workspaceId));
         if (!Number.isFinite(id) || id < 1)
             return;
-        dispatch("hl.dsp.focus({ workspace = " + Math.trunc(id) + " })");
+
+        const monitorName = monitorNameForWorkspace(id);
+        if (monitorName.length)
+            dispatch("hl.dsp.focus({ monitor = " + luaString(monitorName) + " })");
+
+        dispatch("hl.dsp.focus({ workspace = " + id + " })");
+    }
+
+    function focusWorkspace(workspaceId) {
+        const id = Math.trunc(Number(workspaceId));
+        if (!Number.isFinite(id) || id < 1)
+            return;
+
+        const targetWindow = HyprlandData.mostRecentWindowForWorkspace(id)
+            ?? HyprlandData.biggestWindowForWorkspace(id);
+        if (targetWindow) {
+            focusWindow(targetWindow);
+            return;
+        }
+
+        applyWorkspaceFocus(id);
     }
 
     function focusWorkspaceRelative(direction) {
@@ -76,7 +112,7 @@ Singleton {
 
         const workspaceId = Number(windowData?.workspace?.id ?? -1);
         if (Number.isFinite(workspaceId) && workspaceId > 0)
-            focusWorkspace(workspaceId);
+            applyWorkspaceFocus(workspaceId);
 
         Qt.callLater(() => dispatch("hl.dsp.focus({ window = " + luaString("address:" + address) + " })"));
     }

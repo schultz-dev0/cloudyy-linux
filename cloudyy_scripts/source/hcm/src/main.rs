@@ -5,6 +5,7 @@
 //! the non-GTK half of `hcm_lua.py`.
 //!
 //!   hcm set KEY VALUE        persist a key into the right user_*.lua
+//!   hcm apply KEY VALUE      persist, then live-apply via hyprctl eval
 //!   hcm reset-page PAGE      drop every key on that page from state
 //!   hcm scan [--json]        list source/*.lua with status + description
 //!   hcm activate SURFACE     load user_SURFACE.lua instead of the distro source
@@ -41,6 +42,8 @@ struct Cli {
 enum Cmd {
     /// Persist a single key=value into the right user_*.lua file.
     Set { key: String, value: String },
+    /// Persist a key, then apply it live (hyprctl eval, reload on failure).
+    Apply { key: String, value: String },
     /// Drop every state key on the given page.
     ResetPage { page: String },
     /// List source/*.lua with distro/override status.
@@ -63,6 +66,7 @@ fn main() -> ExitCode {
 
     let result = match cli.cmd {
         Cmd::Set { key, value } => persist::set(&dirs, &key, &value).and_then(emit_json),
+        Cmd::Apply { key, value } => persist::apply(&dirs, &key, &value).and_then(emit_json),
         Cmd::ResetPage { page } => persist::reset_page(&dirs, &page).and_then(emit_json),
         Cmd::Scan { json } => show_scan(&dirs, json),
         Cmd::Activate { surface } => run_on_module(&dirs, &surface, scan::enable),

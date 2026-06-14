@@ -11,8 +11,32 @@ import "../../services"
 Scope {
     id: root
 
+    property int openedAtMs: 0
+    property var activeOverviewWidget: null
+    property bool selectNextOnOpen: false
+
     function open() {
+        if (GlobalStates.overviewOpen)
+            return;
+
+        openedAtMs = Date.now();
         GlobalStates.overviewOpen = true;
+        Hyprland.refreshToplevels();
+    }
+
+    function openOrCycle() {
+        if (GlobalStates.overviewOpen) {
+            root.activeOverviewWidget?.selectNext();
+            return;
+        }
+
+        root.selectNextOnOpen = true;
+        root.open();
+    }
+
+    function cyclePrevious() {
+        if (GlobalStates.overviewOpen)
+            root.activeOverviewWidget?.selectPrevious();
     }
 
     function close() {
@@ -21,6 +45,23 @@ Scope {
 
     function toggle() {
         GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+    }
+
+    function resetOverviewSelection() {
+        if (root.selectNextOnOpen)
+            root.activeOverviewWidget?.resetSelectionToNext();
+        else
+            root.activeOverviewWidget?.resetSelectionToActive();
+    }
+
+    function release() {
+        if (!GlobalStates.overviewOpen)
+            return;
+
+        if (root.activeOverviewWidget)
+            root.activeOverviewWidget.activateSelected();
+        else
+            close();
     }
 
     Component {
@@ -44,13 +85,34 @@ Scope {
     }
 
     function focusWorkspace(workspaceId) {
-        HyprDispatch.focusWorkspace(workspaceId);
+        // Close before focus so the overlay does not re-mount on the target monitor.
         close();
+        focusWorkspaceTimer.workspaceId = workspaceId;
+        focusWorkspaceTimer.restart();
+    }
+
+    Timer {
+        id: focusWorkspaceTimer
+
+        property int workspaceId: -1
+        interval: 50
+        repeat: false
+        onTriggered: HyprDispatch.focusWorkspace(workspaceId);
     }
 
     function focusWindow(windowData) {
-        HyprDispatch.focusWindow(windowData);
         close();
+        focusWindowTimer.windowData = windowData;
+        focusWindowTimer.restart();
+    }
+
+    Timer {
+        id: focusWindowTimer
+
+        property var windowData: null
+        interval: 50
+        repeat: false
+        onTriggered: HyprDispatch.focusWindow(windowData);
     }
 
     function closeWindow(windowData) {
@@ -71,7 +133,7 @@ Scope {
         target: "overview"
 
         function open() {
-            root.open();
+            root.openOrCycle();
         }
 
         function close() {
@@ -80,6 +142,14 @@ Scope {
 
         function toggle() {
             root.toggle();
+        }
+
+        function release() {
+            root.release();
+        }
+
+        function cyclePrevious() {
+            root.cyclePrevious();
         }
     }
 
@@ -113,8 +183,14 @@ Scope {
                 if (!GlobalStates.overviewOpen || !overlay.isFocusedScreen)
                     return;
 
-                if (overviewLoader.item)
-                    overviewLoader.item.resetSelectionToActive();
+                if (overviewLoader.item) {
+                    if (root.selectNextOnOpen) {
+                        overviewLoader.item.resetSelectionToNext();
+                        root.selectNextOnOpen = false;
+                    } else {
+                        overviewLoader.item.resetSelectionToActive();
+                    }
+                }
                 focusSurface.forceActiveFocus();
             }
 
@@ -140,6 +216,10 @@ Scope {
                         overviewWidget.selectNext();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Tab) {
+                        if (Date.now() - root.openedAtMs < 80) {
+                            event.accepted = true;
+                            return;
+                        }
                         if (event.modifiers & Qt.ShiftModifier)
                             overviewWidget.selectPrevious();
                         else
@@ -181,7 +261,11 @@ Scope {
                         onRequestCloseWindow: windowData => root.closeWindow(windowData)
                         onRequestCloseWorkspace: workspaceId => root.closeWorkspace(workspaceId)
                     }
-                    onLoaded: Qt.callLater(() => overlay.focusOverview())
+                    onLoaded: {
+                        if (overlay.isFocusedScreen)
+                            root.activeOverviewWidget = overviewLoader.item;
+                        Qt.callLater(() => overlay.focusOverview());
+                    }
                 }
             }
 
@@ -191,12 +275,18 @@ Scope {
                 function onOverviewOpenChanged() {
                     if (GlobalStates.overviewOpen)
                         Qt.callLater(() => overlay.focusOverview());
-                    else
+                    else {
                         focusSurface.focus = false;
+                        root.activeOverviewWidget = null;
+                    }
                 }
             }
 
             onIsFocusedScreenChanged: {
+                if (!GlobalStates.overviewOpen)
+                    return;
+                if (isFocusedScreen && overviewLoader.item)
+                    root.activeOverviewWidget = overviewLoader.item;
                 if (isFocusedScreen)
                     Qt.callLater(() => overlay.focusOverview());
             }

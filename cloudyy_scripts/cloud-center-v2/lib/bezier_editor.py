@@ -646,16 +646,6 @@ class BezierEditorWidget(Gtk.Box):
 
     def _apply_worker(self, name: str, bezier_str: str) -> None:
         try:
-            bezier_run = subprocess.run(
-                ["hyprctl", "keyword", "animations:bezier", bezier_str],
-                capture_output=True, text=True, timeout=5,
-            )
-            if bezier_run.returncode != 0:
-                err = (bezier_run.stderr or bezier_run.stdout or "hyprctl failed").strip()
-                GLib.idle_add(self._toast, f"Apply failed: {err}")
-                return
-
-            # Make the applied curve active for the main windows animation profile.
             try:
                 from lib import utility
                 speed = int(float(utility.load_setting("hypr/anim_speed", 4)))
@@ -663,24 +653,18 @@ class BezierEditorWidget(Gtk.Box):
                 speed = 4
             anim_value = f"windows,1,{speed},{name}"
 
-            anim_run = subprocess.run(
-                ["hyprctl", "keyword", "animations:animation", anim_value],
-                capture_output=True, text=True, timeout=5,
-            )
-            if anim_run.returncode != 0:
-                err = (anim_run.stderr or anim_run.stdout or "hyprctl failed").strip()
-                GLib.idle_add(self._toast, f"Curve saved, but activation failed: {err}")
-                return
-
-            # Persist both keywords via the hcm binary.
-            subprocess.run(
-                ["hcm", "set", "animations:bezier", bezier_str],
-                capture_output=True, text=True, timeout=5,
-            )
-            subprocess.run(
-                ["hcm", "set", "animations:animation", anim_value],
-                capture_output=True, text=True, timeout=5,
-            )
+            for key, value in (
+                ("animations:bezier", bezier_str),
+                ("animations:animation", anim_value),
+            ):
+                run = subprocess.run(
+                    ["hcm", "apply", key, value],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if run.returncode != 0:
+                    err = (run.stderr or run.stdout or "hcm apply failed").strip()
+                    GLib.idle_add(self._toast, f"Apply failed: {err}")
+                    return
 
             GLib.idle_add(self._toast, f'Applied "{name}" to Hyprland windows animation')
         except Exception as exc:

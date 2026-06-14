@@ -4,7 +4,7 @@
 # Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
-# Every Hyprland setting chains:  hyprctl keyword … && hcm set keyword value
+# Every Hyprland setting chains:  hcm apply keyword value  (persist + hyprctl eval)
 #
 # hcm writes Lua overrides under ~/.config/hypr/user-configs/
 # (user_lookandfeel.lua, user_animations.lua, user_input.lua, user_cursor.lua).
@@ -169,7 +169,7 @@ pages:
               step: 1
               default: 0
             on_change:
-              command: ~/cloudyy_scripts/theme_controller.sh refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(echo "scale=1; {value}/10" | bc)
+              command: ~/cloudyy_scripts/theme_controller.sh refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(awk 'BEGIN { printf "%.1f", {value}/10 }')
 
           - type: button
             properties:
@@ -310,6 +310,21 @@ pages:
                   cd ~/cloudyy_scripts/cloud-center-v2 &&
                   python3 -m lib.quickshell_display_settings --restart
 
+          - type: toggle
+            properties:
+              title: Lightweight overview
+              description: Less intense GPU usage for rendering workspaces
+              key: quickshell/lightweight_overview
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.quickshell_display_settings --restart
+
   - id: input
     title: Input
     icon: input-keyboard-symbolic
@@ -360,8 +375,7 @@ pages:
                 - cn
             on_change:
               command: >-
-                hyprctl keyword input:kb_layout {value} &&
-                hcm set input:kb_layout {value}
+                hcm apply input:kb_layout {value}
 
           - type: selection
             properties:
@@ -384,8 +398,7 @@ pages:
             on_change:
               command: >-
                 V="{value}"; [ "$V" = "basic" ] && V="";
-                hyprctl keyword input:kb_variant "$V" &&
-                hcm set input:kb_variant "$V"
+                hcm apply input:kb_variant "$V"
 
           - type: slider
             properties:
@@ -399,8 +412,7 @@ pages:
               default: 300
             on_change:
               command: >-
-                hyprctl keyword input:repeat_delay {value_i} &&
-                hcm set input:repeat_delay {value_i}
+                hcm apply input:repeat_delay {value_i}
 
           - type: slider
             properties:
@@ -414,8 +426,7 @@ pages:
               default: 30
             on_change:
               command: >-
-                hyprctl keyword input:repeat_rate {value_i} &&
-                hcm set input:repeat_rate {value_i}
+                hcm apply input:repeat_rate {value_i}
 
           - type: toggle
             properties:
@@ -426,12 +437,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword input:numlock_by_default true &&
-                  hcm set input:numlock_by_default true
+                  hcm apply input:numlock_by_default true
               disabled:
                 command: >-
-                  hyprctl keyword input:numlock_by_default false &&
-                  hcm set input:numlock_by_default false
+                  hcm apply input:numlock_by_default false
 
       - type: section
         properties:
@@ -451,8 +460,7 @@ pages:
             on_change:
               command: >-
                 V=$(awk 'BEGIN { printf "%.2f", ({value}) / 100 }') &&
-                hyprctl keyword input:sensitivity $V &&
-                hcm set input:sensitivity $V
+                hcm apply input:sensitivity $V
 
           - type: selection
             properties:
@@ -465,8 +473,7 @@ pages:
                 - flat
             on_change:
               command: >-
-                hyprctl keyword input:accel_profile {value} &&
-                hcm set input:accel_profile {value}
+                hcm apply input:accel_profile {value}
 
           - type: selection
             properties:
@@ -484,8 +491,7 @@ pages:
                 always: 2
             on_change:
               command: >-
-                hyprctl keyword input:follow_mouse {value} &&
-                hcm set input:follow_mouse {value}
+                hcm apply input:follow_mouse {value}
 
       - type: section
         properties:
@@ -502,12 +508,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword input:touchpad:natural_scroll true &&
-                  hcm set input:touchpad:natural_scroll true
+                  hcm apply input:touchpad:natural_scroll true
               disabled:
                 command: >-
-                  hyprctl keyword input:touchpad:natural_scroll false &&
-                  hcm set input:touchpad:natural_scroll false
+                  hcm apply input:touchpad:natural_scroll false
 
           - type: toggle
             properties:
@@ -518,12 +522,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword input:touchpad:disable_while_typing true &&
-                  hcm set input:touchpad:disable_while_typing true
+                  hcm apply input:touchpad:disable_while_typing true
               disabled:
                 command: >-
-                  hyprctl keyword input:touchpad:disable_while_typing false &&
-                  hcm set input:touchpad:disable_while_typing false
+                  hcm apply input:touchpad:disable_while_typing false
 
           - type: toggle
             properties:
@@ -534,12 +536,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword input:touchpad:tap-to-click true &&
-                  hcm set input:touchpad:tap-to-click true
+                  hcm apply input:touchpad:tap-to-click true
               disabled:
                 command: >-
-                  hyprctl keyword input:touchpad:tap-to-click false &&
-                  hcm set input:touchpad:tap-to-click false
+                  hcm apply input:touchpad:tap-to-click false
 
           - type: selection
             properties:
@@ -555,8 +555,7 @@ pages:
                 enabled: true
             on_change:
               command: >-
-                hyprctl keyword input:touchpad:clickfinger_behavior {value} &&
-                hcm set input:touchpad:clickfinger_behavior {value}
+                hcm apply input:touchpad:clickfinger_behavior {value}
 
           - type: toggle
             properties:
@@ -567,12 +566,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword input:touchpad:middle_button_emulation true &&
-                  hcm set input:touchpad:middle_button_emulation true
+                  hcm apply input:touchpad:middle_button_emulation true
               disabled:
                 command: >-
-                  hyprctl keyword input:touchpad:middle_button_emulation false &&
-                  hcm set input:touchpad:middle_button_emulation false
+                  hcm apply input:touchpad:middle_button_emulation false
 
           - type: slider
             properties:
@@ -586,9 +583,8 @@ pages:
               default: 100
             on_change:
               command: >-
-                V=$(echo "scale=2; {value}/100" | bc) &&
-                hyprctl keyword input:touchpad:scroll_factor $V &&
-                hcm set input:touchpad:scroll_factor $V
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                hcm apply input:touchpad:scroll_factor $V
 
       - type: section
         properties:
@@ -624,8 +620,7 @@ pages:
               default: 2
             on_change:
               command: >-
-                hyprctl keyword general:border_size {value} &&
-                hcm set general:border_size {value}
+                hcm apply general:border_size {value}
 
           - type: slider
             properties:
@@ -639,8 +634,7 @@ pages:
               default: 8
             on_change:
               command: >-
-                hyprctl keyword decoration:rounding {value} &&
-                hcm set decoration:rounding {value}
+                hcm apply decoration:rounding {value}
 
           - type: toggle
             properties:
@@ -651,12 +645,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword decoration:shadow:enabled true &&
-                  hcm set decoration:shadow:enabled true
+                  hcm apply decoration:shadow:enabled true
               disabled:
                 command: >-
-                  hyprctl keyword decoration:shadow:enabled false &&
-                  hcm set decoration:shadow:enabled false
+                  hcm apply decoration:shadow:enabled false
 
           - type: slider
             properties:
@@ -670,8 +662,7 @@ pages:
               default: 25
             on_change:
               command: >-
-                hyprctl keyword decoration:shadow:range {value} &&
-                hcm set decoration:shadow:range {value}
+                hcm apply decoration:shadow:range {value}
 
           - type: slider
             properties:
@@ -685,8 +676,7 @@ pages:
               default: 1
             on_change:
               command: >-
-                hyprctl keyword decoration:shadow:render_power {value} &&
-                hcm set decoration:shadow:render_power {value}
+                hcm apply decoration:shadow:render_power {value}
 
           - type: toggle
             properties:
@@ -697,12 +687,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword decoration:blur:enabled true &&
-                  hcm set decoration:blur:enabled true
+                  hcm apply decoration:blur:enabled true
               disabled:
                 command: >-
-                  hyprctl keyword decoration:blur:enabled false &&
-                  hcm set decoration:blur:enabled false
+                  hcm apply decoration:blur:enabled false
 
           - type: slider
             properties:
@@ -716,8 +704,7 @@ pages:
               default: 3
             on_change:
               command: >-
-                hyprctl keyword decoration:blur:passes {value} &&
-                hcm set decoration:blur:passes {value}
+                hcm apply decoration:blur:passes {value}
 
           - type: slider
             properties:
@@ -731,8 +718,7 @@ pages:
               default: 8
             on_change:
               command: >-
-                hyprctl keyword decoration:blur:size {value} &&
-                hcm set decoration:blur:size {value}
+                hcm apply decoration:blur:size {value}
 
           - type: slider
             properties:
@@ -747,9 +733,8 @@ pages:
             on_change:
               # Compute decimal once, reuse for both hyprctl and persist
               command: >-
-                V=$(echo "scale=2; {value}/100" | bc) &&
-                hyprctl keyword decoration:active_opacity $V &&
-                hcm set decoration:active_opacity $V
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                hcm apply decoration:active_opacity $V
 
           - type: slider
             properties:
@@ -763,9 +748,8 @@ pages:
               default: 95
             on_change:
               command: >-
-                V=$(echo "scale=2; {value}/100" | bc) &&
-                hyprctl keyword decoration:inactive_opacity $V &&
-                hcm set decoration:inactive_opacity $V
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                hcm apply decoration:inactive_opacity $V
 
       - type: section
         properties:
@@ -783,8 +767,7 @@ pages:
               default: 8
             on_change:
               command: >-
-                hyprctl keyword general:gaps_out {value} &&
-                hcm set general:gaps_out {value}
+                hcm apply general:gaps_out {value}
 
           - type: slider
             properties:
@@ -798,8 +781,7 @@ pages:
               default: 4
             on_change:
               command: >-
-                hyprctl keyword general:gaps_in {value} &&
-                hcm set general:gaps_in {value}
+                hcm apply general:gaps_in {value}
 
       - type: section
         properties:
@@ -814,12 +796,10 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hyprctl keyword animations:enabled true &&
-                  hcm set animations:enabled true
+                  hcm apply animations:enabled true
               disabled:
                 command: >-
-                  hyprctl keyword animations:enabled false &&
-                  hcm set animations:enabled false
+                  hcm apply animations:enabled false
 
           - type: button
             properties:
