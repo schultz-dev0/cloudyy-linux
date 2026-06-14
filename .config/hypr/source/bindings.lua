@@ -46,8 +46,23 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + Tab",
-	hl.dsp.exec_cmd("quickshell ipc call overview toggle"),
-	{ desc = "Open workspace overview" }
+	hl.dsp.exec_cmd("quickshell ipc call overview open"),
+	{ desc = "Open workspace overview / cycle while held" }
+)
+hl.bind(
+	mainMod .. " + SHIFT + Tab",
+	hl.dsp.exec_cmd("quickshell ipc call overview cyclePrevious"),
+	{ desc = "Cycle workspace overview backward" }
+)
+hl.bind(
+	"Super_L",
+	hl.dsp.exec_cmd("quickshell ipc call overview release"),
+	{ desc = "Confirm workspace on Super release", release = true, transparent = true, ignore_mods = true }
+)
+hl.bind(
+	"Super_R",
+	hl.dsp.exec_cmd("quickshell ipc call overview release"),
+	{ desc = "Confirm workspace on Super release", release = true, transparent = true, ignore_mods = true }
 )
 
 -- ── Rofi ──────────────────────────────────────────────────────────────────────

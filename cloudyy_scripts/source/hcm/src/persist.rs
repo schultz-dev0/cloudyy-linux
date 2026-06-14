@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
@@ -492,6 +493,74 @@ fn sentinel_json(entries: &[(&'static str, String)]) -> String {
     out
 }
 
+// ── Live apply (hyprctl eval) ───────────────────────────────────────────────
+//
+// Hyprland 0.55+ Lua configs reject `hyprctl keyword` (it prints an error but
+// still exits 0). Cloud Center calls `hcm apply` instead, which persists then
+// runs the equivalent `hl.config` / `hl.curve` / `hl.animation` eval.
+
+/// Build a `hyprctl eval` expression for a managed config key.
+pub fn build_live_eval(key: &str, value: &str) -> Option<String> {
+    match key {
+        "animations:bezier" => return render_curve(value),
+        "animations:animation" => return render_animation(value),
+        _ => {}
+    }
+
+    let entry = lookup(key)?;
+    let v = lua_value(value);
+    let ck = eval_config_key(entry.config_key);
+
+    Some(if let Some(sub) = entry.subsection {
+        format!(
+            "hl.config({{ {} = {{ {} = {{ {} = {} }} }} }})",
+            entry.section, sub, ck, v
+        )
+    } else {
+        format!(
+            "hl.config({{ {} = {{ {} = {} }} }})",
+            entry.section, ck, v
+        )
+    })
+}
+
+/// Lua eval keys use underscores; persisted files may use quoted hyphenated keys.
+fn eval_config_key(k: &str) -> String {
+    lua_key(&k.replace('-', "_"))
+}
+
+fn hyprctl_eval_ok(expr: &str) -> bool {
+    let Ok(out) = Command::new("hyprctl").args(["eval", expr]).output() else {
+        return false;
+    };
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    !combined.contains("error:")
+        && !combined.contains("keyword can't work")
+        && !combined.contains("attempt to call a nil value")
+}
+
+fn reload_hyprland() {
+    let _ = Command::new("hyprctl").args(["reload"]).output();
+}
+
+/// Persist a key, then apply it live via `hyprctl eval` (reload on eval failure).
+pub fn apply(dirs: &HyprDirs, key: &str, value: &str) -> Result<Outcome> {
+    let outcome = set(dirs, key, value)?;
+    if let Some(expr) = build_live_eval(key, value) {
+        if hyprctl_eval_ok(&expr) {
+            eprintln!("[hcm] applied live: {key} = {value}");
+        } else {
+            eprintln!("[hcm] live eval failed for {key}, reloading Hyprland");
+            reload_hyprland();
+        }
+    }
+    Ok(outcome)
+}
+
 // ── set / reset-page pipeline ───────────────────────────────────────────────
 
 /// JSON wire shape for `set` and `reset-page`.
@@ -811,6 +880,22 @@ hl.animation({ leaf = "windows", enabled = true, speed = 4, bezier = "Bouncy" })
         assert_eq!(
             render_animation("windows,1,4,Bouncy,slide").unwrap(),
             "hl.animation({ leaf = \"windows\", enabled = true, speed = 4, bezier = \"Bouncy\", style = \"slide\" })"
+        );
+    }
+
+    #[test]
+    fn build_live_eval_nested_and_hyphenated_keys() {
+        assert_eq!(
+            build_live_eval("general:border_size", "3"),
+            Some("hl.config({ general = { border_size = 3 } })".into()),
+        );
+        assert_eq!(
+            build_live_eval("decoration:shadow:enabled", "true"),
+            Some("hl.config({ decoration = { shadow = { enabled = true } } })".into()),
+        );
+        assert_eq!(
+            build_live_eval("input:touchpad:tap-to-click", "true"),
+            Some("hl.config({ input = { touchpad = { tap_to_click = true } } })".into()),
         );
     }
 }

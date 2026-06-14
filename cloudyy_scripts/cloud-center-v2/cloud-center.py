@@ -80,6 +80,8 @@ MATUGEN_COLORS  = MATUGEN_DIR / "colors.css"
 THEME_STATE     = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
 SEARCH_DEBOUNCE = 200   # ms
 SIDEBAR_WIDTH   = 200   # px
+# Above ~/.config/gtk-4.0/gtk.css (USER=800) so fresh matugen tokens win on hot reload.
+CSS_PRIORITY    = Gtk.STYLE_PROVIDER_PRIORITY_USER + 1
 
 CLI_PAGE_ALIASES: dict[str, str] = {
     "home": "home",
@@ -441,7 +443,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         clamp.set_child(page_box)
         self._stack.add_named(clamp, "__search__")
 
-    def _populate_pages(self) -> None:
+    def _populate_pages(self, select_first: bool = True) -> None:
         """Build stack pages for each YAML page + hardcoded managers."""
         pages = self._config.get("pages", [])
         if not pages:
@@ -466,15 +468,14 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__rgb__":   lambda: rgb_page.RGBPage(self._toast_ov),
         }
 
-        # Select first YAML page if available
-        if pages:
+        if select_first and pages:
             first_pid = pages[0].get("id", pages[0].get("title", "").lower())
             row = self._nav_rows.get(first_pid)
             if row:
                 parent = row.get_parent()
                 if isinstance(parent, Gtk.ListBox):
                     parent.select_row(row)
-                self._stack.set_visible_child_name(first_pid)
+            self._stack.set_visible_child_name(first_pid)
 
     def _build_page_content(self, page_cfg: dict) -> Gtk.Widget:
         """Build an Adw.PreferencesPage from YAML layout."""
@@ -754,32 +755,36 @@ class CloudCenterWindow(Adw.ApplicationWindow):
         
         return False
 
-    def _reload(self, show_toast: bool = True) -> None:
-        log.info("Reloading config…")
-        
-        # Store current visible page
-        visible_name = self._stack.get_visible_child_name()
-        _manager_ids = {"__search__", "__mon__", "__hkbm__", "__bt__", "__wifi__", "__audio__"}
-        visible_pid = visible_name if visible_name not in _manager_ids else None
-
-        # Clear stack pages
+    def _rebuild_pages(self, restore_page: str | None = None) -> None:
+        """Rebuild stack pages so freshly loaded CSS tokens are applied."""
         while page := self._stack.get_first_child():
             self._stack.remove(page)
-        
-        self._search_index.clear()
-        self._nav_rows.clear()
 
-        self._config = load_config()
+        self._search_index.clear()
         self._build_search_page()
-        self._populate_pages()
+        skip_first = bool(restore_page and restore_page != "__search__")
+        self._populate_pages(select_first=not skip_first)
+
+        if restore_page and restore_page != "__search__":
+            self.navigate_to_page(restore_page)
+
+    def _reload(self, show_toast: bool = True) -> None:
+        log.info("Reloading config…")
+
+        visible_name = self._stack.get_visible_child_name()
+        self._config = load_config()
+        self._rebuild_pages(visible_name)
 
         if show_toast:
             utility.toast(self._toast_ov, "Config reloaded")
         log.info("Reload complete")
 
     def refresh_theme_ui(self) -> None:
-        """Soft-refresh widget tree to ensure new CSS tokens are applied everywhere."""
-        self._reload(show_toast=False)
+        """Recompute styles after CSS reload (no page rebuild needed)."""
+        display = Gdk.Display.get_default()
+        if display and hasattr(Gtk.StyleContext, "reset_widgets"):
+            Gtk.StyleContext.reset_widgets(display)
+        self.queue_draw()
 
 
 # =============================================================================
@@ -943,7 +948,7 @@ class CloudCenter(Adw.Application):
         Gtk.StyleContext.add_provider_for_display(
             display,
             self._app_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+            CSS_PRIORITY,
         )
 
         try:
@@ -951,14 +956,8 @@ class CloudCenter(Adw.Application):
             gtk_exists = MATUGEN_GTK_CSS.exists()
             colors_exists = MATUGEN_COLORS.exists()
 
-            if gtk_exists and colors_exists:
-                gtk_mtime = MATUGEN_GTK_CSS.stat().st_mtime
-                colors_mtime = MATUGEN_COLORS.stat().st_mtime
-                use_gtk = gtk_mtime >= colors_mtime
-            else:
-                use_gtk = gtk_exists
-
-            if use_gtk and gtk_exists:
+            # gtk-4.css has the GTK @define-color names style.css expects.
+            if gtk_exists:
                 matugen_text = MATUGEN_GTK_CSS.read_text(encoding="utf-8")
                 loaded_matugen = True
                 log.info("Loaded matugen GTK css: %s", MATUGEN_GTK_CSS)
@@ -999,8 +998,6 @@ class CloudCenter(Adw.Application):
 
             if hasattr(Gtk.StyleContext, "reset_widgets"):
                 Gtk.StyleContext.reset_widgets(display)
-            if self._window is not None:
-                self._window.queue_draw()
             return loaded_matugen
         except Exception as e:
             log.error("CSS load failed: %s", e)
