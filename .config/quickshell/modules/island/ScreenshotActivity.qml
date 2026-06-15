@@ -295,21 +295,22 @@ Item {
                     acceptedButtons: Qt.LeftButton
 
                     onActiveChanged: {
+                        thumbClip.Drag.active = active;
                         if (active) {
                             root._dragSession = true;
                             return;
                         }
                         if (root._dragSession) {
                             root._dragSession = false;
-                            DynamicIslandService.dismissScreenshotAfterDrag(root.activityId);
+                            const id = root.activityId;
+                            Qt.callLater(() => DynamicIslandService.dismissScreenshotAfterDrag(id));
                         }
                     }
                 }
 
-                Drag.active: dragHandler.active
                 Drag.dragType: Drag.Automatic
                 Drag.supportedActions: Qt.CopyAction
-                Drag.imageSource: previewImage
+                Drag.imageSource: root.fileUri
                 Drag.mimeData: {
                     "text/uri-list": root.uriListPayload,
                     "text/plain": root.fileUri,

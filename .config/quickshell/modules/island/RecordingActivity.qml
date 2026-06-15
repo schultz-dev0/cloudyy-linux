@@ -172,18 +172,19 @@ Item {
                 acceptedButtons: Qt.LeftButton
 
                 onActiveChanged: {
+                    bodyClip.Drag.active = active;
                     if (active) {
                         root._dragSession = true;
                         return;
                     }
                     if (root._dragSession) {
                         root._dragSession = false;
-                        DynamicIslandService.dismissRecordingAfterDrag(root.activityId);
+                        const id = root.activityId;
+                        Qt.callLater(() => DynamicIslandService.dismissRecordingAfterDrag(id));
                     }
                 }
             }
 
-            Drag.active: dragHandler.active
             Drag.dragType: Drag.Automatic
             Drag.supportedActions: Qt.CopyAction
             Drag.mimeData: {
