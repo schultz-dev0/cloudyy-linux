@@ -178,12 +178,26 @@ ShellRoot {
         }
     }
 
+    Process {
+        id: recordingStateRestore
+        running: false
+        command: ["sh", "-c", "grep '^OUT_FILE=' /tmp/cloudyy-recording.state 2>/dev/null | cut -d= -f2-"]
+        stdout: SplitParser {
+            onRead: line => {
+                const path = line.trim();
+                if (path)
+                    QuickIsland.DynamicIslandService._recordingOutFile = path;
+            }
+        }
+    }
+
     Component.onCompleted: {
         QuickIsland.DynamicIslandService.procFactory = shellProcProto;
         QuickIsland.DynamicIslandService.recordPickerComponent = recordPickerActivityComp;
         QuickIsland.DynamicIslandService.recordingPreviewComponent = recordingActivityComp;
         QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
         QuickIsland.DynamicIslandService.playSoundScript = root.playSoundScript;
+        recordingStateRestore.running = true;
         loadShellSettings.running = true;
     }
 

@@ -281,12 +281,12 @@ QtObject {
         root._recordingOutFile = outFile;
         root._writeRecordingState(outFile, sel);
 
-        // No in-session island HUD — wf-recorder would capture the overlay.
-        // hyprcap: options BEFORE command; rec-start blocks until stopped.
+        // hyprcap: options BEFORE command; selection as positional arg after
+        // rec-start (not `-s` — hyprcap 1.6.0 breaks on -s outside a function).
         const cmd = "mkdir -p " + root._shellQuote(root.recordingsDir)
                     + " && ( hyprcap -w -o " + root._shellQuote(root.recordingsDir)
                     + " -f " + root._shellQuote(fname)
-                    + " -N rec-start -s " + root._shellQuote(sel)
+                    + " -N rec-start " + root._shellQuote(sel)
                     + " </dev/null >/dev/null 2>&1 & )";
         root._runShell(cmd);
     }
@@ -308,9 +308,15 @@ QtObject {
                         + "for i in $(seq 1 60); do "
                         + "[ -f \"$outfile\" ] && [ -s \"$outfile\" ] && break; "
                         + "sleep 0.25; done; "
-                        + "printf '%s' \"$outfile\" > " + root._shellQuote(root._recordingPathFile);
+                        + "if [ -f \"$outfile\" ] && [ -s \"$outfile\" ]; then "
+                        + "printf '%s' \"$outfile\" > " + root._shellQuote(root._recordingPathFile) + "; "
+                        + "exit 0; fi; exit 1";
 
-        root._runShell(waitCmd, () => {
+        root._runShell(waitCmd, exitCode => {
+            if (exitCode !== 0) {
+                console.warn("recording: no output file at", outFile);
+                return;
+            }
             root.playScreencapSound(root.screencapRecordStopDelayMs);
             root.showRecordingPreview(outFile, previewComp);
         });
@@ -383,12 +389,10 @@ QtObject {
         const proc = root.procFactory.createObject(root, {
             command: ["sh", "-c", cmd]
         });
-        proc.runningChanged.connect(() => {
-            if (!proc.running) {
-                if (onDone)
-                    onDone();
-                proc.destroy();
-            }
+        proc.exited.connect(exitCode => {
+            if (onDone)
+                onDone(exitCode);
+            proc.destroy();
         });
         proc.running = true;
     }
