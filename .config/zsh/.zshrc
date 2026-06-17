@@ -69,6 +69,12 @@ alias qs_reload='./cloudyy_scripts/quickshell_reload.sh'
 
 alias wlogout="$HOME/cloudyy_scripts/wlogout.sh"
 
+# Personal
+
+alias pylings="cd $HOME/pylings && uvx --from python-learnings pylings"
+alias rustlings="cd $HOME/rustlings && rustlings"
+
+
 # --- Top Left Startup Logo ---
 SHOW_PIC=$(cat ~/.config/cloud-center/settings/terminal/show_mascot 2>/dev/null | tr '[:upper:]' '[:lower:]')
 if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" && "$SHOW_PIC" != "false" ]]; then
