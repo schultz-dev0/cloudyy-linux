@@ -12,8 +12,10 @@ import subprocess
 import sys
 import tempfile
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Final, TypeVar, overload
+from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
 
@@ -250,6 +252,30 @@ def get_system_info(key: str) -> str:
 
                                     manufacturer = sub_vendor or vendor
                                     return f"{gpu_name} ({manufacturer})".strip()
+            case "timezone":
+                r = subprocess.run(
+                    ["timedatectl", "show", "-p", "Timezone", "--value"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    return r.stdout.strip()
+            case "local_time":
+                try:
+                    tz_name = ""
+                    tz_r = subprocess.run(
+                        ["timedatectl", "show", "-p", "Timezone", "--value"],
+                        capture_output=True,
+                        text=True,
+                        timeout=3,
+                    )
+                    if tz_r.returncode == 0:
+                        tz_name = tz_r.stdout.strip()
+                    tz = ZoneInfo(tz_name) if tz_name else None
+                    return datetime.now(tz).strftime("%H:%M:%S")
+                except Exception:
+                    return datetime.now().strftime("%H:%M:%S")
     except Exception:
         pass
     return "N/A"

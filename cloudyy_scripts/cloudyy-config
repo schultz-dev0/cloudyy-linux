@@ -243,6 +243,10 @@ first_run() {
   mkdir -p "$(dirname "$FIRST_RUN_FLAG")"
   touch "$FIRST_RUN_FLAG"
 
+  log "Enabling polkit authentication agent for the desktop session..."
+  systemctl --user enable --now hyprpolkitagent.service 2>/dev/null \
+    || log_warn "Could not enable hyprpolkitagent.service (Cloud Center also provides in-app prompts)."
+
   printf '\n%sRun%s cloudyy-config %sanytime to customise your setup.%s\n\n' \
     "$BOLD" "$RESET" "$DIM" "$RESET"
 }

@@ -1,4 +1,5 @@
 """Quickshell settings for Cloud Center (display layout + launch performance)."""
+
 from __future__ import annotations
 
 import json

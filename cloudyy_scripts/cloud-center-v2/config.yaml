@@ -121,6 +121,23 @@ pages:
               type: system
               key: kernel
 
+          - type: label
+            properties:
+              title: Timezone
+              icon: preferences-system-time-symbolic
+            value:
+              type: system
+              key: timezone
+
+          - type: label
+            properties:
+              title: Local Time
+              icon: clock-symbolic
+              interval: 5
+            value:
+              type: system
+              key: local_time
+
   - id: appearance
     title: Appearance
     icon: preferences-desktop-appearance-symbolic
@@ -232,31 +249,6 @@ pages:
     title: Shell
     icon: window-minimize-symbolic
     layout:
-      - type: section
-        properties:
-          title: Style
-          description: Choose the visual preset for your bar
-        items:
-          - type: selection
-            properties:
-              title: Preset
-              description: Visual style — layout variations
-              icon: document-page-setup-symbolic
-              key: quickshell/preset
-              options:
-                - default
-                - bubble
-                - compact
-                - dense
-              options_map:
-                macos: default
-                bubble: bubble
-                compact: compact
-                dense: dense
-            on_change:
-              command: >-
-                ~/cloudyy_scripts/quickshell/switch_preset.sh "{value}"
-
       - type: section
         properties:
           title: Displays
@@ -832,7 +824,7 @@ pages:
           title: Terminal Mascot
           description: Manage startup images in Kitty
         items:
-          - type: toggle
+          - type: tIf no password dialog appears, the polkit agent isn’t running yet.oggle
             properties:
               title: Show Mascot
               description: Show Hyprchan mascot on terminal startup
