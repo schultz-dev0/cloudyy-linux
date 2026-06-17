@@ -6,6 +6,8 @@ hl.on("hyprland.start", function()
 	local scripts = home .. "/cloudyy_scripts"
 
 	hl.exec_cmd("hyprlock")
+	hl.exec_cmd("systemctl --user start hyprpolkitagent.service 2>/dev/null || /usr/lib/hyprpolkitagent/hyprpolkitagent")
+	hl.exec_cmd("systemctl start geoclue.service 2>/dev/null || true")
 	hl.exec_cmd("wl-paste --type text --watch cliphist store")
 	hl.exec_cmd("wl-paste --type image --watch cliphist store")
 	hl.exec_cmd(scripts .. "/theme_controller.sh restore")

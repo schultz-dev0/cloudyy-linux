@@ -436,6 +436,18 @@ def _gtk_imports():
     return Adw, Gdk, GLib, Gtk, Pango
 
 
+def _present_dialog(dialog, parent_widget) -> None:
+    """Present an Adw.Dialog with a proper top-level window parent."""
+    _, _, _, Gtk, _ = _gtk_imports()
+    root = parent_widget.get_root() if parent_widget is not None else None
+    if isinstance(root, Gtk.Window):
+        dialog.present(root)
+    elif parent_widget is not None:
+        dialog.present(parent_widget)
+    else:
+        dialog.present()
+
+
 # ── Window Picker Dialog ───────────────────────────────────────────────────────
 
 class _WindowPickerDialog:
@@ -471,7 +483,7 @@ class _WindowPickerDialog:
         outer.append(scroll)
 
         self._dialog.set_child(outer)
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
         threading.Thread(target=self._load_windows, daemon=True).start()
 
     def _load_windows(self) -> None:
@@ -659,7 +671,7 @@ class _WindowRuleDialog:
 
         self._name_entry.connect('changed', lambda *_: self._update_preview())
         self._update_preview()
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
 
     def _add_matcher_row(self, key: str = 'match:class', val: str = '') -> None:
         Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
@@ -870,7 +882,7 @@ class _LayerRuleDialog:
         self._name_entry.connect('changed', lambda *_: self._update_preview())
         self._ns_entry.connect('changed', lambda *_: self._update_preview())
         self._update_preview()
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
 
     def _collect(self) -> tuple[str, str, dict[str, str]]:
         name      = self._name_entry.get_text().strip()
@@ -958,7 +970,7 @@ class _AppPickerDialog:
         ))
 
         self._dialog.set_child(outer)
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
         threading.Thread(target=self._load_apps, daemon=True).start()
 
     def _filter(self, row) -> bool:
@@ -1075,7 +1087,7 @@ class _AutostartDialog:
             self._cmd_entry.set_text(existing.command)
             self._exec_once_row.set_active(existing.exec_once)
 
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
 
     def _on_save_clicked(self, _btn) -> None:
         cmd = self._cmd_entry.get_text().strip()
@@ -1158,7 +1170,7 @@ class _EnvVarDialog:
         self._name_entry.connect('changed', lambda *_: self._update_preview())
         self._val_entry.connect('changed',  lambda *_: self._update_preview())
         self._update_preview()
-        self._dialog.present(parent_widget)
+        _present_dialog(self._dialog, parent_widget)
 
     def _update_preview(self) -> None:
         name  = self._name_entry.get_text().strip()
@@ -1208,7 +1220,7 @@ def _make_list_header(title: str, on_add) -> tuple:
     return box, count
 
 
-def _make_baseline_row(primary: str, secondary: str, pills: list[str], origin: str):
+def _make_baseline_row(primary: str, secondary: str, pills: list[str], origin: str, on_edit=None):
     """Read-only list row for entries discovered in distro source files or the
     user file body outside the Cloud-Center-managed sentinel block."""
     Adw, Gdk, GLib, Gtk, Pango = _gtk_imports()
@@ -1232,6 +1244,13 @@ def _make_baseline_row(primary: str, secondary: str, pills: list[str], origin: s
     origin_lbl.add_css_class('tag')
     top.append(prim_lbl)
     top.append(origin_lbl)
+
+    if on_edit is not None:
+        edit_btn = Gtk.Button(label='Edit')
+        edit_btn.add_css_class('flat')
+        edit_btn.connect('clicked', lambda _: on_edit())
+        top.append(edit_btn)
+
     box.append(top)
 
     if secondary:
@@ -1346,7 +1365,7 @@ class _WindowRulesTab(_Gtk.Box):
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
-        for rule, origin in self._readonly:
+        for i, (rule, origin) in enumerate(self._readonly):
             matcher_str = ' · '.join(f'{k} {v}' for k, v in rule.matchers)
             pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
             self._list.append(_make_baseline_row(
@@ -1354,6 +1373,7 @@ class _WindowRulesTab(_Gtk.Box):
                 secondary=matcher_str if rule.name else '',
                 pills=pills,
                 origin=origin,
+                on_edit=lambda idx=i: self._on_edit_readonly(idx),
             ))
         for i, rule in enumerate(self._items):
             matcher_str = ' · '.join(f'{k} {v}' for k, v in rule.matchers)
@@ -1372,6 +1392,17 @@ class _WindowRulesTab(_Gtk.Box):
 
     def _on_edit(self, idx: int) -> None:
         _WindowRuleDialog(self, lambda r, i=idx: self._mutate_edit(i, r), existing=self._items[idx])
+
+    def _on_edit_readonly(self, idx: int) -> None:
+        rule, _origin = self._readonly[idx]
+
+        def on_save(updated: WindowRule) -> None:
+            self._readonly.pop(idx)
+            self._items.append(updated)
+            self._refresh()
+            self._page.apply_live()
+
+        _WindowRuleDialog(self, on_save, existing=rule)
 
     def _on_delete(self, idx: int) -> None:
         self._items.pop(idx)
@@ -1435,13 +1466,14 @@ class _LayerRulesTab(_Gtk.Box):
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
-        for rule, origin in self._readonly:
+        for i, (rule, origin) in enumerate(self._readonly):
             pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
             self._list.append(_make_baseline_row(
                 primary=rule.name or rule.namespace or '(unnamed)',
                 secondary=rule.namespace if rule.name else '',
                 pills=pills,
                 origin=origin,
+                on_edit=lambda idx=i: self._on_edit_readonly(idx),
             ))
         for i, rule in enumerate(self._items):
             pills = [f'{k}={v}' if v != 'on' else k for k, v in rule.effects.items()]
@@ -1459,6 +1491,17 @@ class _LayerRulesTab(_Gtk.Box):
 
     def _on_edit(self, idx: int) -> None:
         _LayerRuleDialog(self, lambda r, i=idx: self._mutate_edit(i, r), existing=self._items[idx])
+
+    def _on_edit_readonly(self, idx: int) -> None:
+        rule, _origin = self._readonly[idx]
+
+        def on_save(updated: LayerRule) -> None:
+            self._readonly.pop(idx)
+            self._items.append(updated)
+            self._refresh()
+            self._page.apply_live()
+
+        _LayerRuleDialog(self, on_save, existing=rule)
 
     def _on_delete(self, idx: int) -> None:
         self._items.pop(idx)
@@ -1522,12 +1565,13 @@ class _AutostartTab(_Gtk.Box):
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
-        for entry, origin in self._readonly:
+        for i, (entry, origin) in enumerate(self._readonly):
             self._list.append(_make_baseline_row(
                 primary=entry.command,
                 secondary='',
                 pills=['exec-once' if entry.exec_once else 'exec'],
                 origin=origin,
+                on_edit=lambda idx=i: self._on_edit_readonly(idx),
             ))
         for i, entry in enumerate(self._items):
             self._list.append(_make_rule_row(
@@ -1544,6 +1588,17 @@ class _AutostartTab(_Gtk.Box):
 
     def _on_edit(self, idx: int) -> None:
         _AutostartDialog(self, lambda e, i=idx: self._mutate_edit(i, e), existing=self._items[idx])
+
+    def _on_edit_readonly(self, idx: int) -> None:
+        entry, _origin = self._readonly[idx]
+
+        def on_save(updated: AutostartEntry) -> None:
+            self._readonly.pop(idx)
+            self._items.append(updated)
+            self._refresh()
+            self._page.apply_live()
+
+        _AutostartDialog(self, on_save, existing=entry)
 
     def _on_delete(self, idx: int) -> None:
         self._items.pop(idx)
@@ -1607,12 +1662,13 @@ class _EnvVarsTab(_Gtk.Box):
     def _refresh(self) -> None:
         while child := self._list.get_row_at_index(0):
             self._list.remove(child)
-        for var, origin in self._readonly:
+        for i, (var, origin) in enumerate(self._readonly):
             self._list.append(_make_baseline_row(
                 primary=var.name,
                 secondary=var.value,
                 pills=[],
                 origin=origin,
+                on_edit=lambda idx=i: self._on_edit_readonly(idx),
             ))
         for i, var in enumerate(self._items):
             self._list.append(_make_rule_row(
@@ -1629,6 +1685,17 @@ class _EnvVarsTab(_Gtk.Box):
 
     def _on_edit(self, idx: int) -> None:
         _EnvVarDialog(self, lambda v, i=idx: self._mutate_edit(i, v), existing=self._items[idx])
+
+    def _on_edit_readonly(self, idx: int) -> None:
+        var, _origin = self._readonly[idx]
+
+        def on_save(updated: EnvVar) -> None:
+            self._readonly.pop(idx)
+            self._items.append(updated)
+            self._refresh()
+            self._page.apply_live()
+
+        _EnvVarDialog(self, on_save, existing=var)
 
     def _on_delete(self, idx: int) -> None:
         self._items.pop(idx)
