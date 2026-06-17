@@ -108,7 +108,7 @@ hl.window_rule({
 	name = "cloudcenter",
 	match = { class = "^(dev.cloudyy.CloudCenter)$" },
 	float = true,
-	size = "1000 960",
+	size = "1080 1080",
 	center = true,
 })
 
