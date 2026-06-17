@@ -262,6 +262,7 @@ phase_services() {
     "bluetooth.service"
     "NetworkManager.service"
     "power-profiles-daemon.service"
+    "geoclue.service"
   )
 
   for svc in "${services[@]}"; do
@@ -271,6 +272,12 @@ phase_services() {
       log_warn "Could not enable ${svc} — it may not be installed yet."
     fi
   done
+
+  if systemctl --user enable --now hyprpolkitagent.service 2>/dev/null; then
+    log_ok "Enabled: hyprpolkitagent.service (user)"
+  else
+    log_warn "Could not enable hyprpolkitagent.service — polkit password dialogs may not appear."
+  fi
 
   log_ok "Services configured."
 }

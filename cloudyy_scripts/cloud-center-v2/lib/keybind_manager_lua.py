@@ -255,6 +255,15 @@ def _entry_to_line(entry: LuaKeybindEntry) -> str:
     return f'hl.bind("{entry.keys}", {entry.dispatcher})'
 
 
+def _entry_match_lines(entry: LuaKeybindEntry) -> set[str]:
+    candidates = {
+        (entry.raw_line or "").strip(),
+        _entry_to_line(entry).strip(),
+    }
+    candidates.discard("")
+    return candidates
+
+
 # ── File I/O ──────────────────────────────────────────────────────────────────
 
 def _ensure_cc_markers(path: Path) -> None:
@@ -371,7 +380,6 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
     full_text  = active_path.read_text(encoding="utf-8", errors="replace")
     cc_section = _read_cc_section(full_text)
     before     = full_text.split(_CC_BEGIN)[0] if _CC_BEGIN in full_text else full_text
-    is_user_override = active_path == BINDINGS_LUA
     variables = _read_string_variables(before)
 
     owned: list[LuaKeybindEntry]  = []
@@ -380,7 +388,7 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
     for idx, raw in enumerate(cc_section.splitlines(), 1):
         e = _parse_bind_line(raw, variables)
         if e:
-            e.owned       = is_user_override
+            e.owned       = True
             e.source_name = active_path.name
             e.line_no     = idx
             owned.append(e)
@@ -412,9 +420,9 @@ def add_keybind(entry: LuaKeybindEntry) -> tuple[bool, str]:
 def remove_keybind(entry: LuaKeybindEntry) -> tuple[bool, str]:
     if not BINDINGS_LUA.exists():
         return False, "bindings.lua not found"
-    target = _entry_to_line(entry).strip()
+    targets = _entry_match_lines(entry)
     lines  = _get_cc_lines()
-    out    = [ln for ln in lines if ln.strip() != target]
+    out    = [ln for ln in lines if ln.strip() not in targets]
     if len(out) == len(lines):
         return False, "keybind not found"
     _write_cc_section(out)
@@ -424,13 +432,13 @@ def remove_keybind(entry: LuaKeybindEntry) -> tuple[bool, str]:
 def update_keybind(old: LuaKeybindEntry, new: LuaKeybindEntry) -> tuple[bool, str]:
     if not BINDINGS_LUA.exists():
         return False, "bindings.lua not found"
-    old_line = _entry_to_line(old).strip()
+    old_lines = _entry_match_lines(old)
     new_line = _entry_to_line(new)
     lines    = _get_cc_lines()
     replaced = False
     out: list[str] = []
     for ln in lines:
-        if not replaced and ln.strip() == old_line:
+        if not replaced and ln.strip() in old_lines:
             out.append(new_line)
             replaced = True
         else:
@@ -439,6 +447,21 @@ def update_keybind(old: LuaKeybindEntry, new: LuaKeybindEntry) -> tuple[bool, st
         return False, "keybind not found"
     _write_cc_section(out)
     return True, "keybind updated"
+
+
+def adopt_keybind(old: LuaKeybindEntry, new: LuaKeybindEntry) -> tuple[bool, str]:
+    """Copy a distro/locked bind into the Cloud Center user section."""
+    try:
+        _ensure_user_bindings_lua()
+    except FileNotFoundError as exc:
+        return False, str(exc)
+    lines = _get_cc_lines()
+    lines.append(_entry_to_line(new))
+    _write_cc_section(lines)
+    return True, (
+        f"Saved override in user bindings "
+        f"(original in {old.source_name} is unchanged)"
+    )
 
 
 # ── Edit dialog ───────────────────────────────────────────────────────────────
@@ -940,7 +963,7 @@ class LuaKeybindManagerPage(Gtk.Box):
         if old.owned:
             threading.Thread(target=self._do_update, args=(old, new), daemon=True).start()
         else:
-            threading.Thread(target=self._do_add, args=(new,), daemon=True).start()
+            threading.Thread(target=self._do_adopt, args=(old, new), daemon=True).start()
 
     def _on_remove_clicked(self, _btn: Gtk.Button, entry: LuaKeybindEntry) -> None:
         if entry.owned:
@@ -962,6 +985,16 @@ class LuaKeybindManagerPage(Gtk.Box):
         if ok:
             subprocess.run(["hyprctl", "reload"], capture_output=True)
             utility.toast(self._toast_ov, "Keybind updated — Hyprland reloaded")
+            GLib.idle_add(self._after_edit)
+        else:
+            GLib.idle_add(self._toast, msg)
+
+    def _do_adopt(self, old: LuaKeybindEntry, new: LuaKeybindEntry) -> None:
+        from lib import utility
+        ok, msg = adopt_keybind(old, new)
+        if ok:
+            subprocess.run(["hyprctl", "reload"], capture_output=True)
+            utility.toast(self._toast_ov, msg)
             GLib.idle_add(self._after_edit)
         else:
             GLib.idle_add(self._toast, msg)

@@ -60,9 +60,10 @@ import lib.edit_dialog as edit_dialog
 import lib.bluetooth_page as bluetooth_page
 import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
-import lib.rgb_page as rgb_page
 import lib.cursor_page as cursor_page
 import lib.rules_startup_page as rules_startup_page
+import lib.region_time_page as region_time_page
+import lib.polkit_agent as polkit_agent
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -94,14 +95,15 @@ CLI_PAGE_ALIASES: dict[str, str] = {
     "monitors": "__mon__",
     "monitor": "__mon__",
     "audio": "__audio__",
-    "rgb": "__rgb__",
-    "lighting": "__rgb__",
     "config-manager": "__hcm__",
     "lua-config-manager": "__hcm__",
     "hcm": "__hcm__",
     "keybind-manager": "__hkbm__",
     "keybinds": "__hkbm__",
     "cursor": "__cursor__",
+    "region": "__region__",
+    "time": "__region__",
+    "datetime": "__region__",
 }
 
 
@@ -310,14 +312,14 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__bt__": {"id": "__bt__", "title": "Bluetooth", "icon": "bluetooth-active-symbolic"},
             "__wifi__": {"id": "__wifi__", "title": "Wi-Fi", "icon": "network-wireless-signal-good-symbolic"},
             "__audio__": {"id": "__audio__", "title": "Audio", "icon": "audio-speakers-symbolic"},
-            "__rgb__": {"id": "__rgb__", "title": "RGB Lighting", "icon": "applications-games-symbolic"},
+            "__region__": {"id": "__region__", "title": "Region & Time", "icon": "mark-location-symbolic"},
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
             "__rules__": {"id": "__rules__", "title": "Rules & Startup", "icon": "preferences-system-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
             ("Visuals",         ["appearance", "wallpapers", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
             ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
-            ("System",          ["__bt__", "__wifi__", "__audio__", "__rgb__"]),
+            ("System",          ["__bt__", "__wifi__", "__audio__", "__region__"]),
         ]
 
         for title, ids in categories:
@@ -465,7 +467,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__hkbm__":  lambda: keybind_manager.LuaKeybindManagerPage(self._toast_ov),
             "__rules__": lambda: rules_startup_page.RulesStartupPage(self._toast_ov),
             "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
-            "__rgb__":   lambda: rgb_page.RGBPage(self._toast_ov),
+            "__region__": lambda: region_time_page.RegionTimePage(self._toast_ov),
         }
 
         if select_first and pages:
@@ -820,12 +822,13 @@ class CloudCenter(Adw.Application):
             ("bluetooth", "Open Bluetooth page"),
             ("monitors", "Open Monitors page"),
             ("audio", "Open Audio page"),
-            ("rgb", "Open RGB Lighting page"),
-            ("lighting", "Open RGB Lighting page"),
             ("config-manager", "Open Lua Config Manager page"),
             ("lua-config-manager", "Open Lua Config Manager page"),
             ("keybind-manager", "Open Keybind Manager page"),
             ("keybinds", "Open Keybind Manager page"),
+            ("region", "Open Region & Time page"),
+            ("time", "Open Region & Time page"),
+            ("datetime", "Open Region & Time page"),
         ]
         for opt, desc in flag_specs:
             self.add_main_option(
@@ -845,9 +848,10 @@ class CloudCenter(Adw.Application):
 
         for flag in (
             "home", "appearance", "wallpapers", "hyprland", "input",
-            "wifi", "bluetooth", "monitors", "audio", "rgb", "lighting",
+            "wifi", "bluetooth", "monitors", "audio",
             "config-manager", "lua-config-manager",
             "keybind-manager", "keybinds",
+            "region", "time", "datetime",
         ):
             if options.contains(flag):
                 self._requested_page = CLI_PAGE_ALIASES.get(flag, flag)
@@ -866,6 +870,7 @@ class CloudCenter(Adw.Application):
         if self._requested_page and not self._window.navigate_to_page(self._requested_page):
             log.warning("Unknown page target requested: %s", self._requested_page)
         self._window.present()
+        polkit_agent.register(lambda: self._window)
 
     def _apply_theme_mode(self) -> None:
         mode = read_theme_mode()
@@ -880,6 +885,7 @@ class CloudCenter(Adw.Application):
         return False
 
     def _on_destroy(self, _win: CloudCenterWindow) -> None:
+        polkit_agent.unregister()
         self._window = None
 
     def _start_matugen_watcher(self) -> None:
