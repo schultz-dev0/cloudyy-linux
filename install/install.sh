@@ -183,7 +183,7 @@ phase_shell() {
   fi
 
   if [[ "$SHELL" != "$zsh_path" ]]; then
-    if sudo chsh -s "$zsh_path" "$USER" 2>/dev/null /dev/null; then
+    if sudo chsh -s "$zsh_path" "$USER" >/dev/null 2>/dev/null; then
       log_ok "Default shell set to zsh (takes effect on next login)."
     else
       log_warn "chsh failed — run: chsh -s ${zsh_path}"
