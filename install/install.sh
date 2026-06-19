@@ -183,7 +183,7 @@ phase_shell() {
   fi
 
   if [[ "$SHELL" != "$zsh_path" ]]; then
-    if chsh -s "$zsh_path" 2>/dev/null; then
+    if sudo chsh -s "$zsh_path" "$USER" >/dev/null 2>/dev/null; then
       log_ok "Default shell set to zsh (takes effect on next login)."
     else
       log_warn "chsh failed — run: chsh -s ${zsh_path}"
@@ -195,13 +195,21 @@ phase_shell() {
   local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
   if [[ ! -d "$omz_dir" ]]; then
     log "Installing oh-my-zsh..."
-    if ZSH="$omz_dir" RUNZSH=no CHSH=no \
-       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
-       "" --unattended 2>/dev/null; then
-      log_ok "oh-my-zsh installed."
+    local omz_installer
+    omz_installer="$(mktemp)"
+    if curl -fsSL --connect-timeout 10 --max-time 30 \
+         https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
+         -o "$omz_installer"; then
+      if ZSH="$omz_dir" RUNZSH=no CHSH=no \
+           sh "$omz_installer" "" --unattended 2>/dev/null; then
+        log_ok "oh-my-zsh installed."
+      else
+        log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      fi
     else
       log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     fi
+    rm -f "$omz_installer"
   else
     log_ok "oh-my-zsh already installed."
   fi
