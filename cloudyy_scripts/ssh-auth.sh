@@ -6,6 +6,7 @@
 # Usage:
 #   source ~/cloudyy_scripts/ssh-auth.sh   — sets SSH_AUTH_SOCK in current shell
 #   ~/cloudyy_scripts/ssh-auth.sh          — starts agent (env won't propagate)
+#   ~/cloudyy_scripts/ssh-auth.sh --setup  — one-time passphrase setup
 #
 # The socket path is fixed at ~/.ssh/ssh-agent.socket.
 # ~/.ssh/config has IdentityAgent pointing here so SSH tools (git, ssh)
@@ -37,70 +38,82 @@ fi
 
 export SSH_AUTH_SOCK="$AGENT_SOCK"
 
+# ---------------------------------------------------------------------------
+# One-time setup: change SSH key passphrase to match login password and save
+# it in gnome-keyring so future logins load the key automatically.
+# ---------------------------------------------------------------------------
 if [[ "${1:-}" == "--setup" ]]; then
   echo "======================================================================"
-  echo "SSH PASSPHRASE SETUP HELPER"
+  echo "SSH PASSPHRASE SETUP — run once"
   echo "======================================================================"
-  echo "To allow hyprlock to unlock your SSH key automatically on startup,"
-  echo "your SSH passphrase must be the same as your login/sudo password."
+  echo "Your SSH key passphrase must match your login / hyprlock password."
   echo ""
-  echo "Step 1: Changing your SSH key passphrase..."
+  echo "Step 1: Changing SSH key passphrase..."
   ssh-keygen -p -f "${HOME}/.ssh/id_ed25519"
   echo ""
-  echo "Step 2: Storing the passphrase in gnome-keyring..."
-  echo "A GUI prompt will now appear. Please enter the new passphrase and"
-  echo "make sure to check 'Automatically unlock this key whenever I'm logged in'."
-  echo ""
-
-  local askpass_helper=""
-  for helper in "/usr/lib/seahorse/ssh-askpass" "/usr/lib/gcr4-ssh-askpass" "/usr/lib/gcr-ssh-askpass"; do
-    if [[ -x "$helper" ]]; then
-      askpass_helper="$helper"
-      break
-    fi
-  done
-
-  if [[ -n "$askpass_helper" ]]; then
-    SSH_AUTH_SOCK="$AGENT_SOCK" SSH_ASKPASS="$askpass_helper" ssh-add ~/.ssh/id_ed25519 </dev/null
-    echo ""
-    echo "Setup complete! The key has been loaded and saved to your keyring."
+  echo "Step 2: Saving passphrase to gnome-keyring for auto-loading..."
+  read -rsp "Re-enter the new passphrase: " _setup_pass
+  echo
+  if printf '%s' "$_setup_pass" | secret-tool store \
+      --label="SSH Key id_ed25519" ssh-passphrase id_ed25519 2>/dev/null; then
+    echo "Passphrase saved to keyring."
   else
-    echo "ERROR: No GUI askpass helper found. Please install seahorse or gcr." >&2
+    echo "ERROR: Could not save to keyring. Is gnome-keyring-daemon running?" >&2
+    exit 1
   fi
+  echo ""
+  echo "Step 3: Loading key into agent now..."
+  SSH_AUTH_SOCK="$AGENT_SOCK" ssh-add "${HOME}/.ssh/id_ed25519"
+  echo ""
+  echo "Done. On every reboot, your SSH key will load automatically when"
+  echo "you enter your password (via hyprlock or the keyring unlock prompt)."
   exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# Load the SSH key using the passphrase stored in gnome-keyring.
+# Called at startup; also falls back to waiting for hyprlock to unlock.
+# ---------------------------------------------------------------------------
+_load_key_from_keyring() {
+  local passphrase tmp b64
+  passphrase=$(secret-tool lookup ssh-passphrase id_ed25519 2>/dev/null)
+  [[ -n "$passphrase" ]] || return 1
+
+  tmp=$(mktemp /tmp/.askpass.XXXXXX) || return 1
+  chmod 700 "$tmp"
+  b64=$(printf '%s' "$passphrase" | base64 -w0)
+  # Embed passphrase as base64 in a throwaway askpass script to avoid quoting issues.
+  printf '#!/bin/bash\nprintf "%%%%s" "$(base64 -d <<< %s)"\n' "$b64" > "$tmp"
+
+  SSH_AUTH_SOCK="$AGENT_SOCK" SSH_ASKPASS="$tmp" SSH_ASKPASS_REQUIRE=force \
+    ssh-add ~/.ssh/id_ed25519 </dev/null 2>/dev/null
+  local rc=$?
+  rm -f "$tmp"
+  return $rc
+}
+
 _load_keys_silently() {
-  # 1. Wait for hyprlock to start (if it hasn't yet)
-  local timeout=10
+  sleep 2  # let the Wayland session settle
+
+  # First attempt — gnome-keyring will show an unlock prompt if still locked
+  # (happens on autologin fresh boot; same password as hyprlock).
+  _load_key_from_keyring && return 0
+
+  # Fallback: wait for hyprlock to appear and then exit (PAM unlocks keyring).
+  local timeout=60
   while ! pgrep -x hyprlock >/dev/null && [[ $timeout -gt 0 ]]; do
     sleep 0.5
     ((timeout--))
   done
-
-  # 2. Wait for hyprlock to exit (meaning user has unlocked)
   while pgrep -x hyprlock >/dev/null; do
     sleep 0.5
   done
+  sleep 1
 
-  # 3. Give PAM / gnome-keyring a moment to fully unlock the login keyring
-  sleep 1.5
-
-  # 4. Silent unlock attempt via GUI askpass helpers connected to gnome-keyring
-  local askpass_helper=""
-  for helper in "/usr/lib/seahorse/ssh-askpass" "/usr/lib/gcr4-ssh-askpass" "/usr/lib/gcr-ssh-askpass"; do
-    if [[ -x "$helper" ]]; then
-      askpass_helper="$helper"
-      break
-    fi
-  done
-
-  if [[ -n "$askpass_helper" ]]; then
-    SSH_AUTH_SOCK="$AGENT_SOCK" SSH_ASKPASS="$askpass_helper" ssh-add ~/.ssh/id_ed25519 </dev/null &>/dev/null || true
-  fi
+  _load_key_from_keyring
 }
 
-# If executed directly (not sourced), spawn the silent background unlocker
+# Spawn background key loader when executed directly (not sourced).
 if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
   if [[ -n "${WAYLAND_DISPLAY:-}" || -n "${DISPLAY:-}" ]]; then
     _load_keys_silently &
@@ -109,5 +122,5 @@ fi
 
 key_count=$(SSH_AUTH_SOCK="$AGENT_SOCK" ssh-add -l 2>/dev/null | grep -c 'SHA256' || true)
 if [[ "${key_count:-0}" -eq 0 ]]; then
-  echo "[ssh-auth] agent ready — no keys loaded. Run: ssh-add ~/.ssh/id_ed25519 (Or: ~/cloudyy_scripts/ssh-auth.sh --setup)" >&2
+  echo "[ssh-auth] agent ready — no keys loaded. Run: ~/cloudyy_scripts/ssh-auth.sh --setup" >&2
 fi

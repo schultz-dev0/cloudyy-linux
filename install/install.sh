@@ -151,9 +151,19 @@ phase_packages() {
   bash "${SCRIPT_DIR}/hyprland-install.sh"
 }
 
+# --- Phase: Neovim Bootstrap -------------------------------------------------
+phase_nvim_setup() {
+  bash "${SCRIPT_DIR}/setup-nvim.sh"
+}
+
 # --- Phase: Keyring ---------------------------------------------------------
 phase_keyring() {
   bash "${SCRIPT_DIR}/setup-keyring.sh"
+}
+
+# --- Phase: SSH Setup --------------------------------------------------------
+phase_ssh_setup() {
+  bash "${SCRIPT_DIR}/setup-ssh.sh"
 }
 
 # --- Phase: Dotfiles ---------------------------------------------------------
@@ -345,10 +355,12 @@ declare -a PHASE_IDS=(
   "dotfiles"
   "bin_seed"
   "packages"
+  "nvim_setup"
   "schema"
   "shell"
   "laptop"
   "keyring"
+  "ssh_setup"
   "theme_init"
   "services"
   "finalize"
@@ -359,10 +371,12 @@ declare -A PHASE_LABELS=(
   [dotfiles]="Dotfiles Deployment"
   [bin_seed]="Binary Seeder"
   [packages]="Hardware & Package Installation"
+  [nvim_setup]="Neovim Plugin Bootstrap"
   [schema]="XDG Portal & Schema Settings"
   [shell]="Shell Configuration"
   [laptop]="Laptop Hardware Support"
   [keyring]="Keyring Configuration"
+  [ssh_setup]="SSH Key Setup"
   [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
   [finalize]="Finalization"

@@ -824,7 +824,7 @@ pages:
           title: Terminal Mascot
           description: Manage startup images in Kitty
         items:
-          - type: tIf no password dialog appears, the polkit agent isn’t running yet.oggle
+          - type: toggle
             properties:
               title: Show Mascot
               description: Show Hyprchan mascot on terminal startup

@@ -23,14 +23,14 @@ PanelWindow {
 
     // ── Tunables ─────────────────────────────────────────────────────────────
     readonly property int barHeight: 40
-    readonly property int topGap: 6
-    readonly property int sideGap: 10
+    readonly property int topGap: 0
+    readonly property int sideGap: 8
     readonly property int radius: 14
     readonly property int pillRadius: 10
     readonly property int pillPadH: 8
     readonly property int pillPadV: 5
     readonly property int pillGap: 4
-    readonly property real bgOpacity: 0.88
+    readonly property real bgOpacity: 0.68
     readonly property int spotlightWidth: 300
     readonly property int spotlightClosedWidth: 220
     readonly property int spotlightDropdownGap: 2
