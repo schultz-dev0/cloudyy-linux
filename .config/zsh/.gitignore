@@ -1,6 +1,10 @@
-Wallpapers/rain-background.gif
-
-# Ignore the entire user-configs folder
-hypr/user-configs/*
-!hypr/user-configs/.gitkeep
-
+# Runtime state — generated per-machine, never committed
+.zsh_history
+.zcompdump*
+.bash_history
+.yarnrc
+.p10k.zsh
+.zprofile
+.bashrc
+.bash_logout
+personal_alias.md

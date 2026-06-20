@@ -329,6 +329,20 @@ phase_theme_init() {
   fi
 }
 
+# --- Phase: Boot Setup -------------------------------------------------------
+# Configures autologin, bootloader timeout, system-wide zprofile Hyprland
+# autostart, and rebuilds initramfs. Requires sudo; runs after packages so
+# uwsm is available.
+phase_boot_setup() {
+  local boot_script
+  boot_script="$(dirname "${SCRIPT_DIR}")/cloudyy_scripts/boot/opt.sh"
+  if [[ ! -f "$boot_script" ]]; then
+    log_warn "cloudyy_scripts/boot/opt.sh not found — skipping boot optimisation."
+    return 0
+  fi
+  sudo bash "$boot_script" "$USER"
+}
+
 # --- Phase: Finalize ---------------------------------------------------------
 phase_finalize() {
   printf '\n%s%s════════════════════════════════════════════%s\n' "$BOLD" "$GREEN" "$RESET"
@@ -363,6 +377,7 @@ declare -a PHASE_IDS=(
   "ssh_setup"
   "theme_init"
   "services"
+  "boot_setup"
   "finalize"
 )
 
@@ -379,6 +394,7 @@ declare -A PHASE_LABELS=(
   [ssh_setup]="SSH Key Setup"
   [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
+  [boot_setup]="Boot Optimisation"
   [finalize]="Finalization"
 )
 
