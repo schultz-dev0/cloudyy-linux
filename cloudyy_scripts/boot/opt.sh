@@ -42,12 +42,12 @@ EOF
 echo "Setting up global Zsh Hyprland auto-start..."
 ZPROFILE="/etc/zsh/zprofile"
 mkdir -p /etc/zsh
-if ! grep -q "exec Hyprland" "$ZPROFILE" 2>/dev/null; then
-  cat <<EOF >>"$ZPROFILE"
+if ! grep -qE "uwsm|Hyprland|hyprland" "$ZPROFILE" 2>/dev/null; then
+  cat <<'EOF' >>"$ZPROFILE"
 
-# Auto-start Hyprland on TTY1
-if [ -z "\$DISPLAY" ] && [ "\$XDG_VTNR" -eq 1 ]; then
-  exec Hyprland
+# Auto-start Hyprland on TTY1 via UWSM
+if [ -z "$DISPLAY" ] && [ "${XDG_VTNR:-0}" -eq 1 ] && uwsm check may-start 2>/dev/null; then
+  exec uwsm start hyprland-uwsm.desktop
 fi
 EOF
 fi
