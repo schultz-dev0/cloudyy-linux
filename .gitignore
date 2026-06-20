@@ -12,13 +12,6 @@
 .config/zsh/.yarnrc
 .config/zsh/personal_alias.md
 
-# Waybar — superseded by quickshell; configs are machine-generated
-.config/waybar/
-cloudyy_scripts/waybar/
-
-# Zen Browser — profile data and native messaging hosts are machine-specific
-zen/
-
 # Hyprland local user overrides
 .config/hypr/user-configs/
 
