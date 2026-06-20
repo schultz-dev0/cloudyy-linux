@@ -1,5 +1,0 @@
-# Ignore all Zen profile data — only the pywalfox native messaging host is tracked.
-*
-!.gitignore
-!native-messaging-hosts/
-!native-messaging-hosts/pywalfox.json
