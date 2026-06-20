@@ -235,6 +235,7 @@ phase_shell() {
     fi
   done
 
+  xdg-user-dirs-update 2>/dev/null || log_warn "xdg-user-dirs-update failed — run manually to create ~/Desktop, ~/Downloads etc."
   log_ok "Shell configured."
 }
 
