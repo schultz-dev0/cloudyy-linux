@@ -3,7 +3,6 @@
 #
 
 [[ -f ~/.bashrc ]] && . ~/.bashrc
-. "$HOME/.cargo/env"
 
 . "$HOME/.local/bin/env"
 
@@ -15,3 +14,4 @@ export PATH="$PATH:/home/schultz/.lmstudio/bin"
 
 # Added by Antigravity CLI installer
 export PATH="/home/schultz/.local/bin:$PATH"
+. "$HOME/.cargo/env"
