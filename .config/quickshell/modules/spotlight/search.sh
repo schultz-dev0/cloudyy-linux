@@ -31,6 +31,7 @@ for dir in \
     "$HOME/.local/share/icons/hicolor" \
     "$HOME/.icons/hicolor" \
     "/usr/share/icons/hicolor" \
+    "$HOME/.local/share/icons/cloudyy-apps" \
     "$HOME/.local/share/icons/Fluent-green" \
     "$HOME/.local/share/icons/Fluent" \
     "$HOME/.icons/Fluent-green" \
