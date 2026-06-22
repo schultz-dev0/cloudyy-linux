@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use rayon::prelude::*;
 use serde::Serialize;
 
-use crate::persist::{atomic_write, HyprDirs};
+use crate::persist::{atomic_write, is_cc_managed, load_surface_state, render_surface, HyprDirs};
 use crate::runtime::{activate_source, activate_user, active_requires};
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -102,17 +102,24 @@ fn describe(path: &Path) -> String {
     "No description available.".into()
 }
 
-/// Copy `source/SURFACE.lua` → `user-configs/user_SURFACE.lua` (if missing)
-/// and flip the require line in `hyprland.lua`.
+/// Copy `source/SURFACE.lua` → `user-configs/user_SURFACE.lua` (if missing or
+/// still a Cloud Center stub) and flip the require line in `hyprland.lua`.
 pub fn enable(dirs: &HyprDirs, source_file: &Path) -> Result<Enabled> {
     let stem = stem_of(source_file)?;
     let edit_path = dirs.user_module_for(source_file);
-    let created = !edit_path.exists();
-    if created {
+    let created = if !edit_path.exists() {
         let body = fs::read(source_file)
             .with_context(|| format!("read {}", source_file.display()))?;
         atomic_write(&edit_path, &body)?;
-    }
+        true
+    } else if is_cc_managed(&edit_path) {
+        let state = load_surface_state(dirs, &stem);
+        let content = render_surface(dirs, &state, &stem);
+        atomic_write(&edit_path, content.as_bytes())?;
+        false
+    } else {
+        false
+    };
 
     let edit_name = file_name(&edit_path);
     let main_lua = dirs.main_lua();

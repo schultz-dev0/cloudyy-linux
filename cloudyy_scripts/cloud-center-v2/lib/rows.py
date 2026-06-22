@@ -15,6 +15,7 @@ import gi
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Adw, GLib, GdkPixbuf, Gtk
 
+import lib.edit_dialog as edit_dialog
 import lib.utility as utility
 import lib.wallpaper_browser as wallpaper_browser
 import lib.extension_browser as extension_browser
@@ -240,63 +241,80 @@ class SliderRow(Adw.ActionRow, _ManagedRow):
     def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
         super().__init__()
         self._init_sources()
+        self._props = props
         self._action = action or {}
         self._ctx = ctx
         self._key = props.get("key", "")
-        self._debounce_sid: int = 0
         self._cmd_template: str = action.get("command", "") if action else ""
 
-        mn   = float(props.get("min",  0))
-        mx   = float(props.get("max",  100))
-        step = float(props.get("step", 1))
-        default = float(props.get("default", mn))
+        self._min = float(props.get("min", 0))
+        self._max = float(props.get("max", 100))
+        self._step = float(props.get("step", 1))
+        self._default = float(props.get("default", self._min))
 
         self.set_title(props.get("title", ""))
-        self.set_subtitle(props.get("description", ""))
+        self.set_activatable(True)
 
         if icon := props.get("icon"):
             self.add_prefix(_make_prefix_icon(icon))
 
-        scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, mn, mx, step)
-        scale.set_hexpand(True)
-        scale.set_size_request(160, -1)
-        scale.set_draw_value(True)
-        scale.set_valign(Gtk.Align.CENTER)
-
         if self._key:
-            scale.set_value(utility.load_setting(self._key, default))
+            self._value = float(utility.load_setting(self._key, self._default))
         else:
-            scale.set_value(default)
+            self._value = self._default
 
-        scale.connect("value-changed", self._on_change)
-        self.add_suffix(scale)
-        self._scale = scale
+        self._value_label = Gtk.Label(valign=Gtk.Align.CENTER)
+        self._value_label.add_css_class("dim-label")
+        self.add_suffix(self._value_label)
+        self.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
 
-    def _on_change(self, scale: Gtk.Scale) -> None:
-        if self._debounce_sid:
-            GLib.source_remove(self._debounce_sid)
-        self._debounce_sid = GLib.timeout_add(150, self._apply, scale.get_value())
+        self.update_subtitle()
+        self.connect("activated", self.on_activated)
 
-    def _apply(self, value: float) -> bool:
-        self._debounce_sid = 0
-        if self._key:
+    def format_value(self, value: float) -> str:
+        if float(value).is_integer():
+            return str(int(value))
+        return f"{value:.3f}".rstrip("0").rstrip(".")
+
+    def update_subtitle(self) -> None:
+        desc = self._props.get("description", "")
+        value_text = self.format_value(self._value)
+        self._value_label.set_label(value_text)
+        if desc:
+            self.set_subtitle(f"{desc}  ·  {value_text}")
+        else:
+            self.set_subtitle(value_text)
+
+    def build_command(self, value: float) -> str:
+        value_text = self.format_value(value)
+        return (
+            self._cmd_template
+            .replace("{value}", value_text)
+            .replace("{value_i}", str(int(round(value))))
+            .replace("{value_f}", f"{value:.2f}")
+        )
+
+    def apply_value(self, value: float, *, preview: bool = False) -> None:
+        self._value = float(value)
+        self.update_subtitle()
+        if self._key and not preview:
             threading.Thread(
                 target=utility.save_setting, args=(self._key, value), daemon=True
             ).start()
         if self._cmd_template:
-            # Keep integer-like values compact, but preserve decimals for fine sliders.
-            if float(value).is_integer():
-                value_text = str(int(value))
-            else:
-                value_text = f"{value:.3f}".rstrip("0").rstrip(".")
-            cmd = (
-                self._cmd_template
-                .replace("{value}", value_text)
-                .replace("{value_i}", str(int(round(value))))
-                .replace("{value_f}", f"{value:.2f}")
-            )
-            utility.execute_command(cmd)
-        return GLib.SOURCE_REMOVE
+            utility.execute_command(self.build_command(value))
+
+    def on_activated(self, *_args) -> None:
+        dialog = edit_dialog.SliderEditDialog(
+            title=self._props.get("title", "Adjust Value"),
+            current_value=self._value,
+            min_value=self._min,
+            max_value=self._max,
+            step=self._step,
+            on_preview=lambda v: self.apply_value(v, preview=True),
+            on_apply=self.apply_value,
+        )
+        edit_dialog.present_edit_dialog(dialog, self)
 
     def do_unroot(self) -> None:
         self._cleanup()
@@ -305,60 +323,90 @@ class SliderRow(Adw.ActionRow, _ManagedRow):
 
 # ── Selection (combo) row ─────────────────────────────────────────────────────
 
-class SelectionRow(Adw.ComboRow, _ManagedRow):
+class SelectionRow(Adw.ActionRow, _ManagedRow):
     __gtype_name__ = "CCSelectionRow"
 
     def __init__(self, props: dict, action: dict | None, ctx: RowContext) -> None:
         super().__init__()
         self._init_sources()
+        self._props = props
         self._action = action or {}
         self._ctx = ctx
         self._key = props.get("key", "")
-        self._options = props.get("options", [])
+        self._options = [str(o) for o in props.get("options", [])]
         self._options_map = props.get("options_map", {})
         self._cmd_template: str = action.get("command", "") if action else ""
 
         self.set_title(props.get("title", ""))
-        self.set_subtitle(props.get("description", ""))
+        self.set_activatable(True)
 
         if icon := props.get("icon"):
             self.add_prefix(_make_prefix_icon(icon))
 
-        store = Gtk.StringList.new(self._options)
-        self.set_model(store)
-
         saved = utility.load_setting(self._key, "") if self._key else ""
         if saved in self._options:
-            self.set_selected(self._options.index(saved))
-
-        self.connect("notify::selected", self._on_change)
-
-    def _on_change(self, *_) -> None:
-        idx = self.get_selected()
-        if idx >= len(self._options):
-            return
-        value = self._options[idx]
-        mapped = self._options_map.get(value, value)
-
-        # YAML mappings may provide ints/bools; command templates need strings.
-        if isinstance(mapped, bool):
-            mapped_text = "true" if mapped else "false"
+            self._value = saved
+        elif self._options:
+            self._value = self._options[0]
         else:
-            mapped_text = str(mapped)
-        value_text = str(value)
+            self._value = ""
 
-        if self._key:
+        self._value_label = Gtk.Label(valign=Gtk.Align.CENTER)
+        self._value_label.add_css_class("dim-label")
+        self.add_suffix(self._value_label)
+        self.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+
+        self.update_subtitle()
+        self.connect("activated", self.on_activated)
+
+    def mapped_text(self, value: str) -> str:
+        mapped = self._options_map.get(value, value)
+        if isinstance(mapped, bool):
+            return "true" if mapped else "false"
+        return str(mapped)
+
+    def update_subtitle(self) -> None:
+        desc = self._props.get("description", "")
+        self._value_label.set_label(self._value)
+        if desc:
+            self.set_subtitle(f"{desc}  ·  {self._value}")
+        else:
+            self.set_subtitle(self._value)
+
+    def build_command(self, value: str) -> str:
+        mapped_text = self.mapped_text(value)
+        return (
+            self._cmd_template
+            .replace("{value}", mapped_text)
+            .replace("{option}", str(value))
+        )
+
+    def apply_value(self, value: str, *, preview: bool = False) -> None:
+        if value not in self._options:
+            return
+        self._value = value
+        self.update_subtitle()
+        if self._key and not preview:
             threading.Thread(
                 target=utility.save_setting, args=(self._key, value), daemon=True
             ).start()
-
         if self._cmd_template:
-            cmd = self._cmd_template.replace("{value}", mapped_text).replace("{option}", value_text)
-            utility.execute_command(cmd)
+            utility.execute_command(self.build_command(value))
+
+    def on_activated(self, *_args) -> None:
+        options = {opt: opt for opt in self._options}
+        dialog = edit_dialog.SelectionEditDialog(
+            title=self._props.get("title", "Select Option"),
+            current_value=self._value,
+            options=options,
+            on_preview=lambda v: self.apply_value(v, preview=True),
+            on_apply=self.apply_value,
+        )
+        edit_dialog.present_edit_dialog(dialog, self)
 
     def do_unroot(self) -> None:
         self._cleanup()
-        Adw.ComboRow.do_unroot(self)
+        Adw.ActionRow.do_unroot(self)
 
 
 class MultiSelectionRow(Adw.ExpanderRow, _ManagedRow):

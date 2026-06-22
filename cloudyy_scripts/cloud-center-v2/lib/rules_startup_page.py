@@ -23,10 +23,22 @@ from lib import hyprlua_reader
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 HYPR_DIR  = Path.home() / '.config' / 'hypr'
+MAIN_LUA  = HYPR_DIR / 'hyprland.lua'
 CONF_PATH = HYPR_DIR / 'user-configs' / 'user_rules_startup.lua'
 SOURCE_WINDOWRULES = HYPR_DIR / 'source' / 'windowrules.lua'
 SOURCE_AUTOSTART   = HYPR_DIR / 'source' / 'autostart.lua'
 MANAGED_STATE_PREFIX = '-- @cloud-center-state = '
+
+_RULES_SOURCE_REQUIRES = (
+    'require("source.windowrules")',
+    'require("source.autostart")',
+)
+_RULES_USER_REQUIRE = 'require("user-configs.user_rules_startup")'
+_RULES_USER_LINE = f'{_RULES_USER_REQUIRE} -- managed by Cloud Center'
+
+_DIALOG_WIDTH = 560
+_DIALOG_HEIGHT = 640
+_DIALOG_HEIGHT_COMPACT = 480
 
 # Section markers
 _M: dict[str, tuple[str, str]] = {
@@ -353,6 +365,73 @@ def _render_layer_rules_lua(rules: list[LayerRule]) -> list[str]:
     return lines
 
 
+def _parse_require_target(line: str) -> tuple[bool, str] | None:
+    """Return (commented, require_code) for a hyprland.lua require line."""
+    raw = line.strip()
+    if not raw:
+        return None
+    commented = raw.startswith('--')
+    body = raw[2:].strip() if commented else raw
+    code = body.split('--', 1)[0].strip()
+    if code.startswith('require("'):
+        return commented, code
+    return None
+
+
+def source_seed_blocks() -> list[str]:
+    """Full distro source bodies to embed in user_rules_startup.lua."""
+    blocks: list[str] = []
+    if SOURCE_WINDOWRULES.exists():
+        blocks.append('-- ── Distro baseline: source/windowrules.lua ──')
+        blocks.append(SOURCE_WINDOWRULES.read_text(encoding='utf-8').rstrip())
+        blocks.append('')
+    if SOURCE_AUTOSTART.exists():
+        blocks.append('-- ── Distro baseline: source/autostart.lua ──')
+        blocks.append(SOURCE_AUTOSTART.read_text(encoding='utf-8').rstrip())
+        blocks.append('')
+    return blocks
+
+
+def activate_rules_startup_override() -> None:
+    """Comment out distro windowrules/autostart requires and load user_rules_startup."""
+    if not MAIN_LUA.exists():
+        log.warning('hyprland.lua missing — rules startup override not activated')
+        return
+
+    out: list[str] = []
+    seen_user = False
+    for line in MAIN_LUA.read_text(encoding='utf-8').splitlines():
+        parsed = _parse_require_target(line)
+        if parsed is not None:
+            commented, code = parsed
+            if not commented and code in _RULES_SOURCE_REQUIRES:
+                out.append(f'-- {code}')
+                continue
+            if code == _RULES_USER_REQUIRE:
+                if not seen_user:
+                    out.append(_RULES_USER_LINE)
+                    seen_user = True
+                continue
+        out.append(line)
+
+    result = '\n'.join(out)
+    if not seen_user:
+        if result and not result.endswith('\n'):
+            result += '\n'
+        result += _RULES_USER_LINE + '\n'
+    elif not result.endswith('\n'):
+        result += '\n'
+
+    tmp = MAIN_LUA.with_suffix('.lua.tmp')
+    tmp.write_text(result, encoding='utf-8')
+    tmp.replace(MAIN_LUA)
+
+
+def _configure_dialog(dialog, *, width: int = _DIALOG_WIDTH, height: int = _DIALOG_HEIGHT) -> None:
+    dialog.set_content_width(width)
+    dialog.set_content_height(height)
+
+
 def _write_conf(
     window_rules: list[WindowRule],
     layer_rules: list[LayerRule],
@@ -385,15 +464,19 @@ def _write_conf(
         f'{MANAGED_STATE_PREFIX}{json.dumps(state, sort_keys=True)}',
         '',
     ]
+    out.extend(source_seed_blocks())
+    if window_rules or layer_rules or autostart or env_vars:
+        out.append('-- ── Cloud Center managed overrides ──')
+        out.append('')
     out.extend(_render_window_rules_lua(window_rules))
     out.extend(_render_layer_rules_lua(layer_rules))
     out.extend(_serialize_autostart(autostart))
     out.extend(_serialize_env_vars(env_vars))
     tmp = path.with_suffix('.tmp')
-    tmp.write_text('\n'.join(out), encoding='utf-8')
+    tmp.write_text('\n'.join(out).rstrip() + '\n', encoding='utf-8')
     tmp.replace(path)
 
-    subprocess.run(['hcm', 'activate', 'rules_startup'], check=False)
+    activate_rules_startup_override()
 
 
 def upsert_env_vars(updates: dict[str, str], path: Path | None = None) -> None:
@@ -459,8 +542,7 @@ class _WindowPickerDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Pick a Window')
-        self._dialog.set_content_width(400)
-        self._dialog.set_content_height(400)
+        _configure_dialog(self._dialog, width=480, height=_DIALOG_HEIGHT_COMPACT)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -550,7 +632,7 @@ class _WindowRuleDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Edit Rule' if is_edit else 'Add Rule')
-        self._dialog.set_content_width(480)
+        _configure_dialog(self._dialog)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -777,7 +859,7 @@ class _LayerRuleDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Edit Layer Rule' if is_edit else 'Add Layer Rule')
-        self._dialog.set_content_width(440)
+        _configure_dialog(self._dialog)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -934,8 +1016,7 @@ class _AppPickerDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Pick Application')
-        self._dialog.set_content_width(400)
-        self._dialog.set_content_height(460)
+        _configure_dialog(self._dialog, width=480, height=_DIALOG_HEIGHT_COMPACT)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -1028,7 +1109,7 @@ class _AutostartDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Edit Autostart Entry' if is_edit else 'Add Autostart Entry')
-        self._dialog.set_content_width(440)
+        _configure_dialog(self._dialog, height=_DIALOG_HEIGHT_COMPACT)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -1109,7 +1190,7 @@ class _EnvVarDialog:
 
         self._dialog = Adw.Dialog()
         self._dialog.set_title('Edit Variable' if is_edit else 'Add Variable')
-        self._dialog.set_content_width(400)
+        _configure_dialog(self._dialog, height=420)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         header = Adw.HeaderBar()
@@ -1834,14 +1915,17 @@ class RulesStartupPage(_Gtk.Box):
             body_windows = [
                 WindowRule(**w) for w in hyprlua_reader.parse_window_rules(user_text)
                 if WindowRule(**w) not in sentinel_windows
+                and WindowRule(**w) not in distro_windows
             ]
             body_layers = [
                 LayerRule(**l) for l in hyprlua_reader.parse_layer_rules(user_text)
                 if LayerRule(**l) not in sentinel_layers
+                and LayerRule(**l) not in distro_layers
             ]
             body_autostart = [
                 AutostartEntry(**a) for a in hyprlua_reader.parse_autostart(user_text)
                 if AutostartEntry(**a) not in sentinel_autostart
+                and AutostartEntry(**a) not in distro_autostart
             ]
             body_env = [
                 EnvVar(**e) for e in hyprlua_reader.parse_env_vars(user_text)

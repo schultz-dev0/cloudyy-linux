@@ -21,6 +21,8 @@ from typing import Optional
 
 from gi.repository import Adw, GLib, Gtk, Pango
 
+from lib import utility
+
 log = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -104,19 +106,20 @@ def _preview_path_for(cf: LuaConfigFile) -> Path:
     return cf.path
 
 
-def _hcm_json(*args: str) -> dict | list:
+def hcm_json(*args: str) -> dict | list:
     """Run `hcm` and return parsed JSON stdout. Raises on non-zero exit."""
     result = subprocess.run(
-        ["hcm", *args],
+        [utility.hcm_bin(), *args],
         capture_output=True,
         text=True,
         check=True,
+        env=utility.command_env(),
     )
     return json.loads(result.stdout)
 
 
 def switch_to_user_override(cf: LuaConfigFile) -> UserOverrideResult:
-    data = _hcm_json("activate", cf.path.stem)
+    data = hcm_json("activate", cf.path.stem)
     return UserOverrideResult(
         edit_path=Path(data["edit_path"]),
         activated=bool(data["activated"]),
@@ -135,12 +138,12 @@ def scan_lua_files() -> list[LuaConfigFile]:
             description=item["description"],
             status=_STATUS_FROM_JSON[item["status"]],
         )
-        for item in _hcm_json("scan", "--json")
+        for item in hcm_json("scan", "--json")
     ]
 
 
 def revert_to_baseline(cf: LuaConfigFile) -> tuple[bool, str]:
-    data = _hcm_json("revert", cf.path.stem)
+    data = hcm_json("revert", cf.path.stem)
     return bool(data["ok"]), data["message"]
 
 

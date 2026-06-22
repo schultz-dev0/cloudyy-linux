@@ -115,17 +115,18 @@ def run_command_async(
     command: list[str],
     on_complete,
     *,
-    timeout: int = 90,
+    timeout: int = 60,
     needs_polkit: bool = False,
 ) -> None:
-    """Run a command on the GTK main thread without blocking the event loop."""
+    """Run a command without blocking the GTK event loop."""
     from gi.repository import Gio, GLib
 
     if needs_polkit and not ensure_polkit_agent():
         GLib.idle_add(on_complete, False, NO_POLKIT_AGENT_MSG)
         return
 
-    flags = Gio.SubprocessFlags.STDERR_PIPE
+    # Pipe both streams so communicate_utf8_async can drain them without blocking.
+    flags = Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
     launcher = Gio.SubprocessLauncher.new(flags)
     for key, value in os.environ.items():
         launcher.setenv(key, value, True)
@@ -144,19 +145,15 @@ def run_command_async(
         proc = launcher.spawnv(command)
     except GLib.Error as e:
         GLib.source_remove(timeout_id)
-        on_complete(False, e.message)
+        GLib.idle_add(on_complete, False, e.message)
         return
 
-    def on_wait(proc: Gio.Subprocess, result, _user_data=None) -> None:
+    def on_communicate(proc: Gio.Subprocess, result, _user_data=None) -> None:
         GLib.source_remove(timeout_id)
         try:
-            proc.wait_finish(result)
+            _, stdout, stderr = proc.communicate_utf8_finish(result)
             ok = proc.get_exit_status() == 0
-            if ok:
-                msg = ""
-            else:
-                _, stderr = proc.communicate_utf8(None, None)
-                msg = (stderr or "").strip() or AUTH_FAILED_MSG
+            msg = "" if ok else (((stderr or "") + (stdout or "")).strip() or AUTH_FAILED_MSG)
         except GLib.Error as e:
             if timed_out["value"]:
                 ok, msg = False, (
@@ -169,10 +166,10 @@ def run_command_async(
                 ok, msg = False, e.message
         GLib.idle_add(on_complete, ok, msg)
 
-    proc.wait_async(cancellable, on_wait)
+    proc.communicate_utf8_async(None, cancellable, on_communicate)
 
 
-def run_timedatectl_async(args: list[str], on_complete, *, timeout: int = 90) -> None:
+def run_timedatectl_async(args: list[str], on_complete, *, timeout: int = 60) -> None:
     """Apply timedatectl changes (uses session polkit — do not wrap in pkexec)."""
     run_command_async(
         ["timedatectl", *args],
@@ -182,9 +179,85 @@ def run_timedatectl_async(args: list[str], on_complete, *, timeout: int = 90) ->
     )
 
 
-def run_pkexec_async(args: list[str], on_complete, *, timeout: int = 90) -> None:
+def run_pkexec_async(args: list[str], on_complete, *, timeout: int = 60) -> None:
     """Run pkexec on the GTK main thread (for scripts that must run as root)."""
     run_command_async(["pkexec", *args], on_complete, timeout=timeout, needs_polkit=True)
+
+
+_TIMEDATE1_BUS   = "org.freedesktop.timedate1"
+_TIMEDATE1_PATH  = "/org/freedesktop/timedate1"
+_TIMEDATE1_IFACE = "org.freedesktop.timedate1"
+
+
+def call_timedate1_async(
+    method: str,
+    params: "GLib.Variant",
+    on_complete,
+    *,
+    timeout: int = 60,
+) -> None:
+    """Call a systemd-timedated D-Bus method with interactive polkit auth.
+
+    Unlike spawning timedatectl as a subprocess, this uses the D-Bus
+    ALLOW_INTERACTIVE_AUTHORIZATION flag, so polkit triggers the session
+    agent (Cloud Center's own dialog) rather than refusing with
+    "interactive authentication has not been enabled by the calling program".
+    """
+    from gi.repository import Gio, GLib
+
+    if not ensure_polkit_agent():
+        GLib.idle_add(on_complete, False, NO_POLKIT_AGENT_MSG)
+        return
+
+    def on_proxy(source, result, _user_data=None) -> None:
+        try:
+            proxy = Gio.DBusProxy.new_finish(result)
+        except GLib.Error as e:
+            GLib.idle_add(on_complete, False, e.message)
+            return
+
+        def on_call(proxy_obj, result, _user_data=None) -> None:
+            try:
+                proxy_obj.call_finish(result)
+                GLib.idle_add(on_complete, True, "")
+            except GLib.Error as e:
+                msg = e.message or AUTH_FAILED_MSG
+                GLib.idle_add(on_complete, False, msg)
+
+        proxy.call(
+            method,
+            params,
+            Gio.DBusCallFlags.ALLOW_INTERACTIVE_AUTHORIZATION,
+            timeout * 1000,
+            None,
+            on_call,
+        )
+
+    Gio.DBusProxy.new_for_bus(
+        Gio.BusType.SYSTEM,
+        Gio.DBusProxyFlags.NONE,
+        None,
+        _TIMEDATE1_BUS,
+        _TIMEDATE1_PATH,
+        _TIMEDATE1_IFACE,
+        None,
+        on_proxy,
+    )
+
+
+def set_timezone_dbus_async(tz: str, on_complete, *, timeout: int = 60) -> None:
+    from gi.repository import GLib
+    call_timedate1_async("SetTimezone", GLib.Variant("(sb)", (tz, True)), on_complete, timeout=timeout)
+
+
+def set_ntp_dbus_async(enabled: bool, on_complete, *, timeout: int = 60) -> None:
+    from gi.repository import GLib
+    call_timedate1_async("SetNTP", GLib.Variant("(bb)", (enabled, True)), on_complete, timeout=timeout)
+
+
+def set_time_dbus_async(utc_usec: int, on_complete, *, timeout: int = 60) -> None:
+    from gi.repository import GLib
+    call_timedate1_async("SetTime", GLib.Variant("(xbb)", (utc_usec, False, True)), on_complete, timeout=timeout)
 
 
 def run_pkexec(args: list[str], timeout: int = 120) -> tuple[bool, str]:

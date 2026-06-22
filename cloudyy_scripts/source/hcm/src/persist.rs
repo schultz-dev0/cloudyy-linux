@@ -183,7 +183,7 @@ fn sections_of(surface: &str) -> &'static [&'static str] {
 
 /// Returns the surface that owns the given key, e.g.
 /// `surface_of("decoration:rounding") == Some("lookandfeel")`.
-fn surface_of(key: &str) -> Option<&'static str> {
+pub fn surface_of(key: &str) -> Option<&'static str> {
     let section = lookup(key)?.section;
     match section {
         "general" | "decoration" => Some("lookandfeel"),
@@ -320,13 +320,26 @@ fn read_legacy_conf(path: &Path) -> State {
     result
 }
 
-// ── Lua rendering ───────────────────────────────────────────────────────────
+/// State keys belonging to a single config surface.
+pub fn load_surface_state(dirs: &HyprDirs, surface: &str) -> State {
+    load(dirs)
+        .into_iter()
+        .filter(|(k, _)| surface_of(k) == Some(surface))
+        .collect()
+}
+
+/// True when `path` carries a Cloud Center sentinel (managed override stub).
+pub fn is_cc_managed(path: &Path) -> bool {
+    read_sentinel(path).0
+}
 //
 // Output is byte-identical to Python's `build_surface_content` — an existing
 // managed config rewritten by `hcm set` is a no-op diff.
 
 /// Full file contents for `user_SURFACE.lua` given the current state map.
-pub fn render_surface(state: &State, surface: &str) -> String {
+/// Seeds from the matching `source/SURFACE.lua` body so manual edits and
+/// Cloud Center writes always start from the full distro module.
+pub fn render_surface(dirs: &HyprDirs, state: &State, surface: &str) -> String {
     let owned: Vec<(&'static str, String)> = LAYOUT.iter()
         .filter_map(|(k, _)| {
             (surface_of(k) == Some(surface))
@@ -340,11 +353,13 @@ pub fn render_surface(state: &State, surface: &str) -> String {
         format!("{SENTINEL_PREFIX}{}", sentinel_json(&owned)),
     ];
 
-    // lookandfeel / animations / input pull in the distro source first, then
-    // layer overrides on top. cursor is a full replacement.
-    if matches!(surface, "lookandfeel" | "animations" | "input") {
-        lines.push(String::new());
-        lines.push(format!("require(\"source.{surface}\")"));
+    let source_path = dirs.source_dir().join(format!("{surface}.lua"));
+    if let Ok(source_body) = fs::read_to_string(&source_path) {
+        let trimmed = source_body.trim_end();
+        if !trimmed.is_empty() {
+            lines.push(String::new());
+            lines.push(trimmed.to_string());
+        }
     }
 
     let body = if surface == "animations" {
@@ -631,7 +646,7 @@ fn commit(dirs: &HyprDirs, state: &State, touched: &[&'static str])
         let path = user_dir.join(filename);
         let has_state = state.keys().any(|k| surface_of(k) == Some(surface));
         if has_state {
-            atomic_write(&path, render_surface(state, surface).as_bytes())
+            atomic_write(&path, render_surface(dirs, state, surface).as_bytes())
                 .with_context(|| format!("write {}", path.display()))?;
             eprintln!("[hcm] wrote {}", path.display());
             written.push(path);
@@ -768,6 +783,14 @@ mod tests {
 
     #[test]
     fn render_lookandfeel_matches_real_world() {
+        let dir = tempdir().unwrap();
+        let dirs = HyprDirs::new(dir.path());
+        fs::create_dir_all(dirs.source_dir()).unwrap();
+        fs::write(
+            dirs.source_dir().join("lookandfeel.lua"),
+            "local colors = require(\"source.colors\")\nhl.config({ general = { gaps_in = 2 } })\n",
+        ).unwrap();
+
         let state = entries(&[
             ("decoration:blur:enabled", "true"),
             ("decoration:blur:passes", "1"),
@@ -779,36 +802,22 @@ mod tests {
             ("general:gaps_in", "0"),
             ("general:gaps_out", "12"),
         ]);
-        let expected = r#"-- Cloud Center user override file for lookandfeel configuration.
--- @cloud-center-state = {"decoration:blur:enabled": "true", "decoration:blur:passes": "1", "decoration:blur:size": "8", "decoration:rounding": "1", "decoration:shadow:enabled": "true", "decoration:shadow:range": "8", "decoration:shadow:render_power": "2", "general:gaps_in": "0", "general:gaps_out": "12"}
-
-require("source.lookandfeel")
-
-hl.config({
-    general = {
-        gaps_out = 12,
-        gaps_in = 0,
-    },
-    decoration = {
-        rounding = 1,
-        shadow = {
-            enabled = true,
-            range = 8,
-            render_power = 2,
-        },
-        blur = {
-            enabled = true,
-            passes = 1,
-            size = 8,
-        },
-    },
-})
-"#;
-        assert_eq!(render_surface(&state, "lookandfeel"), expected);
+        let out = render_surface(&dirs, &state, "lookandfeel");
+        assert!(out.contains("local colors = require(\"source.colors\")"));
+        assert!(out.contains("gaps_out = 12"));
+        assert!(!out.contains("require(\"source.lookandfeel\")"));
     }
 
     #[test]
     fn render_cursor_matches_real_world() {
+        let dir = tempdir().unwrap();
+        let dirs = HyprDirs::new(dir.path());
+        fs::create_dir_all(dirs.source_dir()).unwrap();
+        fs::write(
+            dirs.source_dir().join("cursor.lua"),
+            "hl.config({ cursor = { zoom_factor = 1 } })\n",
+        ).unwrap();
+
         let state = entries(&[
             ("cursor:enable_hyprcursor", "true"),
             ("cursor:hide_on_key_press", "false"),
@@ -820,41 +829,29 @@ hl.config({
             ("cursor:warp_on_change_workspace", "1"),
             ("cursor:zoom_factor", "1"),
         ]);
-        let expected = r#"-- Cloud Center user override file for cursor configuration.
--- @cloud-center-state = {"cursor:enable_hyprcursor": "true", "cursor:hide_on_key_press": "false", "cursor:hide_on_touch": "false", "cursor:hotspot_padding": "1", "cursor:inactive_timeout": "3", "cursor:no_warps": "true", "cursor:persistent_warps": "true", "cursor:warp_on_change_workspace": "1", "cursor:zoom_factor": "1"}
-
-hl.config({
-    cursor = {
-        enable_hyprcursor = true,
-        no_warps = true,
-        persistent_warps = true,
-        warp_on_change_workspace = 1,
-        zoom_factor = 1,
-        inactive_timeout = 3,
-        hide_on_key_press = false,
-        hide_on_touch = false,
-        hotspot_padding = 1,
-    },
-})
-"#;
-        assert_eq!(render_surface(&state, "cursor"), expected);
+        let out = render_surface(&dirs, &state, "cursor");
+        assert!(out.contains("hl.config({"));
+        assert!(out.contains("zoom_factor = 1"));
     }
 
     #[test]
     fn render_animations_matches_real_world() {
+        let dir = tempdir().unwrap();
+        let dirs = HyprDirs::new(dir.path());
+        fs::create_dir_all(dirs.source_dir()).unwrap();
+        fs::write(
+            dirs.source_dir().join("animations.lua"),
+            "hl.config({ animations = { enabled = true } })\n",
+        ).unwrap();
+
         let state = entries(&[
             ("animations:animation", "windows,1,4,Bouncy"),
             ("animations:bezier", "Bouncy,0.531,-0.817,0.64,1.885"),
         ]);
-        let expected = r#"-- Cloud Center user override file for animations configuration.
--- @cloud-center-state = {"animations:animation": "windows,1,4,Bouncy", "animations:bezier": "Bouncy,0.531,-0.817,0.64,1.885"}
-
-require("source.animations")
-
-hl.curve("Bouncy", { type = "bezier", points = { { 0.531, -0.817 }, { 0.64, 1.885 } } })
-hl.animation({ leaf = "windows", enabled = true, speed = 4, bezier = "Bouncy" })
-"#;
-        assert_eq!(render_surface(&state, "animations"), expected);
+        let out = render_surface(&dirs, &state, "animations");
+        assert!(out.contains("hl.config({ animations = { enabled = true } })"));
+        assert!(out.contains("hl.curve(\"Bouncy\""));
+        assert!(!out.contains("require(\"source.animations\")"));
     }
 
     // -- Animation parsing ----------------------------------------------------

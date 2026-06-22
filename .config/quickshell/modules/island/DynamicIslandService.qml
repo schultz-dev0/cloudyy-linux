@@ -8,6 +8,7 @@ QtObject {
     // Set from shell.qml — QtObject cannot host Component/Process children.
     property var procFactory: null
 
+
     property var _screenshotSessions: ({})
     property var _recordingSessions: ({})
 

@@ -15,6 +15,10 @@ from gi.repository import Adw, Gtk, GLib
 
 log = logging.getLogger(__name__)
 
+_DEFAULT_WIDTH = 520
+_DEFAULT_HEIGHT = 420
+_SELECTION_MIN_HEIGHT = 360
+
 
 # ── Generic Edit Dialog ───────────────────────────────────────────────────────
 
@@ -28,11 +32,14 @@ class SettingEditDialog(Adw.Dialog):
         current_value: Any = None,
         on_preview: Optional[Callable[[Any], None]] = None,
         on_apply: Optional[Callable[[Any], None]] = None,
+        *,
+        content_width: int = _DEFAULT_WIDTH,
+        content_height: int = _DEFAULT_HEIGHT,
     ) -> None:
         super().__init__()
         self.set_title(title)
-        self.set_content_width(400)
-        self.set_content_height(250)
+        self.set_content_width(content_width)
+        self.set_content_height(content_height)
 
         self.current_value = current_value
         self.on_preview = on_preview
@@ -202,35 +209,57 @@ class SelectionEditDialog(SettingEditDialog):
         on_apply: Optional[Callable] = None,
     ) -> None:
         self.options = options or {}
-        super().__init__(title, current_value, on_preview, on_apply)
+        option_count = max(len(self.options), 1)
+        height = min(640, max(_SELECTION_MIN_HEIGHT, 120 + option_count * 36))
+        super().__init__(
+            title,
+            current_value,
+            on_preview,
+            on_apply,
+            content_height=height,
+        )
 
     def _build_content(self) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        box.set_margin_start(16)
-        box.set_margin_end(16)
-        box.set_margin_top(16)
-        box.set_margin_bottom(16)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer.set_margin_start(16)
+        outer.set_margin_end(16)
+        outer.set_margin_top(16)
+        outer.set_margin_bottom(16)
+        outer.set_vexpand(True)
 
         label = Gtk.Label(label="Select Option")
         label.add_css_class("title-2")
-        box.append(label)
+        label.set_xalign(0)
+        outer.append(label)
 
-        # Combo box
-        model = Gtk.StringList()
-        for label_text in self.options.values():
-            model.append(label_text)
+        self._list_box = Gtk.ListBox()
+        self._list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self._list_box.add_css_class("boxed-list")
 
-        self._combo = Gtk.ComboBoxText()
-        for idx, (key, label_text) in enumerate(self.options.items()):
-            self._combo.append(key, label_text)
+        self._row_by_key: dict[str, Gtk.ListBoxRow] = {}
+        for key, label_text in self.options.items():
+            row = Adw.ActionRow(title=label_text)
+            row.set_activatable(True)
+            row._option_key = key  # type: ignore[attr-defined]
+            self._list_box.append(row)
+            self._row_by_key[key] = row
             if key == self.current_value:
-                self._combo.set_active(idx)
+                self._list_box.select_row(row)
 
-        box.append(self._combo)
-        return box
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.set_min_content_height(_SELECTION_MIN_HEIGHT - 80)
+        scroll.set_child(self._list_box)
+        outer.append(scroll)
+
+        return outer
 
     def _get_value(self) -> str:
-        return self._combo.get_active_id() or ""
+        row = self._list_box.get_selected_row()
+        if row is None:
+            return self.current_value or ""
+        return getattr(row, "_option_key", self.current_value) or ""
 
 
 class TextEditDialog(SettingEditDialog):
@@ -285,3 +314,14 @@ def create_edit_dialog(
         return None  # Labels are not editable
     else:
         return TextEditDialog(title, current_value, on_preview, on_apply)
+
+
+def present_edit_dialog(dialog: Adw.Dialog, parent: Gtk.Widget | None) -> None:
+    """Present an edit dialog with a sensible parent window."""
+    root = parent.get_root() if parent is not None else None
+    if isinstance(root, Gtk.Window):
+        dialog.present(root)
+    elif parent is not None:
+        dialog.present(parent)
+    else:
+        dialog.present()

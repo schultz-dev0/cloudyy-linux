@@ -122,5 +122,9 @@ fi
 
 key_count=$(SSH_AUTH_SOCK="$AGENT_SOCK" ssh-add -l 2>/dev/null | grep -c 'SHA256' || true)
 if [[ "${key_count:-0}" -eq 0 ]]; then
-  echo "[ssh-auth] agent ready — no keys loaded. Run: ~/cloudyy_scripts/ssh-auth.sh --setup" >&2
+  # Only prompt for setup if no passphrase is stored — means --setup was never run.
+  # If passphrase IS stored, keys are loading in the background; stay silent.
+  if ! secret-tool lookup ssh-passphrase id_ed25519 >/dev/null 2>&1; then
+    echo "[ssh-auth] agent ready — no keys loaded. Run: ~/cloudyy_scripts/ssh-auth.sh --setup" >&2
+  fi
 fi

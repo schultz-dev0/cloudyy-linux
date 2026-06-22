@@ -4,7 +4,7 @@
   <property name="last-view" type="string" value="ThunarIconView"/>
   <property name="last-icon-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_100_PERCENT"/>
   <property name="last-window-maximized" type="bool" value="true"/>
-  <property name="last-separator-position" type="int" value="161"/>
+  <property name="last-separator-position" type="int" value="190"/>
   <property name="last-show-hidden" type="bool" value="true"/>
   <property name="last-details-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_38_PERCENT"/>
   <property name="last-details-view-column-widths" type="string" value="50,50,121,50,50,431,50,50,574,50,50,89,50,314"/>
@@ -18,4 +18,5 @@
   <property name="last-window-width" type="int" value="1272"/>
   <property name="last-window-height" type="int" value="1382"/>
   <property name="misc-window-title-style" type="string" value="THUNAR_WINDOW_TITLE_STYLE_FULL_PATH_WITH_THUNAR_SUFFIX"/>
+  <property name="last-renamer-dialog-maximized" type="bool" value="true"/>
 </channel>

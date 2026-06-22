@@ -138,6 +138,42 @@ ShellRoot {
         QuickIsland.RecordPickerActivity {}
     }
 
+    // Polls the first kbd_backlight LED device found in /sys/class/leds every 200 ms.
+    // Uses a glob so it works on ASUS, ThinkPad, Dell, Samsung, etc.
+    // sysfs does not emit inotify events on kernel-driven writes, so polling is required.
+    // Prints "level max" to stdout only when the value changes (skips the initial read).
+    Process {
+        running: true
+        command: [
+            "sh", "-c",
+            "led=$(ls -d /sys/class/leds/*kbd_backlight* 2>/dev/null | head -1);" +
+            "[ -n \"$led\" ] || exit 0;" +
+            "f=\"$led/brightness\";" +
+            "m=$(cat \"$led/max_brightness\" 2>/dev/null || echo 3);" +
+            "[ -f \"$f\" ] || exit 0;" +
+            "prev='';" +
+            "while true; do" +
+            "  cur=$(cat \"$f\" 2>/dev/null || echo '');" +
+            "  if [ -n \"$cur\" ] && [ \"$cur\" != \"$prev\" ]; then" +
+            "    [ -n \"$prev\" ] && printf '%s %s\\n' \"$cur\" \"$m\";" +
+            "    prev=\"$cur\";" +
+            "  fi;" +
+            "  sleep 0.2;" +
+            "done"
+        ]
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: line => {
+                const parts = line.trim().split(" ");
+                if (parts.length < 2) return;
+                const level = parseInt(parts[0], 10);
+                const max   = parseInt(parts[1], 10);
+                if (!Number.isNaN(level) && !Number.isNaN(max))
+                    sliderController.showKbdBrightness(level, max);
+            }
+        }
+    }
+
     readonly property string recordingsDir: {
         const home = Quickshell.env("HOME") || "";
         const videos = Quickshell.env("XDG_VIDEOS_DIR") || (home ? home + "/Videos" : "");
