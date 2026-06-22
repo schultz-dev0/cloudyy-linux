@@ -56,13 +56,13 @@ from lib.rows import RowContext
 import lib.hcm_lua as hcm
 import lib.keybind_manager_lua as keybind_manager
 import lib.monitor_editor as monitor_editor
-import lib.edit_dialog as edit_dialog
 import lib.bluetooth_page as bluetooth_page
 import lib.wifi_page as wifi_page
 import lib.audio_page as audio_page
 import lib.cursor_page as cursor_page
 import lib.rules_startup_page as rules_startup_page
 import lib.region_time_page as region_time_page
+import lib.battery_page as battery_page
 import lib.polkit_agent as polkit_agent
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ CLI_PAGE_ALIASES: dict[str, str] = {
     "region": "__region__",
     "time": "__region__",
     "datetime": "__region__",
+    "battery": "__battery__",
 }
 
 
@@ -315,11 +316,12 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__region__": {"id": "__region__", "title": "Region & Time", "icon": "mark-location-symbolic"},
             "__hkbm__": {"id": "__hkbm__", "title": "Keybind Manager", "icon": "input-keyboard-symbolic"},
             "__rules__": {"id": "__rules__", "title": "Rules & Startup", "icon": "preferences-system-symbolic"},
+            "__battery__": {"id": "__battery__", "title": "Battery", "icon": "battery-good-symbolic"},
         }
         categories: list[tuple[str, list[str]]] = [
             ("Visuals",         ["appearance", "wallpapers", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
             ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
-            ("System",          ["__bt__", "__wifi__", "__audio__", "__region__"]),
+            ("System",          ["__bt__", "__wifi__", "__audio__", "__region__", "__battery__"]),
         ]
 
         for title, ids in categories:
@@ -468,6 +470,7 @@ class CloudCenterWindow(Adw.ApplicationWindow):
             "__rules__": lambda: rules_startup_page.RulesStartupPage(self._toast_ov),
             "__audio__": lambda: audio_page.AudioPage(self._toast_ov),
             "__region__": lambda: region_time_page.RegionTimePage(self._toast_ov),
+            "__battery__": lambda: battery_page.BatteryPage(self._toast_ov),
         }
 
         if select_first and pages:

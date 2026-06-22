@@ -13,10 +13,26 @@ use crate::persist::HyprDirs;
 // ── hyprland.lua require-line transforms ────────────────────────────────────
 //
 // The two `activate_*` functions are inverses: one makes the user override the
-// live require line, the other restores the distro source. Both match the
-// Python originals line for line so the output is byte-identical, and tests
-// pin the invariants Python only enforced implicitly (idempotency, dedup,
-// round-trip between user and source).
+// live require line, the other restores the distro source. Matching tolerates
+// trailing comments on the same line so real-world hyprland.lua edits still
+// activate correctly.
+
+/// Parse a `require("…")` line into `(commented, code)` when recognizable.
+fn require_target(line: &str) -> Option<(bool, String)> {
+    let raw = line.trim();
+    let commented = raw.starts_with("--");
+    let body = if commented {
+        raw.strip_prefix("--").map(str::trim)?
+    } else {
+        raw
+    };
+    let code = body.split("--").next()?.trim();
+    if code.starts_with("require(\"") {
+        Some((commented, code.to_string()))
+    } else {
+        None
+    }
+}
 
 /// Flip `hyprland.lua` so it loads `user-configs/user_SURFACE.lua` instead of
 /// `source/SURFACE.lua`.
@@ -24,23 +40,21 @@ pub fn activate_user(text: &str, surface: &str) -> String {
     let source_on = format!("require(\"source.{surface}\")");
     let source_off = format!("-- {source_on}");
     let user_on = format!("require(\"user-configs.user_{surface}\") -- managed by Cloud Center");
-    let user_off = format!("-- {user_on}");
+    let user_code = format!("require(\"user-configs.user_{surface}\")");
 
     let mut out: Vec<String> = Vec::new();
     let mut seen_user = false;
 
     for line in text.split('\n') {
-        let stripped = line.trim();
-        if stripped == source_on {
-            out.push(source_off.clone());
-        } else if stripped == user_on || stripped == user_off {
-            if !seen_user {
-                out.push(user_on.clone());
-                seen_user = true;
+        match require_target(line) {
+            Some((false, code)) if code == source_on => out.push(source_off.clone()),
+            Some((_, code)) if code == user_code => {
+                if !seen_user {
+                    out.push(user_on.clone());
+                    seen_user = true;
+                }
             }
-            // Duplicates dropped.
-        } else {
-            out.push(line.to_string());
+            _ => out.push(line.to_string()),
         }
     }
 
@@ -59,25 +73,23 @@ pub fn activate_user(text: &str, surface: &str) -> String {
 /// the user override line if one exists.
 pub fn activate_source(text: &str, surface: &str) -> String {
     let source_on = format!("require(\"source.{surface}\")");
-    let source_off = format!("-- {source_on}");
     let user_on = format!("require(\"user-configs.user_{surface}\") -- managed by Cloud Center");
+    let user_code = format!("require(\"user-configs.user_{surface}\")");
     let user_off = format!("-- {user_on}");
 
     let mut out: Vec<String> = Vec::new();
     let mut seen_user = false;
 
     for line in text.split('\n') {
-        let stripped = line.trim();
-        if stripped == source_off {
-            out.push(source_on.clone());
-        } else if stripped == user_on || stripped == user_off {
-            if !seen_user {
-                out.push(user_off.clone());
-                seen_user = true;
+        match require_target(line) {
+            Some((true, code)) if code == source_on => out.push(source_on.clone()),
+            Some((_, code)) if code == user_code => {
+                if !seen_user {
+                    out.push(user_off.clone());
+                    seen_user = true;
+                }
             }
-            // Duplicates dropped.
-        } else {
-            out.push(line.to_string());
+            _ => out.push(line.to_string()),
         }
     }
 
@@ -91,13 +103,16 @@ pub fn activate_source(text: &str, surface: &str) -> String {
 /// Whitespace-normalized set of `require("...")` lines that are currently
 /// uncommented. Used by `scan` to decide whether a user override is live.
 pub fn active_requires(text: &str) -> HashSet<String> {
-    text.split('\n')
-        .filter(|line| line.trim_start().starts_with("require(\""))
-        .map(|line| {
-            let stripped = line.trim();
-            match stripped.split_once("--") {
-                Some((code, comment)) => format!("{} -- {}", squeeze(code), squeeze(comment)),
-                None => squeeze(stripped),
+    text.lines()
+        .filter_map(|line| {
+            let (commented, code) = require_target(line)?;
+            if commented { return None; }
+            let marker = line.trim().split_once("--").map(|(_, c)| c.trim());
+            match marker {
+                Some(comment) if !comment.is_empty() => {
+                    Some(format!("{} -- {}", squeeze(&code), squeeze(comment)))
+                }
+                _ => Some(squeeze(&code)),
             }
         })
         .collect()
@@ -163,6 +178,14 @@ mod tests {
 
     fn count(text: &str, needle: &str) -> usize {
         text.matches(needle).count()
+    }
+
+    #[test]
+    fn user_matches_require_with_trailing_comment() {
+        let input = "require(\"source.lookandfeel\") -- distro default\n";
+        let out = activate_user(input, "lookandfeel");
+        assert!(out.contains("-- require(\"source.lookandfeel\")"));
+        assert!(out.contains("require(\"user-configs.user_lookandfeel\") -- managed by Cloud Center"));
     }
 
     #[test]

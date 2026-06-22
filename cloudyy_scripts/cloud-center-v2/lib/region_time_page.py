@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from gi.repository import Adw, GLib, Gtk, Pango
@@ -27,6 +27,7 @@ class RefreshSnapshot:
     saved_mode: str
     saved_lat: str
     saved_lon: str
+    location: geo.GeoLocation | None = field(default=None)
 
 
 class RegionTimePage(Gtk.Box):
@@ -40,6 +41,9 @@ class RegionTimePage(Gtk.Box):
         self.updating = False
         self.tz_busy = False
         self.current_timezone = ""
+        self._tz_row_map: dict[str, Gtk.ListBoxRow] = {}
+        self._tz_current_row: Gtk.ListBoxRow | None = None
+        self._tz_offsets: dict[str, str] = {}
 
         self.build_ui()
         threading.Thread(target=self.load_timezones_worker, daemon=True).start()
@@ -126,16 +130,24 @@ class RegionTimePage(Gtk.Box):
         tz_box.append(self.tz_search)
 
         self.tz_list = Gtk.ListBox()
-        self.tz_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.tz_list.set_selection_mode(Gtk.SelectionMode.NONE)
         self.tz_list.set_activate_on_single_click(True)
         self.tz_list.add_css_class("navigation-sidebar")
+        self.tz_list.set_filter_func(self._tz_filter_func)
         self.tz_list.connect("row-activated", self.on_timezone_activated)
 
-        tz_scroll = Gtk.ScrolledWindow()
-        tz_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        tz_scroll.set_min_content_height(220)
-        tz_scroll.set_child(self.tz_list)
-        tz_box.append(tz_scroll)
+        self.tz_scroll = Gtk.ScrolledWindow()
+        self.tz_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.tz_scroll.set_min_content_height(240)
+        self.tz_scroll.set_child(self.tz_list)
+        tz_box.append(self.tz_scroll)
+
+        self.tz_empty_label = Gtk.Label()
+        self.tz_empty_label.add_css_class("dim-label")
+        self.tz_empty_label.set_margin_top(10)
+        self.tz_empty_label.set_margin_bottom(10)
+        self.tz_empty_label.set_visible(False)
+        tz_box.append(self.tz_empty_label)
 
         tz_group = Adw.PreferencesGroup()
         tz_group.add(tz_box)
@@ -283,12 +295,12 @@ class RegionTimePage(Gtk.Box):
             saved_mode=utility.load_setting("region/location_mode", "auto"),
             saved_lat=utility.load_setting("region/manual_lat", ""),
             saved_lon=utility.load_setting("region/manual_lon", ""),
+            location=geo.get_location(),  # safe: runs in background thread
         )
         GLib.idle_add(self.finish_refresh, snapshot)
 
     def finish_refresh(self, snapshot: RefreshSnapshot) -> bool:
-        location = geo.get_location()
-        self.apply_refresh_ui(snapshot, location)
+        self.apply_refresh_ui(snapshot, snapshot.location)
         return False
 
     def apply_refresh_ui(
@@ -342,7 +354,7 @@ class RegionTimePage(Gtk.Box):
         self.minute_spin.set_value(now.minute)
 
         self.update_manual_controls()
-        self.refilter_timezones()
+        self._update_tz_highlight(timezone)
         self.updating = False
 
     def tick_clock(self) -> bool:
@@ -351,37 +363,53 @@ class RegionTimePage(Gtk.Box):
 
     def load_timezones_worker(self) -> None:
         zones = dt.list_timezones()
-        GLib.idle_add(self.set_timezones, zones)
+        # Pre-compute UTC offsets so the main thread doesn't have to.
+        now_utc = datetime.now(timezone.utc)
+        offsets: dict[str, str] = {}
+        for tz in zones:
+            try:
+                tz_info = ZoneInfo(tz)
+                off = now_utc.astimezone(tz_info).utcoffset()
+                if off is not None:
+                    total = int(off.total_seconds() // 60)
+                    sign = "+" if total >= 0 else "-"
+                    abs_m = abs(total)
+                    offsets[tz] = f"UTC{sign}{abs_m // 60:02d}:{abs_m % 60:02d}"
+                else:
+                    offsets[tz] = ""
+            except Exception:
+                offsets[tz] = ""
+        GLib.idle_add(self.set_timezones, zones, offsets)
 
-    def set_timezones(self, zones: list[str]) -> bool:
+    def set_timezones(self, zones: list[str], offsets: dict[str, str]) -> bool:
         self.timezones = zones
-        self.refilter_timezones()
+        self._tz_offsets = offsets
+        for tz in zones:
+            row = self.make_tz_row(tz, offsets.get(tz, ""))
+            self._tz_row_map[tz] = row
+            self.tz_list.append(row)
+        self._update_tz_highlight(self.current_timezone)
+        GLib.idle_add(self._scroll_to_current_tz)
         return False
 
-    def refilter_timezones(self) -> None:
-        if self.tz_busy:
-            return
+    def _tz_filter_func(self, row: Gtk.ListBoxRow) -> bool:
         q = self.tz_search.get_text().strip().lower()
-        current = self.current_timezone or dt.get_timezone()
+        tz = getattr(row, "tz_name", None)
+        return tz is not None and (not q or q in tz.lower())
 
-        while row := self.tz_list.get_row_at_index(0):
-            self.tz_list.remove(row)
-
-        filtered = [tz for tz in self.timezones if not q or q in tz.lower()]
-        if not filtered:
-            row = Gtk.ListBoxRow()
-            row.set_selectable(False)
-            lbl = Gtk.Label(label=f"No results for '{q}'" if q else "No timezones")
-            lbl.add_css_class("dim-label")
-            lbl.set_margin_top(12)
-            lbl.set_margin_bottom(12)
-            row.set_child(lbl)
-            self.tz_list.append(row)
+    def refilter_timezones(self) -> None:
+        q = self.tz_search.get_text().strip().lower()
+        self.tz_list.invalidate_filter()
+        # Show/hide "no results" label without touching widgets.
+        if q and self.timezones:
+            has_match = any(q in tz.lower() for tz in self.timezones)
+            self.tz_empty_label.set_visible(not has_match)
+            if not has_match:
+                self.tz_empty_label.set_text(f"No results for '{q}'")
         else:
-            for tz in filtered:
-                self.tz_list.append(self.make_tz_row(tz, current))
+            self.tz_empty_label.set_visible(False)
 
-    def make_tz_row(self, tz: str, current: str) -> Gtk.ListBoxRow:
+    def make_tz_row(self, tz: str, utc_offset: str = "") -> Gtk.ListBoxRow:
         row = Gtk.ListBoxRow()
         row.tz_name = tz
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -394,14 +422,42 @@ class RegionTimePage(Gtk.Box):
         lbl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         box.append(lbl)
 
-        if tz == current:
-            check = Gtk.Image.new_from_icon_name("object-select-symbolic")
-            check.set_pixel_size(14)
-            check.add_css_class("accent")
-            box.append(check)
+        if utc_offset:
+            off_lbl = Gtk.Label(label=utc_offset)
+            off_lbl.add_css_class("dim-label")
+            off_lbl.add_css_class("caption")
+            box.append(off_lbl)
+
+        check = Gtk.Image.new_from_icon_name("object-select-symbolic")
+        check.set_pixel_size(14)
+        check.add_css_class("accent")
+        check.set_visible(False)
+        row.check_img = check
+        box.append(check)
 
         row.set_child(box)
         return row
+
+    def _update_tz_highlight(self, tz: str) -> None:
+        if self._tz_current_row is not None:
+            self._tz_current_row.check_img.set_visible(False)
+            self._tz_current_row = None
+        row = self._tz_row_map.get(tz)
+        if row is not None:
+            row.check_img.set_visible(True)
+            self._tz_current_row = row
+
+    def _scroll_to_current_tz(self) -> bool:
+        row = self._tz_row_map.get(self.current_timezone)
+        if row is None or not row.get_mapped():
+            return False
+        alloc = row.get_allocation()
+        if alloc.height == 0:
+            return False
+        adj = self.tz_scroll.get_vadjustment()
+        target = alloc.y + alloc.height / 2 - adj.get_page_size() / 2
+        adj.set_value(max(0.0, min(target, adj.get_upper() - adj.get_page_size())))
+        return False
 
     def update_manual_controls(self) -> None:
         ntp_on = self.ntp_row.get_active()
@@ -425,10 +481,6 @@ class RegionTimePage(Gtk.Box):
         """Run pkexec on the GTK main thread (for root-only helper scripts)."""
         dt.run_pkexec_async(command, on_complete)
 
-    def run_timedatectl_change(self, args: list[str], on_complete) -> None:
-        """Run timedatectl on the GTK main thread (session polkit, not pkexec)."""
-        dt.run_timedatectl_async(args, on_complete)
-
     def on_ntp_changed(self, row: Adw.SwitchRow, _pspec) -> None:
         if self.updating:
             return
@@ -446,16 +498,13 @@ class RegionTimePage(Gtk.Box):
             self.refresh()
             return False
 
-        self.run_timedatectl_change(
-            ["set-ntp", "true" if enabled else "false"],
-            finish,
-        )
+        dt.set_ntp_dbus_async(enabled, finish)
 
     def on_timezone_activated(self, _list: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
         if self.tz_busy or not getattr(row, "tz_name", None):
             return
         tz = row.tz_name
-        if tz == (self.current_timezone or dt.get_timezone()):
+        if tz == self.current_timezone:
             return
 
         self.tz_busy = True
@@ -467,13 +516,14 @@ class RegionTimePage(Gtk.Box):
             self.tz_busy = False
             if ok:
                 self.current_timezone = tz
+                self._update_tz_highlight(tz)
                 self.show_toast(f"Timezone set to {tz}")
             else:
                 self.show_toast(f"Timezone change failed: {msg}", 5)
             self.refresh()
             return False
 
-        self.run_timedatectl_change(["set-timezone", tz], finish)
+        dt.set_timezone_dbus_async(tz, finish)
 
     def on_apply_manual_time(self, _btn: Gtk.Button) -> None:
         if self.ntp_row.get_active():
@@ -482,7 +532,12 @@ class RegionTimePage(Gtk.Box):
         year, month, day = self.calendar.get_date()
         hour = int(self.hour_spin.get_value())
         minute = int(self.minute_spin.get_value())
-        target = datetime(year, month + 1, day, hour, minute)
+        try:
+            tz_info = ZoneInfo(self.current_timezone) if self.current_timezone else None
+        except Exception:
+            tz_info = None
+        local_dt = datetime(year, month + 1, day, hour, minute, tzinfo=tz_info)
+        utc_usec = int(local_dt.timestamp() * 1_000_000)
 
         def finish(ok: bool, msg: str) -> bool:
             if ok:
@@ -492,10 +547,7 @@ class RegionTimePage(Gtk.Box):
             self.refresh()
             return False
 
-        self.run_timedatectl_change(
-            ["set-time", target.strftime("%Y-%m-%d %H:%M:%S")],
-            finish,
-        )
+        dt.set_time_dbus_async(utc_usec, finish)
 
     def on_manual_mode_changed(self, row: Adw.SwitchRow, _pspec) -> None:
         if self.updating:

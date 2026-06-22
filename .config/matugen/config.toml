@@ -63,10 +63,11 @@ output_path = '~/.config/matugen/generated/colors-glass.rasi'
 # input_path = '~/.config/matugen/templates/colors-swaync.css'
 # output_path = '~/.config/matugen/generated/colors-swaync.css'
 
-[templates.swayosd]
-input_path = '~/.config/matugen/templates/colors-swayosd.css'
-output_path = '~/.config/matugen/generated/colors-swayosd.css'
-post_hook = '~/cloudyy_scripts/swayosd/restart_swayosd.sh'
+# swayosd replaced by quickshell keyboard backlight OSD — server no longer started
+# [templates.swayosd]
+# input_path = '~/.config/matugen/templates/colors-swayosd.css'
+# output_path = '~/.config/matugen/generated/colors-swayosd.css'
+# post_hook = '~/cloudyy_scripts/swayosd/restart_swayosd.sh'
 
 [templates.wlogout]
 input_path = '~/.config/matugen/templates/colors.css'

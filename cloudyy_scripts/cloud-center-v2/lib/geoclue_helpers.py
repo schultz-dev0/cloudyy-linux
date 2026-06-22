@@ -6,6 +6,7 @@ import os
 import pwd
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -66,7 +67,7 @@ def read_static_geolocation() -> GeoLocation | None:
         return None
 
 
-def get_location(timeout: float = 8.0) -> GeoLocation | None:
+def get_location(timeout: float = 5.0) -> GeoLocation | None:
     static = read_static_geolocation()
     if is_manual_mode() and static is not None:
         return static
@@ -75,13 +76,21 @@ def get_location(timeout: float = 8.0) -> GeoLocation | None:
         import gi
 
         gi.require_version("Geoclue", "2.0")
-        from gi.repository import Geoclue
+        from gi.repository import Geoclue, Gio
 
-        simple = Geoclue.Simple.new_sync(
-            "cloud-center",
-            Geoclue.AccuracyLevel.EXACT,
-            None,
-        )
+        cancellable = Gio.Cancellable()
+        # Fire-and-forget timer: cancel the sync call if GeoClue is unresponsive.
+        timer = threading.Timer(timeout, cancellable.cancel)
+        timer.start()
+        try:
+            simple = Geoclue.Simple.new_sync(
+                "cloud-center",
+                Geoclue.AccuracyLevel.EXACT,
+                cancellable,
+            )
+        finally:
+            timer.cancel()
+
         loc = simple.get_location()
         if loc is None:
             return static

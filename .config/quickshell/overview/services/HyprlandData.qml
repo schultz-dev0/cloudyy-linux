@@ -11,9 +11,9 @@ import Quickshell.Hyprland
  */
 Singleton {
     id: root
-    property string systemIconTheme: "Papirus-Dark"
+    property string systemIconTheme: "Fluent-green"
     property string homeDir: ""
-    readonly property string genericIconSource: "file:///usr/share/icons/Papirus/128x128/apps/application-default-icon.svg"
+    readonly property string genericIconSource: "file:///usr/share/icons/Fluent-green/scalable/apps/application-default-icon.svg"
     property int maxIconSourcesPerWindow: 96
     property var iconSourcesByNameCache: ({})
     property var iconSourcesByWindowCache: ({})
@@ -161,6 +161,10 @@ Singleton {
             return "dev.vencord.Vesktop";
         if (normalized === "dev.zed.zed" || normalized === "zeditor")
             return "dev.zed.Zed";
+        if (normalized === "steam-native" || normalized === "steam-launcher" || normalized === "steam-icon")
+            return "steam";
+        if (normalized === "md.obsidian.obsidian" || normalized === "appimagekit-obsidian")
+            return "obsidian";
         return normalized;
     }
 
@@ -169,7 +173,7 @@ Singleton {
         const active = `${root.systemIconTheme ?? ""}`.trim();
         if (active.length > 0)
             themes.push(active);
-        for (const fallback of ["hicolor", "Papirus-Dark", "Papirus"]) {
+        for (const fallback of ["hicolor", "Fluent-green", "Fluent", "Adwaita"]) {
             if (!themes.includes(fallback))
                 themes.push(fallback);
         }
@@ -177,7 +181,13 @@ Singleton {
         // Keep candidate list small — probing dozens of missing paths per icon stresses Qt on reload.
         const sizes = ["128x128", "64x64", "48x48"];
         const exts = ["svg", "png"];
-        const iconRoots = ["/usr/share/icons"];
+        const iconRoots = [];
+        const home = `${root.homeDir ?? ""}`.trim();
+        if (home.length > 0) {
+            iconRoots.push(`${home}/.local/share/icons`);
+            iconRoots.push(`${home}/.icons`);
+        }
+        iconRoots.push("/usr/share/icons");
 
         for (const rootPath of iconRoots) {
             for (const theme of themes) {
@@ -191,6 +201,12 @@ Singleton {
 
         pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
         pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
+        if (home.length > 0) {
+            pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.png`);
+            pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.svg`);
+            pushUniqueSource(sources, `file://${home}/.steam/steam/games/${lookupName}.png`);
+            pushUniqueSource(sources, `file://${home}/.local/share/Steam/steam/games/${lookupName}.png`);
+        }
         if (lookupName === "co.anysphere.cursor")
             pushUniqueSource(sources, "file:///usr/share/pixmaps/co.anysphere.cursor.png");
     }
@@ -251,6 +267,19 @@ Singleton {
         if (lowerClass.includes("freecad") || lowerInitialClass.includes("freecad"))
             pushUnique(candidates, "org.freecad.FreeCAD");
 
+        if (lowerClass === "steam" || lowerInitialClass === "steam")
+            pushUnique(candidates, "steam");
+
+        const steamAppMatch = lowerClass.match(/^steam_app_(\d+)$/) ?? lowerInitialClass.match(/^steam_app_(\d+)$/);
+        if (steamAppMatch)
+            pushUnique(candidates, `steam_icon_${steamAppMatch[1]}`);
+
+        if (lowerClass.includes("obsidian") || lowerInitialClass.includes("obsidian")) {
+            pushUnique(candidates, "obsidian");
+            pushUnique(candidates, "md.obsidian.Obsidian");
+            pushUnique(candidates, "Obsidian");
+        }
+
         pushUnique(candidates, "application-default-icon");
         return candidates;
     }
@@ -267,7 +296,7 @@ Singleton {
         if (normalized.startsWith("~"))
             return [`file://${root.homeDir}${normalized.substring(1)}`];
 
-        const currentTheme = `${root.systemIconTheme ?? "Papirus-Dark"}`.trim() || "Papirus-Dark";
+        const currentTheme = `${root.systemIconTheme ?? "Fluent-green"}`.trim() || "Fluent-green";
         const cacheKey = `${currentTheme}|${root.homeDir}|${normalized}`;
         if (root.iconSourcesByNameCache[cacheKey])
             return root.iconSourcesByNameCache[cacheKey];
@@ -350,7 +379,7 @@ Singleton {
 
     Process {
         id: getIconTheme
-        command: ["bash", "-c", "grep '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini | cut -d= -f2"]
+        command: ["bash", "-c", "theme=$(grep -m1 '^gtk-icon-theme-name=' \"$HOME/.config/gtk-3.0/settings.ini\" 2>/dev/null | cut -d= -f2- | tr -d '\\r'); if [[ -z \"$theme\" ]] && command -v gtk-query-settings >/dev/null 2>&1; then theme=$(gtk-query-settings 2>/dev/null | sed -n 's/.*gtk-icon-theme-name: \"\\(.*\\)\"/\\1/p' | head -n1); fi; if [[ -z \"$theme\" ]] && command -v gsettings >/dev/null 2>&1; then theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d \"'\"); fi; printf '%s\\n' \"${theme:-Fluent-green}\""]
         running: true
         stdout: SplitParser {
             onRead: line => {

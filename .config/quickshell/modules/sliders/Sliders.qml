@@ -18,6 +18,8 @@ Scope {
     property real volumeValue: 50
     property bool volumeMuted: false
     property real brightnessValue: 50
+    property real kbdBrightnessValue: 0
+    property real kbdBrightnessMax: 3
     property bool nightLightAvailable: false
     property bool nightLightActive: false
     property int nightLightTemp: 3500
@@ -26,14 +28,16 @@ Scope {
 
     readonly property bool osdVisible: osdKind !== ""
     readonly property string volumeIcon: volumeMuted ? "󰖁" : (volumeValue < 33 ? "󰕿" : volumeValue < 66 ? "󰕾" : "󱄠")
-    readonly property string osdIcon: osdKind === "brightness" ? "󰃠" : (osdKind === "nightlight" ? "󰖙" : volumeIcon)
+    readonly property string osdIcon: osdKind === "brightness" ? "󰃠" : (osdKind === "kbdbrightness" ? "󰌌" : (osdKind === "nightlight" ? "󰖙" : volumeIcon))
     readonly property string osdValueLabel: {
         if (osdKind === "brightness") return Math.round(brightnessValue) + "%";
+        if (osdKind === "kbdbrightness") return Math.round(kbdBrightnessMax > 0 ? kbdBrightnessValue / kbdBrightnessMax * 100 : 0) + "%";
         if (osdKind === "nightlight") return nightLightTemp + "K";
         return volumeMuted ? "Muted" : Math.round(volumeValue) + "%";
     }
     readonly property real osdProgress: {
         if (osdKind === "brightness") return Math.max(0, Math.min(1, brightnessValue / 100));
+        if (osdKind === "kbdbrightness") return kbdBrightnessMax > 0 ? Math.max(0, Math.min(1, kbdBrightnessValue / kbdBrightnessMax)) : 0;
         if (osdKind === "nightlight") return Math.max(0, Math.min(1, (nightLightTemp - 1000) / 5500));
         return volumeMuted ? 0 : Math.max(0, Math.min(1, volumeValue / 100));
     }
@@ -227,6 +231,14 @@ Scope {
     function showBrightness() {
         osdKind = "brightness";
         refreshBrightness();
+        osdTimer.restart();
+    }
+
+    function showKbdBrightness(level, max) {
+        kbdBrightnessValue = level;
+        if (max > 0)
+            kbdBrightnessMax = max;
+        osdKind = "kbdbrightness";
         osdTimer.restart();
     }
 

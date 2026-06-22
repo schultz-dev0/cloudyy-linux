@@ -16,7 +16,10 @@ get_icon_theme() {
     if [[ -z "$theme" ]] && command -v gtk-query-settings >/dev/null 2>&1; then
         theme=$(gtk-query-settings 2>/dev/null | sed -n 's/.*gtk-icon-theme-name: "\(.*\)"/\1/p' | head -n1)
     fi
-    printf '%s\n' "${theme:-Adwaita}"
+    if [[ -z "$theme" ]] && command -v gsettings >/dev/null 2>&1; then
+        theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+    fi
+    printf '%s\n' "${theme:-Fluent-green}"
 }
 
 ICON_THEME="$(get_icon_theme)"
@@ -28,12 +31,12 @@ for dir in \
     "$HOME/.local/share/icons/hicolor" \
     "$HOME/.icons/hicolor" \
     "/usr/share/icons/hicolor" \
-    "$HOME/.local/share/icons/Papirus" \
-    "$HOME/.local/share/icons/Papirus-Dark" \
-    "$HOME/.icons/Papirus" \
-    "$HOME/.icons/Papirus-Dark" \
-    "/usr/share/icons/Papirus" \
-    "/usr/share/icons/Papirus-Dark" \
+    "$HOME/.local/share/icons/Fluent-green" \
+    "$HOME/.local/share/icons/Fluent" \
+    "$HOME/.icons/Fluent-green" \
+    "$HOME/.icons/Fluent" \
+    "/usr/share/icons/Fluent-green" \
+    "/usr/share/icons/Fluent" \
     "$HOME/.local/share/icons/Adwaita" \
     "$HOME/.icons/Adwaita" \
     "/usr/share/icons/Adwaita" \

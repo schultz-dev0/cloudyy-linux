@@ -79,7 +79,12 @@ _HCM_BIN: Final[Path] = Path(
 )
 
 
-def _command_env() -> dict[str, str]:
+def hcm_bin() -> str:
+    """Resolved path to the `hcm` binary."""
+    return str(_HCM_BIN)
+
+
+def command_env() -> dict[str, str]:
     """Ensure user-local tools (hcm, etc.) are reachable from GUI-launched shells."""
     env = os.environ.copy()
     local_bin = str(Path.home() / ".local" / "bin")
@@ -107,7 +112,7 @@ def execute_command(cmd: str, title: str = "", terminal: bool = False) -> bool:
         try:
             result = subprocess.run(
                 argv,
-                env=_command_env(),
+                env=command_env(),
                 capture_output=True,
                 text=True,
                 timeout=60,

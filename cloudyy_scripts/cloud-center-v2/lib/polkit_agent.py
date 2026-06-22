@@ -134,9 +134,8 @@ class CloudCenterPolkitAgent(PolkitAgent.Listener):
         GLib.idle_add(self._pump_queue)
 
     def do_initiate_authentication_finish(self, result) -> bool:
-        task = Gio.Task.get(result, GObject.TYPE_TASK)
         try:
-            return task.propagate_boolean()
+            return result.propagate_boolean()
         except GLib.Error as e:
             log.debug("Polkit auth finish: %s", e.message)
             return False
