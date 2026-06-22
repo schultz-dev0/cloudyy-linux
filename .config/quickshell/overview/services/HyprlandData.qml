@@ -13,8 +13,13 @@ Singleton {
     id: root
     property string systemIconTheme: "Fluent-green"
     property string homeDir: ""
-    readonly property string genericIconSource: "file:///usr/share/icons/Fluent-green/scalable/apps/application-default-icon.svg"
-    property int maxIconSourcesPerWindow: 96
+    property string genericIconSource: {
+        const themed = Quickshell.iconPath("application-default-icon", "");
+        if (themed && `${themed}`.length > 0)
+            return themed;
+        return "file:///usr/share/icons/Fluent-green/scalable/apps/application-default-icon.svg";
+    }
+    property int maxIconSourcesPerWindow: 32
     property var iconSourcesByNameCache: ({})
     property var iconSourcesByWindowCache: ({})
     property var windowList: []
@@ -143,10 +148,28 @@ Singleton {
     }
 
     function maybeTrimIconCaches() {
-        if (cacheObjectSize(iconSourcesByNameCache) > 128)
+        if (cacheObjectSize(iconSourcesByNameCache) > 512)
             iconSourcesByNameCache = {};
-        if (cacheObjectSize(iconSourcesByWindowCache) > 128)
+        if (cacheObjectSize(iconSourcesByWindowCache) > 512)
             iconSourcesByWindowCache = {};
+    }
+
+    function directIconSource(iconName) {
+        const normalized = normalizeIconName(iconName);
+        if (normalized.startsWith("/"))
+            return `file://${normalized}`;
+        if (normalized.startsWith("~")) {
+            const home = `${root.homeDir ?? ""}`.trim();
+            if (home.length > 0)
+                return `file://${home}${normalized.substring(1)}`;
+        }
+        return "";
+    }
+
+    function pushThemedIconSource(sources, iconName) {
+        const themed = Quickshell.iconPath(iconName, "");
+        if (themed && `${themed}`.length > 0)
+            pushUniqueSource(sources, themed);
     }
 
     function resolveIconLookupName(iconName) {
@@ -165,7 +188,23 @@ Singleton {
             return "steam";
         if (normalized === "md.obsidian.obsidian" || normalized === "appimagekit-obsidian")
             return "obsidian";
+        if (normalized === "org.cloudyy.cloudcenter" || normalized.toLowerCase().endsWith("cloudcenter"))
+            return "cloud-center";
         return normalized;
+    }
+
+    function pushCustomAppIconSources(sources, lookupName) {
+        const home = `${root.homeDir ?? ""}`.trim();
+        if (home.length === 0)
+            return;
+
+        for (const ext of ["svg", "png"])
+            pushUniqueSource(sources, `file://${home}/.local/share/icons/cloudyy-apps/${lookupName}.${ext}`);
+
+        pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.png`);
+        pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.svg`);
+        pushUniqueSource(sources, `file://${home}/.steam/steam/games/${lookupName}.png`);
+        pushUniqueSource(sources, `file://${home}/.local/share/Steam/steam/games/${lookupName}.png`);
     }
 
     function pushThemeIconSources(sources, lookupName) {
@@ -173,14 +212,11 @@ Singleton {
         const active = `${root.systemIconTheme ?? ""}`.trim();
         if (active.length > 0)
             themes.push(active);
-        for (const fallback of ["hicolor", "Fluent-green", "Fluent", "Adwaita"]) {
+        for (const fallback of ["Fluent-green", "Fluent", "hicolor", "Adwaita"]) {
             if (!themes.includes(fallback))
                 themes.push(fallback);
         }
 
-        // Keep candidate list small — probing dozens of missing paths per icon stresses Qt on reload.
-        const sizes = ["128x128", "64x64", "48x48"];
-        const exts = ["svg", "png"];
         const iconRoots = [];
         const home = `${root.homeDir ?? ""}`.trim();
         if (home.length > 0) {
@@ -191,28 +227,44 @@ Singleton {
 
         for (const rootPath of iconRoots) {
             for (const theme of themes) {
-                for (const size of sizes) {
-                    for (const ext of exts)
-                        pushUniqueSource(sources, `file://${rootPath}/${theme}/${size}/apps/${lookupName}.${ext}`);
-                }
                 pushUniqueSource(sources, `file://${rootPath}/${theme}/scalable/apps/${lookupName}.svg`);
+                pushUniqueSource(sources, `file://${rootPath}/${theme}/128x128/apps/${lookupName}.svg`);
+                pushUniqueSource(sources, `file://${rootPath}/${theme}/128x128/apps/${lookupName}.png`);
             }
         }
 
         pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.png`);
         pushUniqueSource(sources, `file:///usr/share/pixmaps/${lookupName}.svg`);
-        if (home.length > 0) {
-            pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.png`);
-            pushUniqueSource(sources, `file://${home}/.local/share/pixmaps/${lookupName}.svg`);
-            pushUniqueSource(sources, `file://${home}/.steam/steam/games/${lookupName}.png`);
-            pushUniqueSource(sources, `file://${home}/.local/share/Steam/steam/games/${lookupName}.png`);
-        }
+        pushCustomAppIconSources(sources, lookupName);
         if (lookupName === "co.anysphere.cursor")
             pushUniqueSource(sources, "file:///usr/share/pixmaps/co.anysphere.cursor.png");
     }
 
+    function desktopEntryForClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return null;
+
+        const entry = DesktopEntries.heuristicLookup(cls);
+        if (entry)
+            return entry;
+
+        const lower = cls.toLowerCase();
+        if (lower.includes("cloudcenter"))
+            return DesktopEntries.heuristicLookup("org.cloudyy.cloudcenter")
+                || DesktopEntries.heuristicLookup("Cloud Center");
+
+        if (cls.includes(".")) {
+            const last = cls.split(".").pop();
+            if (last && last !== cls)
+                return DesktopEntries.heuristicLookup(last);
+        }
+
+        return null;
+    }
+
     function iconCandidatesForWindow(window) {
-        const entry = DesktopEntries.heuristicLookup(window?.class || window?.initialClass || window?.initialTitle);
+        const entry = desktopEntryForClass(window?.class || window?.initialClass || window?.initialTitle);
         const candidates = [];
         const rawClass = `${window?.class ?? ""}`.trim();
         const rawInitialClass = `${window?.initialClass ?? ""}`.trim();
@@ -280,6 +332,12 @@ Singleton {
             pushUnique(candidates, "Obsidian");
         }
 
+        if (lowerClass.includes("cloudcenter") || lowerInitialClass.includes("cloudcenter")) {
+            pushUnique(candidates, "cloud-center");
+            if (`${root.homeDir ?? ""}`.trim().length > 0)
+                pushUnique(candidates, `${root.homeDir}/.local/share/icons/cloudyy-apps/cloud-center.svg`);
+        }
+
         pushUnique(candidates, "application-default-icon");
         return candidates;
     }
@@ -288,13 +346,6 @@ Singleton {
         const normalized = normalizeIconName(iconName);
         if (normalized.length === 0)
             return [root.genericIconSource];
-        const lookupName = resolveIconLookupName(normalized);
-
-        if (normalized.startsWith("/"))
-            return [`file://${normalized}`];
-
-        if (normalized.startsWith("~"))
-            return [`file://${root.homeDir}${normalized.substring(1)}`];
 
         const currentTheme = `${root.systemIconTheme ?? "Fluent-green"}`.trim() || "Fluent-green";
         const cacheKey = `${currentTheme}|${root.homeDir}|${normalized}`;
@@ -302,11 +353,23 @@ Singleton {
             return root.iconSourcesByNameCache[cacheKey];
 
         const sources = [];
+        const direct = directIconSource(normalized);
+        if (direct.length > 0)
+            pushUniqueSource(sources, direct);
+
+        const lookupName = resolveIconLookupName(normalized);
+        pushThemedIconSource(sources, lookupName);
+        if (lookupName !== normalized)
+            pushThemedIconSource(sources, normalized);
+
+        pushCustomAppIconSources(sources, lookupName);
         pushThemeIconSources(sources, lookupName);
         pushUniqueSource(sources, root.genericIconSource);
-        root.iconSourcesByNameCache[cacheKey] = sources;
+
+        const capped = sources.slice(0, 20);
+        root.iconSourcesByNameCache[cacheKey] = capped;
         maybeTrimIconCaches();
-        return sources;
+        return capped;
     }
 
     function iconSourcesForWindow(window) {

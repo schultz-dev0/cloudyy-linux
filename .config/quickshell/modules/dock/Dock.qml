@@ -114,7 +114,7 @@ PanelWindow {
     }
 
     function desktopEntryForClass(className) {
-        return DesktopEntries.heuristicLookup(className);
+        return HyprlandData.desktopEntryForClass(className);
     }
 
     function desktopExecForClass(className) {
