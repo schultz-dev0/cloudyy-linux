@@ -103,7 +103,7 @@ PanelWindow {
         implicitWidth: panel.panelWidth
         implicitHeight: contentCol.implicitHeight + panel.padding * 2
         radius: panel.panelRadius
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.9)
+        color: Theme.glassShell
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
         focus: false
@@ -234,7 +234,7 @@ PanelWindow {
                     Rectangle {
                         Layout.fillWidth: true
                         radius: panel.sectionRadius
-                        color: Theme.surface_container
+                        color: Theme.glassSection
                         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                         border.width: 1
                         implicitHeight: storageCol.implicitHeight + 28
@@ -296,7 +296,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
                             radius: panel.sectionRadius
-                            color: Theme.surface_container
+                            color: Theme.glassSection
                             border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                             border.width: 1
                             implicitHeight: netCol.implicitHeight + 28
@@ -343,7 +343,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
                             radius: panel.sectionRadius
-                            color: Theme.surface_container
+                            color: Theme.glassSection
                             border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                             border.width: 1
                             implicitHeight: tempCol.implicitHeight + 28
@@ -413,7 +413,7 @@ PanelWindow {
                     Layout.fillWidth: true
                     implicitHeight: 38
                     radius: 12
-                    color: Theme.surface_container
+                    color: Theme.glassSection
                     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
                     border.width: 1
 
@@ -435,7 +435,7 @@ PanelWindow {
                     Layout.fillWidth: true
                     implicitHeight: 38
                     radius: 12
-                    color: Theme.surface_container
+                    color: Theme.glassSection
                     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
                     border.width: 1
 

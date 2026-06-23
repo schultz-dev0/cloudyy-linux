@@ -65,22 +65,22 @@ hl.bind(
 	{ desc = "Confirm workspace on Super release", release = true, transparent = true, ignore_mods = true }
 )
 
--- ── Rofi ──────────────────────────────────────────────────────────────────────
+-- ── Spotlight / Command Center (Quickshell) ───────────────────────────────────
 
 hl.bind(
+	mainMod .. " + Space",
+	hl.dsp.exec_cmd("qs ipc call spotlight command"),
+	{ desc = "Command Center" }
+)
+hl.bind(
 	mainMod .. " + ALT + Space",
-	hl.dsp.exec_cmd(scripts .. "/rofi/main.sh || pkill rofi"),
-	{ desc = "Rofi menu launch" }
+	hl.dsp.exec_cmd("qs ipc call applibrary open"),
+	{ desc = "App menu" }
 )
 hl.bind(
 	"ALT + Space",
-	hl.dsp.exec_cmd(scripts .. "/rofi/appearance.sh --select || pkill rofi"),
-	{ desc = "Rofi theme menu" }
-)
-hl.bind(
-	mainMod .. " + Space",
-	hl.dsp.exec_cmd(scripts .. "/rofi/applications.sh || pkill rofi"),
-	{ desc = "Open rofi applications" }
+	hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"),
+	{ desc = "Wallpaper menu" }
 )
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────

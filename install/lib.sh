@@ -79,3 +79,61 @@ aur_install() {
   if (( fails > 0 )); then log_warn "${group}: ${fails} package(s) skipped."; fi
   return 0
 }
+
+# AUR installs to /usr/bin; Quickshell and shell PATH use ~/.local/bin (symlinked after install).
+link_aur_binary_to_local_bin() {
+  local name="$1"
+  local aur_pkg="${2:-}"
+  local aur_bin="/usr/bin/${name}"
+  local local_bin="${HOME}/.local/bin/${name}"
+
+  if [[ ! -x "$aur_bin" ]]; then
+    log_error "${name} missing from AUR install: ${aur_bin}"
+    [[ -n "$aur_pkg" ]] && log_error "Expected after: ${AUR_HELPER:-yay} -S ${aur_pkg}"
+    return 1
+  fi
+
+  mkdir -p "${HOME}/.local/bin"
+  ln -snf "$aur_bin" "$local_bin"
+  log_ok "Linked ${local_bin} → ${aur_bin}"
+}
+
+verify_local_binary() {
+  local name="$1"
+  shift
+  local bin="${HOME}/.local/bin/${name}"
+
+  if [[ ! -x "$bin" ]]; then
+    log_error "${name} missing: ${bin}"
+    return 1
+  fi
+
+  if ! "$@" >/dev/null 2>&1; then
+    log_error "${name} failed smoke test: $*"
+    return 1
+  fi
+
+  log_ok "${name} verified at ${bin}"
+}
+
+readonly CLOUDYY_SYSTEM_MONITOR_AUR_PKG="cloudyy-system-monitor-git"
+readonly CLOUDYY_SYSTEM_MONITOR_BIN="${HOME}/.local/bin/cloudyy-system-monitor"
+
+deploy_system_monitor() {
+  link_aur_binary_to_local_bin "cloudyy-system-monitor" "$CLOUDYY_SYSTEM_MONITOR_AUR_PKG"
+}
+
+verify_system_monitor() {
+  verify_local_binary "cloudyy-system-monitor" cloudyy-system-monitor --once
+}
+
+readonly HCM_AUR_PKG="cloudyy-hcm-git"
+readonly HCM_BIN="${HOME}/.local/bin/hcm"
+
+deploy_hcm() {
+  link_aur_binary_to_local_bin "hcm" "$HCM_AUR_PKG"
+}
+
+verify_hcm() {
+  verify_local_binary "hcm" hcm --version
+}

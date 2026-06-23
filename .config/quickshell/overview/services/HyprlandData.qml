@@ -343,33 +343,7 @@ Singleton {
     }
 
     function iconSourcesForName(iconName) {
-        const normalized = normalizeIconName(iconName);
-        if (normalized.length === 0)
-            return [root.genericIconSource];
-
-        const currentTheme = `${root.systemIconTheme ?? "Fluent-green"}`.trim() || "Fluent-green";
-        const cacheKey = `${currentTheme}|${root.homeDir}|${normalized}`;
-        if (root.iconSourcesByNameCache[cacheKey])
-            return root.iconSourcesByNameCache[cacheKey];
-
-        const sources = [];
-        const direct = directIconSource(normalized);
-        if (direct.length > 0)
-            pushUniqueSource(sources, direct);
-
-        const lookupName = resolveIconLookupName(normalized);
-        pushThemedIconSource(sources, lookupName);
-        if (lookupName !== normalized)
-            pushThemedIconSource(sources, normalized);
-
-        pushCustomAppIconSources(sources, lookupName);
-        pushThemeIconSources(sources, lookupName);
-        pushUniqueSource(sources, root.genericIconSource);
-
-        const capped = sources.slice(0, 20);
-        root.iconSourcesByNameCache[cacheKey] = capped;
-        maybeTrimIconCaches();
-        return capped;
+        return IconResolver.sourcesForName(iconName);
     }
 
     function iconSourcesForWindow(window) {

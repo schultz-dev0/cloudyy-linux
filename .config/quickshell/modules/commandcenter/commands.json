@@ -1,0 +1,1065 @@
+[
+  // learn menu commands
+  {
+    "id": "learn",
+    "label": "Learn",
+    "icon": "󰧑",
+    "keywords": [
+      "learn",
+      "help",
+      "wiki"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "learn.arch",
+    "label": "Arch Wiki",
+    "icon": "󰣇",
+    "keywords": [
+      "arch",
+      "wiki"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://wiki.archlinux.org/"
+      ]
+    }
+  },
+  {
+    "id": "learn.hypr",
+    "label": "Hyprland Wiki",
+    "icon": "",
+    "keywords": [
+      "hypr",
+      "hyprland",
+      "wiki"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://wiki.hypr.land/"
+      ]
+    }
+  },
+  {
+    "id": "learn.keybinds",
+    "label": "Keybinds",
+    "icon": "󱊨",
+    "keywords": [
+      "keybinds",
+      "keys",
+      "bindings"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "keybinds"
+    }
+  },
+  {
+    "id": "learn.zen",
+    "label": "Zen Binds",
+    "icon": "󰈹",
+    "keywords": [
+      "zen",
+      "browser",
+      "binds"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "script",
+      "path": "rofi/browser-keybinds.sh"
+    }
+  },
+  {
+    "id": "learn.tmux",
+    "label": "TMUX Cheatsheet",
+    "icon": "󰄛",
+    "keywords": [
+      "tmux",
+      "cheatsheet"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://tmuxcheatsheet.com/"
+      ]
+    }
+  },
+  // tools menu commands
+  {
+    "id": "tools",
+    "label": "Tools",
+    "icon": "󰛔",
+    "keywords": [
+      "tools"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "tools.ocr",
+    "label": "Live Text Extraction",
+    "icon": "󰆍",
+    "keywords": [
+      "ocr",
+      "text",
+      "extract"
+    ],
+    "parent": "tools",
+    "action": {
+      "type": "script",
+      "path": "clipboard/text_extract.sh"
+    }
+  },
+  {
+    "id": "tools.localsend",
+    "label": "LocalSend",
+    "icon": "󰀲",
+    "keywords": [
+      "localsend",
+      "send",
+      "share"
+    ],
+    "parent": "tools",
+    "action": {
+      "type": "exec",
+      "command": [
+        "localsend"
+      ]
+    }
+  },
+  // appearance menu commands
+  {
+    "id": "appearance",
+    "label": "Appearance",
+    "icon": "󰈈",
+    "keywords": [
+      "appearance",
+      "theme",
+      "look"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "appearance.toggle",
+    "label": "Toggle Mode",
+    "icon": "󰔎",
+    "keywords": [
+      "dark",
+      "light",
+      "mode",
+      "toggle",
+      "theme"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "script",
+      "path": "_theme_toggle"
+    }
+  },
+  {
+    "id": "appearance.wallpaper",
+    "label": "Select Wallpaper",
+    "icon": "󰸉",
+    "keywords": [
+      "wallpaper",
+      "background",
+      "select"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "wallpapers"
+    }
+  },
+  {
+    "id": "appearance.next",
+    "label": "Next Wallpaper",
+    "icon": "󰑕",
+    "keywords": [
+      "wallpaper",
+      "next"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "script",
+      "path": "_theme_next"
+    }
+  },
+  {
+    "id": "appearance.scheme",
+    "label": "Color Profile",
+    "icon": "󰎨",
+    "keywords": [
+      "color",
+      "profile",
+      "scheme",
+      "matugen"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "appearance.cycle",
+    "label": "Theme Cycle",
+    "icon": "󰔄",
+    "keywords": [
+      "cycle",
+      "automode"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  // color profile menu commands
+  {
+    "id": "appearance.scheme.tonal",
+    "label": "Tonal Spot",
+    "icon": "󰏘",
+    "keywords": [
+      "tonal",
+      "spot"
+    ],
+    "parent": "appearance.scheme",
+    "action": {
+      "type": "scheme",
+      "scheme": "scheme-tonal-spot"
+    }
+  },
+  {
+    "id": "appearance.scheme.vibrant",
+    "label": "Vibrant",
+    "icon": "󰏘",
+    "keywords": [
+      "vibrant"
+    ],
+    "parent": "appearance.scheme",
+    "action": {
+      "type": "scheme",
+      "scheme": "scheme-vibrant"
+    }
+  },
+  {
+    "id": "appearance.scheme.neutral",
+    "label": "Neutral",
+    "icon": "󰏘",
+    "keywords": [
+      "neutral"
+    ],
+    "parent": "appearance.scheme",
+    "action": {
+      "type": "scheme",
+      "scheme": "scheme-neutral"
+    }
+  },
+  {
+    "id": "appearance.scheme.monochrome",
+    "label": "Monochrome",
+    "icon": "󰏘",
+    "keywords": [
+      "monochrome",
+      "grey"
+    ],
+    "parent": "appearance.scheme",
+    "action": {
+      "type": "scheme",
+      "scheme": "scheme-monochrome"
+    }
+  },
+  // theme cycle menu commands
+  {
+    "id": "cycle.toggle",
+    "label": "Toggle Wallpaper Cycling",
+    "icon": "󰐊",
+    "keywords": [
+      "cycle",
+      "wallpaper"
+    ],
+    "parent": "appearance.cycle",
+    "action": {
+      "type": "cycle",
+      "op": "toggle-cycle"
+    }
+  },
+  {
+    "id": "cycle.interval",
+    "label": "Cycle Interval",
+    "icon": "󱑶",
+    "keywords": [
+      "interval",
+      "cycle"
+    ],
+    "parent": "appearance.cycle",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "cycle.order",
+    "label": "Cycle Order",
+    "icon": "󰒝",
+    "keywords": [
+      "order",
+      "cycle",
+      "random"
+    ],
+    "parent": "appearance.cycle",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "cycle.automode",
+    "label": "Auto Light/Dark",
+    "icon": "󰸘",
+    "keywords": [
+      "automode",
+      "auto",
+      "light",
+      "dark"
+    ],
+    "parent": "appearance.cycle",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  // cycle interval 
+  {
+    "id": "cycle.interval.300",
+    "label": "5 minutes",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "300"
+    }
+  },
+  {
+    "id": "cycle.interval.600",
+    "label": "10 minutes",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "600"
+    }
+  },
+  {
+    "id": "cycle.interval.900",
+    "label": "15 minutes",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "900"
+    }
+  },
+  {
+    "id": "cycle.interval.1800",
+    "label": "30 minutes",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "1800"
+    }
+  },
+  {
+    "id": "cycle.interval.3600",
+    "label": "1 hour",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "3600"
+    }
+  },
+  {
+    "id": "cycle.interval.7200",
+    "label": "2 hours",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "7200"
+    }
+  },
+  {
+    "id": "cycle.interval.14400",
+    "label": "4 hours",
+    "icon": "󱑷",
+    "parent": "cycle.interval",
+    "action": {
+      "type": "cycle",
+      "op": "set-interval",
+      "value": "14400"
+    }
+  },
+  // cycle order 
+  {
+    "id": "cycle.order.random",
+    "label": "Random",
+    "icon": "󰒝",
+    "parent": "cycle.order",
+    "action": {
+      "type": "cycle",
+      "op": "set-order",
+      "value": "random"
+    }
+  },
+  {
+    "id": "cycle.order.sequential",
+    "label": "Sequential",
+    "icon": "󰒼",
+    "parent": "cycle.order",
+    "action": {
+      "type": "cycle",
+      "op": "set-order",
+      "value": "sequential"
+    }
+  },
+  // auto light/dark mode 
+  {
+    "id": "cycle.automode.toggle",
+    "label": "Toggle Auto Switch",
+    "icon": "󰨙",
+    "parent": "cycle.automode",
+    "action": {
+      "type": "cycle",
+      "op": "toggle-automode"
+    }
+  },
+  {
+    "id": "cycle.automode.light",
+    "label": "Light Mode Start",
+    "icon": "󰖙",
+    "parent": "cycle.automode",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "cycle.automode.dark",
+    "label": "Dark Mode Start",
+    "icon": "󰖔",
+    "parent": "cycle.automode",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  // auto light/dark mode  
+  {
+    "id": "cycle.automode.light.5",
+    "label": "05:00",
+    "parent": "cycle.automode.light",
+    "action": {
+      "type": "cycle",
+      "op": "set-light-hour",
+      "value": "5"
+    }
+  },
+  {
+    "id": "cycle.automode.light.6",
+    "label": "06:00",
+    "parent": "cycle.automode.light",
+    "action": {
+      "type": "cycle",
+      "op": "set-light-hour",
+      "value": "6"
+    }
+  },
+  {
+    "id": "cycle.automode.light.7",
+    "label": "07:00",
+    "parent": "cycle.automode.light",
+    "action": {
+      "type": "cycle",
+      "op": "set-light-hour",
+      "value": "7"
+    }
+  },
+  {
+    "id": "cycle.automode.light.8",
+    "label": "08:00",
+    "parent": "cycle.automode.light",
+    "action": {
+      "type": "cycle",
+      "op": "set-light-hour",
+      "value": "8"
+    }
+  },
+  {
+    "id": "cycle.automode.light.9",
+    "label": "09:00",
+    "parent": "cycle.automode.light",
+    "action": {
+      "type": "cycle",
+      "op": "set-light-hour",
+      "value": "9"
+    }
+  },
+  // auto light/dark mode dark
+  {
+    "id": "cycle.automode.dark.17",
+    "label": "17:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "17"
+    }
+  },
+  {
+    "id": "cycle.automode.dark.18",
+    "label": "18:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "18"
+    }
+  },
+  {
+    "id": "cycle.automode.dark.19",
+    "label": "19:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "19"
+    }
+  },
+  {
+    "id": "cycle.automode.dark.20",
+    "label": "20:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "20"
+    }
+  },
+  {
+    "id": "cycle.automode.dark.21",
+    "label": "21:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "21"
+    }
+  },
+  {
+    "id": "cycle.automode.dark.22",
+    "label": "22:00",
+    "parent": "cycle.automode.dark",
+    "action": {
+      "type": "cycle",
+      "op": "set-dark-hour",
+      "value": "22"
+    }
+  },
+  // applications menu commands
+  {
+    "id": "apps",
+    "label": "Applications",
+    "icon": "󰀻",
+    "keywords": [
+      "apps",
+      "applications",
+      "launch"
+    ],
+    "parent": null,
+    "action": {
+      "type": "applibrary"
+    }
+  },
+  // system menu commands 
+  {
+    "id": "system",
+    "label": "System",
+    "icon": "󰹑",
+    "keywords": [
+      "system"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "system.info",
+    "label": "System Info",
+    "icon": "󰢮",
+    "keywords": [
+      "fastfetch",
+      "neofetch",
+      "info"
+    ],
+    "parent": "system",
+    "action": {
+      "type": "script",
+      "path": "_system_info"
+    }
+  },
+  {
+    "id": "system.kill",
+    "label": "Process Killer",
+    "icon": "󰿅",
+    "keywords": [
+      "kill",
+      "process"
+    ],
+    "parent": "system",
+    "action": {
+      "type": "exec",
+      "command": [
+        "hyprctl",
+        "kill"
+      ]
+    }
+  },
+  // settings menu commands
+  {
+    "id": "settings",
+    "label": "Settings",
+    "icon": "",
+    "keywords": [
+      "settings",
+      "cloud",
+      "center"
+    ],
+    "parent": null,
+    "action": {
+      "type": "external",
+      "command": [
+        "uwsm-app",
+        "--",
+        "python3",
+        "_cloud_center"
+      ]
+    }
+  },
+  // packages menu commands
+  {
+    "id": "packages",
+    "label": "Packages",
+    "icon": "󰏖",
+    "keywords": [
+      "packages",
+      "pacman",
+      "install",
+      "remove"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "packages.remove",
+    "label": "Remove Package",
+    "icon": "󰆴",
+    "keywords": [
+      "remove",
+      "uninstall"
+    ],
+    "parent": "packages",
+    "action": {
+      "type": "packages_list",
+      "filter": "explicit"
+    }
+  },
+  {
+    "id": "packages.info",
+    "label": "Package Info",
+    "icon": "󰋼",
+    "keywords": [
+      "info",
+      "pacman",
+      "query"
+    ],
+    "parent": "packages",
+    "action": {
+      "type": "packages_list",
+      "filter": "all"
+    }
+  },
+  // update 
+  {
+    "id": "update",
+    "label": "Update",
+    "icon": "󰚰",
+    "keywords": [
+      "update",
+      "upgrade",
+      "pacman"
+    ],
+    "parent": null,
+    "action": {
+      "type": "script",
+      "path": "_updater"
+    }
+  },
+  // ai menu commands
+  {
+    "id": "ai",
+    "label": "AI",
+    "icon": "󰚩",
+    "keywords": [
+      "ai",
+      "ollama",
+      "llm"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "ai.run",
+    "label": "Run a Model",
+    "icon": "󰚩",
+    "keywords": [
+      "ollama",
+      "run",
+      "chat"
+    ],
+    "parent": "ai",
+    "action": {
+      "type": "ollama_models"
+    }
+  },
+  {
+    "id": "ai.chat",
+    "label": "Chat",
+    "icon": "󰭹",
+    "keywords": [
+      "chat",
+      "webui"
+    ],
+    "parent": "ai",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "ai.models",
+    "label": "Model Management",
+    "icon": "󰇚",
+    "keywords": [
+      "pull",
+      "delete",
+      "models"
+    ],
+    "parent": "ai",
+    "action": {
+      "type": "script",
+      "path": "rofi/ai.sh"
+    }
+  },
+  {
+    "id": "ai.service",
+    "label": "Ollama Service",
+    "icon": "󱐋",
+    "keywords": [
+      "ollama",
+      "service",
+      "daemon"
+    ],
+    "parent": "ai",
+    "action": {
+      "type": "script",
+      "path": "rofi/ai.sh"
+    }
+  },
+  {
+    "id": "ai.learn",
+    "label": "Learn & Resources",
+    "icon": "󰖟",
+    "keywords": [
+      "docs",
+      "ollama",
+      "learn"
+    ],
+    "parent": "ai",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  // ai chat app 
+  {
+    "id": "ai.chat.app",
+    "label": "AI Chat App",
+    "icon": "󰭹",
+    "parent": "ai.chat",
+    "action": {
+      "type": "external",
+      "command": [
+        "gtk-launch",
+        "aichat"
+      ]
+    }
+  },
+  {
+    "id": "ai.chat.webui",
+    "label": "Open WebUI",
+    "icon": "󰏋",
+    "parent": "ai.chat",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "http://localhost:8080/"
+      ]
+    }
+  },
+  // ai learn docs
+  {
+    "id": "ai.learn.docs",
+    "label": "Ollama Docs",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://ollama.com/docs"
+      ]
+    }
+  },
+  {
+    "id": "ai.learn.library",
+    "label": "Ollama Model Library",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://ollama.com/library"
+      ]
+    }
+  },
+  {
+    "id": "ai.learn.github",
+    "label": "Ollama GitHub",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://github.com/ollama/ollama"
+      ]
+    }
+  },
+  {
+    "id": "ai.learn.reddit",
+    "label": "r/LocalLLaMA",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://www.reddit.com/r/LocalLLaMA/"
+      ]
+    }
+  },
+  {
+    "id": "ai.learn.hf",
+    "label": "HuggingFace Hub",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://huggingface.co/models?library=gguf"
+      ]
+    }
+  },
+  {
+    "id": "ai.learn.webui",
+    "label": "Open WebUI Docs",
+    "icon": "󰖟",
+    "parent": "ai.learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://docs.openwebui.com/"
+      ]
+    }
+  },
+  // power menu commands
+  {
+    "id": "power",
+    "label": "Power",
+    "icon": "󰐥",
+    "keywords": [
+      "power",
+      "shutdown",
+      "logout"
+    ],
+    "parent": null,
+    "action": {
+      "type": "powermenu"
+    }
+  },
+  {
+    "id": "power.lock",
+    "label": "Lock",
+    "icon": "󰷛",
+    "keywords": [
+      "lock",
+      "hyprlock"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "exec",
+      "command": [
+        "bash",
+        "-c",
+        "pidof hyprlock || hyprlock"
+      ]
+    }
+  },
+  {
+    "id": "power.suspend",
+    "label": "Suspend",
+    "icon": "󰒲",
+    "keywords": [
+      "suspend",
+      "sleep"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "exec",
+      "command": [
+        "bash",
+        "-c",
+        "pidof hyprlock || hyprlock &; systemctl suspend"
+      ]
+    }
+  },
+  {
+    "id": "power.logout",
+    "label": "Logout",
+    "icon": "󰍃",
+    "keywords": [
+      "logout",
+      "exit"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "exec",
+      "command": [
+        "hyprctl",
+        "dispatch",
+        "exit"
+      ]
+    }
+  },
+  {
+    "id": "power.reboot",
+    "label": "Reboot",
+    "icon": "󰜉",
+    "keywords": [
+      "reboot",
+      "restart"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "exec",
+      "command": [
+        "systemctl",
+        "reboot"
+      ]
+    }
+  },
+  {
+    "id": "power.shutdown",
+    "label": "Shutdown",
+    "icon": "󰐥",
+    "keywords": [
+      "shutdown",
+      "poweroff"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "exec",
+      "command": [
+        "systemctl",
+        "poweroff"
+      ]
+    }
+  },
+  {
+    "id": "power.performance",
+    "label": "Performance",
+    "icon": "󰓅",
+    "keywords": [
+      "performance",
+      "power profile"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "power_profile",
+      "profile": "performance"
+    }
+  },
+  {
+    "id": "power.balanced",
+    "label": "Balanced",
+    "icon": "󱊥",
+    "keywords": [
+      "balanced",
+      "power profile"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "power_profile",
+      "profile": "balanced"
+    }
+  },
+  {
+    "id": "power.saver",
+    "label": "Power Saver",
+    "icon": "󰌪",
+    "keywords": [
+      "power saver",
+      "eco",
+      "battery"
+    ],
+    "parent": "power",
+    "action": {
+      "type": "power_profile",
+      "profile": "power-saver"
+    }
+  }
+]

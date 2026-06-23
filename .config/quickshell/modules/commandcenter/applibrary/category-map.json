@@ -1,0 +1,19 @@
+{
+  "AudioVideo": "Entertainment",
+  "Development": "Development",
+  "Education": "Education",
+  "Game": "Games",
+  "Graphics": "Creativity",
+  "Network": "Internet",
+  "Office": "Productivity",
+  "Science": "Education",
+  "Settings": "Utilities",
+  "System": "Utilities",
+  "Utility": "Utilities",
+  "WebBrowser": "Internet",
+  "IDE": "Development",
+  "Building": "Development",
+  "Audio": "Entertainment",
+  "Video": "Entertainment",
+  "Player": "Entertainment"
+}

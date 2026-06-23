@@ -174,8 +174,8 @@ phase_dotfiles() {
 }
 
 # --- Phase: Binary Seeder ----------------------------------------------------
-# Symlinks shipped binaries (cloudyy_scripts/cloudyy-other/) into ~/.local/bin/
-# so they end up on PATH without a custom export.
+# Symlinks shipped binaries (cloudyy_scripts/cloudyy-other/) into ~/.local/bin/.
+# AUR binaries (hcm, cloudyy-system-monitor) are installed in the packages phase.
 phase_bin_seed() {
   bash "${SCRIPT_DIR}/bin_check.sh" seed "$(dirname "${SCRIPT_DIR}")"
 }

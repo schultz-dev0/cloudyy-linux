@@ -248,6 +248,12 @@ main() {
   aur_install    "Daemons"    "${MANDATORY_AUR_DAEMONS[@]}"
   aur_install    "Interface"  "${MANDATORY_AUR_INTERFACE[@]}"
   aur_install    "Theming"    "${MANDATORY_AUR_THEMING[@]}"
+  aur_install    "Monitoring" "${MANDATORY_AUR_MONITORING[@]}"
+  deploy_system_monitor
+  verify_system_monitor
+  aur_install    "Cloudyy"    "${MANDATORY_AUR_CLOUDYY[@]}"
+  deploy_hcm
+  verify_hcm
 
   log_section "Installing — Standard Packages"
   pacman_install "Standard" "${STANDARD_INSTALL_OFFICIAL[@]}"

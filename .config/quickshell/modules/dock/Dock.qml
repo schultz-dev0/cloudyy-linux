@@ -647,7 +647,7 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: dock.launch(["bash", "-c", "$HOME/cloudyy_scripts/rofi/applications.sh"])
+                    onClicked: dock.launch(["qs", "ipc", "call", "applibrary", "open"])
                 }
             }
         }

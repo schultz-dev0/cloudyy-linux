@@ -9,89 +9,8 @@ query="${1:-}"
 [[ -z "$query" ]] && exit 0
 
 MAX_FILE="${MAX_FILE_RESULTS:-10}"
-
-get_icon_theme() {
-    local theme
-    theme=$(grep -m1 '^gtk-icon-theme-name=' "$HOME/.config/gtk-3.0/settings.ini" 2>/dev/null | cut -d= -f2- | tr -d '\r')
-    if [[ -z "$theme" ]] && command -v gtk-query-settings >/dev/null 2>&1; then
-        theme=$(gtk-query-settings 2>/dev/null | sed -n 's/.*gtk-icon-theme-name: "\(.*\)"/\1/p' | head -n1)
-    fi
-    if [[ -z "$theme" ]] && command -v gsettings >/dev/null 2>&1; then
-        theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
-    fi
-    printf '%s\n' "${theme:-Fluent-green}"
-}
-
-ICON_THEME="$(get_icon_theme)"
-icon_dirs=()
-for dir in \
-    "$HOME/.local/share/icons/$ICON_THEME" \
-    "$HOME/.icons/$ICON_THEME" \
-    "/usr/share/icons/$ICON_THEME" \
-    "$HOME/.local/share/icons/hicolor" \
-    "$HOME/.icons/hicolor" \
-    "/usr/share/icons/hicolor" \
-    "$HOME/.local/share/icons/cloudyy-apps" \
-    "$HOME/.local/share/icons/Fluent-green" \
-    "$HOME/.local/share/icons/Fluent" \
-    "$HOME/.icons/Fluent-green" \
-    "$HOME/.icons/Fluent" \
-    "/usr/share/icons/Fluent-green" \
-    "/usr/share/icons/Fluent" \
-    "$HOME/.local/share/icons/Adwaita" \
-    "$HOME/.icons/Adwaita" \
-    "/usr/share/icons/Adwaita" \
-    "$HOME/.local/share/icons" \
-    "$HOME/.icons" \
-    "/usr/share/icons" \
-    "$HOME/.local/share/pixmaps" \
-    "/usr/share/pixmaps"
-do
-    [[ -d "$dir" ]] && icon_dirs+=("$dir")
-done
-
-resolve_icon_path() {
-    local candidate normalized dir match expanded
-
-    for candidate in "$@"; do
-        [[ -z "$candidate" ]] && continue
-        normalized="${candidate#file://}"
-
-        # Handle absolute paths
-        if [[ "$normalized" = /* && -f "$normalized" ]]; then
-            printf '%s\n' "$normalized"
-            return 0
-        fi
-
-        # Handle tilde paths
-        if [[ "$normalized" = \~/* ]]; then
-            expanded="${normalized/#\~/$HOME}"
-            if [[ -f "$expanded" ]]; then
-                printf '%s\n' "$expanded"
-                return 0
-            fi
-        fi
-
-        normalized="${normalized##*/}"
-        normalized="${normalized%.*}"
-        [[ -z "$normalized" ]] && continue
-
-        for dir in "${icon_dirs[@]}"; do
-            match=$(find "$dir" -type f \( \
-                -iname "${normalized}.svg" -o \
-                -iname "${normalized}.png" -o \
-                -iname "${normalized}.xpm" -o \
-                -iname "${normalized}.ico" \
-            \) -print -quit 2>/dev/null)
-            if [[ -n "$match" ]]; then
-                printf '%s\n' "$match"
-                return 0
-            fi
-        done
-    done
-
-    return 1
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ICON_RESOLVE="${SCRIPT_DIR}/../../overview/services/icon_resolve.py"
 
 mapfile -t app_dirs < <(
     for d in "/usr/share/applications" "$HOME/.local/share/applications"; do
@@ -115,7 +34,7 @@ for desktop in "${desktop_matches[@]}"; do
     [[ -z "$wmclass" ]] && wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
     desktop_id=$(basename "$desktop" .desktop)
     exec_base=$(basename "${exec%% *}" 2>/dev/null)
-    icon_path=$(resolve_icon_path "$icon" "$desktop_id" "$wmclass" "$exec_base")
+    icon_path=$(python3 "$ICON_RESOLVE" resolve "$icon" "$desktop_id" "$wmclass" "$exec" 2>/dev/null || true)
     [[ -z "$name" || -z "$exec" ]] && continue
     jq -cn \
       --arg name    "$name" \
@@ -127,9 +46,24 @@ for desktop in "${desktop_matches[@]}"; do
 done
 
 # ── File search ─────────────────────────────────────────────────────────────
-if [[ ${#query} -ge 4 ]]; then
-    fd --ignore-case --max-depth 2 --max-results "$MAX_FILE" -- "$query" "$HOME" 2>/dev/null \
-    | while IFS= read -r path; do
+if [[ ${#query} -ge 3 ]]; then
+    search_paths() {
+        fd --ignore-case --max-depth 3 --max-results "$MAX_FILE" -- "$1" "$HOME" 2>/dev/null
+    }
+    mapfile -t file_matches < <(
+        {
+            search_paths "$query"
+            # camelCase → "RustProjects" also matches rust + projects path segments
+            if [[ "$query" =~ [a-z][A-Z] ]]; then
+                split=$(printf '%s' "$query" | sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g')
+                for part in $split; do
+                    [[ ${#part} -ge 3 ]] && search_paths "$part"
+                done
+            fi
+        } | awk '!seen[$0]++'
+    )
+    for path in "${file_matches[@]}"; do
+        [[ -z "$path" ]] && continue
         name=$(basename "$path")
         jq -cn --arg name "$name" --arg path "$path" \
           '{type:"file",name:$name,path:$path}'

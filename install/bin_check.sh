@@ -24,10 +24,8 @@ readonly BIN_TARGET_DIR="${HOME}/.local/bin"
 readonly BACKUP_DIR="${HOME}/.config/cloudyy-backups/$(date +%Y%m%d_%H%M%S)/bin"
 
 # Curated list of binary file names shipped under cloudyy_scripts/cloudyy-other/.
-# Add a new entry here when a new binary lands in that directory.
+# AUR-managed binaries (hcm, cloudyy-system-monitor) are installed in the packages phase.
 readonly -a BIN_NAMES=(
-  cloudyy-system-monitor
-  hcm
   # rusty_keys     # add when the binary lands in cloudyy-other/
 )
 
@@ -81,12 +79,17 @@ cmd_seed() {
   local repo_dir="${1:-$DEFAULT_REPO_DIR}"
   local bin_source_dir="${repo_dir}/cloudyy_scripts/cloudyy-other"
 
+  mkdir -p "$BIN_TARGET_DIR"
+
+  if [[ ${#BIN_NAMES[@]} -eq 0 ]]; then
+    log_skip "No repo-shipped binaries configured (AUR packages use packages phase)"
+    return 0
+  fi
+
   if [[ ! -d "$bin_source_dir" ]]; then
     log_error "Binary source directory not found: ${bin_source_dir}"
     return 1
   fi
-
-  mkdir -p "$BIN_TARGET_DIR"
 
   local seeded=0 unchanged=0 skipped=0 errors=0
 

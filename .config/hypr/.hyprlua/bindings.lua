@@ -33,14 +33,14 @@ hl.bind("ALT + 6", hl.dsp.exec_cmd("pkill -x visinput || " .. scripts .. "/cloud
 hl.bind(mainMod .. " + CTRL + S", hl.dsp.exec_cmd(scripts .. "/cloudyy-other/hyprdock hyprdock -s"),
     { desc = "Open spotlight search" })
 
--- ── Rofi ──────────────────────────────────────────────────────────────────────
+-- ── Command Center (Quickshell) ───────────────────────────────────────────────
 
-hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd(scripts .. "/rofi/main.sh || pkill rofi"),
-    { desc = "Rofi menu launch" })
-hl.bind("ALT + Space", hl.dsp.exec_cmd(scripts .. "/rofi/appearance.sh --select || pkill rofi"),
-    { desc = "Rofi theme menu" })
-hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd(scripts .. "/rofi/applications.sh || pkill rofi"),
-    { desc = "Open rofi applications" })
+hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd("qs ipc call applibrary open"),
+    { desc = "App menu" })
+hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"),
+    { desc = "Wallpaper menu" })
+hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd("qs ipc call spotlight command"),
+    { desc = "Command Center" })
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 

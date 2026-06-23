@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "../.."
+import "../../overview/services"
 
 Item {
     id: root
@@ -41,30 +42,13 @@ Item {
             width: 28; height: 28
             anchors.verticalCenter: parent.verticalCenter
 
-            Image {
+            AppIcon {
                 id: iconImg
                 anchors.fill: parent
-                property int fallbackStage: 0
-                property string resolvedIconPath: root.resultData.iconPath ?? ""
-                property string baseIcon: root.resultData.icon ?? "application-x-executable"
-                onResolvedIconPathChanged: fallbackStage = 0
-                onBaseIconChanged: fallbackStage = 0
-                sourceSize: Qt.size(56, 56)
-                smooth:     true
                 visible: root.resultData.type === "app"
-                source: {
-                    if (root.resultData.type !== "app")
-                        return "";
-                    if (fallbackStage === 0 && resolvedIconPath.length > 0)
-                        return resolvedIconPath.startsWith("file://") ? resolvedIconPath : `file://${resolvedIconPath}`;
-                    if (fallbackStage <= 1)
-                        return Quickshell.iconPath(baseIcon, "image://icon/application-x-executable");
-                    return "image://icon/application-x-executable";
-                }
-                onStatusChanged: {
-                    if (status === Image.Error && fallbackStage < 2)
-                        fallbackStage++;
-                }
+                iconSize: 28
+                iconName: root.resultData.icon ?? "application-x-executable"
+                iconPath: root.resultData.iconPath ?? ""
             }
 
             Text {
@@ -79,6 +63,8 @@ Item {
                     if (root.resultData.type === "file") return "󰈔";
                     if (root.resultData.type === "calculator") return "󰃬";
                     if (root.resultData.type === "currency") return "󰄔";
+                    if (root.resultData.type === "command" || root.resultData.type === "keybind")
+                        return root.resultData.icon || "󰧭";
                     return "󰖟";
                 }
             }
@@ -97,15 +83,26 @@ Item {
                         return `Search DDG for "${root.resultData.query}"`;
                     if (root.resultData.type === "calculator" || root.resultData.type === "currency")
                         return root.resultData.result;
+                    if (root.resultData.type === "command" || root.resultData.type === "keybind")
+                        return root.resultData.name ?? root.resultData.label ?? "";
                     return root.resultData.name ?? "";
                 }
-                color: (root.resultData.type === "calculator" || root.resultData.type === "currency")
-                    ? Theme.on_surface
-                    : (root.resultData.type === "web"
-                        ? Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6)
-                        : Theme.textPrimary)
+                color: {
+                    if (root.resultData.type === "calculator" || root.resultData.type === "currency")
+                        return Theme.on_surface;
+                    if (root.resultData.type === "command" || root.resultData.type === "keybind") {
+                        if (root.resultData.isActive)
+                            return Theme.primary;
+                        return Theme.textPrimary;
+                    }
+                    if (root.resultData.type === "web")
+                        return Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6);
+                    return Theme.textPrimary;
+                }
                 font.pixelSize: (root.resultData.type === "calculator" || root.resultData.type === "currency") ? 15 : 13
-                font.weight:    (root.resultData.type === "calculator" || root.resultData.type === "currency") ? Font.Medium : Font.Normal
+                font.weight: (root.resultData.type === "calculator" || root.resultData.type === "currency")
+                    ? Font.Medium
+                    : (root.resultData.isActive ? Font.DemiBold : Font.Normal)
                 font.family:    "JetBrainsMono Nerd Font"
                 elide: Text.ElideRight
             }
@@ -114,6 +111,7 @@ Item {
                 width:   parent.width
                 visible: root.resultData.type === "app" || root.resultData.type === "file"
                          || root.resultData.type === "calculator" || root.resultData.type === "currency"
+                         || root.resultData.type === "command" || root.resultData.type === "keybind"
                 text:    {
                     if (root.resultData.type === "app")
                         return root.resultData.isRunning ? "Running" : (root.resultData.exec ?? "");
@@ -121,6 +119,8 @@ Item {
                         return root.resultData.expression ?? "";
                     if (root.resultData.type === "currency")
                         return root.resultData.subtitle ?? root.resultData.expression ?? "";
+                    if (root.resultData.type === "command" || root.resultData.type === "keybind")
+                        return root.resultData.subtitle ?? "";
                     return root.resultData.path ?? "";
                 }
                 color:   Theme.textMuted

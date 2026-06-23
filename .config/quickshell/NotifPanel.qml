@@ -6,6 +6,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import "modules/controlcenter"
 import "modules/controlcenter/tiles"
 import "modules/calendar"
@@ -124,12 +125,17 @@ PanelWindow {
     color: "transparent"
     visible: open
 
+    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.namespace: "quickshell:control"
+    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.exclusiveZone: 0
+
     // ── Panel shell ───────────────────────────────────────────────────────────
     Rectangle {
         id: panelShell
         anchors.fill: parent
         radius: panel.panelRadius
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
+        color: Theme.glassShell
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
 
@@ -250,7 +256,7 @@ PanelWindow {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
                 radius: panel.sectionRadius
-                color: Theme.surface_container
+                color: Theme.glassSection
                 border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                 border.width: 1
                 implicitHeight: 72
@@ -357,7 +363,7 @@ PanelWindow {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
                 radius: panel.sectionRadius
-                color: Theme.surface_container
+                color: Theme.glassSection
                 border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                 border.width: 1
                 implicitHeight: 72
@@ -543,8 +549,8 @@ PanelWindow {
                             height: cardContent.implicitHeight + 28
                             radius: 18
                             color: cardWrapper.modelData.urgency === 2
-                                ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
-                                : Theme.surface_container
+                                ? Qt.tint(Theme.glassSection, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
+                                : Theme.glassSection
                             border.color: cardWrapper.modelData.urgency === 2
                                 ? Theme.error
                                 : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
