@@ -176,6 +176,16 @@ Singleton {
         const rows = payload.wallpapers || [];
         if (!Array.isArray(rows))
             return false;
+        // Skip re-rendering the grid if the wallpaper set hasn't changed.
+        // wallpapers.sh always re-runs as a background refresh; without this guard
+        // the ListView would rebuild all delegates and reload images unnecessarily.
+        if (wallpapers.length > 0 && rows.length === wallpapers.length) {
+            const unchanged = rows.every((w, i) => wallpapers[i] && w.path === wallpapers[i].path && w.thumb === wallpapers[i].thumb);
+            if (unchanged) {
+                loading = false;
+                return true;
+            }
+        }
         wallpapers = rows;
         loading = false;
         refreshFiltered();

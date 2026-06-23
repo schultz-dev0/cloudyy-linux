@@ -1,3 +1,21 @@
--- Explicit bridge to the shared color loader while Task 2 still relies on
--- the existing .hyprlua implementation.
-return dofile(os.getenv("HOME") .. "/.config/hypr/.hyprlua/colors.lua")
+-- Hyprland theme tokens from matugen (generated hyprcolors.conf).
+-- Source: ~/.config/matugen/generated/hyprcolors.conf
+
+local M = {}
+
+local path = os.getenv("HOME") .. "/.config/matugen/generated/hyprcolors.conf"
+local f = io.open(path, "r")
+if f then
+	for line in f:lines() do
+		local name, value = line:match("^%$(%w+)%s*=%s*(.-)%s*$")
+		if name and value and value ~= "" then
+			M[name] = value
+		end
+	end
+	f:close()
+end
+
+M.primary = M.primary or "rgba(88c0d0ff)"
+M.inverse_on_surface = M.inverse_on_surface or "rgba(595959aa)"
+
+return M

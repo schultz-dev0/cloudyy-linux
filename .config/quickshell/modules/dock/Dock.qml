@@ -475,7 +475,7 @@ PanelWindow {
             height: dock.pillHeight
             anchors.bottom: parent.bottom
             radius: dock.paddingV + dock.iconSize * 0.22
-            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.72)
+            color: Theme.glassShell
         }
 
         // Icon row (search button pinned left + app icons)

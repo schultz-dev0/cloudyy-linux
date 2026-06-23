@@ -71,18 +71,38 @@ PanelWindow {
     property bool calculatorOpen: false
     property var notifServer: null
     property var sliderController: null
+    property bool suppressLayoutAnim: false
     signal close
     signal dndToggle
     signal calculatorToggle
+
+    readonly property int openFadeMs: Perf.msHalf(80)
+
+    function snapNotificationsEmpty() {
+        suppressLayoutAnim = true;
+        visibleNotifications = [];
+    }
+
+    function endNotificationSnap() {
+        suppressLayoutAnim = false;
+        refreshVisibleNotifications();
+    }
     onOpenChanged: {
-        if (open && sliderController)
-            sliderController.refreshAll();
-        if (open) {
-            panel.refreshVisibleNotifications();
-            panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
+        if (!open)
+            return;
+
+        panel.refreshVisibleNotifications();
+        panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
+
+        // Defer tile/slider refresh so open animation isn't blocked on subprocess I/O.
+        Qt.callLater(() => {
+            if (!panel.open)
+                return;
+            if (panel.sliderController)
+                panel.sliderController.refreshAll();
             wifibtTile.refresh();
             darkTile.refresh();
-        }
+        });
     }
 
     // ── Clock ─────────────────────────────────────────────────────────────────
@@ -140,15 +160,10 @@ PanelWindow {
         border.width: 1
 
         opacity: panel.open ? 1 : 0
-        scale: panel.open ? 1 : 0.94
         transformOrigin: Item.TopRight
         Behavior on opacity {
             enabled: Perf.animationsEnabled
-            NumberAnimation { duration: Perf.msHalf(180); easing.type: Easing.OutCubic }
-        }
-        Behavior on scale {
-            enabled: Perf.animationsEnabled
-            NumberAnimation { duration: Perf.msHalf(200); easing.type: Easing.OutCubic }
+            NumberAnimation { duration: panel.openFadeMs; easing.type: Easing.OutQuad }
         }
 
         ColumnLayout {
@@ -493,26 +508,24 @@ PanelWindow {
                 readonly property int maxVisible: panel.notifPanelMaxVisible
                 readonly property int peekHeight: 12  // px each card peeks below the one in front
                 readonly property int widthInset:  8  // px inset on each side per depth level
+                readonly property int stackUnitHeight: panel.notifCardShadowTopInset
+                                                     + 96
+                                                     + panel.notifCardShadowBottomInset
 
-                // Front-card height kept in sync via delegate bindings below.
-                property real frontCardHeight: panel.notifCardShadowTopInset
-                                             + 72
-                                             + panel.notifCardShadowBottomInset
+                readonly property int notifCount: panel.trackedCount
+                readonly property int displayCount: notifStack.suppressLayoutAnim
+                    ? panel.visibleNotifications.length
+                    : notifCount
+                readonly property int shownCount: Math.min(displayCount, maxVisible)
+                readonly property bool suppressLayoutAnim: panel.suppressLayoutAnim
 
-                readonly property int notifCount: panel.open ? panel.trackedCount : 0
-                readonly property int shownCount: Math.min(notifCount, maxVisible)
-
-                implicitHeight: notifCount === 0
+                implicitHeight: displayCount === 0
                     ? panel.emptyNotifHeight
-                    : frontCardHeight + Math.max(0, shownCount - 1) * peekHeight
-
-                Behavior on implicitHeight {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-                }
+                    : stackUnitHeight + Math.max(0, shownCount - 1) * peekHeight
 
                 Repeater {
                     id: notifRepeater
-                    model: panel.open ? panel.visibleNotifications : []
+                    model: panel.visibleNotifications
 
                     delegate: Item {
                         id: cardWrapper
@@ -520,7 +533,7 @@ PanelWindow {
                         required property var modelData
                         required property int index
 
-                        visible: index < notifStack.maxVisible
+                        visible: panel.open && index < notifStack.maxVisible
 
                         // Higher index = further back = lower z = rendered first.
                         z:       notifStack.maxVisible - index
@@ -531,13 +544,6 @@ PanelWindow {
                         width:   notifStack.width - (index * notifStack.widthInset * 2)
                         height:  panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
                         opacity: 1.0 - (index * 0.18)
-
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
-
-                        // Keep the stack container's implicitHeight in sync with
-                        // the actual front-card height (content may wrap/grow).
-                        onHeightChanged:       if (index === 0) notifStack.frontCardHeight = height
-                        Component.onCompleted: if (index === 0) notifStack.frontCardHeight = height
 
                         ElevatedEffect { target: card }
 
@@ -609,7 +615,7 @@ PanelWindow {
 
                 Text {
                     anchors.centerIn: parent
-                    visible:          notifStack.notifCount === 0
+                    visible:          notifStack.displayCount === 0
                     text:             "No notifications"
                     color:            Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.4)
                     font.family:      "JetBrainsMono Nerd Font"

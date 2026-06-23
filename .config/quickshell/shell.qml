@@ -295,9 +295,11 @@ ShellRoot {
                 list[list.length - 1].dismiss();
         }
         function clearAll() {
+            notifPanel.snapNotificationsEmpty();
             const list = notifServer.trackedNotifications.values.slice();
             for (const notif of list)
                 notif.dismiss();
+            Qt.callLater(() => notifPanel.endNotificationSnap());
         }
     }
 
@@ -379,6 +381,16 @@ ShellRoot {
 
     // ── Components ───────────────────────────────────────────────────────────
     Variants {
+        id: barVignetteVariants
+        model: root.barScreens
+
+        BarVignette {
+            required property var modelData
+            assignedScreen: modelData
+        }
+    }
+
+    Variants {
         id: barVariants
         model: root.barScreens
 
@@ -398,6 +410,7 @@ ShellRoot {
     }
 
     NotifPanel {
+        id: notifPanel
         open: root.notifOpen
         dnd: root.dnd
         calculatorOpen: root.calculatorOpen

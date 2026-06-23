@@ -381,6 +381,7 @@ Scope {
             visible: sliders.osdVisible
             color: "transparent"
             WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "quickshell:sliders"
 
             Rectangle {
                 width: 280
@@ -389,7 +390,7 @@ Scope {
                 anchors.top: parent.top
                 anchors.topMargin: 16
                 radius: 20
-                color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.92)
+                color: Theme.glassShell
                 border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.28)
                 border.width: 1
 
