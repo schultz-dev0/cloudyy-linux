@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instant wallpaper catalog read for Quickshell (no find / thumbnail work).
+# Instant wallpaper catalog read for Quickshell
 set -euo pipefail
 
 home="${HOME:-$(printf '%s' ~)}"

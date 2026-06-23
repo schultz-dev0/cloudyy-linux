@@ -167,67 +167,96 @@ hl.window_rule({
 
 -- ── Layer rules ───────────────────────────────────────────────────────────────
 
--- Quickshell --
+-- Quickshell layer blur standard (match Control Center):
+--   blur = true, ignore_alpha = 0.2
+-- Panel shells should use Theme.glassShell / Theme.glassSection in QML.
+
+hl.layer_rule({
+	name = "quickshell_bar_vignette",
+	match = { namespace = "^(quickshell:bar-vignette)$" },
+	blur = false,
+})
+
+hl.layer_rule({
+	name = "quickshell_panel",
+	match = { namespace = "^(quickshell)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
 
 hl.layer_rule({
 	name = "quickshell_command",
-	match = { namespace = "^(.*quickshell:command)$" },
+	match = { namespace = "^(quickshell:command)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_control",
-	match = { namespace = "^(.*quickshell:control)$" },
+	match = { namespace = "^(quickshell:control)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_system",
-	match = { namespace = "^(.*quickshell:system)$" },
-	blur = true,
-	ignore_alpha = 0.2,
-})
-
-hl.layer_rule({
-	name = "quickshell_panel",
-	match = { namespace = "^(.*quickshell)$" },
+	match = { namespace = "^(quickshell:system)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_overview",
-	match = { namespace = "^(.*quickshell:overview)$" },
+	match = { namespace = "^(quickshell:overview)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_dock",
-	match = { namespace = "^(.*quickshell:dock)$" },
+	match = { namespace = "^(quickshell:dock)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_notifications",
-	match = { namespace = "^(.*quickshell:notifications)$" },
+	match = { namespace = "^(quickshell:notifications)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_island",
-	match = { namespace = "^(.*quickshell:island)$" },
+	match = { namespace = "^(quickshell:island)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({
 	name = "quickshell_calculator",
-	match = { namespace = "^(.*quickshell:calculator)$" },
+	match = { namespace = "^(quickshell:calculator)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_timer",
+	match = { namespace = "^(quickshell:timer)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_calendar",
+	match = { namespace = "^(quickshell:calendar)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_sliders",
+	match = { namespace = "^(quickshell:sliders)$" },
 	blur = true,
 	ignore_alpha = 0.2,
 })

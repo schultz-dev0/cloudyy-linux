@@ -99,7 +99,7 @@ PanelWindow {
         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
         implicitHeight: contentCol.implicitHeight + timerWindow.padding * 2
         radius: timerWindow.panelRadius
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.9)
+        color: Theme.glassShell
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
 

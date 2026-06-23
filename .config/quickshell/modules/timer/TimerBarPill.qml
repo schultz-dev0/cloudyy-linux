@@ -6,16 +6,25 @@ import "../.."
 Rectangle {
     id: pill
 
+    // Plain mode: no pill background (macOS floating bar)
+    property bool plain: false
+    property color fg: Theme.on_surface_variant
+    property color fgActive: Theme.primary
+    property color fgWarn: Theme.error
+    property color fgMuted: Theme.on_surface_variant
+
     readonly property var   pt:      TimerService.primaryTimer
     readonly property bool  warning: TimerService.hasCountdownWarning
     readonly property int   count:   TimerService.runningCount
 
-    implicitWidth:  contentRow.implicitWidth + 16
-    implicitHeight: 28
-    radius:         14
-    color:          Qt.rgba(Theme.surface_container.r,
-                            Theme.surface_container.g,
-                            Theme.surface_container.b, 0.8)
+    implicitWidth:  contentRow.implicitWidth + (plain ? 0 : 16)
+    implicitHeight: plain ? 24 : 28
+    radius:         plain ? 0 : 14
+    color:          plain
+        ? "transparent"
+        : Qt.rgba(Theme.surface_container.r,
+                  Theme.surface_container.g,
+                  Theme.surface_container.b, 0.8)
 
     Behavior on implicitWidth { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
@@ -29,9 +38,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text:  pill.pt ? "▶" : "⏱"
             color: {
-                if (!pill.pt)      return Theme.on_surface_variant
-                if (pill.warning)  return Theme.error
-                return Theme.primary
+                if (!pill.pt)      return pill.plain ? pill.fgMuted : Theme.on_surface_variant
+                if (pill.warning)  return pill.plain ? pill.fgWarn : Theme.error
+                return pill.plain ? pill.fgActive : Theme.primary
             }
             font.pixelSize: 11
             font.family:    "JetBrainsMono Nerd Font"
@@ -50,7 +59,9 @@ Rectangle {
                 }
                 return fmtTime(pill.pt.elapsedSeconds)
             }
-            color: pill.warning ? Theme.error : Theme.primary
+            color: pill.warning
+                ? (pill.plain ? pill.fgWarn : Theme.error)
+                : (pill.plain ? pill.fgActive : Theme.primary)
             font.pixelSize: 12
             font.family:    "JetBrainsMono Nerd Font"
             font.weight:    Font.Bold
@@ -60,7 +71,7 @@ Rectangle {
         // "+N" badge for multiple running timers
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            visible: pill.count > 1
+            visible: !pill.plain && pill.count > 1
             width:  badgeText.implicitWidth + 8
             height: 16
             radius: 8
@@ -79,12 +90,22 @@ Rectangle {
             }
         }
 
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: pill.plain && pill.count > 1
+            text: "+" + (pill.count - 1)
+            color: pill.warning ? pill.fgWarn : pill.fgMuted
+            font.pixelSize: 9
+            font.weight: Font.Bold
+            font.family: "JetBrainsMono Nerd Font"
+        }
+
         // "Timer" label shown only when idle
         Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: !pill.pt
             text:  "Timer"
-            color: Theme.on_surface_variant
+            color: pill.plain ? pill.fgMuted : Theme.on_surface_variant
             font.pixelSize: 12
             font.family:    "JetBrainsMono Nerd Font"
         }

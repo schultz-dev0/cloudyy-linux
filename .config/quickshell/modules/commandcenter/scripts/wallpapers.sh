@@ -44,6 +44,23 @@ user_mode="${user_base}/${mode^}"
 catalog_cache="${cache_dir}/picker_catalog_${mode}.json"
 sig_cache="${cache_dir}/picker_catalog_${mode}.sig"
 
+# Fast pre-check: skip expensive scan if no wallpaper file/dir is newer than the catalog.
+# Each realpath call is a subprocess (~4ms × 258 files = 1s+), so this saves most of that.
+if [[ -f "$catalog_cache" && -f "$sig_cache" ]]; then
+  stale=0
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    if [[ -n "$(find -L "$dir" -maxdepth 3 \( -type f -o -type d \) -newer "$catalog_cache" -print -quit 2>/dev/null)" ]]; then
+      stale=1
+      break
+    fi
+  done
+  if (( stale == 0 )); then
+    jq -c --arg current "$current_real" '.current = $current' "$catalog_cache"
+    exit 0
+  fi
+fi
+
 compute_signature() {
   if [[ ! -s "$1" ]]; then
     printf 'empty'

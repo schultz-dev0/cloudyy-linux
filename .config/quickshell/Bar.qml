@@ -1,6 +1,8 @@
 pragma ComponentBehavior: Bound
 
-// Bar.qml
+// Bar.qml macOS-style floating menu bar
+// The old pill style is preserved as a .old for idk reference i guess?
+
 import QtQuick
 import QtQuick.Effects
 import Quickshell
@@ -20,16 +22,24 @@ PanelWindow {
     property bool ipcEnabled: true
     screen: assignedScreen
 
-    // ── Tunables ─────────────────────────────────────────────────────────────
-    readonly property int barHeight: 40
-    readonly property int topGap: 0
-    readonly property int sideGap: 8
-    readonly property int radius: 14
-    readonly property int pillRadius: 10
-    readonly property int pillPadH: 8
-    readonly property int pillPadV: 5
-    readonly property int pillGap: 4
-    readonly property real bgOpacity: 0.68
+    // ── Tunables ─────────────────────────────────────
+    readonly property int barHeight: 30          // thinner macOS-like
+    readonly property int topGap: 0              // flush to screen top (vignette is separate)
+    readonly property int sideGap: 0
+    readonly property int radius: 0              // no big rounded bg for pure floating
+    readonly property int pillRadius: 6
+    readonly property int pillPadH: 6
+    readonly property int pillPadV: 3
+    readonly property int pillGap: 6
+    readonly property real bgOpacity: 0.0        // transparent — no pill background
+
+    // ── Bar colors (macOS floating style) ─────────────────────────────────────
+    // These are intentionally light / non-flipping with light/dark mode.
+    // Vignette solves readability like on macos
+    readonly property color barFg: Qt.rgba(1, 1, 1, 0.92)
+    readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
+    readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.58)
+    readonly property color barHoverBg: Qt.rgba(1, 1, 1, 0.12)
 
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool notifOpen: false
@@ -121,13 +131,13 @@ PanelWindow {
         }
     }
 
-    // ── Module component ──────────────────────────────────────────────────────
+    // ── Module component (minimal for macos profile) ──────────────────────────
     component Pill: Rectangle {
         id: pill
         property string label: ""
         property int iconSize: 12
-        property color fg: Theme.on_surface
-        property color bg: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6)
+        property color fg: bar.barFg
+        property color bg: Qt.rgba(0, 0, 0, 0)
         property bool hoverable: true
         signal clicked
         signal scrollUp
@@ -148,6 +158,7 @@ PanelWindow {
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: pill.iconSize
             font.weight: Font.DemiBold
+            // No text shadows for macOS clean look
         }
 
         MouseArea {
@@ -159,7 +170,7 @@ PanelWindow {
             }
             onEntered: {
                 if (pill.hoverable) {
-                    pill.color = Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.9);
+                    pill.color = bar.barHoverBg;
                     pill.hoverEntered();
                 }
             }
@@ -171,348 +182,320 @@ PanelWindow {
         }
     }
 
-    // ── Bar background ────────────────────────────────────────────────────────
-    Rectangle {
-        id: barBg
+    // LEFT
+    Row {
+        id: leftRow
         anchors {
+            left: parent.left
+            leftMargin: 4
             top: parent.top
             topMargin: bar.topGap
-            left: parent.left
-            right: parent.right
         }
         height: bar.barHeight
-        radius: bar.radius
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, bar.bgOpacity)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
-        border.width: 1
+        spacing: bar.pillGap
 
-        // ── LEFT ─────────────────────────────────────────────────────────────
-        Row {
-            id: leftRow
-            anchors {
-                left: parent.left
-                leftMargin: 6
-                verticalCenter: parent.verticalCenter
-            }
-            spacing: bar.pillGap
-
-            Pill {
-                label: "󰅟"
-                iconSize: 18
-                width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_primary_container
-                bg: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85)
-                onClicked: bar.launch(["qs", "ipc", "call", "spotlight", "command"])
-            }
-
-            Pill {
-                id: clockPill
-                property string t: Qt.formatDateTime(new Date(), "hh:mm")
-                label: t
-                width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_secondary_container
-                bg: Qt.rgba(Theme.secondary_container.r, Theme.secondary_container.g, Theme.secondary_container.b, 0.45)
-                Timer {
-                    interval: 10000
-                    running: true
-                    repeat: true
-                    onTriggered: clockPill.t = Qt.formatDateTime(new Date(), "hh:mm")
-                }
-                onClicked: bar.calendarToggle()
-            }
-
-            Pill {
-                id: updatesPill
-                property string n: "0"
-                label: "󰏔 " + n
-                width: implicitWidth + bar.pillPadH * 2
-                onClicked: bar.launchAndFocusByTitle(
-                    ["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh"],
-                    "cloudyy-updater")
-                Timer {
-                    interval: 3600000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: updatesProc.running = true
-                }
-                Process {
-                    id: updatesProc
-                    command: ["bash", "-c", "checkupdates 2>/dev/null | wc -l || echo 0"]
-                    stdout: SplitParser {
-                        onRead: d => updatesPill.n = d.trim()
-                    }
-                }
-            }
-
-            Pill {
-                id: notifBell
-                label: bar.dnd ? "󰂛" : "󰂚"
-                width: implicitWidth + bar.pillPadH * 2
-                iconSize: 14
-                onClicked: bar.notifToggle()
-            }
-
-            QuickTimer.TimerBarPill {}
+        Pill {
+            label: "󰅟"
+            iconSize: 16
+            width: implicitWidth + bar.pillPadH * 2
+            fg: bar.barFgStrong
+            bg: Qt.rgba(0, 0, 0, 0)
+            onClicked: bar.launch(["qs", "ipc", "call", "spotlight", "command"])
         }
 
-        // ── CENTER ────────────────────────────────────────────────────────────
-        Row {
-            anchors.centerIn: parent
-            spacing: bar.pillGap
-
-            Pill {
-                label: ""
-                iconSize: 14
-                width: implicitWidth + bar.pillPadH * 2
-                fg: GlobalStates.overviewOpen ? Theme.on_primary_container : Theme.on_surface_variant
-                bg: GlobalStates.overviewOpen ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85) : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                onClicked: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
+        Pill {
+            id: clockPill
+            property string t: Qt.formatDateTime(new Date(), "hh:mm")
+            label: t
+            width: implicitWidth + bar.pillPadH * 2
+            fg: bar.barFg
+            Timer {
+                interval: 10000
+                running: true
+                repeat: true
+                onTriggered: clockPill.t = Qt.formatDateTime(new Date(), "hh:mm")
             }
+            onClicked: bar.calendarToggle()
+        }
 
-            Rectangle {
-                height: bar.barHeight - bar.pillPadV * 2
-                radius: bar.pillRadius + 2
-                color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.1)
-                border.width: 1
-                width: wsRow.implicitWidth + 8
-
-                Row {
-                    id: wsRow
-                    anchors.centerIn: parent
-                    spacing: 6
-
-                    Repeater {
-                        model: Array.from({
-                            length: 6
-                        }, (_, i) => i + 1)
-
-                        delegate: Rectangle {
-                            required property int modelData
-                            readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
-                            readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
-                            readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
-                            readonly property bool empty: workspaceWindow === null
-
-                            height: bar.barHeight - bar.pillPadV * 2 - 6
-                            width: focused ? 26 : (empty ? 20 : 22)
-                            radius: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: focused ? Theme.primary_container : (empty ? Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.18) : Qt.rgba(Theme.surface_container_highest.r, Theme.surface_container_highest.g, Theme.surface_container_highest.b, 0.6))
-
-                            Behavior on width {
-                                NumberAnimation {
-                                    duration: 120
-                                    easing.type: Easing.OutQuad
-                                }
-                            }
-
-                            Image {
-                                id: workspaceIcon
-                                anchors.centerIn: parent
-                                visible: workspaceWindow !== null
-                                width: 14
-                                height: 14
-                                property var currentIconSources: workspaceIconSources
-                                property int sourceIndex: 0
-                                onCurrentIconSourcesChanged: sourceIndex = 0
-                                sourceSize: Qt.size(28, 28)
-                                smooth: true
-                                source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
-                                layer.enabled: visible && !Perf.lightweight
-                                layer.smooth: !Perf.lightweight
-                                layer.effect: MultiEffect {
-                                    colorization: 1.0
-                                    colorizationColor: focused ? Theme.secondary : Theme.outline
-                                }
-                                onStatusChanged: {
-                                    if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
-                                        Qt.callLater(() => sourceIndex++);
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: workspaceWindow === null
-                                text: String(modelData)
-                                color: focused ? Theme.on_primary_container : Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.35)
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 12
-                                font.weight: Font.DemiBold
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: HyprDispatch.focusWorkspace(modelData)
-                                onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
-                            }
-                        }
-                    }
+        Pill {
+            id: updatesPill
+            property string n: "0"
+            label: "󰏔 " + n
+            width: implicitWidth + bar.pillPadH * 2
+            onClicked: bar.launchAndFocusByTitle(
+                ["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh"],
+                "cloudyy-updater")
+            Timer {
+                interval: 3600000
+                running: true
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: updatesProc.running = true
+            }
+            Process {
+                id: updatesProc
+                command: ["bash", "-c", "checkupdates 2>/dev/null | wc -l || echo 0"]
+                stdout: SplitParser {
+                    onRead: d => updatesPill.n = d.trim()
                 }
             }
         }
 
-        // ── RIGHT ─────────────────────────────────────────────────────────────
-        Row {
-            id: rightRow
-            anchors {
-                right: parent.right
-                rightMargin: 6
-                verticalCenter: parent.verticalCenter
-            }
-            spacing: bar.pillGap
-
-            // Mpris
-            Pill {
-                id: mprisPill
-                readonly property var player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
-                visible: player !== null && (player.playbackState === MprisPlaybackState.Playing || player.playbackState === MprisPlaybackState.Paused)
-                label: {
-                    if (!player)
-                        return "";
-                    const icon = player.playbackState === MprisPlaybackState.Playing ? "▶ " : "⏸ ";
-                    return icon + (player.trackTitle ?? "").substring(0, 18);
-                }
-                width: visible ? Math.max(implicitWidth + bar.pillPadH * 2, 60) : 0
-                fg: Theme.on_secondary_container
-                bg: Qt.rgba(Theme.secondary_container.r, Theme.secondary_container.g, Theme.secondary_container.b, 0.45)
-                onClicked: if (player)
-                    player.togglePlaying()
-                onScrollUp: if (player)
-                    player.next()
-                onScrollDown: if (player)
-                    player.previous()
-            }
-
-            Pill {
-                id: keyboardLayoutPill
-                label: " " + bar.keyboardLayoutLabel
-                width: implicitWidth + bar.pillPadH * 2
-                iconSize: 14
-                fg: Theme.on_secondary_container
-                bg: Qt.rgba(Theme.secondary_container.r, Theme.secondary_container.g, Theme.secondary_container.b, 0.45)
-                hoverable: false
-            }
-
-            // Network
-            Pill {
-                id: netPill
-                property string lbl: "󰤨"
-                label: lbl
-                width: implicitWidth + bar.pillPadH * 2
-                iconSize: 14
-                Timer {
-                    interval: 5000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: netProc.running = true
-                }
-                Process {
-                    id: netProc
-                    command: ["bash", "-c", "nmcli -t -f active,ssid,signal dev wifi 2>/dev/null | awk -F: '/^yes/{print $2\" \"$3\"%\"}' | head -1 || echo OFF"]
-                    stdout: SplitParser {
-                        onRead: d => {
-                            const s = d.trim();
-                            netPill.lbl = s === "OFF" ? "󰖪" : "󰤨 " + s;
-                        }
-                    }
-                }
-                onClicked: bar.launch(["bash", "-c", "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi"])
-            }
-
-            // Volume
-            Pill {
-                id: volPill
-                property string lbl: "󰕾"
-                label: lbl
-                width: implicitWidth + bar.pillPadH * 2
-                iconSize: 14
-                Timer {
-                    interval: 2000
-                    running: true
-                    repeat: true
-                    triggeredOnStart: true
-                    onTriggered: volProc.running = true
-                }
-                Process {
-                    id: volProc
-                    command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@"]
-                    stdout: SplitParser {
-                        onRead: d => {
-                            const muted = d.includes("[MUTED]");
-                            const m = d.match(/[\d.]+/);
-                            if (m) {
-                                const v = Math.round(parseFloat(m[0]) * 100);
-                                volPill.lbl = muted ? "󰖁" : (v < 33 ? "󰕿 " : v < 66 ? "󰕾 " : "󱄠 ") + v + "%";
-                            }
-                        }
-                    }
-                }
-                onClicked: bar.notifToggle()
-                onScrollUp: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh up"])
-                onScrollDown: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh down"])
-            }
-
-            // CPU
-            Pill {
-                id: cpuPill
-                readonly property var sys: QuickSystemMonitor.SystemMonitorService
-                label: "󰍛 " + sys.cpuPercent + "%"
-                width: implicitWidth + bar.pillPadH * 2
-                fg: sys.open ? Theme.primary : Theme.on_surface_variant
-                bg: sys.open
-                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
-                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                onClicked: sys.toggleOpen()
-            }
-
-            // Memory
-            Pill {
-                id: memPill
-                readonly property var sys: QuickSystemMonitor.SystemMonitorService
-                label: "󰘚 " + sys.ramPercent + "%"
-                width: implicitWidth + bar.pillPadH * 2
-                fg: sys.open ? Theme.primary : Theme.on_surface_variant
-                bg: sys.open
-                    ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
-                    : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                onClicked: sys.toggleOpen()
-            }
-
-            // Battery
-            Pill {
-                id: batPill
-                readonly property var bat: QuickBattery.BatteryService
-                readonly property var sys: QuickSystemMonitor.SystemMonitorService
-                visible: bat.available
-                label: bat.barLabel
-                width: visible ? implicitWidth + bar.pillPadH * 2 : 0
-                fg: bat.charging || bat.full
-                    ? Theme.tertiary
-                    : (bat.percent < 15 ? Theme.on_error_container : (sys.open ? Theme.primary : Theme.on_surface))
-                bg: bat.charging || bat.full
-                    ? Qt.rgba(Theme.tertiary_container.r, Theme.tertiary_container.g, Theme.tertiary_container.b, 0.3)
-                    : (sys.open
-                        ? Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.35)
-                        : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.6))
-                onClicked: sys.toggleOpen()
-                onHoverEntered: batteryTooltip.hovered = true
-                onHoverExited: batteryTooltipHideTimer.restart()
-            }
-
-            // Power
-            Pill {
-                label: "󰐥"
-                iconSize: 14
-                width: implicitWidth + bar.pillPadH * 2
-                fg: Theme.on_primary_container
-                bg: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.85)
-                onClicked: bar.launch(["qs", "ipc", "call", "powermenu", "open"])
-            }
+        Pill {
+            id: notifBell
+            label: bar.dnd ? "󰂛" : "󰂚"
+            width: implicitWidth + bar.pillPadH * 2
+            iconSize: 13
+            onClicked: bar.notifToggle()
         }
 
+        QuickTimer.TimerBarPill {
+            plain: true
+            height: bar.barHeight - bar.pillPadV * 2
+            fg: bar.barFg
+            fgActive: bar.barFgStrong
+            fgWarn: Theme.error
+            fgMuted: bar.barFgMuted
+        }
+    }
+
+    // CENTER
+    Row {
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: parent.top
+            topMargin: bar.topGap
+        }
+        height: bar.barHeight
+        spacing: bar.pillGap
+
+        // Workspaces 
+        Row {
+            id: wsRow
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 4
+
+            Repeater {
+                model: Array.from({ length: 5 }, (_, i) => i + 1)
+
+                delegate: Item {
+                    required property int modelData
+                    readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
+                    readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
+                    readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+                    readonly property bool empty: workspaceWindow === null
+
+                    width: 18
+                    height: bar.barHeight - bar.pillPadV * 2
+
+                    Image {
+                        id: workspaceIcon
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: focused ? -2 : 0
+                        visible: !empty
+                        width: focused ? 14 : 12
+                        height: focused ? 14 : 12
+                        property var currentIconSources: workspaceIconSources
+                        property int sourceIndex: 0
+                        onCurrentIconSourcesChanged: sourceIndex = 0
+                        sourceSize: Qt.size(28, 28)
+                        smooth: true
+                        source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
+                        layer.enabled: visible && !Perf.lightweight
+                        layer.smooth: !Perf.lightweight
+                        layer.effect: MultiEffect {
+                            colorization: 1.0
+                            colorizationColor: focused ? bar.barFgStrong : bar.barFgMuted
+                        }
+                        onStatusChanged: {
+                            if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
+                                Qt.callLater(() => sourceIndex++);
+                        }
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: focused ? -2 : 0
+                        visible: empty
+                        text: String(modelData)
+                        color: focused ? bar.barFgStrong : bar.barFgMuted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: focused ? 11 : 10
+                        font.weight: Font.DemiBold
+                    }
+
+                    Rectangle {
+                        visible: focused
+                        width: 2
+                        height: 2
+                        radius: 1
+                        color: bar.barFgStrong
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 4
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: HyprDispatch.focusWorkspace(modelData)
+                        onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
+                    }
+                }
+            }
+        }
+    }
+
+    // RIGHT
+    Row {
+        id: rightRow
+        anchors {
+            right: parent.right
+            rightMargin: 4
+            top: parent.top
+            topMargin: bar.topGap
+        }
+        height: bar.barHeight
+        spacing: bar.pillGap
+
+        // Mpris
+        Pill {
+            id: mprisPill
+            readonly property var player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+            visible: player !== null && (player.playbackState === MprisPlaybackState.Playing || player.playbackState === MprisPlaybackState.Paused)
+            label: {
+                if (!player) return "";
+                const icon = player.playbackState === MprisPlaybackState.Playing ? "▶ " : "⏸ ";
+                return icon + (player.trackTitle ?? "").substring(0, 16);
+            }
+            width: visible ? Math.max(implicitWidth + bar.pillPadH * 2, 50) : 0
+            fg: bar.barFg
+            bg: Qt.rgba(0,0,0,0)
+            onClicked: if (player) player.togglePlaying()
+            onScrollUp: if (player) player.next()
+            onScrollDown: if (player) player.previous()
+        }
+
+        Pill {
+            id: keyboardLayoutPill
+            label: " " + bar.keyboardLayoutLabel
+            width: implicitWidth + bar.pillPadH * 2
+            iconSize: 12
+            fg: bar.barFgMuted
+            bg: Qt.rgba(0,0,0,0)
+            hoverable: false
+        }
+
+        // Network
+        Pill {
+            id: netPill
+            property string lbl: "󰤨"
+            label: lbl
+            width: implicitWidth + bar.pillPadH * 2
+            iconSize: 12
+            Timer {
+                interval: 5000
+                running: true
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: netProc.running = true
+            }
+            Process {
+                id: netProc
+                command: ["bash", "-c", "nmcli -t -f active,ssid,signal dev wifi 2>/dev/null | awk -F: '/^yes/{print $2\" \"$3\"%\"}' | head -1 || echo OFF"]
+                stdout: SplitParser {
+                    onRead: d => {
+                        const s = d.trim();
+                        netPill.lbl = s === "OFF" ? "󰖪" : "󰤨 " + s;
+                    }
+                }
+            }
+            onClicked: bar.launch(["bash", "-c", "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi"])
+        }
+
+        // Volume
+        Pill {
+            id: volPill
+            property string lbl: "󰕾"
+            label: lbl
+            width: implicitWidth + bar.pillPadH * 2
+            iconSize: 12
+            Timer {
+                interval: 2000
+                running: true
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: volProc.running = true
+            }
+            Process {
+                id: volProc
+                command: ["bash", "-c", "wpctl get-volume @DEFAULT_AUDIO_SINK@"]
+                stdout: SplitParser {
+                    onRead: d => {
+                        const muted = d.includes("[MUTED]");
+                        const m = d.match(/[\d.]+/);
+                        if (m) {
+                            const v = Math.round(parseFloat(m[0]) * 100);
+                            volPill.lbl = muted ? "󰖁" : (v < 33 ? "󰕿 " : v < 66 ? "󰕾 " : "󱄠 ") + v + "%";
+                        }
+                    }
+                }
+            }
+            onClicked: bar.notifToggle()
+            onScrollUp: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh up"])
+            onScrollDown: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh down"])
+        }
+
+        // CPU
+        Pill {
+            id: cpuPill
+            readonly property var sys: QuickSystemMonitor.SystemMonitorService
+            label: "󰍛 " + sys.cpuPercent + "%"
+            width: implicitWidth + bar.pillPadH * 2
+            fg: sys.open ? bar.barFgStrong : bar.barFgMuted
+            bg: Qt.rgba(0,0,0,0)
+            onClicked: sys.toggleOpen()
+        }
+
+        // Memory
+        Pill {
+            id: memPill
+            readonly property var sys: QuickSystemMonitor.SystemMonitorService
+            label: "󰘚 " + sys.ramPercent + "%"
+            width: implicitWidth + bar.pillPadH * 2
+            fg: sys.open ? bar.barFgStrong : bar.barFgMuted
+            bg: Qt.rgba(0,0,0,0)
+            onClicked: sys.toggleOpen()
+        }
+
+        // Battery
+        Pill {
+            id: batPill
+            readonly property var bat: QuickBattery.BatteryService
+            readonly property var sys: QuickSystemMonitor.SystemMonitorService
+            visible: bat.available
+            label: bat.barLabel
+            width: visible ? implicitWidth + bar.pillPadH * 2 : 0
+            fg: bat.charging || bat.full
+                ? Theme.tertiary
+                : (bat.percent < 15 ? "#ffdddd" : (sys.open ? bar.barFgStrong : bar.barFgMuted))
+            bg: Qt.rgba(0,0,0,0)
+            onClicked: sys.toggleOpen()
+            onHoverEntered: batteryTooltip.hovered = true
+            onHoverExited: batteryTooltipHideTimer.restart()
+        }
+
+        // Power
+        Pill {
+            label: "󰐥"
+            iconSize: 12
+            width: implicitWidth + bar.pillPadH * 2
+            fg: bar.barFgStrong
+            bg: Qt.rgba(0, 0, 0, 0)
+            onClicked: bar.launch(["qs", "ipc", "call", "powermenu", "open"])
+        }
     }
 
     QuickBattery.BatteryTooltip {
