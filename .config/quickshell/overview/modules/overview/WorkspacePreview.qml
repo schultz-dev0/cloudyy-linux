@@ -84,7 +84,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: root.cornerRadius
-        color: Theme.surface_container
+        color: Theme.glassSection
         antialiasing: true
     }
 

@@ -35,7 +35,7 @@ Rectangle {
     Layout.fillWidth: true
 
     radius:       tileRadius
-    color:        Theme.surface_container
+    color:        Theme.glassSection
     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
     border.width: 1
 

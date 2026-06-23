@@ -1,105 +1,140 @@
 pragma ComponentBehavior: Bound
 
-// modules/spotlight/Spotlight.qml
+// modules/spotlight/Spotlight.qml — overlay UI (Spotlight search + Command Center browse)
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import "../.."
-import "../../overview/services"
 import "../calculator/backend" as CalcBackend
 import "../currency/backend" as CurrencyBackend
+import "../commandcenter/applibrary"
+import "../commandcenter/wallpapers"
 
 PanelWindow {
-    id: spotlight
+    id: root
 
-    property string systemIconTheme: "Fluent-green"
-    Process {
-        command: ["bash", "-c", "theme=$(grep -m1 '^gtk-icon-theme-name=' \"$HOME/.config/gtk-3.0/settings.ini\" 2>/dev/null | cut -d= -f2- | tr -d '\\r'); if [[ -z \"$theme\" ]] && command -v gtk-query-settings >/dev/null 2>&1; then theme=$(gtk-query-settings 2>/dev/null | sed -n 's/.*gtk-icon-theme-name: \"\\(.*\\)\"/\\1/p' | head -n1); fi; if [[ -z \"$theme\" ]] && command -v gsettings >/dev/null 2>&1; then theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d \"'\"); fi; printf '%s\\n' \"${theme:-Fluent-green}\""]
-        running: true
-        stdout: SplitParser {
-            onRead: line => {
-                const t = line.trim();
-                if (t.length > 0)
-                    spotlight.systemIconTheme = t;
-            }
-        }
-    }
+    readonly property var svc: SpotlightService
 
-    // ── Tunables ──────────────────────────────────────────────────────────
-    readonly property string webSearchUrl: "https://duckduckgo.com/?q="
-    readonly property int overlayWidth: 640
-    readonly property int topMargin: 80
-    readonly property int maxFileResults: 10
-    readonly property int debounceMs: 120
-
-    // ── Calculator Backend ────────────────────────────────────────────────
     CalcBackend.Calculator {
         id: calculator
     }
 
-    // ── Currency Backend ────────────────────────────────────────────────────
     CurrencyBackend.CurrencyConverter {
         id: currencyConverter
     }
 
     readonly property string currencyFetchScript: Qt.resolvedUrl("../currency/backend/fetch_rate.sh").toString().replace("file://", "")
+    readonly property string webSearchUrl: "https://duckduckgo.com/?q="
 
-    // ── State ─────────────────────────────────────────────────────────────
-    property bool spotlightVisible: false
-    property string query: ""
-    property var results: []
-    property int selectedIndex: 0
-
-    // ── Window ────────────────────────────────────────────────────────────
     anchors {
-        top: true
-        left: true
-        right: true
+        top: svc.anchor === "top" || svc.anchor === "left" || svc.anchor === "right"
+        bottom: svc.anchor === "bottom"
+        left: svc.anchor === "left" || svc.anchor === "top" || svc.anchor === "bottom"
+        right: svc.anchor === "right" || svc.anchor === "top" || svc.anchor === "bottom"
     }
-    implicitHeight: spotlightVisible ? contentPanel.implicitHeight + topMargin : 0
+
+    margins {
+        top: svc.anchor === "top" ? svc.topMargin : 0
+        bottom: svc.anchor === "bottom" ? svc.topMargin : 0
+        left: svc.anchor === "left" ? 24 : 0
+        right: svc.anchor === "right" ? 24 : 0
+    }
+
+    implicitWidth: svc.overlayWidth
+    implicitHeight: svc.visible ? contentPanel.implicitHeight + (svc.anchor === "top" || svc.anchor === "bottom" ? svc.topMargin : 0) : 0
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.namespace: "quickshell:spotlight"
-    WlrLayershell.keyboardFocus: spotlightVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.namespace: "quickshell:command"
+    WlrLayershell.keyboardFocus: svc.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
     color: "transparent"
 
-    // ── Launch helper ─────────────────────────────────────────────────────
     Component {
         id: procProto
         Process {}
     }
+
     function launch(cmd) {
-        if (!cmd || cmd.length === 0)
-            return;
-        const p = procProto.createObject(spotlight, {
-            command: cmd
-        });
-        p.runningChanged.connect(() => {
-            if (!p.running)
-                p.destroy();
-        });
-        p.running = true;
+        svc.launch(cmd);
     }
 
-    // ── Search backend ────────────────────────────────────────────────────
-    readonly property string searchScript: Qt.resolvedUrl("search.sh").toString().replace("file://", "")
+    function showWebSearch() {
+        launch(["xdg-open", webSearchUrl + encodeURIComponent(svc.query)]);
+        svc.close();
+    }
 
-    function prependCurrencyResult(data) {
-        const parsed = currencyConverter.parseQuery(query);
-        if (!parsed)
+    function activateIndex(idx) {
+        if (idx < 0)
+            return;
+        if (idx < svc.results.length) {
+            svc.activateIndex(idx);
+            return;
+        }
+        if (svc.mode === "spotlight" || svc.mode === "command")
+            showWebSearch();
+    }
+
+    function selectionTop(index) {
+        let y = 0;
+        if (bodyCol.isBrowseMode && svc.browseStack.length > 0)
+            y += bodyCol.breadcrumbHeight;
+        return y + index * bodyCol.rowHeight;
+    }
+
+    function activeFlickable() {
+        return bodyCol.isBrowseMode ? browseFlick : resultsFlick;
+    }
+
+    function ensureSelectionVisible() {
+        if (svc.selectedIndex < 0)
+            return;
+        const flick = activeFlickable();
+        if (!flick.visible || flick.height <= 0)
+            return;
+        const top = selectionTop(svc.selectedIndex);
+        const bottom = top + bodyCol.rowHeight;
+        const maxY = Math.max(0, flick.contentHeight - flick.height);
+        let y = flick.contentY;
+        if (top < y)
+            y = top;
+        else if (bottom > y + flick.height)
+            y = bottom - flick.height;
+        flick.contentY = Math.max(0, Math.min(maxY, y));
+    }
+
+    function moveSelection(delta) {
+        const max = bodyCol.displayCount() - 1;
+        if (max < 0)
             return;
 
-        const entry = {
-            type:       "currency",
-            expression: query,
-            result:     currencyConverter.formatResult(parsed.amount, parsed.from, parsed.to, data.converted, data.date),
-            subtitle:   currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, data.rate, data.date)
-        };
+        let next;
+        if (svc.selectedIndex < 0)
+            next = delta > 0 ? 0 : max;
+        else {
+            next = svc.selectedIndex + delta;
+            if (next < 0)
+                next = max;
+            else if (next > max)
+                next = 0;
+        }
 
-        const rest = results.filter(r => r.type !== "currency");
-        results = [entry, ...rest];
+        svc.selectedIndex = next;
+        ensureSelectionVisible();
+    }
+
+    function prependCalcCurrency() {
+        if (!calculator.isMathExpression(svc.query))
+            return;
+        const value = calculator.evaluate(svc.query);
+        if (!calculator.hasError && value !== null) {
+            const entry = {
+                type: "calculator",
+                expression: svc.query,
+                result: calculator.formatResult(value)
+            };
+            svc.results = [entry, ...svc.results.filter(r => r.type !== "calculator")];
+        }
     }
 
     Process {
@@ -108,345 +143,351 @@ PanelWindow {
         stdout: StdioCollector {
             id: currencyCollector
             onStreamFinished: {
-                if (spotlight.query !== currencyProc.fetchQuery)
+                if (svc.query !== currencyProc.fetchQuery)
                     return;
                 const text = currencyCollector.text.trim();
-                if (text.length === 0)
+                if (!text)
                     return;
                 try {
                     const data = JSON.parse(text);
                     if (data.error)
                         return;
-                    spotlight.prependCurrencyResult(data);
+                    const parsed = currencyConverter.parseQuery(svc.query);
+                    if (!parsed)
+                        return;
+                    const entry = {
+                        type: "currency",
+                        expression: svc.query,
+                        result: currencyConverter.formatResult(parsed.amount, parsed.from, parsed.to, data.converted, data.date),
+                        subtitle: currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, data.rate, data.date)
+                    };
+                    svc.results = [entry, ...svc.results.filter(r => r.type !== "currency")];
                 } catch (_) {}
             }
         }
     }
 
-    Process {
-        id: searchProc
-        environment: ({
-                MAX_FILE_RESULTS: spotlight.maxFileResults.toString()
-            })
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: function (line) {
-                if (line.trim().length === 0)
-                    return;
-                try {
-                    const r = JSON.parse(line);
-                    if (r.type === "app") {
-                        const runningClasses = new Set(HyprlandData.windowList.map(w => (w.class || "").toLowerCase()));
-                        r.isRunning = runningClasses.has((r.wmclass || "").toLowerCase());
-                    }
-                    spotlight.results = [...spotlight.results, r];
-                } catch (_) {}
-            }
-        }
-    }
+    Connections {
+        target: svc
+        function onQueryChanged() {
+            if (svc.visible && searchInput.text !== svc.query)
+                searchInput.text = svc.query;
 
-    Timer {
-        id: debounceTimer
-        interval: spotlight.debounceMs
-        repeat: false
-        onTriggered: {
-            if (spotlight.query.length === 0) {
-                spotlight.results = [];
+            const parsed = currencyConverter.parseQuery(svc.query);
+            if (!parsed)
                 return;
-            }
-
-            // Always start from a clean slate so stale app/file results
-            // never linger below a new calculator result or vice versa.
-            spotlight.results = [];
-
-            // Prepend a calculator result if the query is a valid math expression
-            if (calculator.isMathExpression(spotlight.query)) {
-                const value = calculator.evaluate(spotlight.query);
-                if (!calculator.hasError && value !== null) {
-                    spotlight.results = [{
-                        type:       "calculator",
-                        expression: spotlight.query,
-                        result:     calculator.formatResult(value)
-                    }];
-                }
-            }
-
-            // Fetch live exchange rates for currency queries
-            const currencyParsed = currencyConverter.parseQuery(spotlight.query);
-            if (currencyParsed) {
-                currencyProc.running = false;
-                currencyProc.fetchQuery = spotlight.query;
-                currencyProc.command = [
-                    "bash", spotlight.currencyFetchScript,
-                    currencyParsed.amount.toString(),
-                    currencyParsed.from,
-                    currencyParsed.to
-                ];
-                currencyProc.running = true;
-            }
-
-            // Then run file/app search
-            searchProc.running = false;
-            searchProc.command = ["bash", spotlight.searchScript, spotlight.query];
-            searchProc.running = true;
+            currencyProc.running = false;
+            currencyProc.fetchQuery = svc.query;
+            currencyProc.command = [
+                "bash", root.currencyFetchScript,
+                parsed.amount.toString(),
+                parsed.from,
+                parsed.to
+            ];
+            currencyProc.running = true;
         }
-    }
-
-    onQueryChanged: debounceTimer.restart()
-
-    // ── Activate result at index ──────────────────────────────────────────
-    function activateIndex(idx) {
-        if (idx < results.length) {
-            const r = results[idx];
-            if (r.type === "app") {
-                if (r.isRunning)
-                    HyprDispatch.focusWindowByClass(r.wmclass);
-                else
-                    launch(["uwsm-app", "--", r.exec]);
-            } else if (r.type === "calculator" || r.type === "currency") {
-                launch(["wl-copy", r.result]);
+        function onResultsChanged() {
+            prependCalcCurrency();
+        }
+        function onBrowseStackChanged() {
+            browseFlick.contentY = 0;
+        }
+        function onSelectedIndexChanged() {
+            Qt.callLater(() => root.ensureSelectionVisible());
+        }
+        function onRequestFocus() {
+            searchInput.forceActiveFocus();
+        }
+        function onVisibleChanged() {
+            if (svc.visible) {
+                searchInput.text = svc.query;
+                Qt.callLater(() => searchInput.forceActiveFocus());
             } else {
-                launch(["xdg-open", r.path]);
+                searchInput.text = "";
             }
-        } else {
-            launch(["xdg-open", webSearchUrl + encodeURIComponent(query)]);
         }
-        spotlightVisible = false;
     }
 
-    // Click outside to close
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton
-        propagateComposedEvents: true
-        onClicked: {
-            spotlight.spotlightVisible = false;
-            mouse.accepted = false;
-        }
+        onClicked: svc.close()
     }
 
-    // ── Content panel ─────────────────────────────────────────────────────
     Item {
         id: contentPanel
-        width: spotlight.overlayWidth
-        implicitHeight: searchBar.height + resultCol.implicitHeight
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: spotlight.spotlightVisible ? spotlight.topMargin : -(implicitHeight + 10)
+        width: svc.overlayWidth
+        implicitHeight: searchBar.height + bodyCol.listBodyHeight
+        anchors.horizontalCenter: svc.anchor === "top" || svc.anchor === "bottom" ? parent.horizontalCenter : undefined
+        anchors.verticalCenter: svc.anchor === "left" || svc.anchor === "right" ? parent.verticalCenter : undefined
+        anchors.top: svc.anchor === "top" ? parent.top : undefined
+        anchors.bottom: svc.anchor === "bottom" ? parent.bottom : undefined
+        anchors.left: svc.anchor === "left" ? parent.left : undefined
+        anchors.right: svc.anchor === "right" ? parent.right : undefined
 
-        Behavior on y {
-            NumberAnimation {
-                duration: 180
-                easing.type: spotlight.spotlightVisible ? Easing.OutCubic : Easing.InCubic
-            }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: mouse.accepted = true
         }
 
-        // Glass pill background
         Rectangle {
             anchors.fill: parent
-            radius: 14
-            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.92)
-            border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
+            radius: Theme.glassPanelRadius
+            color: Theme.glassShell
+            border.color: Theme.glassPanelBorder
             border.width: 1
+            antialiasing: true
         }
 
-        // ── Search bar ────────────────────────────────────────────────────
-        Item {
-            id: searchBar
+        Column {
+            id: bodyCol
             width: parent.width
-            height: 52
 
-            Row {
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    verticalCenter: parent.verticalCenter
-                    leftMargin: 16
-                    rightMargin: 16
-                }
-                spacing: 10
+            Item {
+                id: searchBar
+                width: parent.width
+                height: 40
 
                 Text {
+                    id: searchIcon
+                    anchors {
+                        left: parent.left
+                        leftMargin: 16
+                        verticalCenter: parent.verticalCenter
+                    }
                     text: "⌕"
                     color: Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.55)
-                    font.pixelSize: 20
-                    anchors.verticalCenter: parent.verticalCenter
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
                 }
 
-                Item {
-                    width: parent.width - 30 - parent.spacing
-                    height: 24
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    // Placeholder
-                    Text {
-                        visible: searchInput.text.length === 0
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Search apps, files, 100 USD to EUR…"
-                        color: Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.4)
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                TextInput {
+                    id: searchInput
+                    anchors {
+                        left: searchIcon.right
+                        leftMargin: 10
+                        right: parent.right
+                        rightMargin: 16
+                        verticalCenter: parent.verticalCenter
                     }
-
-                    TextInput {
-                        id: searchInput
-                        anchors.fill: parent
-                        color: Theme.textPrimary
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
-                        selectByMouse: true
-                        text: spotlight.query
-
-                        onTextChanged: spotlight.query = text
-
+                    height: 22
+                    color: Theme.textPrimary
+                    font.pixelSize: 15
+                    font.family: "JetBrainsMono Nerd Font"
+                    verticalAlignment: TextInput.AlignVCenter
+                    topPadding: Math.round((height - font.pixelSize) / 2)
+                    bottomPadding: topPadding
+                    selectByMouse: true
+                        onTextChanged: {
+                            if (svc.query !== text)
+                                svc.query = text;
+                        }
                         Keys.onEscapePressed: {
-                            spotlight.spotlightVisible = false;
+                            if (!svc.browseBack())
+                                svc.close();
                             event.accepted = true;
                         }
                         Keys.onUpPressed: {
-                            spotlight.selectedIndex = Math.max(0, spotlight.selectedIndex - 1);
+                            root.moveSelection(-1);
                             event.accepted = true;
                         }
                         Keys.onDownPressed: {
-                            spotlight.selectedIndex = Math.min(spotlight.results.length, spotlight.selectedIndex + 1);
+                            root.moveSelection(1);
                             event.accepted = true;
                         }
                         Keys.onReturnPressed: {
-                            spotlight.activateIndex(spotlight.selectedIndex);
+                            if (svc.selectedIndex >= 0)
+                                root.activateIndex(svc.selectedIndex);
                             event.accepted = true;
                         }
-                    }
                 }
-            }
 
-            // Divider shown only when results are present
-            Rectangle {
-                anchors {
-                    bottom: parent.bottom
-                    left: parent.left
-                    right: parent.right
-                }
-                height: 1
-                visible: spotlight.query.length > 0
-                color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
-            }
-        }
-
-        // ── Results ───────────────────────────────────────────────────────
-        Column {
-            id: resultCol
-            width: parent.width
-            anchors.top: searchBar.bottom
-
-            Repeater {
-                model: spotlight.results
-                delegate: Column {
+                Rectangle {
+                    anchors.bottom: parent.bottom
                     width: parent.width
-                    required property var modelData
-                    required property int index
+                    height: 1
+                    visible: svc.query.length > 0 || svc.results.length > 0
+                    color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
+                }
+            }
 
-                    readonly property bool isFirstOfType: index === 0 || spotlight.results[index].type !== spotlight.results[index - 1].type
+            readonly property int rowHeight: 46
+            readonly property int breadcrumbHeight: 36
+            readonly property int listCapHeight: {
+                const screens = Quickshell.screens;
+                if (screens.length > 0)
+                    return Math.round(screens[0].height * 0.58);
+                return 560;
+            }
+            readonly property bool isBrowseMode: svc.mode === "command" && svc.query.length === 0
+            readonly property bool resultsListVisible: !isBrowseMode && (svc.results.length > 0 || svc.query.length > 0)
+            readonly property int listBodyHeight: isBrowseMode
+                ? (browseFlick.height)
+                : (resultsListVisible ? resultsFlick.height : 0)
 
-                    Item {
-                        width: parent.width
-                        height: isFirstOfType ? 28 : 0
-                        visible: isFirstOfType
+            function listViewHeight(contentCol) {
+                const h = Math.ceil(contentCol.implicitHeight);
+                if (h <= 0)
+                    return 0;
+                return Math.min(listCapHeight, h);
+            }
 
-                        Text {
-                            anchors {
-                                left: parent.left
-                                leftMargin: 16
-                                bottom: parent.bottom
-                                bottomMargin: 6
-                            }
-                            text: {
-                                if (modelData.type === "app")
-                                    return "APPS";
-                                if (modelData.type === "file")
-                                    return "FILES";
-                                if (modelData.type === "calculator")
-                                    return "CALCULATOR";
-                                if (modelData.type === "currency")
-                                    return "CURRENCY";
-                                return "";
-                            }
-                            font.pixelSize: 10
-                            font.letterSpacing: 1
-                            font.family: "JetBrainsMono Nerd Font"
-                            color: Theme.outline_variant
+            function displayCount() {
+                if (isBrowseMode)
+                    return Math.max(svc.results.length, 1);
+                let n = svc.results.length;
+                if ((svc.mode === "spotlight" || svc.mode === "command") && svc.query.length > 0)
+                    n += 1;
+                return Math.max(n, 1);
+            }
+
+            Flickable {
+                id: resultsFlick
+                width: parent.width
+                height: bodyCol.resultsListVisible ? bodyCol.listViewHeight(resultsCol) : 0
+                visible: bodyCol.resultsListVisible
+                clip: true
+                contentHeight: resultsCol.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                function clampScroll() {
+                    const maxY = Math.max(0, contentHeight - height);
+                    if (contentY > maxY)
+                        contentY = maxY;
+                    if (contentY < 0)
+                        contentY = 0;
+                }
+                onContentHeightChanged: clampScroll()
+                onHeightChanged: clampScroll()
+
+                Column {
+                    id: resultsCol
+                    width: parent.width
+
+                    Repeater {
+                        model: svc.results
+                        delegate: SpotlightRow {
+                            required property var modelData
+                            required property int index
+                            resultData: modelData.type === "command"
+                                ? {
+                                    type: "command",
+                                    name: modelData.label,
+                                    subtitle: modelData.subtitle,
+                                    icon: modelData.icon,
+                                    isActive: modelData.isActive === true
+                                }
+                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action"
+                                    ? {
+                                        type: "command",
+                                        name: modelData.label || modelData.name,
+                                        subtitle: modelData.subtitle || "",
+                                        icon: modelData.icon || (modelData.type === "package" ? "󰏖" : "󰚩")
+                                    }
+                                    : modelData)
+                            isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
+                            rowWidth: svc.overlayWidth
+                            onActivated: root.activateIndex(index)
+                            onHovered: svc.selectedIndex = index
                         }
                     }
 
                     SpotlightRow {
-                        resultData: modelData
-                        property string themeName: spotlight.systemIconTheme
-                        isSelected: index === spotlight.selectedIndex
-                        rowWidth: spotlight.overlayWidth
-                        onActivated: spotlight.activateIndex(index)
-                        onHovered: spotlight.selectedIndex = index
+                        visible: (svc.mode === "spotlight" || svc.mode === "command") && svc.query.length > 0
+                        resultData: ({ type: "web", query: svc.query })
+                        isSelected: svc.selectedIndex >= 0 && svc.selectedIndex === svc.results.length
+                        rowWidth: svc.overlayWidth
+                        onActivated: root.activateIndex(svc.results.length)
+                        onHovered: svc.selectedIndex = svc.results.length
                     }
                 }
             }
 
-            // Web row — always last when query is non-empty
-            Column {
+            Flickable {
+                id: browseFlick
                 width: parent.width
-                visible: spotlight.query.length > 0
+                height: bodyCol.isBrowseMode ? bodyCol.listViewHeight(browseCol) : 0
+                visible: bodyCol.isBrowseMode
+                clip: true
+                contentHeight: browseCol.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-                Item {
+                function clampScroll() {
+                    const maxY = Math.max(0, contentHeight - height);
+                    if (contentY > maxY)
+                        contentY = maxY;
+                    if (contentY < 0)
+                        contentY = 0;
+                }
+                onContentHeightChanged: clampScroll()
+                onHeightChanged: clampScroll()
+
+                Column {
+                    id: browseCol
                     width: parent.width
-                    height: 28
 
                     Text {
-                        anchors {
-                            left: parent.left
-                            leftMargin: 16
-                            bottom: parent.bottom
-                            bottomMargin: 6
-                        }
-                        text: "WEB"
-                        font.pixelSize: 10
-                        font.letterSpacing: 1
+                        visible: svc.browseStack.length > 0
+                        text: "  " + (SpotlightService.entryById(svc.currentParentId())?.label || "")
+                        color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
-                        color: Theme.outline_variant
+                        font.pixelSize: 10
+                        topPadding: 8
+                        leftPadding: 8
                     }
-                }
 
-                SpotlightRow {
-                    resultData: ({
-                            type: "web",
-                            query: spotlight.query
-                        })
-                    isSelected: spotlight.selectedIndex === spotlight.results.length
-                    rowWidth: spotlight.overlayWidth
-                    onActivated: spotlight.activateIndex(spotlight.results.length)
-                    onHovered: spotlight.selectedIndex = spotlight.results.length
+                    Repeater {
+                        model: svc.results
+                        delegate: SpotlightRow {
+                            required property var modelData
+                            required property int index
+                            resultData: {
+                                if (modelData.type === "command")
+                                    return {
+                                        type: "command",
+                                        name: modelData.label,
+                                        subtitle: modelData.subtitle,
+                                        icon: modelData.icon,
+                                        isActive: modelData.isActive === true
+                                    };
+                                return modelData;
+                            }
+                            isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
+                            rowWidth: svc.overlayWidth
+                            onActivated: root.activateIndex(index)
+                            onHovered: svc.selectedIndex = index
+                        }
+                    }
                 }
             }
         }
     }
 
-    // ── IPC ───────────────────────────────────────────────────────────────
     IpcHandler {
         target: "spotlight"
         function toggle() {
-            spotlight.spotlightVisible = !spotlight.spotlightVisible;
+            if (svc.visible && svc.mode === "spotlight")
+                svc.close();
+            else
+                svc.openMode("spotlight");
         }
         function show() {
-            spotlight.spotlightVisible = true;
+            svc.openMode("spotlight");
         }
         function hide() {
-            spotlight.spotlightVisible = false;
+            svc.close();
         }
-    }
-
-    onSpotlightVisibleChanged: {
-        if (spotlightVisible) {
-            searchInput.forceActiveFocus();
-        } else {
-            searchInput.text = "";
-            query = "";
-            results = [];
-            selectedIndex = 0;
+        function command() {
+            svc.openMode("command");
+        }
+        function apps() {
+            AppLibraryService.open();
+        }
+        function wallpaper() {
+            WallpaperPickerService.open();
         }
     }
 }

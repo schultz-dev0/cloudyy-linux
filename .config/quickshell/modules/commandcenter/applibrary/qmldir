@@ -1,0 +1,6 @@
+module QuickAppLibrary
+singleton AppLibraryService 1.0 AppLibraryService.qml
+AppLibrary 1.0 AppLibrary.qml
+AppIconCell 1.0 AppIconCell.qml
+RecentRow 1.0 RecentRow.qml
+CategoryPills 1.0 CategoryPills.qml

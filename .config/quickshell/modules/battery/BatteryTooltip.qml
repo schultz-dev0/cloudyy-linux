@@ -88,19 +88,7 @@ PopupWindow {
             }
 
             Text {
-                text: bat.full
-                    ? "Fully charged"
-                    : (bat.charging
-                        ? (bat.formatDuration(bat.timeToFullSec) + " to 100%")
-                        : (bat.formatDuration(bat.timeToEmptySec) + " to empty"))
-                color: Theme.on_surface_variant
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 11
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: "Usage  " + bat.usageLabel
+                text: bat.rateEtaLabel
                 color: Theme.on_surface_variant
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 11

@@ -13,7 +13,7 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd(scripts .. "/theme_controller.sh restore")
 	hl.exec_cmd(scripts .. "/cloudyy-other/hyprdock")
 
-	hl.exec_cmd(scripts .. "/cloudyy-other/cloudyy-system-monitor")
+	hl.exec_cmd("cloudyy-system-monitor")
 
 	-- Quickshell: single canonical command from source/quickshell.conf
 	local qs_conf = home .. "/.config/hypr/source/quickshell.conf"

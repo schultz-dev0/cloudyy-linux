@@ -9,7 +9,7 @@
 readonly ROFI_DIR="${HOME}/cloudyy_scripts/rofi"
 readonly THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
 readonly HKBM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hkbm"
-readonly HCM_CMD="${HOME}/cloudyy_scripts/cloudyy-other/hcm"
+readonly HCM_CMD="${HOME}/.local/bin/hcm"
 readonly BASE_WALL_DIR="${HOME}/Wallpapers"
 readonly USER_WALL_DIR="${BASE_WALL_DIR}/user_wallpapers"
 readonly CACHE_DIR="${HOME}/.cache/rofi_thumbs"

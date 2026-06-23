@@ -1,0 +1,5 @@
+module QuickPowerMenu
+singleton PowerMenuService 1.0 PowerMenuService.qml
+PowerMenu 1.0 PowerMenu.qml
+PowerStatChip 1.0 PowerStatChip.qml
+PowerActionCell 1.0 PowerActionCell.qml

@@ -67,12 +67,12 @@ Item {
         id: iconImg
 
         property int sourceIndex: 0
-        property var sources: HyprlandData.iconSourcesForName(root.appData.icon ?? "application-default-icon")
+        property var sources: IconResolver.sourcesForName(root.appData.icon ?? "application-default-icon")
 
         width: root.iconSize
         height: root.iconSize
         onSourcesChanged: sourceIndex = 0
-        source: sources[sourceIndex] ?? HyprlandData.genericIconSource
+        source: sources[sourceIndex] ?? IconResolver.genericIconSource
         sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
         smooth: true
         scale: root.currentScale

@@ -170,6 +170,27 @@ hl.window_rule({
 -- Quickshell --
 
 hl.layer_rule({
+	name = "quickshell_command",
+	match = { namespace = "^(.*quickshell:command)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_control",
+	match = { namespace = "^(.*quickshell:control)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_system",
+	match = { namespace = "^(.*quickshell:system)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
 	name = "quickshell_panel",
 	match = { namespace = "^(.*quickshell)$" },
 	blur = true,

@@ -67,4 +67,22 @@ QtObject {
     readonly property color accentSoft:       inverse_primary
     readonly property color textPrimary:      on_surface
     readonly property color textMuted:        on_surface_variant
+
+    // Frosted glass — Hypr layer blur shows through these (see dock/calculator panels).
+    readonly property real glassShellAlpha:       0.72
+    readonly property real glassSectionAlpha:     0.48
+    readonly property real glassSectionHighAlpha: 0.58
+    function glass(color, alpha) {
+        return Qt.rgba(color.r, color.g, color.b, alpha)
+    }
+    readonly property color glassShell:       glass(surface, glassShellAlpha)
+    readonly property color glassSection:     glass(surface_container, glassSectionAlpha)
+    readonly property color glassSectionHigh: glass(surface_container_high, glassSectionHighAlpha)
+
+    // Floating panel chrome (macOS-style light rim on dark, outline on light).
+    readonly property bool isLightTheme: mode === "light"
+    readonly property int glassPanelRadius: 20
+    readonly property color glassPanelBorder: isLightTheme
+        ? Qt.rgba(outline.r, outline.g, outline.b, 0.38)
+        : Qt.rgba(1, 1, 1, 0.22)
 }

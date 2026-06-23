@@ -58,7 +58,7 @@ Singleton {
             return env;
         const home = Quickshell.env("HOME") || "";
         if (home.length > 0)
-            return home + "/cloudyy_scripts/cloudyy-other/cloudyy-system-monitor";
+            return home + "/.local/bin/cloudyy-system-monitor";
         return "cloudyy-system-monitor";
     }
 
@@ -74,7 +74,7 @@ Singleton {
                     root.pollSnapshot();
                 } else {
                     root.stale = true;
-                    console.warn("SystemMonitorService: cloudyy-system-monitor not found in PATH or cloudyy_scripts");
+                    console.warn("SystemMonitorService: cloudyy-system-monitor not found (install cloudyy-system-monitor-git from AUR)");
                 }
             }
         }
@@ -134,12 +134,11 @@ Singleton {
         _resolveBinaryProc.command = [
             "bash", "-c",
             "home=" + shellQuote(home) + "; "
-                + "for c in "
-                + "\"$home/cloudyy_scripts/cloudyy-other/cloudyy-system-monitor\" "
-                + "\"$home/.local/bin/cloudyy-system-monitor\" "
-                + "\"$home/cloudyy-linux/.config/quickshell/cloudyy-system-monitor/target/release/cloudyy-system-monitor\" "
-                + "cloudyy-system-monitor; do "
-                + "[ -x \"$c\" ] && echo \"$c\" && exit 0; done; exit 1",
+                + "bin=\"$home/.local/bin/cloudyy-system-monitor\"; "
+                + "if [ -x \"$bin\" ]; then echo \"$bin\"; exit 0; fi; "
+                + "path=$(command -v cloudyy-system-monitor 2>/dev/null || true); "
+                + "[ -n \"$path\" ] && echo \"$path\" && exit 0; "
+                + "exit 1",
         ];
         _resolveBinaryProc.running = false;
         _resolveBinaryProc.running = true;

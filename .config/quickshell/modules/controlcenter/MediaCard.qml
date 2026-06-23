@@ -21,7 +21,7 @@ Rectangle {
     visible: root.title !== ""
     implicitHeight: visible ? cardCol.implicitHeight + 24 : 0
     radius: 12
-    color: Theme.surface_container
+    color: Theme.glassSection
     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
     border.width: 1
 

@@ -48,10 +48,10 @@ Item {
         anchors.fill: parent
         radius: root.cornerRadius
         color: root.selected
-            ? Qt.tint(Theme.surface_container, Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18))
+            ? Qt.tint(Theme.glassSection, Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18))
             : root.active
-                ? Theme.surface_container_high
-                : Theme.surface_container
+                ? Theme.glassSectionHigh
+                : Theme.glassSection
         border.color: root.selected
             ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.35)
             : root.active
@@ -95,7 +95,7 @@ Item {
                 width: parent.width
                 height: root.labelStripHeight
                 radius: root.cornerRadius
-                color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.72)
+                color: Theme.glassSectionHigh
 
                 // Square off the top so only bottom corners stay rounded with the tile.
                 Rectangle {

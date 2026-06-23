@@ -10,6 +10,9 @@ import "modules/dock" as QuickDock
 import "modules/sliders" as QuickSliders
 import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
+import "modules/commandcenter/applibrary" as QuickAppLibrary
+import "modules/commandcenter/powermenu" as QuickPowerMenu
+import "modules/commandcenter/wallpapers" as QuickWallpapers
 import "modules/calculator" as QuickCalculator
 import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
@@ -432,6 +435,12 @@ ShellRoot {
     }
 
     QuickSpotlight.Spotlight {}
+
+    QuickAppLibrary.AppLibrary {}
+
+    QuickPowerMenu.PowerMenu {}
+
+    QuickWallpapers.WallpaperPicker {}
 
     QuickTimer.TimerPanel {}
 

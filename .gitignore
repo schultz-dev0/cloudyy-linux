@@ -64,6 +64,10 @@ cloudyy_scripts/trcc-headless.py
 # matugen output — lives on disk under the quickshell symlink, not in git
 .config/quickshell/Theme.qml
 
+# External Rust crates — source in ~/Projects/, binaries from AUR
+.config/quickshell/cloudyy-system-monitor/
+cloudyy_scripts/source/hcm/
+
 # Python build artifacts
 **/__pycache__/
 *.pyc
@@ -87,9 +91,6 @@ cloudyy_scripts/trcc-headless.py
 .config/btop/themes/matugen.theme
 .config/nvim/lua/current_mode.lua
 cloudyy_scripts/source/*
-!cloudyy_scripts/source/hcm/
-cloudyy_scripts/source/hcm/target/
-cloudyy_scripts/source/hcm/tests/
 
 # Local AI tooling
 .claude*
@@ -112,3 +113,6 @@ cloudyy_scripts/source/hcm/tests/
 
 # Superpowers spec docs (local only)
 docs/
+
+# macOS rebrand planning (local only)
+.macos/

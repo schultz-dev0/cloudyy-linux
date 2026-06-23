@@ -1,0 +1,4 @@
+module QuickWallpapers
+singleton WallpaperPickerService 1.0 WallpaperPickerService.qml
+WallpaperPicker 1.0 WallpaperPicker.qml
+WallpaperCell 1.0 WallpaperCell.qml

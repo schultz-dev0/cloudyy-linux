@@ -12,25 +12,9 @@ source "${ROFI_DIR}/lib/common.sh"
 # WALLPAPER THUMBNAIL HELPER
 # =============================================================================
 
-gen_thumb() {
-  local img="$1"
-  # Use a hash of the full path to avoid collisions between identically named files in different dirs
-  local hash
-  hash=$(echo -n "$img" | md5sum | cut -d' ' -f1)
-  local thumb="${CACHE_DIR}/${hash}.png"
-  [[ -f "$thumb" ]] && return 0
-
-  local converter="convert"
-  command -v magick &>/dev/null && converter="magick"
-
-  "$converter" "${img}[0]" -strip \
-    -resize "${THUMB_SIZE}x${THUMB_SIZE}^" \
-    -gravity center \
-    -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
-    -quality 85 "$thumb" 2>/dev/null || return 1
-}
-export -f gen_thumb
-export CACHE_DIR THUMB_SIZE
+source "${ROFI_DIR}/lib/thumb_cache.sh"
+export -f gen_thumb resolve_thumb_for_display
+export CACHE_DIR THUMB_SIZE HOME
 
 # =============================================================================
 # WALLPAPER SELECTOR
@@ -80,13 +64,11 @@ select_wallpaper() {
     [[ -n "${seen_realpaths[$real_img]:-}" ]] && continue
     seen_realpaths[$real_img]=1
 
-    local basename_img
+    local basename_img thumb
     basename_img="$(basename "$img")"
-    local hash
-    hash=$(echo -n "$img" | md5sum | cut -d' ' -f1)
-    local thumb="${CACHE_DIR}/${hash}.png"
+    thumb="$(resolve_thumb_for_display "$img" || true)"
 
-    if [[ -f "$thumb" ]]; then
+    if [[ -n "$thumb" && -f "$thumb" ]]; then
       local display_name="$basename_img"
       if [[ -n "${wallpaper_paths[$display_name]:-}" ]]; then
          display_name="${display_name} ($(basename "$(dirname "$img")"))"

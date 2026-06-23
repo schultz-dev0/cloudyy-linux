@@ -76,6 +76,26 @@ Singleton {
         return "—";
     }
 
+    readonly property string rateEtaLabel: {
+        if (full)
+            return "Fully charged";
+        const parts = [];
+        if (charging)
+            parts.push("↑");
+        else if (discharging)
+            parts.push("↓");
+        if (changeRateW > 0)
+            parts.push(changeRateW.toFixed(1) + " W");
+        if (charging) {
+            const t = formatDuration(timeToFullSec);
+            parts.push(t === "—" ? "Calculating… to full" : t + " to full");
+        } else if (discharging) {
+            const t = formatDuration(timeToEmptySec);
+            parts.push(t === "—" ? "Calculating… to empty" : t + " to empty");
+        }
+        return parts.length > 0 ? parts.join(" ") : "—";
+    }
+
     readonly property string usageLabel: {
         if (changeRateW <= 0)
             return "—";

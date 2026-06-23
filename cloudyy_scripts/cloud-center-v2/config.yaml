@@ -519,20 +519,6 @@ pages:
                 command: >-
                   hcm apply input:touchpad:disable_while_typing false
 
-          - type: toggle
-            properties:
-              title: Tap to Click
-              description: Tap the touchpad to click
-              icon: input-touchpad-symbolic
-              key: input/touchpad_tap_to_click
-            on_toggle:
-              enabled:
-                command: >-
-                  hcm apply input:touchpad:tap-to-click true
-              disabled:
-                command: >-
-                  hcm apply input:touchpad:tap-to-click false
-
           - type: selection
             properties:
               title: Clickfinger Behavior

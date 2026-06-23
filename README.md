@@ -1,6 +1,6 @@
 Disclaimer: Some of the things in this projects are written with AI, as this is a work in progress project I will overwrite and fix things as I go, but AI makes my student life easier. Thanks! Enjoy the dotfiles.
 
-A Hyprland rice for Arch Linux (and SOON NixOS). The theme is utility and eyecandy, a lot of things are inspired by MacOS. A lot of the utility in this rice is adjusted specific for developers. 
+A Hyprland rice for Arch Linux (and SOON NixOS). A lot of things are inspired by MacOS. A lot of the utility in this rice is adjusted specific for developers. 
 
 ## Install
 
@@ -16,15 +16,13 @@ Follow the prompts, the installer handles GPU detection, package selection, dotf
 !Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
 New video soon with the latest feature set. 
 
-- **Theme toggle**: `~/cloudyy_scripts/theme_controller.sh toggle`
-- **Rofi launcher**: `Super + Alt + Space` — includes app launcher, keybind help, theme picker, and more
-- **Quickshell shell**: bar, notifications, and shell UI are provided by quickshell by default
-- **Waybar presets**: legacy assets kept in-repo during the transition; not part of the active default shell path
-- **Obsidian vault**: drop your vault in the blank obsidian vault (or any path) — matugen will colour-match it
-
 ## Quickshell overview
 
 ![Preview](extras/Previewpics/general/system_overview.png)
+
+![Preview](extras/Previewpics/general/quickshell2.png)
+
+![Preview](extras/Previewpics/general/command_center.png)
 
 ## previews:
 - **Cloud center**
@@ -39,13 +37,5 @@ New video soon with the latest feature set.
 
 ![Preview](extras/Previewpics/general/vscode_theming.png)
 
-----------------
 
-## Waybar presets (legacy)
-**You can change orientation top and bottom | left and right**
-![Preview](extras/Previewpics/waybar/waybar_default.png)
-
-![Preview](extras/Previewpics/waybar/waybar_ghost.png)
-
-![Preview](extras/Previewpics/waybar/waybar_matrix.png)
 

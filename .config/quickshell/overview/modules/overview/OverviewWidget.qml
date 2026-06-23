@@ -289,7 +289,7 @@ Item {
         width: root.panelWidth
         height: root.panelHeight
         radius: 24
-        color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.85)
+        color: Theme.glassShell
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
         opacity: GlobalStates.overviewOpen ? 1 : 0
