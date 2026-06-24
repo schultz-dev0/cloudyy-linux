@@ -53,6 +53,12 @@ Singleton {
         const alias = aliases[normalized];
         if (alias && !names.includes(alias))
             names.push(alias);
+        const steamApp = normalized.match(/^steam_app_(\d+)$/i);
+        if (steamApp) {
+            const iconName = `steam_icon_${steamApp[1]}`;
+            if (!names.includes(iconName))
+                names.push(iconName);
+        }
         if (normalized.toLowerCase().endsWith("cloudcenter") && !names.includes("cloud-center"))
             names.push("cloud-center");
         return names;
@@ -204,6 +210,13 @@ Singleton {
     Component {
         id: lookupCollectorProto
         StdioCollector {}
+    }
+
+    function refreshIndex() {
+        if (buildIndexProc.running)
+            return;
+        buildIndexProc.running = false;
+        buildIndexProc.running = true;
     }
 
     Component.onCompleted: {

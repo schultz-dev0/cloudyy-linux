@@ -13,8 +13,9 @@ from pathlib import Path
 
 HOME = Path.home()
 FIELD_RE = re.compile(r"^([A-Za-z0-9-]+)=(.*)$")
+SECTION_RE = re.compile(r"^\[([^\]]+)\]$")
 DESKTOP_DIRS = (HOME / ".local/share/applications", Path("/usr/share/applications"))
-INDEX_VERSION = "gtk-v2"
+INDEX_VERSION = "gtk-v3"
 STANDARD_APP_DIRS = (
     "scalable/apps",
     "512x512/apps",
@@ -84,6 +85,11 @@ def alias_names(name: str) -> list[str]:
     alias = ICON_ALIASES.get(normalized)
     if alias and alias not in names:
         names.append(alias)
+    steam_app = re.match(r"^steam_app_(\d+)$", normalized, re.IGNORECASE)
+    if steam_app:
+        icon_name = f"steam_icon_{steam_app.group(1)}"
+        if icon_name not in names:
+            names.append(icon_name)
     if normalized.lower().endswith("cloudcenter") and "cloud-center" not in names:
         names.append("cloud-center")
     return names
@@ -278,11 +284,18 @@ def resolve_app_icon(
 
 def read_desktop(path: Path) -> dict[str, str]:
     fields: dict[str, str] = {}
+    in_entry = False
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return fields
     for line in text.splitlines():
+        section_match = SECTION_RE.match(line.strip())
+        if section_match:
+            in_entry = section_match.group(1) == "Desktop Entry"
+            continue
+        if not in_entry:
+            continue
         match = FIELD_RE.match(line)
         if match:
             fields[match.group(1)] = match.group(2).strip()
@@ -313,18 +326,32 @@ def iter_desktop_entries() -> list[tuple[Path, dict[str, str]]]:
     return entries
 
 
+def wmclass_from_fields(fields: dict[str, str], exec_cmd: str) -> str:
+    wmclass = fields.get("StartupWMClass", "")
+    if wmclass:
+        return wmclass
+    steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
+    if steam_match:
+        return f"steam_app_{steam_match.group(1)}"
+    if exec_cmd:
+        return Path(exec_cmd.split()[0]).name.lower()
+    return ""
+
+
 def build_index(size: int = 48) -> dict[str, str]:
     index: dict[str, str] = {}
     for path, fields in iter_desktop_entries():
         exec_cmd = re.sub(r" %[a-zA-Z]", "", fields.get("Exec", ""))
-        wmclass = fields.get("StartupWMClass", "")
-        if not wmclass and exec_cmd:
-            wmclass = Path(exec_cmd.split()[0]).name.lower()
+        wmclass = wmclass_from_fields(fields, exec_cmd)
         names = [
             fields.get("Icon", ""),
             path.stem,
             wmclass,
         ]
+        steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
+        if steam_match:
+            names.append(f"steam_app_{steam_match.group(1)}")
+            names.append(f"steam_icon_{steam_match.group(1)}")
         for name in names:
             key = normalize_icon_name(name)
             if not key or key in index:

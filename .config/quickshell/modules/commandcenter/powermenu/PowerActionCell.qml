@@ -15,28 +15,27 @@ Item {
     width: cellWidth
     height: 80
 
-    Rectangle {
-        anchors {
-            top: parent.top
-            horizontalCenter: parent.horizontalCenter
-        }
-        width: 54
-        height: 54
-        radius: 12
-        visible: root.selected
-        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.16)
-        border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.55)
-        border.width: 2
-    }
-
     Column {
+        id: iconCol
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 3
+        spacing: 2
 
         Item {
+            id: iconSlot
             width: 48
             height: 48
             anchors.horizontalCenter: parent.horizontalCenter
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: 50
+                height: 50
+                radius: 10
+                visible: root.selected
+                color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
+                border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                border.width: 1.5
+            }
 
             Text {
                 anchors.centerIn: parent
@@ -48,14 +47,15 @@ Item {
         }
 
         Text {
-            width: root.cellWidth - 6
+            width: root.cellWidth - 8
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter
             text: root.label
             color: Theme.textPrimary
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 9
-            lineHeight: 1.1
+            lineHeight: 1.2
+            lineHeightMode: Text.ProportionalHeight
             elide: Text.ElideRight
             maximumLineCount: 2
             wrapMode: Text.WordWrap

@@ -186,6 +186,9 @@ Singleton {
             return "dev.zed.Zed";
         if (normalized === "steam-native" || normalized === "steam-launcher" || normalized === "steam-icon")
             return "steam";
+        const steamApp = normalized.match(/^steam_app_(\d+)$/i);
+        if (steamApp)
+            return `steam_icon_${steamApp[1]}`;
         if (normalized === "md.obsidian.obsidian" || normalized === "appimagekit-obsidian")
             return "obsidian";
         if (normalized === "org.cloudyy.cloudcenter" || normalized.toLowerCase().endsWith("cloudcenter"))
@@ -250,6 +253,9 @@ Singleton {
             return entry;
 
         const lower = cls.toLowerCase();
+        if (lower.includes("docker"))
+            return DesktopEntries.heuristicLookup("docker-desktop")
+                || DesktopEntries.heuristicLookup("Docker Desktop");
         if (lower.includes("cloudcenter"))
             return DesktopEntries.heuristicLookup("org.cloudyy.cloudcenter")
                 || DesktopEntries.heuristicLookup("Cloud Center");
@@ -270,6 +276,10 @@ Singleton {
         const rawInitialClass = `${window?.initialClass ?? ""}`.trim();
         const lowerClass = rawClass.toLowerCase();
         const lowerInitialClass = rawInitialClass.toLowerCase();
+
+        const steamAppMatch = lowerClass.match(/^steam_app_(\d+)$/) ?? lowerInitialClass.match(/^steam_app_(\d+)$/);
+        if (steamAppMatch)
+            pushUnique(candidates, `steam_icon_${steamAppMatch[1]}`);
 
         pushUnique(candidates, entry?.icon);
         pushUnique(candidates, rawClass);
@@ -322,10 +332,6 @@ Singleton {
         if (lowerClass === "steam" || lowerInitialClass === "steam")
             pushUnique(candidates, "steam");
 
-        const steamAppMatch = lowerClass.match(/^steam_app_(\d+)$/) ?? lowerInitialClass.match(/^steam_app_(\d+)$/);
-        if (steamAppMatch)
-            pushUnique(candidates, `steam_icon_${steamAppMatch[1]}`);
-
         if (lowerClass.includes("obsidian") || lowerInitialClass.includes("obsidian")) {
             pushUnique(candidates, "obsidian");
             pushUnique(candidates, "md.obsidian.Obsidian");
@@ -338,12 +344,63 @@ Singleton {
                 pushUnique(candidates, `${root.homeDir}/.local/share/icons/cloudyy-apps/cloud-center.svg`);
         }
 
+        if (lowerClass.includes("docker") || lowerInitialClass.includes("docker")) {
+            pushUnique(candidates, "docker-desktop");
+            const dockerEntry = desktopEntryForClass("docker-desktop");
+            pushUnique(candidates, dockerEntry?.icon);
+        }
+
         pushUnique(candidates, "application-default-icon");
         return candidates;
     }
 
     function iconSourcesForName(iconName) {
         return IconResolver.sourcesForName(iconName);
+    }
+
+    function iconSourcesForAppData(appData) {
+        const cls = `${appData?.class ?? ""}`.trim();
+        const icon = `${appData?.icon ?? ""}`.trim();
+        const entry = desktopEntryForClass(cls);
+        const entryIcon = normalizeIconName(entry?.icon ?? "");
+        const resolvedIcon = icon || entryIcon;
+        const resolvedPath = resolvedIcon.startsWith("/") ? resolvedIcon : (entryIcon.startsWith("/") ? entryIcon : "");
+
+        const sources = [];
+        const appSources = IconResolver.sourcesForApp({
+            icon: resolvedIcon,
+            iconPath: resolvedPath,
+            id: cls,
+            wmclass: cls
+        });
+        for (let i = 0; i < appSources.length; i++)
+            pushUniqueSource(sources, appSources[i]);
+
+        if (appData?.window) {
+            const winSources = iconSourcesForWindow(appData.window);
+            for (let i = 0; i < winSources.length; i++)
+                pushUniqueSource(sources, winSources[i]);
+        }
+
+        return sources.length > 0 ? sources : [root.genericIconSource];
+    }
+
+    function isAppRunning(wmclass, exec) {
+        const needle = `${wmclass ?? ""}`.trim().toLowerCase();
+        const execText = `${exec ?? ""}`;
+        const steamMatch = execText.match(/steam:\/\/rungameid\/(\d+)/i);
+        const steamClass = steamMatch ? `steam_app_${steamMatch[1]}`.toLowerCase() : "";
+        const windows = root.windowList || [];
+        for (let i = 0; i < windows.length; i++) {
+            const cls = `${windows[i].class || windows[i].initialClass || ""}`.trim().toLowerCase();
+            if (!cls)
+                continue;
+            if (needle && cls === needle)
+                return true;
+            if (steamClass && cls === steamClass)
+                return true;
+        }
+        return false;
     }
 
     function iconSourcesForWindow(window) {
@@ -357,6 +414,16 @@ Singleton {
             return [`file://${root.homeDir}/.local/share/icons/matlab.png`];
 
         for (const iconName of candidates) {
+            const normalized = normalizeIconName(iconName);
+            if (normalized.startsWith("/")) {
+                pushUniqueSource(sources, `file://${normalized}`);
+                if (sources.length >= root.maxIconSourcesPerWindow) {
+                    root.iconSourcesByWindowCache[cacheKey] = sources;
+                    maybeTrimIconCaches();
+                    return sources;
+                }
+                continue;
+            }
             const candidateSources = iconSourcesForName(iconName);
             for (const source of candidateSources) {
                 pushUniqueSource(sources, source);

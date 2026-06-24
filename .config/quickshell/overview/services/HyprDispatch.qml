@@ -31,6 +31,19 @@ Singleton {
         p.running = true;
     }
 
+    function launchDesktopApp(opts) {
+        const desktopPath = `${opts?.desktopPath ?? ""}`.trim();
+        const exec = `${opts?.exec ?? ""}`.trim();
+        if (desktopPath.length > 0) {
+            launch(["uwsm-app", "--", desktopPath]);
+            return;
+        }
+        const parts = exec.split(/\s+/).filter(part => part.length > 0);
+        if (parts.length === 0)
+            return;
+        launch(["uwsm-app", "--"].concat(parts));
+    }
+
     function luaString(value) {
         return "\"" + `${value ?? ""}`.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
     }

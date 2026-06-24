@@ -85,16 +85,7 @@ Singleton {
     function isRunning(app) {
         if (!app)
             return false;
-        const needle = normalizeText(app.wmclass || "");
-        if (!needle)
-            return false;
-        const windows = HyprlandData.windowList || [];
-        for (let i = 0; i < windows.length; i++) {
-            const cls = normalizeText(windows[i].class || windows[i].initialClass || "");
-            if (cls === needle)
-                return true;
-        }
-        return false;
+        return HyprlandData.isAppRunning(app.wmclass, app.exec);
     }
 
     function appMatchesCategory(app, category) {
@@ -168,10 +159,9 @@ Singleton {
         loadRecents();
         if (catalog.length === 0)
             catalogLoaded = false;
-        if (!catalogLoaded && !catalogLoading)
-            loadCatalog();
-        else
-            refreshFilteredApps();
+        loadCatalog();
+        IconResolver.refreshIndex();
+        refreshFilteredApps();
         requestFocus();
     }
 
@@ -239,7 +229,7 @@ Singleton {
         if (isRunning(app))
             HyprDispatch.focusWindowByClass(app.wmclass);
         else
-            launch(["uwsm-app", "--", app.exec]);
+            HyprDispatch.launchDesktopApp({ desktopPath: app.desktopPath, exec: app.exec });
         pushRecent(app.id);
         close();
     }

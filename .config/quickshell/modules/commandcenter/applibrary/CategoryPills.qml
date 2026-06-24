@@ -39,8 +39,8 @@ Item {
             id: row
             height: parent.height
             spacing: 6
-            leftPadding: 0
-            rightPadding: 0
+            leftPadding: 14
+            rightPadding: 14
 
             Repeater {
                 model: root.labels
@@ -49,7 +49,7 @@ Item {
                     required property string modelData
                     required property int index
                     height: 28
-                    width: pillText.width + 20
+                    width: pillText.width + 24
                     radius: 14
                     readonly property bool isActive: modelData === root.activeLabel
                     readonly property bool isKeyboardFocused: root.keyboardFocusIndex === index
@@ -57,11 +57,11 @@ Item {
                         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
                         : Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.25)
                     border.color: isKeyboardFocused
-                        ? Theme.primary
+                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
                         : (isActive
                             ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
                             : "transparent")
-                    border.width: isKeyboardFocused ? 2 : 1
+                    border.width: isKeyboardFocused || isActive ? 1.5 : 0
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {

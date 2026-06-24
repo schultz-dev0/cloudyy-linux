@@ -573,8 +573,7 @@ Singleton {
         if (searchProc.activeQuery !== query.trim())
             return;
         if (result.type === "app") {
-            const runningClasses = new Set(HyprlandData.windowList.map(w => (w.class || "").toLowerCase()));
-            result.isRunning = runningClasses.has((result.wmclass || "").toLowerCase());
+            result.isRunning = HyprlandData.isAppRunning(result.wmclass, result.exec);
         }
         searchExtras = searchExtras.concat([result]);
         applySearchResults(lastCommandHits, searchExtras);
@@ -594,7 +593,7 @@ Singleton {
             if (r.isRunning)
                 HyprDispatch.focusWindowByClass(r.wmclass);
             else
-                launch(["uwsm-app", "--", r.exec]);
+                HyprDispatch.launchDesktopApp({ desktopPath: r.desktopPath, exec: r.exec });
             close();
         } else if (r.type === "keybind") {
             const args = ["hyprctl", "dispatch", r.dispatcher];

@@ -39,6 +39,7 @@ PanelWindow {
     readonly property color barFg: Qt.rgba(1, 1, 1, 0.92)
     readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
     readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.58)
+    readonly property color barFgCharging: Qt.rgba(0.65, 0.95, 0.72, 0.98)
     readonly property color barHoverBg: Qt.rgba(1, 1, 1, 0.12)
 
     // ── Props ─────────────────────────────────────────────────────────────────
@@ -203,19 +204,63 @@ PanelWindow {
             onClicked: bar.launch(["qs", "ipc", "call", "spotlight", "command"])
         }
 
-        Pill {
+        Item {
             id: clockPill
-            property string t: Qt.formatDateTime(new Date(), "hh:mm")
-            label: t
+            height: bar.barHeight - bar.pillPadV * 2
+            implicitWidth: clockRow.implicitWidth
             width: implicitWidth + bar.pillPadH * 2
-            fg: bar.barFg
+
+            property string dateText: Qt.formatDateTime(new Date(), "ddd MMM d")
+            property string timeText: Qt.formatDateTime(new Date(), "HH:mm")
+
+            function refreshClock() {
+                const now = new Date();
+                dateText = Qt.formatDateTime(now, "ddd MMM d");
+                timeText = Qt.formatDateTime(now, "HH:mm");
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: bar.pillRadius
+                color: clockMouse.containsMouse ? bar.barHoverBg : Qt.rgba(0, 0, 0, 0)
+            }
+
+            Row {
+                id: clockRow
+                anchors.centerIn: parent
+                spacing: 8
+
+                Text {
+                    text: clockPill.dateText
+                    color: bar.barFg
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
+                }
+
+                Text {
+                    text: clockPill.timeText
+                    color: bar.barFg
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
+                }
+            }
+
             Timer {
                 interval: 10000
                 running: true
                 repeat: true
-                onTriggered: clockPill.t = Qt.formatDateTime(new Date(), "hh:mm")
+                triggeredOnStart: true
+                onTriggered: clockPill.refreshClock()
             }
-            onClicked: bar.calendarToggle()
+
+            MouseArea {
+                id: clockMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: bar.calendarToggle()
+            }
         }
 
         Pill {
@@ -478,9 +523,11 @@ PanelWindow {
             visible: bat.available
             label: bat.barLabel
             width: visible ? implicitWidth + bar.pillPadH * 2 : 0
-            fg: bat.charging || bat.full
-                ? Theme.tertiary
-                : (bat.percent < 15 ? "#ffdddd" : (sys.open ? bar.barFgStrong : bar.barFgMuted))
+            fg: bat.full
+                ? bar.barFgStrong
+                : bat.charging
+                    ? bar.barFgCharging
+                    : (bat.percent < 15 ? "#ffdddd" : (sys.open ? bar.barFgStrong : bar.barFgMuted))
             bg: Qt.rgba(0,0,0,0)
             onClicked: sys.toggleOpen()
             onHoverEntered: batteryTooltip.hovered = true

@@ -21,6 +21,7 @@ Item {
     function refreshSources() {
         if (appData) {
             sources = IconResolver.sourcesForApp(appData);
+            queueUnresolvedLookups(appData);
             return;
         }
 
@@ -28,10 +29,31 @@ Item {
             icon: iconName,
             iconPath: iconPath
         };
-        if (iconName || iconPath)
+        if (iconName || iconPath) {
             sources = IconResolver.sourcesForApp(data);
-        else
+            queueUnresolvedLookups(data);
+        } else {
             sources = IconResolver.sourcesForName("application-default-icon");
+        }
+    }
+
+    function queueUnresolvedLookups(data) {
+        const generic = IconResolver.genericIconSource;
+        const hasReal = sources.some(s => {
+            const value = `${s ?? ""}`;
+            return value.length > 0
+                && value !== generic
+                && !value.includes("application-default-icon");
+        });
+        if (hasReal)
+            return;
+
+        const names = [data.icon, data.id, data.wmclass];
+        for (let i = 0; i < names.length; i++) {
+            const name = `${names[i] ?? ""}`.trim();
+            if (name.length > 0)
+                IconResolver.lookupNameAsync(name);
+        }
     }
 
     Component.onCompleted: refreshSources()
