@@ -46,17 +46,6 @@ Item {
                 iconSize: 48
                 appData: root.appData
             }
-
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: -4
-                width: 5
-                height: 5
-                radius: 2.5
-                visible: root.running
-                color: Theme.primary
-            }
         }
 
         Text {
@@ -72,6 +61,15 @@ Item {
             elide: Text.ElideRight
             maximumLineCount: 2
             wrapMode: Text.WordWrap
+        }
+
+        Rectangle {
+            width: 4
+            height: 4
+            radius: 2
+            visible: root.running
+            color: Theme.primary
+            anchors.horizontalCenter: parent.horizontalCenter
         }
     }
 

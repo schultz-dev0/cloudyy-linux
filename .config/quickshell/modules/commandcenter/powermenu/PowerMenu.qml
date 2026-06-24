@@ -79,11 +79,15 @@ PanelWindow {
             Keys.onLeftPressed: event => {
                 if (svc.focusZone === "actions")
                     root.moveAction(-1);
+                else if (svc.focusZone === "profiles")
+                    root.stepProfile(-1);
                 event.accepted = true;
             }
             Keys.onRightPressed: event => {
                 if (svc.focusZone === "actions")
                     root.moveAction(1);
+                else if (svc.focusZone === "profiles")
+                    root.stepProfile(1);
                 event.accepted = true;
             }
             Keys.onUpPressed: event => {
@@ -229,7 +233,9 @@ PanelWindow {
                     columns: root.actionColumns
                     rowSpacing: 4
                     columnSpacing: 0
-                    topPadding: 6
+                    topPadding: 8
+                    leftPadding: 14
+                    rightPadding: 14
 
                     Repeater {
                         model: svc.actions
@@ -298,6 +304,8 @@ PanelWindow {
             focusActions();
             return;
         }
+        if (svc.selectedIndex < 0)
+            svc.selectedIndex = 0;
         svc.activateIndex(svc.selectedIndex);
     }
 

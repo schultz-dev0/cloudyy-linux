@@ -58,17 +58,19 @@ PanelWindow {
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
-    property real dockMouseX: -9999
+    property real dockMouseXRaw: -9999
+    property real dockMouseXSmooth: -9999
     readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHover.hovered
     readonly property bool animationActive: dockVisible || dockHovered || interactionBlock || dragSourceIndex >= 0
     readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
+    readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseXSmooth
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
     onAnyFullscreenChanged: {
         if (anyFullscreen) {
             hideTimer.stop();
-            dockMouseX = -9999;
+            dockMouseXRaw = -9999;
             dockVisible = false;
         } else {
             syncDockVisibility();
@@ -85,7 +87,7 @@ PanelWindow {
         }
         if (anyFullscreen) {
             hideTimer.stop();
-            dockMouseX = -9999;
+            dockMouseXRaw = -9999;
             dockVisible = false;
             return;
         }
@@ -93,12 +95,20 @@ PanelWindow {
         if (dockHovered) {
             hideTimer.stop();
             dockVisible = true;
+            Qt.callLater(() => {
+                if (dockBodyHover.hovered)
+                    dockBodyHover.updateMouseX();
+            });
             return;
         }
 
-        dockMouseX = -9999;
+        dockMouseXRaw = -9999;
         if (dockVisible)
             hideTimer.restart();
+    }
+
+    function iconSlotCenterX(index) {
+        return index * (iconSize + iconSpacing) + iconSize / 2;
     }
 
     function stripDesktopExecField(s) {
@@ -240,7 +250,16 @@ PanelWindow {
         Object.keys(unpinnedByKey).forEach(key => {
             const w = unpinnedByKey[key];
             const candidates = HyprlandData.iconCandidatesForWindow(w);
-            let iconName = (candidates && candidates.length > 0) ? candidates[0] : (w.class || "");
+            let iconName = "";
+            for (let i = 0; i < candidates.length; i++) {
+                const candidate = `${candidates[i] ?? ""}`.trim();
+                if (!candidate || candidate === "application-default-icon")
+                    continue;
+                iconName = candidate;
+                break;
+            }
+            if (!iconName)
+                iconName = w.class || "";
             if (w.class && w.class.toLowerCase().includes("matlab"))
                 iconName = `${HyprlandData.homeDir}/.local/share/icons/matlab.png`;
             result.push({
@@ -389,7 +408,6 @@ PanelWindow {
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
-    readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseX
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -464,7 +482,7 @@ PanelWindow {
         y: dock.dockVisible ? 0 : dock.dockFullHeight
         Behavior on y {
             NumberAnimation {
-                duration: 220
+                duration: Perf.msHalf(220)
                 easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
             }
         }
@@ -508,19 +526,12 @@ PanelWindow {
                     repeat: true
                     onTriggered: {
                         const delta = searchBtn.targetScale - searchBtn.currentScale;
-                        if (Math.abs(delta) < 0.002) {
+                        if (Math.abs(delta) < 0.005) {
                             searchBtn.currentScale = searchBtn.targetScale;
                             return;
                         }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
                         searchBtn.currentScale += delta * lerp;
-                    }
-                }
-                Connections {
-                    target: dock
-                    function onDockIdleChanged() {
-                        if (dock.dockIdle)
-                            searchBtn.currentScale = 1.0;
                     }
                 }
 
@@ -566,7 +577,7 @@ PanelWindow {
                         spread: dock.spread
                         frameMs: dock.frameMs
                         dockMouseX: dock.dockMouseXEffective
-                        iconCenterX: x + dock.iconSize / 2
+                        iconCenterX: dock.iconSlotCenterX(index)
                         animationActive: dock.animationActive || dock.dragSourceIndex === index
                         dockIdle: dock.dockIdle
                         isDragSource: dock.dragSourceIndex === index
@@ -611,19 +622,12 @@ PanelWindow {
                     repeat: true
                     onTriggered: {
                         const delta = appsBtn.targetScale - appsBtn.currentScale;
-                        if (Math.abs(delta) < 0.002) {
+                        if (Math.abs(delta) < 0.005) {
                             appsBtn.currentScale = appsBtn.targetScale;
                             return;
                         }
                         const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
                         appsBtn.currentScale += delta * lerp;
-                    }
-                }
-                Connections {
-                    target: dock
-                    function onDockIdleChanged() {
-                        if (dock.dockIdle)
-                            appsBtn.currentScale = 1.0;
                     }
                 }
 
@@ -673,7 +677,9 @@ PanelWindow {
             Image {
                 id: ghostImg
                 property int sourceIndex: 0
-                property var ghostSources: dock.dragGhostAppData && dock.dragGhostAppData.icon ? HyprlandData.iconSourcesForName(dock.dragGhostAppData.icon) : [HyprlandData.genericIconSource]
+                property var ghostSources: dock.dragGhostAppData
+                    ? HyprlandData.iconSourcesForAppData(dock.dragGhostAppData)
+                    : [HyprlandData.genericIconSource]
 
                 anchors {
                     bottom: parent.bottom
@@ -726,15 +732,43 @@ PanelWindow {
         // child MouseAreas for hover events — fixes hide timer firing on icon hover.
         HoverHandler {
             id: dockBodyHover
+            function updateMouseX() {
+                dock.dockMouseXRaw = iconsRow.mapFromGlobal(
+                    dockBody.mapToGlobal(point.position.x, point.position.y).x,
+                    0
+                ).x;
+            }
             onHoveredChanged: {
                 dock.syncDockVisibility();
+                if (hovered)
+                    updateMouseX();
             }
             onPointChanged: {
                 if (hovered)
-                    dock.dockMouseX = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
+                    updateMouseX();
                 if (dock.dragSourceIndex >= 0 && hovered)
                     dock.updateDragFromBodyPoint(point.position.x, point.position.y);
             }
+        }
+    }
+
+    Timer {
+        id: dockMouseSmoothTimer
+        interval: dock.frameMs
+        running: dock.animationActive
+        repeat: true
+        onTriggered: {
+            const raw = dock.dockMouseXRaw;
+            const smooth = dock.dockMouseXSmooth;
+            const rate = dock.dockVisible ? 0.35 : 0.28;
+            if (raw < -1000) {
+                if (smooth < -1000)
+                    return;
+                const next = smooth + (-9999 - smooth) * rate;
+                dock.dockMouseXSmooth = Math.abs(next + 9999) < 2 ? -9999 : next;
+                return;
+            }
+            dock.dockMouseXSmooth = smooth < -1000 ? raw : smooth + (raw - smooth) * rate;
         }
     }
 

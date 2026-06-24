@@ -17,12 +17,14 @@ sys.path.insert(0, str(SERVICES_DIR))
 from icon_resolve import INDEX_VERSION, resolve_app_icon  # noqa: E402
 
 MAP_FILE = SCRIPT_DIR / "category-map.json"
+CATALOG_VERSION = "desktop-entry-v2"
 HOME = Path.home()
 CACHE_DIR = HOME / ".config/cloud-center/settings/quickshell"
 CACHE_FILE = CACHE_DIR / "app_catalog.json"
 STAMP_FILE = CACHE_DIR / "app_catalog.stamp"
 DESKTOP_DIRS = (HOME / ".local/share/applications", Path("/usr/share/applications"))
 FIELD_RE = re.compile(r"^([A-Za-z0-9-]+)=(.*)$")
+SECTION_RE = re.compile(r"^\[([^\]]+)\]$")
 EXEC_FIELD_RE = re.compile(r" %[a-zA-Z]")
 
 
@@ -54,11 +56,18 @@ def get_icon_theme() -> str:
 
 def read_desktop(path: Path) -> dict[str, str]:
     fields: dict[str, str] = {}
+    in_entry = False
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return fields
     for line in text.splitlines():
+        section_match = SECTION_RE.match(line.strip())
+        if section_match:
+            in_entry = section_match.group(1) == "Desktop Entry"
+            continue
+        if not in_entry:
+            continue
         match = FIELD_RE.match(line)
         if match:
             fields[match.group(1)] = match.group(2).strip()
@@ -81,6 +90,18 @@ def map_categories(raw: str, cat_map: dict[str, str]) -> list[str]:
     return out
 
 
+def wmclass_from_fields(fields: dict[str, str], exec_cmd: str) -> str:
+    wmclass = fields.get("StartupWMClass", "")
+    if wmclass:
+        return wmclass
+    steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
+    if steam_match:
+        return f"steam_app_{steam_match.group(1)}"
+    if exec_cmd:
+        return Path(exec_cmd.split()[0]).name.lower()
+    return ""
+
+
 def desktop_stamp() -> str:
     count = 0
     newest = 0
@@ -99,7 +120,7 @@ def desktop_stamp() -> str:
                 pass
     map_mtime = int(MAP_FILE.stat().st_mtime) if MAP_FILE.is_file() else 0
     theme = get_icon_theme()
-    return f"icon-{INDEX_VERSION}:{count}:{newest}:{map_mtime}:{theme}"
+    return f"{CATALOG_VERSION}:{INDEX_VERSION}:{count}:{newest}:{map_mtime}:{theme}"
 
 
 def build_catalog() -> list[dict]:
@@ -133,9 +154,7 @@ def build_catalog() -> list[dict]:
                 continue
 
             icon = fields.get("Icon", "application-x-executable")
-            wmclass = fields.get("StartupWMClass", "")
-            if not wmclass:
-                wmclass = Path(exec_cmd.split()[0]).name.lower()
+            wmclass = wmclass_from_fields(fields, exec_cmd)
 
             exec_base = Path(exec_cmd.split()[0]).name
             icon_path = resolve_app_icon(icon, app_id, wmclass, exec_cmd)
@@ -148,6 +167,7 @@ def build_catalog() -> list[dict]:
                     "comment": fields.get("Comment", ""),
                     "icon": icon,
                     "iconPath": icon_path,
+                    "desktopPath": str(path),
                     "exec": exec_cmd,
                     "wmclass": wmclass,
                     "categories": map_categories(fields.get("Categories", ""), cat_map),

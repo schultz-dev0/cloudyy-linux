@@ -30,8 +30,12 @@ for desktop in "${desktop_matches[@]}"; do
     icon=$(grep -m1 "^Icon=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
     exec_raw=$(grep -m1 "^Exec=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
     exec=$(printf '%s' "$exec_raw" | sed 's/ %[a-zA-Z]//g')
-    wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2-)
-    [[ -z "$wmclass" ]] && wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+    if [[ "$exec" =~ steam://rungameid/([0-9]+) ]]; then
+        wmclass="steam_app_${BASH_REMATCH[1]}"
+    elif [[ -z "$wmclass" ]]; then
+        wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    fi
     desktop_id=$(basename "$desktop" .desktop)
     exec_base=$(basename "${exec%% *}" 2>/dev/null)
     icon_path=$(python3 "$ICON_RESOLVE" resolve "$icon" "$desktop_id" "$wmclass" "$exec" 2>/dev/null || true)
@@ -40,9 +44,10 @@ for desktop in "${desktop_matches[@]}"; do
       --arg name    "$name" \
       --arg icon    "${icon:-application-x-executable}" \
       --arg iconPath "${icon_path:-}" \
+      --arg desktopPath "$desktop" \
       --arg exec    "$exec" \
       --arg wmclass "$wmclass" \
-      '{type:"app",name:$name,icon:$icon,iconPath:$iconPath,exec:$exec,wmclass:$wmclass}'
+      '{type:"app",name:$name,icon:$icon,iconPath:$iconPath,desktopPath:$desktopPath,exec:$exec,wmclass:$wmclass}'
 done
 
 # ── File search ─────────────────────────────────────────────────────────────

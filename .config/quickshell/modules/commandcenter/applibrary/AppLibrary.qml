@@ -13,9 +13,10 @@ PanelWindow {
 
     readonly property var svc: AppLibraryService
     readonly property bool isSearchMode: svc.query.trim().length > 0
-    // search | categories | grid
+    // search | recents | categories | grid
     property string focusZone: "search"
     property int categoryFocusIndex: 0
+    property int recentFocusIndex: -1
     readonly property int gridRowHeight: 84
     readonly property int gridRowSpacing: 4
     readonly property int panelPaddingH: 18
@@ -125,7 +126,10 @@ PanelWindow {
                         }
                         Keys.onTabPressed: {
                             if (!root.isSearchMode) {
-                                root.focusCategories(false);
+                                if (recentRow.visible)
+                                    root.focusRecents();
+                                else
+                                    root.focusCategories(false);
                                 event.accepted = true;
                             }
                         }
@@ -145,9 +149,12 @@ PanelWindow {
                         Keys.onDownPressed: {
                             if (root.isSearchMode)
                                 root.moveListSelection(1);
-                            else if (root.focusZone === "search")
-                                root.focusCategories(false);
-                            else if (root.focusZone === "categories")
+                            else if (root.focusZone === "search") {
+                                if (recentRow.visible)
+                                    root.focusRecents();
+                                else
+                                    root.focusCategories(false);
+                            } else if (root.focusZone === "categories")
                                 root.focusGrid();
                             else
                                 root.moveGrid(0, 1);
@@ -223,22 +230,35 @@ PanelWindow {
                             event.accepted = true;
                     }
                     Keys.onLeftPressed: event => {
-                        if (root.focusZone === "grid")
+                        if (root.focusZone === "recents")
+                            root.moveRecent(-1);
+                        else if (root.focusZone === "grid")
                             root.moveGrid(-1, 0);
                         event.accepted = true;
                     }
                     Keys.onRightPressed: event => {
-                        if (root.focusZone === "grid")
+                        if (root.focusZone === "recents")
+                            root.moveRecent(1);
+                        else if (root.focusZone === "grid")
                             root.moveGrid(1, 0);
                         event.accepted = true;
                     }
                     Keys.onUpPressed: event => {
-                        if (root.focusZone === "grid")
+                        if (root.focusZone === "recents")
+                            root.focusSearch();
+                        else if (root.focusZone === "categories") {
+                            if (recentRow.visible)
+                                root.focusRecents();
+                            else
+                                root.focusSearch();
+                        } else if (root.focusZone === "grid")
                             root.moveGrid(0, -1);
                         event.accepted = true;
                     }
                     Keys.onDownPressed: event => {
-                        if (root.focusZone === "categories")
+                        if (root.focusZone === "recents")
+                            root.focusCategories(false);
+                        else if (root.focusZone === "categories")
                             root.focusGrid();
                         else if (root.focusZone === "grid")
                             root.moveGrid(0, 1);
@@ -261,6 +281,7 @@ PanelWindow {
                     visible: !root.isSearchMode && svc.recentEntries.length > 0
                     apps: svc.recentEntries
                     isRunningFunc: app => svc.isRunning(app)
+                    keyboardFocusIndex: root.focusZone === "recents" ? root.recentFocusIndex : -1
                     onAppActivated: app => svc.activateApp(app)
                 }
 
@@ -394,13 +415,26 @@ PanelWindow {
     function focusSearch() {
         focusZone = "search";
         categoryFocusIndex = -1;
+        recentFocusIndex = -1;
         searchInput.forceActiveFocus();
+    }
+
+    function focusRecents() {
+        if (isSearchMode || !recentRow.visible)
+            return;
+        focusZone = "recents";
+        categoryFocusIndex = -1;
+        if (svc.recentEntries.length > 0 && recentFocusIndex < 0)
+            recentFocusIndex = 0;
+        keyNav.forceActiveFocus();
+        recentRow.ensureIndexVisible(recentFocusIndex);
     }
 
     function focusCategories(backward) {
         if (isSearchMode)
             return;
         focusZone = "categories";
+        recentFocusIndex = -1;
         syncCategoryFocus(svc.activeCategory);
         if (backward)
             stepCategory(-1);
@@ -413,6 +447,7 @@ PanelWindow {
             return;
         focusZone = "grid";
         categoryFocusIndex = -1;
+        recentFocusIndex = -1;
         if (svc.filteredApps.length > 0 && svc.selectedIndex < 0)
             svc.selectedIndex = 0;
         keyNav.forceActiveFocus();
@@ -424,6 +459,7 @@ PanelWindow {
         if (labels.length === 0)
             return;
         focusZone = "categories";
+        recentFocusIndex = -1;
         let idx = categoryFocusIndex;
         if (idx < 0)
             idx = labels.indexOf(svc.activeCategory);
@@ -452,6 +488,18 @@ PanelWindow {
             focusSearch();
         else
             ensureSearchRowVisible(svc.selectedIndex);
+    }
+
+    function moveRecent(dx) {
+        const count = svc.recentEntries.length;
+        if (count === 0)
+            return;
+        let idx = recentFocusIndex < 0 ? 0 : recentFocusIndex;
+        idx = Math.max(0, Math.min(count - 1, idx + dx));
+        focusZone = "recents";
+        recentFocusIndex = idx;
+        keyNav.forceActiveFocus();
+        recentRow.ensureIndexVisible(idx);
     }
 
     function moveGrid(dx, dy) {
@@ -521,6 +569,11 @@ PanelWindow {
     }
 
     function activateSelection() {
+        if (focusZone === "recents") {
+            if (recentFocusIndex >= 0 && recentFocusIndex < svc.recentEntries.length)
+                svc.activateApp(svc.recentEntries[recentFocusIndex]);
+            return;
+        }
         if (focusZone === "categories") {
             focusGrid();
             return;
@@ -536,6 +589,13 @@ PanelWindow {
                 return;
             }
             if (focusZone === "categories") {
+                if (recentRow.visible)
+                    focusRecents();
+                else
+                    focusSearch();
+                return;
+            }
+            if (focusZone === "recents") {
                 focusSearch();
                 return;
             }
@@ -599,6 +659,7 @@ PanelWindow {
                 searchInput.text = svc.query;
                 root.focusZone = "search";
                 root.categoryFocusIndex = 0;
+                root.recentFocusIndex = -1;
                 Qt.callLater(() => root.focusSearch());
             } else {
                 searchInput.text = "";

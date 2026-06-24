@@ -52,7 +52,7 @@ Item {
         repeat: true
         onTriggered: {
             const delta = root.targetScale - root.currentScale;
-            if (Math.abs(delta) < 0.002) {
+            if (Math.abs(delta) < 0.005) {
                 root.currentScale = root.targetScale;
                 return;
             }
@@ -61,13 +61,13 @@ Item {
         }
     }
 
-    onDockIdleChanged: if (dockIdle) currentScale = 1
-
     Image {
         id: iconImg
 
         property int sourceIndex: 0
-        property var sources: IconResolver.sourcesForName(root.appData.icon ?? "application-default-icon")
+        property var sources: root.appData
+            ? HyprlandData.iconSourcesForAppData(root.appData)
+            : [IconResolver.genericIconSource]
 
         width: root.iconSize
         height: root.iconSize

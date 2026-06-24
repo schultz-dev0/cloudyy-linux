@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../../../overview/services"
 import "../../spotlight"
 import "../applibrary"
 import "../wallpapers"
@@ -29,13 +30,15 @@ Singleton {
             id: "lock",
             label: "Lock",
             icon: "󰷛",
-            command: ["bash", "-c", "pidof hyprlock || hyprlock"]
+            run: "pidof hyprlock >/dev/null 2>&1 || hyprlock"
         },
         {
             id: "suspend",
             label: "Suspend",
             icon: "󰒲",
-            command: ["bash", "-c", "pidof hyprlock || hyprlock &; systemctl suspend"]
+            run: "systemctl suspend"
+            // TO-DO: Make suspend also send a command to lock the system, so upon awakining
+            // The user is prompted with a password
         },
         {
             id: "logout",
@@ -47,32 +50,52 @@ Singleton {
             id: "reboot",
             label: "Reboot",
             icon: "󰜉",
-            command: ["systemctl", "reboot"]
+            run: "systemctl reboot"
         },
         {
             id: "shutdown",
             label: "Shutdown",
             icon: "󰐥",
-            command: ["systemctl", "poweroff"]
+            run: "systemctl poweroff"
         }
     ]
 
     signal requestFocus()
 
-    Component {
-        id: procProto
-        Process {}
+    function shellQuote(value) {
+        const text = `${value ?? ""}`;
+        return `'${text.replace(/'/g, `'\\''`)}'`;
     }
 
     function launch(cmd) {
         if (!cmd || cmd.length === 0)
             return;
-        const p = procProto.createObject(svc, { command: cmd });
-        p.runningChanged.connect(() => {
-            if (!p.running)
-                p.destroy();
-        });
-        p.running = true;
+        HyprDispatch.launch(cmd);
+    }
+
+    function launchShell(script) {
+        const body = `${script ?? ""}`.trim();
+        if (!body)
+            return;
+        launch(["bash", "-lc", `cd "$HOME" && ${body}`]);
+    }
+
+    function launchCommand(cmd) {
+        if (!cmd || cmd.length === 0)
+            return;
+        if (cmd.length >= 3 && cmd[0] === "bash" && cmd[1] === "-c")
+            return launchShell(cmd[2]);
+        const inner = cmd.map(part => shellQuote(part)).join(" ");
+        launch(["bash", "-lc", `cd "$HOME" && exec ${inner}`]);
+    }
+
+    function runAction(action) {
+        if (!action)
+            return;
+        if (action.run)
+            launchShell(action.run);
+        else if (action.command)
+            launchCommand(action.command);
     }
 
     function profileLabelForId(id) {
@@ -171,8 +194,7 @@ Singleton {
     function activateIndex(idx) {
         if (idx < 0 || idx >= actions.length)
             return;
-        const action = actions[idx];
-        launch(action.command);
+        runAction(actions[idx]);
         close();
     }
 
