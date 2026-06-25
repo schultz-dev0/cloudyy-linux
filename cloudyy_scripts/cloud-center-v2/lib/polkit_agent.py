@@ -22,10 +22,25 @@ MAX_AUTH_TRIES = 3
 
 _agent: "CloudCenterPolkitAgent | None" = None
 _registered = False
+_ready_callbacks: list[Callable[[], None]] = []
 
 
 def is_registered() -> bool:
     return _registered
+
+
+def when_ready(callback: Callable[[], None]) -> None:
+    """Invoke callback once the in-app polkit agent is registered (or immediately if ready)."""
+    if _registered:
+        GLib.idle_add(callback)
+        return
+    _ready_callbacks.append(callback)
+
+
+def _notify_ready() -> None:
+    for cb in _ready_callbacks:
+        GLib.idle_add(cb)
+    _ready_callbacks.clear()
 
 
 def present_dialog(dialog: Adw.Dialog, parent: Gtk.Window | None) -> None:
@@ -281,9 +296,9 @@ def register(parent_getter: Callable[[], Gtk.Window | None]) -> None:
     global _agent, _registered
 
     if _registered:
+        _notify_ready()
         return
 
-    _stop_fallback_agents()
     _agent = CloudCenterPolkitAgent(parent_getter)
 
     def on_session(_session_obj, result) -> None:
@@ -304,11 +319,13 @@ def register(parent_getter: Callable[[], Gtk.Window | None]) -> None:
                     None,
                 )
                 _registered = True
+                _stop_fallback_agents()
                 log.info("Registered Cloud Center polkit authentication agent")
+                _notify_ready()
             except GLib.Error as e:
                 if not retry and "already exists" in e.message.lower():
                     _stop_fallback_agents()
-                    GLib.timeout_add(300, lambda: try_register(retry=True))
+                    GLib.timeout_add(300, lambda: try_register(retry=True) or False)
                 else:
                     log.warning("Could not register polkit agent: %s", e.message)
             return False

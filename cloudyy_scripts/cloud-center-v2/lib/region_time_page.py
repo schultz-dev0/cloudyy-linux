@@ -11,6 +11,7 @@ from gi.repository import Adw, GLib, Gtk, Pango
 
 import lib.datetime_helpers as dt
 import lib.geoclue_helpers as geo
+import lib.offline_geocode as offline_geocode
 import lib.utility as utility
 
 log = logging.getLogger(__name__)
@@ -44,8 +45,12 @@ class RegionTimePage(Gtk.Box):
         self._tz_row_map: dict[str, Gtk.ListBoxRow] = {}
         self._tz_current_row: Gtk.ListBoxRow | None = None
         self._tz_offsets: dict[str, str] = {}
+        self._polkit_ready = dt.polkit_agent_running()
 
         self.build_ui()
+        dt.ensure_polkit_agent()
+        if not self._polkit_ready:
+            GLib.timeout_add(500, self._poll_polkit)
         threading.Thread(target=self.load_timezones_worker, daemon=True).start()
         self.refresh()
         self.clock_source_id = GLib.timeout_add_seconds(1, self.tick_clock)
@@ -57,7 +62,7 @@ class RegionTimePage(Gtk.Box):
         toolbar.set_margin_top(10)
         toolbar.set_margin_bottom(6)
 
-        title = Gtk.Label(label="Region & Time")
+        title = Gtk.Label(label="Region and Time")
         title.add_css_class("heading")
         title.set_xalign(0)
         title.set_hexpand(True)
@@ -88,10 +93,20 @@ class RegionTimePage(Gtk.Box):
         pref = Adw.PreferencesPage()
 
         time_group = Adw.PreferencesGroup()
-        time_group.set_title("Date & Time")
+        time_group.set_title("Date and Time")
         time_group.set_description(
             "Timezone and clock settings. Manual time requires NTP sync to be disabled."
         )
+
+        self.auth_row = Adw.ActionRow(title="Authentication")
+        self.auth_row.set_subtitle(self._auth_subtitle())
+        self.auth_row.set_activatable(False)
+        time_group.add(self.auth_row)
+
+        self.offline_places_row = Adw.ActionRow(title="Offline place names")
+        self.offline_places_row.set_subtitle(self._offline_places_subtitle())
+        self.offline_places_row.set_activatable(False)
+        time_group.add(self.offline_places_row)
 
         self.clock_row = Adw.ActionRow(title="Local Time")
         self.clock_row.set_subtitle("Loading…")
@@ -159,7 +174,7 @@ class RegionTimePage(Gtk.Box):
         manual_box.set_margin_top(8)
         manual_box.set_margin_bottom(8)
 
-        manual_label = Gtk.Label(label="Manual Date & Time")
+        manual_label = Gtk.Label(label="Manual Date and Time")
         manual_label.set_xalign(0)
         manual_label.add_css_class("heading")
         manual_box.append(manual_label)
@@ -209,8 +224,7 @@ class RegionTimePage(Gtk.Box):
         loc_group = Adw.PreferencesGroup()
         loc_group.set_title("Location")
         loc_group.set_description(
-            "System geolocation via GeoClue. IP-based location may be inaccurate abroad; "
-            "use manual coordinates for a fixed position."
+            "WiFi-based positioning when available, with offline city/town lookup from coordinates."
         )
 
         self.geo_service_row = Adw.ActionRow(title="GeoClue Service")
@@ -279,6 +293,28 @@ class RegionTimePage(Gtk.Box):
 
         self.update_manual_controls()
 
+    def _auth_subtitle(self) -> str:
+        if self._polkit_ready:
+            return "Ready — hyprpolkitagent will prompt for your password"
+        return "Starting polkit agent… privileged actions disabled until ready"
+
+    def _offline_places_subtitle(self) -> str:
+        if offline_geocode.data_available():
+            return "GeoNames cities database loaded (no network needed)"
+        return "Missing — run: bash ~/cloudyy-linux/install/setup-region-time.sh"
+
+    def _poll_polkit(self) -> bool:
+        dt.ensure_polkit_agent()
+        if dt.polkit_agent_running():
+            self._on_polkit_ready()
+            return False
+        return True
+
+    def _on_polkit_ready(self) -> None:
+        self._polkit_ready = True
+        self.auth_row.set_subtitle(self._auth_subtitle())
+        self.update_manual_controls()
+
     def refresh(self) -> None:
         self.spinner.set_visible(True)
         self.spinner.start()
@@ -320,6 +356,9 @@ class RegionTimePage(Gtk.Box):
         self.tz_current_row.set_subtitle(
             snapshot.status_text.get("timezone", timezone) or timezone or "—"
         )
+
+        self.auth_row.set_subtitle(self._auth_subtitle())
+        self.offline_places_row.set_subtitle(self._offline_places_subtitle())
 
         self.ntp_row.set_active(snapshot.ntp_enabled)
         sync = snapshot.status_text.get("ntp_sync", "unknown")
@@ -462,17 +501,23 @@ class RegionTimePage(Gtk.Box):
     def update_manual_controls(self) -> None:
         ntp_on = self.ntp_row.get_active()
         manual_on = self.manual_mode_row.get_active()
-        manual_sensitive = not ntp_on
+        manual_sensitive = self._polkit_ready and not ntp_on
+        privileged = self._polkit_ready
 
         self.calendar.set_sensitive(manual_sensitive)
         self.hour_spin.set_sensitive(manual_sensitive)
         self.minute_spin.set_sensitive(manual_sensitive)
         self.apply_time_btn.set_sensitive(manual_sensitive)
 
-        self.lat_spin.set_sensitive(manual_on)
-        self.lon_spin.set_sensitive(manual_on)
-        self.acc_spin.set_sensitive(manual_on)
-        self.apply_loc_btn.set_sensitive(manual_on)
+        self.lat_spin.set_sensitive(privileged and manual_on)
+        self.lon_spin.set_sensitive(privileged and manual_on)
+        self.acc_spin.set_sensitive(privileged and manual_on)
+        self.apply_loc_btn.set_sensitive(privileged and manual_on)
+        self.clear_loc_btn.set_sensitive(privileged)
+        self.ntp_row.set_sensitive(privileged)
+        self.tz_list.set_sensitive(privileged)
+        self.tz_search.set_sensitive(privileged)
+        self.manual_mode_row.set_sensitive(privileged)
 
     def show_toast(self, message: str, timeout: int = 3) -> None:
         utility.toast(self.toast_overlay, message, timeout)
@@ -483,6 +528,12 @@ class RegionTimePage(Gtk.Box):
 
     def on_ntp_changed(self, row: Adw.SwitchRow, _pspec) -> None:
         if self.updating:
+            return
+        if not self._polkit_ready:
+            self.show_toast(dt.NO_POLKIT_AGENT_MSG, 5)
+            self.updating = True
+            row.set_active(not row.get_active())
+            self.updating = False
             return
         enabled = row.get_active()
         self.update_manual_controls()
@@ -501,6 +552,9 @@ class RegionTimePage(Gtk.Box):
         dt.set_ntp_dbus_async(enabled, finish)
 
     def on_timezone_activated(self, _list: Gtk.ListBox, row: Gtk.ListBoxRow) -> None:
+        if not self._polkit_ready:
+            self.show_toast(dt.NO_POLKIT_AGENT_MSG, 5)
+            return
         if self.tz_busy or not getattr(row, "tz_name", None):
             return
         tz = row.tz_name
@@ -526,6 +580,9 @@ class RegionTimePage(Gtk.Box):
         dt.set_timezone_dbus_async(tz, finish)
 
     def on_apply_manual_time(self, _btn: Gtk.Button) -> None:
+        if not self._polkit_ready:
+            self.show_toast(dt.NO_POLKIT_AGENT_MSG, 5)
+            return
         if self.ntp_row.get_active():
             self.show_toast("Disable NTP before setting manual time", 4)
             return
@@ -537,7 +594,6 @@ class RegionTimePage(Gtk.Box):
         except Exception:
             tz_info = None
         local_dt = datetime(year, month + 1, day, hour, minute, tzinfo=tz_info)
-        utc_usec = int(local_dt.timestamp() * 1_000_000)
 
         def finish(ok: bool, msg: str) -> bool:
             if ok:
@@ -547,7 +603,7 @@ class RegionTimePage(Gtk.Box):
             self.refresh()
             return False
 
-        dt.set_time_dbus_async(utc_usec, finish)
+        dt.set_local_time_async(local_dt, finish)
 
     def on_manual_mode_changed(self, row: Adw.SwitchRow, _pspec) -> None:
         if self.updating:

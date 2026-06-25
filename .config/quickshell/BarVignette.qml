@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 
 // Top wallpaper vignette for the system bar (BarVignette.qml).
-// Separate PanelWindow on WlrLayer.Background — under apps and under the bar.
+// Separate PanelWindow on WlrLayer.Bottom — above windows, under the bar (Top layer).
 // Pure black gradient — not tied to matugen / Theme colors.
 
 import QtQuick
@@ -32,9 +32,9 @@ PanelWindow {
     // Do not participate in top-edge panel stacking (bar's exclusive zone was pushing this down).
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
+    // Bottom layer: above tiled/floating windows, below the bar (defaults to Top).
     aboveWindows: false
 
-    WlrLayershell.layer: WlrLayer.Background
     WlrLayershell.namespace: "quickshell:bar-vignette"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 

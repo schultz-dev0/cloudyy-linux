@@ -55,7 +55,7 @@ if [[ "${1:-}" == "--setup" ]]; then
   read -rsp "Re-enter the new passphrase: " _setup_pass
   echo
   if printf '%s' "$_setup_pass" | secret-tool store \
-      --label="SSH Key id_ed25519" ssh-passphrase id_ed25519 2>/dev/null; then
+    --label="SSH Key id_ed25519" ssh-passphrase id_ed25519 2>/dev/null; then
     echo "Passphrase saved to keyring."
   else
     echo "ERROR: Could not save to keyring. Is gnome-keyring-daemon running?" >&2
@@ -83,7 +83,7 @@ _load_key_from_keyring() {
   chmod 700 "$tmp"
   b64=$(printf '%s' "$passphrase" | base64 -w0)
   # Embed passphrase as base64 in a throwaway askpass script to avoid quoting issues.
-  printf '#!/bin/bash\nprintf "%%%%s" "$(base64 -d <<< %s)"\n' "$b64" > "$tmp"
+  printf '#!/bin/bash\nprintf "%%%%s" "$(base64 -d <<< %s)"\n' "$b64" >"$tmp"
 
   SSH_AUTH_SOCK="$AGENT_SOCK" SSH_ASKPASS="$tmp" SSH_ASKPASS_REQUIRE=force \
     ssh-add ~/.ssh/id_ed25519 </dev/null 2>/dev/null
@@ -93,7 +93,7 @@ _load_key_from_keyring() {
 }
 
 _load_keys_silently() {
-  sleep 2  # let the Wayland session settle
+  sleep 2 # let the Wayland session settle
 
   # First attempt — gnome-keyring will show an unlock prompt if still locked
   # (happens on autologin fresh boot; same password as hyprlock).

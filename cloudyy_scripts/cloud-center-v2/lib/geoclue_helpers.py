@@ -10,12 +10,20 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+import lib.offline_geocode as offline_geocode
+
 log = logging.getLogger(__name__)
 
 GEOLOCATION_FILE = Path("/etc/geolocation")
 STATIC_DROPIN = Path("/etc/geoclue/conf.d/50-cloudyy-static.conf")
 ALLOW_DROPIN = Path("/etc/geoclue/conf.d/50-cloudyy-allow-cloud-center.conf")
 APPLY_SCRIPT = Path(__file__).resolve().parent / "apply_geolocation.py"
+
+# Desktop id passed to Geoclue.Simple — must have a matching [section] in the allow drop-in.
+GEOCLUE_APP_ID = "cloud-center"
+
+# WiFi positioning can take longer than IP lookup on cold start.
+DEFAULT_LOCATION_TIMEOUT = 20.0
 
 
 @dataclass
@@ -25,6 +33,7 @@ class GeoLocation:
     accuracy: float
     altitude: float = 0.0
     source: str = "unknown"
+    place_name: str = ""
 
 
 def service_active() -> bool:
@@ -61,13 +70,28 @@ def read_static_geolocation() -> GeoLocation | None:
         lat, lon = values[0], values[1]
         alt = values[2] if len(values) > 2 else 0.0
         acc = values[3] if len(values) > 3 else 200.0
-        return GeoLocation(lat, lon, acc, alt, "static")
+        place = offline_geocode.format_place(lat, lon, acc)
+        return GeoLocation(lat, lon, acc, alt, "static", place_name=place)
     except Exception as e:
         log.warning("Failed to read /etc/geolocation: %s", e)
         return None
 
 
-def get_location(timeout: float = 5.0) -> GeoLocation | None:
+def _attach_place_name(loc: GeoLocation) -> GeoLocation:
+    if loc.place_name:
+        return loc
+    place = offline_geocode.format_place(loc.latitude, loc.longitude, loc.accuracy)
+    return GeoLocation(
+        latitude=loc.latitude,
+        longitude=loc.longitude,
+        accuracy=loc.accuracy,
+        altitude=loc.altitude,
+        source=loc.source,
+        place_name=place,
+    )
+
+
+def get_location(timeout: float = DEFAULT_LOCATION_TIMEOUT) -> GeoLocation | None:
     static = read_static_geolocation()
     if is_manual_mode() and static is not None:
         return static
@@ -79,12 +103,11 @@ def get_location(timeout: float = 5.0) -> GeoLocation | None:
         from gi.repository import Geoclue, Gio
 
         cancellable = Gio.Cancellable()
-        # Fire-and-forget timer: cancel the sync call if GeoClue is unresponsive.
         timer = threading.Timer(timeout, cancellable.cancel)
         timer.start()
         try:
             simple = Geoclue.Simple.new_sync(
-                "cloud-center",
+                GEOCLUE_APP_ID,
                 Geoclue.AccuracyLevel.EXACT,
                 cancellable,
             )
@@ -94,21 +117,49 @@ def get_location(timeout: float = 5.0) -> GeoLocation | None:
         loc = simple.get_location()
         if loc is None:
             return static
-        return GeoLocation(
+        source = _describe_source(simple)
+        result = GeoLocation(
             latitude=float(loc.props.latitude),
             longitude=float(loc.props.longitude),
             accuracy=float(loc.props.accuracy),
             altitude=float(loc.props.altitude or 0.0),
-            source="geoclue",
+            source=source,
         )
+        return _attach_place_name(result)
     except Exception as e:
         log.warning("GeoClue read failed: %s", e)
-        return static
+        if static is not None:
+            return static
+        return None
+
+
+def _describe_source(simple) -> str:
+    try:
+        src = simple.get_active_source()
+        if src is None:
+            return "geoclue"
+        sid = src.get_source_id()
+        mapping = {
+            "wifi": "WiFi",
+            "wlan": "WiFi",
+            "static": "static",
+            "ip": "IP (approximate)",
+            "modem-gps": "GPS",
+            "nmea": "GPS",
+        }
+        for key, label in mapping.items():
+            if key in (sid or "").lower():
+                return label
+        return sid or "geoclue"
+    except Exception:
+        return "geoclue"
 
 
 def format_location(loc: GeoLocation | None) -> str:
     if loc is None:
-        return "Location unavailable"
+        return "Location unavailable — check GeoClue service"
+    if loc.place_name:
+        return f"{loc.place_name}  [{loc.source}]"
     return (
         f"{loc.latitude:.5f}, {loc.longitude:.5f}  "
         f"(±{loc.accuracy:.0f} m, {loc.source})"

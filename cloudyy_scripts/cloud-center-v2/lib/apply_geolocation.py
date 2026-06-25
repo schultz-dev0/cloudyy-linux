@@ -40,7 +40,7 @@ enable=true
 ALLOW_CONF = """[cloud-center]
 allowed=true
 system=false
-users=
+users={user}
 """
 
 
@@ -68,7 +68,8 @@ def apply_location(lat: float, lon: float, alt: float, accuracy: float) -> None:
 
     CONF_DIR.mkdir(parents=True, exist_ok=True)
     STATIC_DROPIN.write_text(STATIC_CONF)
-    ALLOW_DROPIN.write_text(ALLOW_CONF)
+    user = os.environ.get("SUDO_USER") or os.environ.get("USER") or ""
+    ALLOW_DROPIN.write_text(ALLOW_CONF.format(user=user))
 
     _restart_geoclue()
     print(f"Static location set to {lat}, {lon}")
