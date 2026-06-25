@@ -247,6 +247,10 @@ phase_schema() {
     return 0
   fi
   bash "$schema_script"
+  local region_time="${SCRIPT_DIR}/setup-region-time.sh"
+  if [[ -f "$region_time" ]]; then
+    bash "$region_time"
+  fi
 }
 
 # --- Phase: Laptop Support ---------------------------------------------------

@@ -38,7 +38,7 @@ PanelWindow {
     // Vignette solves readability like on macos
     readonly property color barFg: Qt.rgba(1, 1, 1, 0.92)
     readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
-    readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.58)
+    readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.98) //0.58)
     readonly property color barFgCharging: Qt.rgba(0.65, 0.95, 0.72, 0.98)
     readonly property color barHoverBg: Qt.rgba(1, 1, 1, 0.12)
 

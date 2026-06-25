@@ -21,8 +21,8 @@ POLKIT_AGENT_CANDIDATES = (
 )
 
 NO_POLKIT_AGENT_MSG = (
-    "No polkit authentication agent is available. "
-    "Open Cloud Center or run: systemctl --user start hyprpolkitagent.service"
+    "No polkit authentication agent is running. "
+    "Run: systemctl --user start hyprpolkitagent.service"
 )
 
 AUTH_FAILED_MSG = (
@@ -54,15 +54,7 @@ def polkit_agent_running() -> bool:
 
 
 def ensure_polkit_agent() -> bool:
-    """Ensure a session polkit agent exists (Cloud Center in-app or hyprpolkitagent)."""
-    try:
-        from lib import polkit_agent
-
-        if polkit_agent.is_registered():
-            return True
-    except Exception:
-        pass
-
+    """Ensure a session polkit agent is running (hyprpolkitagent preferred)."""
     if polkit_agent_running():
         return True
 
@@ -153,7 +145,7 @@ def run_command_async(
         try:
             _, stdout, stderr = proc.communicate_utf8_finish(result)
             ok = proc.get_exit_status() == 0
-            msg = "" if ok else (((stderr or "") + (stdout or "")).strip() or AUTH_FAILED_MSG)
+            msg = "" if ok else _friendly_error(((stderr or "") + (stdout or "")).strip() or AUTH_FAILED_MSG)
         except GLib.Error as e:
             if timed_out["value"]:
                 ok, msg = False, (
@@ -169,7 +161,19 @@ def run_command_async(
     proc.communicate_utf8_async(None, cancellable, on_communicate)
 
 
-def run_timedatectl_async(args: list[str], on_complete, *, timeout: int = 60) -> None:
+def _friendly_error(msg: str) -> str:
+    lower = msg.lower()
+    if "noreply" in lower or "timed out" in lower or "timeout" in lower:
+        return (
+            "Authentication timed out — no password dialog appeared. "
+            "Run: systemctl --user start hyprpolkitagent.service"
+        )
+    if "not authorized" in lower or "auth" in lower:
+        return AUTH_FAILED_MSG
+    return msg
+
+
+def run_timedatectl_async(args: list[str], on_complete, *, timeout: int = 120) -> None:
     """Apply timedatectl changes (uses session polkit — do not wrap in pkexec)."""
     run_command_async(
         ["timedatectl", *args],
@@ -245,19 +249,31 @@ def call_timedate1_async(
     )
 
 
-def set_timezone_dbus_async(tz: str, on_complete, *, timeout: int = 60) -> None:
-    from gi.repository import GLib
-    call_timedate1_async("SetTimezone", GLib.Variant("(sb)", (tz, True)), on_complete, timeout=timeout)
+def set_timezone_dbus_async(tz: str, on_complete, *, timeout: int = 120) -> None:
+    run_timedatectl_async(["set-timezone", tz], on_complete, timeout=timeout)
 
 
-def set_ntp_dbus_async(enabled: bool, on_complete, *, timeout: int = 60) -> None:
-    from gi.repository import GLib
-    call_timedate1_async("SetNTP", GLib.Variant("(bb)", (enabled, True)), on_complete, timeout=timeout)
+def set_ntp_dbus_async(enabled: bool, on_complete, *, timeout: int = 120) -> None:
+    run_timedatectl_async(
+        ["set-ntp", "true" if enabled else "false"],
+        on_complete,
+        timeout=timeout,
+    )
 
 
-def set_time_dbus_async(utc_usec: int, on_complete, *, timeout: int = 60) -> None:
-    from gi.repository import GLib
-    call_timedate1_async("SetTime", GLib.Variant("(xbb)", (utc_usec, False, True)), on_complete, timeout=timeout)
+def set_local_time_async(local_dt: datetime, on_complete, *, timeout: int = 120) -> None:
+    """Set system clock from a timezone-aware local datetime."""
+    value = local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    run_timedatectl_async(["set-time", value], on_complete, timeout=timeout)
+
+
+def set_time_dbus_async(utc_usec: int, on_complete, *, timeout: int = 120) -> None:
+    from datetime import timezone as tz_mod
+
+    value = datetime.fromtimestamp(utc_usec / 1_000_000, tz=tz_mod.utc).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    run_timedatectl_async(["set-time", value], on_complete, timeout=timeout)
 
 
 def run_pkexec(args: list[str], timeout: int = 120) -> tuple[bool, str]:

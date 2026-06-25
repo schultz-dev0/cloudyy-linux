@@ -63,7 +63,6 @@ import lib.cursor_page as cursor_page
 import lib.rules_startup_page as rules_startup_page
 import lib.region_time_page as region_time_page
 import lib.battery_page as battery_page
-import lib.polkit_agent as polkit_agent
 
 # ── YAML ──────────────────────────────────────────────────────────────────────
 try:
@@ -873,7 +872,6 @@ class CloudCenter(Adw.Application):
         if self._requested_page and not self._window.navigate_to_page(self._requested_page):
             log.warning("Unknown page target requested: %s", self._requested_page)
         self._window.present()
-        polkit_agent.register(lambda: self._window)
 
     def _apply_theme_mode(self) -> None:
         mode = read_theme_mode()
@@ -888,7 +886,6 @@ class CloudCenter(Adw.Application):
         return False
 
     def _on_destroy(self, _win: CloudCenterWindow) -> None:
-        polkit_agent.unregister()
         self._window = None
 
     def _start_matugen_watcher(self) -> None:
