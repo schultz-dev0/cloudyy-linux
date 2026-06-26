@@ -21,6 +21,8 @@ Item {
     signal requestWorkspace(int workspaceId)
     signal requestFocusWindow(var windowData)
     signal requestCloseWindow(var windowData)
+    signal peekRequested()
+    signal peekDismissed()
 
     readonly property int labelStripHeight: 22
     readonly property int previewHeight: root.height - labelStripHeight
@@ -117,10 +119,27 @@ Item {
         }
     }
 
+    Timer {
+        id: peekShowTimer
+
+        interval: 150
+        repeat: false
+        onTriggered: root.peekRequested()
+    }
+
     MouseArea {
+        id: tileMouseArea
+
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+
+        onEntered: peekShowTimer.restart()
+        onExited: {
+            peekShowTimer.stop();
+            root.peekDismissed();
+        }
         onClicked: root.requestWorkspace(root.workspaceId)
     }
 }

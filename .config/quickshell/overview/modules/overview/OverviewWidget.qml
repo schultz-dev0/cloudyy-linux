@@ -20,6 +20,29 @@ Item {
     signal requestCloseWindow(var windowData)
     signal requestCloseWorkspace(int workspaceId)
 
+    property int peekWorkspaceId: -1
+    property var peekAnchorItem: null
+    property bool peekPointerInside: false
+
+    function hidePeekImmediate() {
+        peekHideTimer.stop();
+        peekWorkspaceId = -1;
+        peekAnchorItem = null;
+        peekPointerInside = false;
+    }
+
+    function showPeekForTile(workspaceId, tileItem) {
+        peekHideTimer.stop();
+        peekWorkspaceId = workspaceId;
+        peekAnchorItem = tileItem;
+    }
+
+    function scheduleHidePeek() {
+        if (peekPointerInside)
+            return;
+        peekHideTimer.restart();
+    }
+
     readonly property var visibleWorkspaceIds: computeVisibleWorkspaceIds()
     readonly property int tileHeight: 180
     readonly property int previewLabelHeight: 22
@@ -56,11 +79,15 @@ Item {
     onOverviewActiveChanged: {
         if (overviewActive)
             Hyprland.refreshToplevels();
+        else
+            hidePeekImmediate();
     }
 
     function tileCaptureActive(workspaceId) {
         if (!overviewActive)
             return false;
+        if (peekWorkspaceId === workspaceId)
+            return true;
         if (!Perf.lightweightOverview)
             return true;
         return workspaceId === selectedWorkspaceId || workspaceId === activeWorkspaceId();
@@ -282,6 +309,14 @@ Item {
     onVisibleWorkspaceIdsChanged: Qt.callLater(ensureSelectionValid)
     Component.onCompleted: ensureSelectionValid()
 
+    Timer {
+        id: peekHideTimer
+
+        interval: 200
+        repeat: false
+        onTriggered: root.hidePeekImmediate()
+    }
+
     Rectangle {
         id: panel
 
@@ -321,6 +356,12 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             interactive: contentHeight > height
 
+            onMovementStarted: root.hidePeekImmediate()
+            onContentYChanged: {
+                if (moving || flicking)
+                    root.hidePeekImmediate();
+            }
+
             Column {
                 id: workspacesColumn
 
@@ -341,6 +382,8 @@ Item {
                             model: modelData
 
                             delegate: WorkspaceTile {
+                                id: tileItem
+
                                 required property int modelData
 
                                 workspaceId: modelData
@@ -356,11 +399,37 @@ Item {
                                 onRequestWorkspace: workspaceId => root.requestWorkspace(workspaceId)
                                 onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
                                 onRequestCloseWindow: windowData => root.requestCloseWindow(windowData)
+                                onPeekRequested: root.showPeekForTile(modelData, tileItem)
+                                onPeekDismissed: root.scheduleHidePeek()
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    WorkspacePeekPopup {
+        id: workspacePeek
+
+        outerMargin: root.panelOuterMargin
+        anchorItem: root.peekAnchorItem
+        workspaceId: root.peekWorkspaceId
+        windows: root.peekWorkspaceId > 0 ? root.windowsForWorkspace(root.peekWorkspaceId) : []
+        monitorData: root.peekWorkspaceId > 0 ? root.monitorForWorkspace(root.peekWorkspaceId) : null
+        toplevelByAddress: root.toplevelByAddress
+        overviewActive: root.overviewActive
+        active: root.peekWorkspaceId === root.activeWorkspaceId()
+        selected: root.peekWorkspaceId === root.selectedWorkspaceId
+
+        onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
+        onPeekEntered: {
+            root.peekPointerInside = true;
+            root.peekHideTimer.stop();
+        }
+        onPeekExited: {
+            root.peekPointerInside = false;
+            root.scheduleHidePeek();
         }
     }
 }
