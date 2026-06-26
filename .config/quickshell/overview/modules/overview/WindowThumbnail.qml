@@ -12,6 +12,12 @@ Item {
     required property var toplevel
     required property bool captureActive
 
+    property bool interactive: false
+
+    signal clicked(var windowData)
+
+    readonly property bool hovered: interactive && clickArea.containsMouse
+
     clip: true
 
     ScreencopyView {
@@ -74,5 +80,26 @@ Item {
                     });
             }
         }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        radius: 3
+        visible: root.interactive && root.hovered
+        color: "transparent"
+        border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.75)
+        border.width: 2
+        z: 2
+    }
+
+    MouseArea {
+        id: clickArea
+
+        anchors.fill: parent
+        enabled: root.interactive
+        hoverEnabled: root.interactive
+        cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
+        z: 3
+        onClicked: root.clicked(root.windowData)
     }
 }

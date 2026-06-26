@@ -14,6 +14,9 @@ Item {
     required property bool overviewActive
     required property bool tileCaptureActive
     property int cornerRadius: 10
+    property bool interactive: false
+
+    signal requestFocusWindow(var windowData)
 
     clip: true
 
@@ -110,6 +113,8 @@ Item {
                 windowData: modelData
                 toplevel: root.toplevelForWindow(modelData)
                 captureActive: root.overviewActive && root.tileCaptureActive
+                interactive: root.interactive
+                onClicked: windowData => root.requestFocusWindow(windowData)
             }
         }
     }
