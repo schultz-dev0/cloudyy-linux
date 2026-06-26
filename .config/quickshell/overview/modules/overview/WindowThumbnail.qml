@@ -15,11 +15,13 @@ Item {
     property bool interactive: false
     property bool snapshotOnly: false
     property bool snapshotCaptured: false
+    property bool sourceReleased: false
 
     signal clicked(var windowData)
 
+    readonly property bool skipLiveCapture: HyprlandData.prefersOverviewIconFallback(windowData)
     readonly property bool hovered: interactive && clickArea.containsMouse
-    readonly property bool showFallback: !capture.hasContent && !(snapshotOnly && snapshotCaptured)
+    readonly property bool showFallback: skipLiveCapture || (!capture.hasContent && !(snapshotOnly && snapshotCaptured))
 
     clip: true
 
@@ -29,12 +31,18 @@ Item {
         anchors.fill: parent
         live: false
         paintCursor: false
-        captureSource: root.captureActive && root.toplevel ? root.toplevel : null
+        captureSource: root.captureActive && root.toplevel && !root.skipLiveCapture && !root.sourceReleased
+            ? root.toplevel
+            : null
         opacity: capture.hasContent ? 1 : 0
 
         onHasContentChanged: {
-            if (root.snapshotOnly && capture.hasContent)
-                root.snapshotCaptured = true;
+            if (!capture.hasContent || !root.snapshotOnly || root.snapshotCaptured)
+                return;
+            root.snapshotCaptured = true;
+            Qt.callLater(() => {
+                root.sourceReleased = true;
+            });
         }
     }
 
@@ -48,7 +56,7 @@ Item {
     }
 
     function captureOnceIfNeeded() {
-        if (!captureActive || !toplevel)
+        if (!captureActive || !toplevel || skipLiveCapture)
             return;
         if (snapshotOnly && snapshotCaptured)
             return;
@@ -56,6 +64,8 @@ Item {
     }
 
     onToplevelChanged: {
+        if (skipLiveCapture)
+            return;
         if (!snapshotOnly)
             captureOnceIfNeeded();
         else if (captureActive && toplevel && !snapshotCaptured)
@@ -65,6 +75,7 @@ Item {
     onCaptureActiveChanged: {
         if (!captureActive) {
             snapshotCaptured = false;
+            sourceReleased = false;
             return;
         }
         captureOnceIfNeeded();
@@ -86,8 +97,8 @@ Item {
             property var sources: HyprlandData.iconSourcesForWindow(root.windowData)
 
             anchors.centerIn: parent
-            width: Math.min(parent.width - 4, 20)
-            height: Math.min(parent.height - 4, 20)
+            width: Math.min(parent.width - 4, root.interactive ? 36 : (root.skipLiveCapture ? 28 : 20))
+            height: Math.min(parent.height - 4, root.interactive ? 36 : (root.skipLiveCapture ? 28 : 20))
             source: sources.length > sourceIndex ? sources[sourceIndex] : ""
             sourceSize: Qt.size(40, 40)
             fillMode: Image.PreserveAspectFit
