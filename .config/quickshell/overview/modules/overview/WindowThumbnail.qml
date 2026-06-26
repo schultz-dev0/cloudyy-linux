@@ -14,10 +14,12 @@ Item {
 
     property bool interactive: false
     property bool snapshotOnly: false
+    property bool snapshotCaptured: false
 
     signal clicked(var windowData)
 
     readonly property bool hovered: interactive && clickArea.containsMouse
+    readonly property bool showFallback: !capture.hasContent && !(snapshotOnly && snapshotCaptured)
 
     clip: true
 
@@ -28,7 +30,12 @@ Item {
         live: false
         paintCursor: false
         captureSource: root.captureActive && root.toplevel ? root.toplevel : null
-        opacity: hasContent ? 1 : 0
+        opacity: capture.hasContent ? 1 : 0
+
+        onHasContentChanged: {
+            if (root.snapshotOnly && capture.hasContent)
+                root.snapshotCaptured = true;
+        }
     }
 
     Timer {
@@ -40,24 +47,33 @@ Item {
         onTriggered: capture.captureFrame()
     }
 
-    function captureOnce() {
-        if (captureActive && toplevel)
-            Qt.callLater(() => capture.captureFrame());
+    function captureOnceIfNeeded() {
+        if (!captureActive || !toplevel)
+            return;
+        if (snapshotOnly && snapshotCaptured)
+            return;
+        Qt.callLater(() => capture.captureFrame());
     }
 
-    onToplevelChanged: captureOnce()
+    onToplevelChanged: {
+        if (!snapshotOnly)
+            captureOnceIfNeeded();
+        else if (captureActive && toplevel && !snapshotCaptured)
+            captureOnceIfNeeded();
+    }
 
     onCaptureActiveChanged: {
-        if (captureActive && snapshotOnly)
-            captureOnce();
-        else if (captureActive && toplevel)
-            captureOnce();
+        if (!captureActive) {
+            snapshotCaptured = false;
+            return;
+        }
+        captureOnceIfNeeded();
     }
 
     Rectangle {
         anchors.fill: parent
         radius: 3
-        visible: !capture.hasContent
+        visible: root.showFallback
         antialiasing: true
         color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.85)
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)

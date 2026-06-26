@@ -25,6 +25,37 @@ Item {
     property bool peekPointerInside: false
     property int hoverWorkspaceId: -1
     property var tileByWorkspaceId: ({})
+    property var toplevelByAddress: ({})
+    property var frozenWindowsByWorkspace: ({})
+
+    function rebuildToplevelMap() {
+        const map = {};
+        for (const t of ToplevelManager.toplevels?.values ?? []) {
+            if (!t?.HyprlandToplevel?.address)
+                continue;
+            const addr = normalizeAddress(t.HyprlandToplevel.address);
+            if (addr.length)
+                map[addr] = t;
+        }
+        toplevelByAddress = map;
+    }
+
+    function freezeWindowLayout() {
+        const frozen = {};
+        for (const id of visibleWorkspaceIds) {
+            const windows = HyprlandData.windowsByWorkspace[id] ?? [];
+            frozen[id] = windows.slice();
+        }
+        frozenWindowsByWorkspace = frozen;
+    }
+
+    function prepareOverviewSnapshot() {
+        freezeWindowLayout();
+        rebuildToplevelMap();
+        refreshPeek();
+        if (Object.keys(toplevelByAddress).length === 0)
+            toplevelPrepTimer.restart();
+    }
 
     function registerTile(workspaceId, tileItem) {
         const id = Number(workspaceId);
@@ -106,23 +137,13 @@ Item {
         return s.startsWith("0x") ? s : "0x" + s;
     }
 
-    readonly property var toplevelByAddress: {
-        const map = {};
-        for (const t of ToplevelManager.toplevels?.values ?? []) {
-            if (!t?.HyprlandToplevel?.address)
-                continue;
-            const addr = normalizeAddress(t.HyprlandToplevel.address);
-            if (addr.length)
-                map[addr] = t;
-        }
-        return map;
-    }
-
     onOverviewActiveChanged: {
         if (overviewActive) {
             Hyprland.refreshToplevels();
-            Qt.callLater(refreshPeek);
+            Qt.callLater(prepareOverviewSnapshot);
         } else {
+            frozenWindowsByWorkspace = {};
+            toplevelByAddress = {};
             hidePeekImmediate();
         }
     }
@@ -143,6 +164,11 @@ Item {
     }
 
     function windowsForWorkspace(workspaceId) {
+        if (overviewActive) {
+            const frozen = frozenWindowsByWorkspace[workspaceId];
+            if (frozen)
+                return frozen;
+        }
         return HyprlandData.windowsByWorkspace[workspaceId] ?? [];
     }
 
@@ -361,6 +387,17 @@ Item {
         repeat: false
         onTriggered: {
             hoverWorkspaceId = -1;
+            refreshPeek();
+        }
+    }
+
+    Timer {
+        id: toplevelPrepTimer
+
+        interval: 150
+        repeat: false
+        onTriggered: {
+            rebuildToplevelMap();
             refreshPeek();
         }
     }
