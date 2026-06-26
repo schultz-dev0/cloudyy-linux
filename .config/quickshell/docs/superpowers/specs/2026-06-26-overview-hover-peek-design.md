@@ -1,7 +1,7 @@
 # Overview Hover Peek — Design Spec
 
 **Date:** 2026-06-26  
-**Status:** Pending user review  
+**Status:** Approved (lgtm 2026-06-26)  
 **Scope:** Quickshell workspace overview module (`~/.config/quickshell/overview/`)
 
 ## Problem
