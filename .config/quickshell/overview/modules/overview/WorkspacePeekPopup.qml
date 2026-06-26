@@ -128,6 +128,7 @@ Item {
                     toplevelByAddress: root.toplevelByAddress
                     overviewActive: root.overviewActive
                     tileCaptureActive: true
+                    snapshotOnly: true
                     interactive: true
                     onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
                 }

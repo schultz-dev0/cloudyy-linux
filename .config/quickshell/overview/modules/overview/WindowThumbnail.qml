@@ -13,6 +13,7 @@ Item {
     required property bool captureActive
 
     property bool interactive: false
+    property bool snapshotOnly: false
 
     signal clicked(var windowData)
 
@@ -34,19 +35,23 @@ Item {
         id: frameTimer
 
         interval: 400
-        running: root.captureActive && root.toplevel
+        running: root.captureActive && root.toplevel && !root.snapshotOnly
         repeat: true
         onTriggered: capture.captureFrame()
     }
 
-    onToplevelChanged: {
+    function captureOnce() {
         if (captureActive && toplevel)
             Qt.callLater(() => capture.captureFrame());
     }
 
+    onToplevelChanged: captureOnce()
+
     onCaptureActiveChanged: {
-        if (captureActive && toplevel)
-            Qt.callLater(() => capture.captureFrame());
+        if (captureActive && snapshotOnly)
+            captureOnce();
+        else if (captureActive && toplevel)
+            captureOnce();
     }
 
     Rectangle {

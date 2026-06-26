@@ -23,17 +23,54 @@ Item {
     property int peekWorkspaceId: -1
     property var peekAnchorItem: null
     property bool peekPointerInside: false
+    property int hoverWorkspaceId: -1
+    property var tileByWorkspaceId: ({})
+
+    function registerTile(workspaceId, tileItem) {
+        const id = Number(workspaceId);
+        if (!Number.isFinite(id) || id < 1 || !tileItem)
+            return;
+        const next = Object.assign({}, tileByWorkspaceId);
+        next[id] = tileItem;
+        tileByWorkspaceId = next;
+        if (overviewActive && hoverWorkspaceId < 0 && id === selectedWorkspaceId)
+            Qt.callLater(refreshPeek);
+    }
+
+    function unregisterTile(workspaceId) {
+        const id = Number(workspaceId);
+        if (!tileByWorkspaceId[id])
+            return;
+        const next = Object.assign({}, tileByWorkspaceId);
+        delete next[id];
+        tileByWorkspaceId = next;
+    }
 
     function hidePeekImmediate() {
         peekHideTimer.stop();
+        hoverWorkspaceId = -1;
         peekWorkspaceId = -1;
         peekAnchorItem = null;
         peekPointerInside = false;
     }
 
-    function showPeekForTile(workspaceId, tileItem) {
+    function refreshPeek() {
+        const targetId = hoverWorkspaceId > 0 ? hoverWorkspaceId : selectedWorkspaceId;
+        const tile = tileByWorkspaceId[targetId];
+        if (!overviewActive || !tile || !Number.isFinite(targetId) || targetId < 1) {
+            peekWorkspaceId = -1;
+            peekAnchorItem = null;
+            return;
+        }
         peekHideTimer.stop();
-        peekWorkspaceId = workspaceId;
+        peekWorkspaceId = targetId;
+        peekAnchorItem = tile;
+    }
+
+    function showPeekForHover(workspaceId, tileItem) {
+        peekHideTimer.stop();
+        hoverWorkspaceId = Number(workspaceId);
+        peekWorkspaceId = hoverWorkspaceId;
         peekAnchorItem = tileItem;
     }
 
@@ -41,6 +78,11 @@ Item {
         if (peekPointerInside)
             return;
         peekHideTimer.restart();
+    }
+
+    onSelectedWorkspaceIdChanged: {
+        if (hoverWorkspaceId < 0)
+            Qt.callLater(refreshPeek);
     }
 
     readonly property var visibleWorkspaceIds: computeVisibleWorkspaceIds()
@@ -77,18 +119,18 @@ Item {
     }
 
     onOverviewActiveChanged: {
-        if (overviewActive)
+        if (overviewActive) {
             Hyprland.refreshToplevels();
-        else
+            Qt.callLater(refreshPeek);
+        } else {
             hidePeekImmediate();
+        }
     }
 
     function tileCaptureActive(workspaceId) {
         if (!overviewActive)
             return false;
         if (peekWorkspaceId === workspaceId)
-            return true;
-        if (!Perf.lightweightOverview)
             return true;
         return workspaceId === selectedWorkspaceId || workspaceId === activeWorkspaceId();
     }
@@ -314,7 +356,10 @@ Item {
 
         interval: 200
         repeat: false
-        onTriggered: root.hidePeekImmediate()
+        onTriggered: {
+            hoverWorkspaceId = -1;
+            refreshPeek();
+        }
     }
 
     Rectangle {
@@ -396,10 +441,12 @@ Item {
                                 tileCaptureActive: root.tileCaptureActive(modelData)
                                 tileWidth: root.tileWidthForWorkspace(modelData)
                                 tileHeight: root.tileHeight
+                                Component.onCompleted: root.registerTile(modelData, tileItem)
+                                Component.onDestruction: root.unregisterTile(modelData)
                                 onRequestWorkspace: workspaceId => root.requestWorkspace(workspaceId)
                                 onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
                                 onRequestCloseWindow: windowData => root.requestCloseWindow(windowData)
-                                onPeekRequested: root.showPeekForTile(modelData, tileItem)
+                                onPeekRequested: root.showPeekForHover(modelData, tileItem)
                                 onPeekDismissed: root.scheduleHidePeek()
                             }
                         }
