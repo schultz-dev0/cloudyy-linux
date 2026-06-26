@@ -130,6 +130,9 @@ Item {
     function tileCaptureActive(workspaceId) {
         if (!overviewActive)
             return false;
+        // Snapshot-only mode: one frame per tile is cheap — capture all visible workspaces.
+        if (!Perf.lightweightOverview)
+            return true;
         if (peekWorkspaceId === workspaceId)
             return true;
         return workspaceId === selectedWorkspaceId || workspaceId === activeWorkspaceId();

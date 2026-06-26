@@ -76,7 +76,10 @@ Item {
     readonly property real originY: (monitorData?.y ?? 0) + (monitorData?.reserved?.[1] ?? 0)
 
     function windowsToShow() {
-        const list = (windows ?? []).filter(w => Number(w.monitor) === Number(monitorData?.id ?? -1));
+        const all = windows ?? [];
+        let list = all.filter(w => Number(w.monitor) === Number(monitorData?.id ?? -1));
+        if (list.length === 0 && all.length > 0)
+            list = all;
         const fs = list.find(w => (w.fullscreen ?? 0) > 0);
         if (fs)
             return [fs];
