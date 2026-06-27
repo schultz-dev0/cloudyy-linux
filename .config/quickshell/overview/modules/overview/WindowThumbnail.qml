@@ -13,72 +13,66 @@ Item {
     required property bool captureActive
 
     property bool interactive: false
-    property bool snapshotOnly: false
-    property bool snapshotCaptured: false
-    property bool sourceReleased: false
 
     signal clicked(var windowData)
 
-    readonly property bool skipLiveCapture: HyprlandData.prefersOverviewIconFallback(windowData)
     readonly property bool hovered: interactive && clickArea.containsMouse
-    readonly property bool showFallback: skipLiveCapture || (!capture.hasContent && !(snapshotOnly && snapshotCaptured))
+    // Show the fallback until we actually have a captured frame on screen.
+    readonly property bool showFallback: !capture.hasContent
+    readonly property string fallbackLabel: appLabel()
 
     clip: true
 
+    function appLabel() {
+        const raw = `${windowData?.class || windowData?.initialClass || windowData?.title || ""}`.trim();
+        if (!raw.length)
+            return "APP";
+        const parts = raw.replace(/[-_.]+/g, " ").split(/\s+/).filter(part => part.length > 0);
+        const label = parts.length > 1
+            ? parts.slice(0, 2).map(part => part[0]).join("")
+            : raw.slice(0, 3);
+        return label.toUpperCase();
+    }
+
+    // Each thumbnail captures a single snapshot frame on overview open (cheap).
+    // `captureSource` stays attached for the overview session — detaching it
+    // drops the buffered frame, leaving the tile blank.
     ScreencopyView {
         id: capture
 
         anchors.fill: parent
         live: false
         paintCursor: false
-        captureSource: root.captureActive && root.toplevel && !root.skipLiveCapture && !root.sourceReleased
-            ? root.toplevel
-            : null
+        captureSource: root.captureActive && root.toplevel ? root.toplevel : null
         opacity: capture.hasContent ? 1 : 0
-
-        onHasContentChanged: {
-            if (!capture.hasContent || !root.snapshotOnly || root.snapshotCaptured)
-                return;
-            root.snapshotCaptured = true;
-            Qt.callLater(() => {
-                root.sourceReleased = true;
-            });
-        }
     }
 
+    function grabFrame() {
+        retryTimer.retryCount = 0;
+        if (root.captureActive && root.toplevel)
+            Qt.callLater(() => capture.captureFrame());
+    }
+
+    onCaptureActiveChanged: grabFrame()
+    onToplevelChanged: grabFrame()
+    Component.onCompleted: grabFrame()
+
+    // Some windows report their toplevel a frame or two after the overlay opens.
+    // Retry briefly until we get content, then stop. This never loops once a
+    // frame lands or the source goes away.
     Timer {
-        id: frameTimer
+        id: retryTimer
 
-        interval: 400
-        running: root.captureActive && root.toplevel && !root.snapshotOnly
+        property int retryCount: 0
+
+        interval: 160
         repeat: true
-        onTriggered: capture.captureFrame()
-    }
-
-    function captureOnceIfNeeded() {
-        if (!captureActive || !toplevel || skipLiveCapture)
-            return;
-        if (snapshotOnly && snapshotCaptured)
-            return;
-        Qt.callLater(() => capture.captureFrame());
-    }
-
-    onToplevelChanged: {
-        if (skipLiveCapture)
-            return;
-        if (!snapshotOnly)
-            captureOnceIfNeeded();
-        else if (captureActive && toplevel && !snapshotCaptured)
-            captureOnceIfNeeded();
-    }
-
-    onCaptureActiveChanged: {
-        if (!captureActive) {
-            snapshotCaptured = false;
-            sourceReleased = false;
-            return;
+        triggeredOnStart: false
+        running: root.captureActive && root.toplevel && !capture.hasContent && retryCount < 6
+        onTriggered: {
+            retryCount += 1;
+            capture.captureFrame();
         }
-        captureOnceIfNeeded();
     }
 
     Rectangle {
@@ -97,12 +91,12 @@ Item {
             property var sources: HyprlandData.iconSourcesForWindow(root.windowData)
 
             anchors.centerIn: parent
-            width: Math.min(parent.width - 4, root.interactive ? 36 : (root.skipLiveCapture ? 28 : 20))
-            height: Math.min(parent.height - 4, root.interactive ? 36 : (root.skipLiveCapture ? 28 : 20))
+            width: Math.min(parent.width - 4, root.interactive ? 36 : 24)
+            height: Math.min(parent.height - 4, root.interactive ? 36 : 24)
             source: sources.length > sourceIndex ? sources[sourceIndex] : ""
-            sourceSize: Qt.size(40, 40)
+            sourceSize: Qt.size(48, 48)
             fillMode: Image.PreserveAspectFit
-            visible: source.length > 0
+            visible: source.length > 0 && status === Image.Ready
 
             onSourcesChanged: sourceIndex = 0
             onStatusChanged: {
@@ -111,6 +105,16 @@ Item {
                         sourceIndex += 1;
                     });
             }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: !fallbackIcon.visible
+            text: root.fallbackLabel
+            color: Theme.on_surface_variant
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: Math.max(8, Math.min(14, Math.round(Math.min(parent.width, parent.height) * 0.28)))
+            font.weight: Font.DemiBold
         }
     }
 

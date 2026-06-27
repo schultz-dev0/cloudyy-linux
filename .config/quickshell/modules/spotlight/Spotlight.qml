@@ -9,6 +9,7 @@ import Quickshell.Wayland
 import "../.."
 import "../calculator/backend" as CalcBackend
 import "../currency/backend" as CurrencyBackend
+import "../time/backend" as TimeBackend
 import "../commandcenter/applibrary"
 import "../commandcenter/wallpapers"
 
@@ -23,6 +24,10 @@ PanelWindow {
 
     CurrencyBackend.CurrencyConverter {
         id: currencyConverter
+    }
+
+    TimeBackend.TimeCalculator {
+        id: timeCalculator
     }
 
     readonly property string currencyFetchScript: Qt.resolvedUrl("../currency/backend/fetch_rate.sh").toString().replace("file://", "")
@@ -123,18 +128,49 @@ PanelWindow {
         ensureSelectionVisible();
     }
 
-    function prependCalcCurrency() {
-        if (!calculator.isMathExpression(svc.query))
+    function prependTimeResult() {
+        const withoutTime = svc.results.filter(r => r.type !== "time");
+        if (!timeCalculator.isTimeExpression(svc.query)) {
+            if (withoutTime.length !== svc.results.length)
+                svc.results = withoutTime;
             return;
-        const value = calculator.evaluate(svc.query);
-        if (!calculator.hasError && value !== null) {
-            const entry = {
-                type: "calculator",
-                expression: svc.query,
-                result: calculator.formatResult(value)
-            };
-            svc.results = [entry, ...svc.results.filter(r => r.type !== "calculator")];
         }
+        const seconds = timeCalculator.evaluate(svc.query);
+        if (seconds === null) {
+            if (withoutTime.length !== svc.results.length)
+                svc.results = withoutTime;
+            return;
+        }
+        const entry = {
+            type: "time",
+            expression: svc.query,
+            result: timeCalculator.formatResult(seconds),
+            subtitle: timeCalculator.formatSubtitle(seconds)
+        };
+        svc.results = [entry, ...withoutTime];
+    }
+
+    function prependCalcCurrency() {
+        prependTimeResult();
+
+        const withoutCalc = svc.results.filter(r => r.type !== "calculator");
+        if (!calculator.isMathExpression(svc.query)) {
+            if (withoutCalc.length !== svc.results.length)
+                svc.results = withoutCalc;
+            return;
+        }
+        const value = calculator.evaluate(svc.query);
+        if (calculator.hasError || value === null) {
+            if (withoutCalc.length !== svc.results.length)
+                svc.results = withoutCalc;
+            return;
+        }
+        const entry = {
+            type: "calculator",
+            expression: svc.query,
+            result: calculator.formatResult(value)
+        };
+        svc.results = [entry, ...withoutCalc];
     }
 
     Process {
@@ -172,6 +208,8 @@ PanelWindow {
         function onQueryChanged() {
             if (svc.visible && searchInput.text !== svc.query)
                 searchInput.text = svc.query;
+
+            prependTimeResult();
 
             const parsed = currencyConverter.parseQuery(svc.query);
             if (!parsed)
@@ -378,7 +416,7 @@ PanelWindow {
                                     icon: modelData.icon,
                                     isActive: modelData.isActive === true
                                 }
-                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action"
+                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action"
                                     ? {
                                         type: "command",
                                         name: modelData.label || modelData.name,
@@ -444,17 +482,22 @@ PanelWindow {
                         delegate: SpotlightRow {
                             required property var modelData
                             required property int index
-                            resultData: {
-                                if (modelData.type === "command")
-                                    return {
+                            resultData: modelData.type === "command"
+                                ? {
+                                    type: "command",
+                                    name: modelData.label,
+                                    subtitle: modelData.subtitle,
+                                    icon: modelData.icon,
+                                    isActive: modelData.isActive === true
+                                }
+                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action"
+                                    ? {
                                         type: "command",
-                                        name: modelData.label,
-                                        subtitle: modelData.subtitle,
-                                        icon: modelData.icon,
-                                        isActive: modelData.isActive === true
-                                    };
-                                return modelData;
-                            }
+                                        name: modelData.label || modelData.name,
+                                        subtitle: modelData.subtitle || "",
+                                        icon: modelData.icon || (modelData.type === "package" ? "󰏖" : "󰚩")
+                                    }
+                                    : modelData)
                             isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
                             rowWidth: svc.overlayWidth
                             onActivated: root.activateIndex(index)

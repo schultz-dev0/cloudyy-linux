@@ -230,6 +230,30 @@ link_extra_dirs() {
   fi
 }
 
+# Ensure ZDOTDIR is set so zsh reads from ~/.config/zsh/.zshrc
+ensure_zdotdir() {
+  log_section "ZDOTDIR"
+
+  local zshenv="${HOME}/.zshenv"
+
+  # Remove dangling symlink left over from when .zshenv was a tracked repo file
+  if [[ -L "$zshenv" && ! -e "$zshenv" ]]; then
+    log_warn ".zshenv: broken symlink detected — removing before recreating."
+    rm -f "$zshenv"
+  fi
+
+  # Create as a plain file if missing
+  [[ -f "$zshenv" ]] || touch "$zshenv"
+
+  if grep -q 'ZDOTDIR' "$zshenv" 2>/dev/null; then
+    log_skip "ZDOTDIR already set in .zshenv"
+    return 0
+  fi
+
+  printf '\nexport ZDOTDIR="$HOME/.config/zsh"\n' >> "$zshenv"
+  log_ok "ZDOTDIR set in ~/.zshenv"
+}
+
 # Ensure cloudyy helper scripts are on PATH for interactive shells
 ensure_cloudyy_path() {
   log_section "Shell PATH"
@@ -650,6 +674,7 @@ main() {
   # (install.sh has a dedicated phase_shell that runs after packages are installed)
   [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]] && setup_shell
   deploy_defaults
+  ensure_zdotdir
   ensure_cloudyy_path
   verify_deployment
   setup_system_theme

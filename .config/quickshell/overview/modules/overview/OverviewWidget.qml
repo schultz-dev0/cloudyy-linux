@@ -27,6 +27,7 @@ Item {
     property var tileByWorkspaceId: ({})
     property var toplevelByAddress: ({})
     property var frozenWindowsByWorkspace: ({})
+    property int snapshotPrepRetries: 0
 
     function rebuildToplevelMap() {
         const map = {};
@@ -49,11 +50,22 @@ Item {
         frozenWindowsByWorkspace = frozen;
     }
 
+    function frozenLayoutMissingLiveWindows() {
+        for (const id of visibleWorkspaceIds) {
+            const live = HyprlandData.windowsByWorkspace[id] ?? [];
+            const frozen = frozenWindowsByWorkspace[id] ?? [];
+            if (live.length > 0 && frozen.length === 0)
+                return true;
+        }
+        return false;
+    }
+
     function prepareOverviewSnapshot() {
+        snapshotPrepRetries = 0;
         freezeWindowLayout();
         rebuildToplevelMap();
         refreshPeek();
-        if (Object.keys(toplevelByAddress).length === 0)
+        if (Object.keys(toplevelByAddress).length === 0 || frozenLayoutMissingLiveWindows())
             toplevelPrepTimer.restart();
     }
 
@@ -142,6 +154,7 @@ Item {
             Hyprland.refreshToplevels();
             Qt.callLater(prepareOverviewSnapshot);
         } else {
+            snapshotPrepRetries = 0;
             frozenWindowsByWorkspace = {};
             toplevelByAddress = {};
             hidePeekImmediate();
@@ -164,12 +177,16 @@ Item {
     }
 
     function windowsForWorkspace(workspaceId) {
+        const live = HyprlandData.windowsByWorkspace[workspaceId] ?? [];
         if (overviewActive) {
             const frozen = frozenWindowsByWorkspace[workspaceId];
-            if (frozen)
+            // Hyprland client data can arrive a tick after the overlay opens. If we
+            // froze an empty workspace but live data now has windows, prefer live
+            // data rather than rendering an apparently blank tile.
+            if (frozen && (frozen.length > 0 || live.length === 0))
                 return frozen;
         }
-        return HyprlandData.windowsByWorkspace[workspaceId] ?? [];
+        return live;
     }
 
     function monitorUsableSize(monitor) {
@@ -397,8 +414,12 @@ Item {
         interval: 150
         repeat: false
         onTriggered: {
+            snapshotPrepRetries += 1;
+            freezeWindowLayout();
             rebuildToplevelMap();
             refreshPeek();
+            if ((Object.keys(toplevelByAddress).length === 0 || frozenLayoutMissingLiveWindows()) && overviewActive && snapshotPrepRetries < 8)
+                toplevelPrepTimer.restart();
         }
     }
 

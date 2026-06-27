@@ -15,7 +15,6 @@ Item {
     required property bool tileCaptureActive
     property int cornerRadius: 10
     property bool interactive: false
-    property bool snapshotOnly: true
 
     signal requestFocusWindow(var windowData)
 
@@ -117,7 +116,6 @@ Item {
                 windowData: modelData
                 toplevel: root.toplevelForWindow(modelData)
                 captureActive: root.overviewActive && root.tileCaptureActive
-                snapshotOnly: root.snapshotOnly
                 interactive: root.interactive
                 onClicked: windowData => root.requestFocusWindow(windowData)
             }

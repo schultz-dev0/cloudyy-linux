@@ -46,6 +46,8 @@ PanelWindow {
     // ── Drag / interaction ─────────────────────────────────────────────────
     property int dragSourceIndex: -1
     property int dragHoverVisualIndex: -1
+    property string dragSourceClass: ""
+    property bool dragStoreCommitPending: false
     property bool interactionBlock: false
     property var dragGhostAppData: null
     property real dragGhostTargetCenterX: 0
@@ -60,7 +62,7 @@ PanelWindow {
     property bool dockVisible: false
     property real dockMouseXRaw: -9999
     property real dockMouseXSmooth: -9999
-    readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHover.hovered
+    readonly property bool dockHovered: triggerZone.containsMouse || dockMagnifyPointer.hovered
     readonly property bool animationActive: dockVisible || dockHovered || interactionBlock || dragSourceIndex >= 0
     readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
     readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseXSmooth
@@ -79,6 +81,11 @@ PanelWindow {
 
     onDockHoveredChanged: syncDockVisibility()
 
+    onDockVisibleChanged: {
+        if (!dockVisible)
+            dockMouseXRaw = -9999;
+    }
+
     function syncDockVisibility() {
         if (interactionBlock) {
             hideTimer.stop();
@@ -96,13 +103,14 @@ PanelWindow {
             hideTimer.stop();
             dockVisible = true;
             Qt.callLater(() => {
-                if (dockBodyHover.hovered)
-                    dockBodyHover.updateMouseX();
+                if (dockMagnifyPointer.hovered)
+                    dockMagnifyPointer.updateMouseX();
             });
             return;
         }
 
-        dockMouseXRaw = -9999;
+        // Keep last mouse X while the dock is still visible — clearing it here
+        // caused a magnify feedback loop when scaled icons paint above the hover region.
         if (dockVisible)
             hideTimer.restart();
     }
@@ -273,10 +281,48 @@ PanelWindow {
         });
 
         dock.mergedApps = result;
+        dock.syncDragIndicesAfterRebuild();
+    }
+
+    function classKey(className) {
+        return `${className ?? ""}`.toLowerCase().trim();
+    }
+
+    function visualIndexForClass(className) {
+        const key = dock.classKey(className);
+        if (!key)
+            return -1;
+        const list = dock.mergedApps;
+        for (let i = 0; i < list.length; i++) {
+            if (dock.classKey(list[i].class) === key)
+                return i;
+        }
+        return -1;
+    }
+
+    function syncDragIndicesAfterRebuild() {
+        if (dock.dragSourceIndex < 0)
+            return;
+
+        const srcIdx = dock.visualIndexForClass(dock.dragSourceClass);
+        if (srcIdx < 0) {
+            dock.abortIconDrag();
+            return;
+        }
+
+        dock.dragSourceIndex = srcIdx;
+        dock.dragGhostAppData = dock.mergedApps[srcIdx] ?? dock.dragGhostAppData;
+
+        if (dock.dragHoverVisualIndex < 0 || dock.dragHoverVisualIndex >= dock.mergedApps.length)
+            dock.dragHoverVisualIndex = srcIdx;
+    }
+
+    function iconSlotWidth() {
+        return dock.iconSize + dock.iconSpacing;
     }
 
     function visualIndexAtRowX(rowLocalX) {
-        const slot = dock.iconSize + dock.iconSpacing;
+        const slot = dock.iconSlotWidth();
         const n = dock.mergedApps.length;
         if (n <= 0)
             return 0;
@@ -286,6 +332,27 @@ PanelWindow {
         if (i >= n)
             i = n - 1;
         return i;
+    }
+
+    function dragShiftTargetForIndex(visualIndex) {
+        if (dock.dragSourceIndex < 0)
+            return 0;
+
+        const src = dock.dragSourceIndex;
+        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
+        if (visualIndex === src || dst === src)
+            return 0;
+
+        // Part icons by the natural inter-icon gap — not a full slot (avoids overlap).
+        const gap = dock.iconSpacing;
+        if (dst > src) {
+            if (visualIndex > src && visualIndex <= dst)
+                return -gap;
+        } else if (dst < src) {
+            if (visualIndex >= dst && visualIndex < src)
+                return gap;
+        }
+        return 0;
     }
 
     function clampDragGhostCenterX(cx) {
@@ -310,7 +377,12 @@ PanelWindow {
     }
 
     function beginIconDrag(visualIndex, ghostCenterBodyX, ghostCenterBodyY) {
-        dock.dragGhostAppData = dock.mergedApps[visualIndex] ?? null;
+        if (dock.dragStoreCommitPending)
+            return;
+
+        const entry = dock.mergedApps[visualIndex] ?? null;
+        dock.dragGhostAppData = entry;
+        dock.dragSourceClass = entry?.class ?? "";
         const cx = dock.clampDragGhostCenterX(ghostCenterBodyX);
         const cy = dock.clampDragGhostCenterY(ghostCenterBodyY);
         dock.dragGhostTargetCenterX = cx;
@@ -325,7 +397,106 @@ PanelWindow {
     }
 
     function updateDragHoverFromRowX(rowLocalX) {
-        dock.dragHoverVisualIndex = dock.visualIndexAtRowX(rowLocalX);
+        const slot = dock.iconSlotWidth();
+        const n = dock.mergedApps.length;
+        if (n <= 0) {
+            dock.dragHoverVisualIndex = 0;
+            return;
+        }
+
+        let idx = dock.dragHoverVisualIndex;
+        if (idx < 0 || idx >= n)
+            idx = dock.visualIndexAtRowX(rowLocalX);
+
+        const margin = slot * 0.18;
+        const leftBound = idx * slot - margin;
+        const rightBound = idx * slot + slot - margin;
+
+        if (rowLocalX > rightBound && idx < n - 1)
+            idx++;
+        else if (rowLocalX < leftBound && idx > 0)
+            idx--;
+
+        dock.dragHoverVisualIndex = idx;
+    }
+
+    function endDragSession() {
+        dock.dragSourceIndex = -1;
+        dock.dragHoverVisualIndex = -1;
+        dock.dragSourceClass = "";
+        dock.interactionBlock = false;
+        dock.clearDragGhost();
+        dock.syncDockVisibility();
+    }
+
+    function buildDragCommitSnapshot() {
+        if (dock.dragSourceIndex < 0)
+            return null;
+
+        const src = dock.dragSourceIndex;
+        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
+        const list = dock.mergedApps;
+        if (src >= list.length)
+            return null;
+
+        const srcEntry = list[src];
+        return {
+            srcClass: srcEntry.class,
+            srcPinned: !!srcEntry.isPinned,
+            dst: Math.min(dst, Math.max(0, list.length - 1)),
+            exec: dock.execForPinnedApp(srcEntry),
+            icon: dock.iconForApp(srcEntry),
+            pinnedCountAtDrop: DockStore.pinnedApps.length
+        };
+    }
+
+    function applyDragCommit(snapshot) {
+        if (!snapshot)
+            return;
+
+        const dstClamped = snapshot.dst;
+        const pinnedCount = snapshot.pinnedCountAtDrop;
+
+        if (snapshot.srcPinned) {
+            const srcIdx = DockStore.pinnedApps.findIndex(
+                a => dock.classKey(a.class) === dock.classKey(snapshot.srcClass));
+            if (srcIdx < 0)
+                return;
+            if (dstClamped < pinnedCount) {
+                if (srcIdx !== dstClamped)
+                    DockStore.movePinned(srcIdx, dstClamped);
+            } else {
+                if (pinnedCount > 0 && srcIdx !== pinnedCount - 1)
+                    DockStore.movePinned(srcIdx, pinnedCount - 1);
+            }
+        } else {
+            const insertAt = Math.min(dstClamped, pinnedCount);
+            DockStore.pinEntry({
+                class: snapshot.srcClass,
+                exec: snapshot.exec,
+                icon: snapshot.icon
+            }, insertAt);
+        }
+    }
+
+    function finalizeIconDrag() {
+        if (dock.dragSourceIndex < 0)
+            return;
+
+        const snapshot = dock.buildDragCommitSnapshot();
+        dock.endDragSession();
+        if (!snapshot)
+            return;
+
+        dock.dragStoreCommitPending = true;
+        Qt.callLater(() => {
+            dock.applyDragCommit(snapshot);
+            dock.dragStoreCommitPending = false;
+        });
+    }
+
+    function abortIconDragFromIcon() {
+        dock.endDragSession();
     }
 
     function updateDragFromBodyPoint(bodyX, bodyY) {
@@ -340,54 +511,7 @@ PanelWindow {
     }
 
     function abortIconDrag() {
-        dock.dragSourceIndex = -1;
-        dock.dragHoverVisualIndex = -1;
-        dock.interactionBlock = false;
-        dock.clearDragGhost();
-        dock.syncDockVisibility();
-    }
-
-    function finishIconDrag() {
-        if (dock.dragSourceIndex < 0)
-            return;
-        const src = dock.dragSourceIndex;
-        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
-        const list = dock.mergedApps;
-        const pinnedCount = DockStore.pinnedApps.length;
-        if (src >= list.length) {
-            dock.dragSourceIndex = -1;
-            dock.dragHoverVisualIndex = -1;
-            dock.interactionBlock = false;
-            dock.clearDragGhost();
-            dock.syncDockVisibility();
-            return;
-        }
-        const srcEntry = list[src];
-        const srcPinned = !!srcEntry.isPinned;
-        const dstClamped = Math.min(dst, Math.max(0, list.length - 1));
-
-        if (srcPinned) {
-            if (dstClamped < pinnedCount) {
-                if (src !== dstClamped)
-                    DockStore.movePinned(src, dstClamped);
-            } else {
-                if (pinnedCount > 0 && src !== pinnedCount - 1)
-                    DockStore.movePinned(src, pinnedCount - 1);
-            }
-        } else {
-            const insertAt = Math.min(dstClamped, pinnedCount);
-            DockStore.pinEntry({
-                class: srcEntry.class,
-                exec: dock.execForPinnedApp(srcEntry),
-                icon: dock.iconForApp(srcEntry)
-            }, insertAt);
-        }
-
-        dock.dragSourceIndex = -1;
-        dock.dragHoverVisualIndex = -1;
-        dock.interactionBlock = false;
-        dock.clearDragGhost();
-        dock.syncDockVisibility();
+        dock.endDragSession();
     }
 
     function togglePinAtIndex(visualIndex) {
@@ -430,7 +554,7 @@ PanelWindow {
             return;
         const inner = cmd.map(a => dock.shellQuote(`${a}`)).join(" ");
         const p = procProto.createObject(dock, {
-            command: ["bash", "-lc", `cd "$HOME" && exec ${inner}`]
+            command: ["bash", "-lc", `cd "$HOME" && setsid ${inner} </dev/null >/dev/null 2>&1 &`]
         });
         p.runningChanged.connect(() => {
             if (!p.running)
@@ -578,9 +702,12 @@ PanelWindow {
                         frameMs: dock.frameMs
                         dockMouseX: dock.dockMouseXEffective
                         iconCenterX: dock.iconSlotCenterX(index)
-                        animationActive: dock.animationActive || dock.dragSourceIndex === index
+                        animationActive: dock.animationActive
                         dockIdle: dock.dockIdle
-                        isDragSource: dock.dragSourceIndex === index
+                        dockDragActive: dock.dragSourceIndex >= 0
+                        isDragSource: dock.dragSourceIndex >= 0
+                            && dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass)
+                        dragShiftTargetX: dock.dragShiftTargetForIndex(index)
                         onClicked: {
                             if (modelData.isRunning) {
                                 if (modelData.window?.address)
@@ -594,9 +721,8 @@ PanelWindow {
                         onRequestTogglePin: dock.togglePinAtIndex(index)
                         onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
                         onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
-                        onDragReorderEnded: {
-                            dock.finishIconDrag();
-                        }
+                        onDragReorderEnded: dock.finalizeIconDrag()
+                        onDragReorderCanceled: dock.abortIconDragFromIcon()
                     }
                 }
             }
@@ -728,6 +854,38 @@ PanelWindow {
             }
         }
 
+        // Taller than the pill so hover stays active over magnified icon pixels.
+        Item {
+            id: dockMagnifyHover
+            anchors {
+                horizontalCenter: parent.horizontalCenter
+                bottom: parent.bottom
+            }
+            width: parent.width
+            height: dock.dockBodyHeight + dock.iconSize * (dock.maxScale - 1)
+
+            HoverHandler {
+                id: dockMagnifyPointer
+
+                function updateMouseX() {
+                    dock.dockMouseXRaw = iconsRow.mapFromGlobal(
+                        dockBody.mapToGlobal(point.position.x, point.position.y).x,
+                        0
+                    ).x;
+                }
+
+                onHoveredChanged: {
+                    dock.syncDockVisibility();
+                    if (hovered)
+                        updateMouseX();
+                }
+                onPointChanged: {
+                    if (hovered || dock.dockVisible)
+                        updateMouseX();
+                }
+            }
+        }
+
         // HoverHandler tracks pointer inside dockBody without competing with
         // child MouseAreas for hover events — fixes hide timer firing on icon hover.
         HoverHandler {
@@ -738,16 +896,10 @@ PanelWindow {
                     0
                 ).x;
             }
-            onHoveredChanged: {
-                dock.syncDockVisibility();
-                if (hovered)
-                    updateMouseX();
-            }
+            onHoveredChanged: dock.syncDockVisibility()
             onPointChanged: {
                 if (hovered)
-                    updateMouseX();
-                if (dock.dragSourceIndex >= 0 && hovered)
-                    dock.updateDragFromBodyPoint(point.position.x, point.position.y);
+                    dockMagnifyPointer.updateMouseX();
             }
         }
     }

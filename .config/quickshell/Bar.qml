@@ -72,7 +72,7 @@ PanelWindow {
     }
     function launch(cmd) {
         const p = procProto.createObject(bar, {
-            command: cmd
+            command: ["bash", "-lc", `setsid ${cmd.map(part => "'" + String(part).replace(/'/g, "'\\''") + "'").join(" ")} </dev/null >/dev/null 2>&1 &`]
         });
         p.runningChanged.connect(() => {
             if (!p.running)
