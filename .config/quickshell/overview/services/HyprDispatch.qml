@@ -31,17 +31,30 @@ Singleton {
         p.running = true;
     }
 
+    function shellQuote(value) {
+        const s = `${value ?? ""}`;
+        return "'" + s.replace(/'/g, "'\\''") + "'";
+    }
+
+    // Detach GUI apps from quickshell so a shell reload does not kill them.
+    function launchDetached(cmd) {
+        if (!cmd || cmd.length === 0)
+            return;
+        const inner = cmd.map(part => shellQuote(part)).join(" ");
+        launch(["bash", "-lc", `setsid ${inner} </dev/null >/dev/null 2>&1 &`]);
+    }
+
     function launchDesktopApp(opts) {
         const desktopPath = `${opts?.desktopPath ?? ""}`.trim();
         const exec = `${opts?.exec ?? ""}`.trim();
         if (desktopPath.length > 0) {
-            launch(["uwsm-app", "--", desktopPath]);
+            launchDetached(["uwsm-app", "--", desktopPath]);
             return;
         }
         const parts = exec.split(/\s+/).filter(part => part.length > 0);
         if (parts.length === 0)
             return;
-        launch(["uwsm-app", "--"].concat(parts));
+        launchDetached(["uwsm-app", "--"].concat(parts));
     }
 
     function luaString(value) {

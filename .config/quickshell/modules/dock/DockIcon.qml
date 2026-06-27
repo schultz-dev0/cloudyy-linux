@@ -19,7 +19,9 @@ Item {
     required property int visualIndex
     required property bool animationActive
     required property bool dockIdle
+    property bool dockDragActive: false
     property bool isDragSource: false
+    property real dragShiftTargetX: 0
 
     property bool hovered: false
     property bool pressed: false
@@ -31,6 +33,7 @@ Item {
     signal dragReorderStarted(int visualIndex, real centerBodyX, real centerBodyY)
     signal dragReorderMoved(real centerBodyX, real centerBodyY)
     signal dragReorderEnded()
+    signal dragReorderCanceled()
 
     readonly property real targetScale: {
         if (dockMouseX < -1000)
@@ -40,76 +43,107 @@ Item {
         return 1 + (maxScale - 1) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
     }
     property real currentScale: 1
+    property real currentDragShiftX: 0
 
     z: isDragSource ? 80 : 0
 
     width: root.iconSize
     height: root.iconSize * root.maxScale + 6
 
+    onDockDragActiveChanged: {
+        if (!dockDragActive)
+            currentDragShiftX = 0;
+    }
+
+    onDockIdleChanged: {
+        if (dockIdle) {
+            currentScale = 1;
+            currentDragShiftX = 0;
+        }
+    }
+
     Timer {
         interval: root.frameMs
         running: root.animationActive
         repeat: true
         onTriggered: {
-            const delta = root.targetScale - root.currentScale;
-            if (Math.abs(delta) < 0.005) {
-                root.currentScale = root.targetScale;
-                return;
-            }
             const lerp = 1 - Math.exp(-12 * root.frameMs / 1000);
-            root.currentScale += delta * lerp;
+
+            const scaleDelta = root.targetScale - root.currentScale;
+            if (Math.abs(scaleDelta) < 0.005)
+                root.currentScale = root.targetScale;
+            else
+                root.currentScale += scaleDelta * lerp;
+
+            if (!root.dockDragActive)
+                return;
+
+            const shiftDelta = root.dragShiftTargetX - root.currentDragShiftX;
+            if (Math.abs(shiftDelta) < 0.25)
+                root.currentDragShiftX = root.dragShiftTargetX;
+            else
+                root.currentDragShiftX += shiftDelta * lerp;
         }
     }
 
-    Image {
-        id: iconImg
+    Item {
+        id: visualLayer
+        width: parent.width
+        height: parent.height
+        x: root.currentDragShiftX
 
-        property int sourceIndex: 0
-        property var sources: root.appData
-            ? HyprlandData.iconSourcesForAppData(root.appData)
-            : [IconResolver.genericIconSource]
+        Image {
+            id: iconImg
 
-        width: root.iconSize
-        height: root.iconSize
-        onSourcesChanged: sourceIndex = 0
-        source: sources[sourceIndex] ?? IconResolver.genericIconSource
-        sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
-        smooth: true
-        scale: root.currentScale
-        transformOrigin: Item.Bottom
-        opacity: root.isDragSource ? 0.2 : 1
-        onStatusChanged: {
-            if (status === Image.Error && sourceIndex < sources.length - 1)
-                Qt.callLater(() => {
-                    sourceIndex++;
-                });
+            property int sourceIndex: 0
+            property var sources: root.appData
+                ? HyprlandData.iconSourcesForAppData(root.appData)
+                : [IconResolver.genericIconSource]
+
+            width: root.iconSize
+            height: root.iconSize
+            onSourcesChanged: sourceIndex = 0
+            source: sources[sourceIndex] ?? IconResolver.genericIconSource
+            sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
+            smooth: true
+            scale: root.currentScale
+            transformOrigin: Item.Bottom
+            opacity: root.isDragSource ? 0.2 : 1
+            onStatusChanged: {
+                if (status === Image.Error && sourceIndex < sources.length - 1)
+                    Qt.callLater(() => {
+                        sourceIndex++;
+                    });
+            }
+
+            anchors {
+                bottom: parent.bottom
+                bottomMargin: 6
+                horizontalCenter: parent.horizontalCenter
+            }
+
         }
 
-        anchors {
-            bottom: parent.bottom
-            bottomMargin: 6
-            horizontalCenter: parent.horizontalCenter
+        Rectangle {
+            visible: (root.appData.isRunning ?? false) && !root.isDragSource
+            width: 4
+            height: 4
+            radius: 2
+            color: Theme.primary
+
+            anchors {
+                bottom: parent.bottom
+                horizontalCenter: parent.horizontalCenter
+            }
+
         }
-
-    }
-
-    Rectangle {
-        visible: (root.appData.isRunning ?? false) && !root.isDragSource
-        width: 4
-        height: 4
-        radius: 2
-        color: Theme.primary
-
-        anchors {
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
-        }
-
     }
 
     MouseArea {
         id: leftDragArea
         anchors.fill: parent
+        enabled: !root.dockDragActive || root.isDragSource
+        preventStealing: root.isDragSource
         acceptedButtons: Qt.LeftButton
         hoverEnabled: true
         onEntered: root.hovered = true
@@ -134,35 +168,33 @@ Item {
                     const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
                     root.dragReorderStarted(root.visualIndex, p.x, p.y);
                 }
+                return;
             }
-            if (root.leftDragging) {
-                const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
-                root.dragReorderMoved(p.x, p.y);
-            }
+            const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
+            root.dragReorderMoved(p.x, p.y);
         }
         onReleased: mouse => {
             if (mouse.button === Qt.LeftButton) {
-                if (root.leftDragging) {
+                if (root.leftDragging)
                     root.dragReorderEnded();
-                    root.leftDragging = false;
-                } else {
+                else
                     root.clicked();
-                }
             }
             root.pressed = false;
+            root.leftDragging = false;
         }
         onCanceled: {
-            if (root.leftDragging) {
-                root.dragReorderEnded();
-                root.leftDragging = false;
-            }
+            if (root.leftDragging)
+                root.dragReorderCanceled();
             root.pressed = false;
+            root.leftDragging = false;
         }
     }
 
     TapHandler {
         acceptedButtons: Qt.RightButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
+        enabled: !root.dockDragActive
         onTapped: root.requestTogglePin()
     }
 

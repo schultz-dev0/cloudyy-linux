@@ -85,14 +85,21 @@ class Card:
 # ── Auto-switch config helpers ────────────────────────────────────────────────
 
 def load_auto_switch_config() -> dict[str, Any]:
+    defaults: dict[str, Any] = {
+        "enabled": False,
+        "output_priority": [],
+        "bluetooth_auto_switch": False,
+    }
     if not AUTO_SWITCH_FILE.exists():
-        return {"enabled": False, "output_priority": []}
+        return dict(defaults)
     try:
         with open(AUTO_SWITCH_FILE) as f:
-            return json.load(f)
+            data = json.load(f)
+        if isinstance(data, dict):
+            return {**defaults, **data}
     except Exception as e:
         log.warning("Failed to load auto-switch config: %s", e)
-        return {"enabled": False, "output_priority": []}
+    return dict(defaults)
 
 
 def save_auto_switch_config(cfg: dict[str, Any]) -> None:
@@ -450,6 +457,34 @@ def set_source_port(source_name: str, port_name: str) -> tuple[bool, str]:
     return _run_cmd(["pactl", "set-source-port", source_name, port_name])
 
 
+def is_bluetooth_sink(name: str) -> bool:
+    return name.startswith("bluez_")
+
+
+def migrate_all_streams_to_sink(sink_name: str) -> tuple[bool, str]:
+    streams = list_streams()
+    if not streams:
+        return True, ""
+    errors: list[str] = []
+    for stream in streams:
+        ok, err = move_stream(stream.index, sink_name)
+        if not ok:
+            errors.append(err.strip() or f"stream {stream.index}")
+    if errors:
+        return False, "; ".join(errors)
+    return True, ""
+
+
+def switch_output(sink_name: str) -> tuple[bool, str]:
+    ok, err = set_default_sink(sink_name)
+    if not ok:
+        return ok, err
+    moved_ok, move_err = migrate_all_streams_to_sink(sink_name)
+    if not moved_ok:
+        return False, move_err
+    return True, ""
+
+
 # ── Auto-switch monitor ───────────────────────────────────────────────────────
 
 class _AutoSwitchMonitor:
@@ -459,6 +494,9 @@ class _AutoSwitchMonitor:
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._on_switch = on_switch
+        self._known_bt_sinks: set[str] = set()
+        self._bt_activity: dict[str, float] = {}
+        self._bootstrapped = False
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -506,33 +544,74 @@ class _AutoSwitchMonitor:
             except subprocess.TimeoutExpired:
                 proc.kill()
 
+    def _pick_bluetooth_sink(self, sinks: list[Sink]) -> str | None:
+        bt_sinks = [s for s in sinks if is_bluetooth_sink(s.name)]
+        if not bt_sinks:
+            return None
+
+        current_bt = {s.name for s in bt_sinks}
+        if not self._bootstrapped:
+            self._known_bt_sinks = set(current_bt)
+            self._bootstrapped = True
+            return None
+
+        new_bt = current_bt - self._known_bt_sinks
+        self._known_bt_sinks = current_bt
+
+        now = time.monotonic()
+        for sink in bt_sinks:
+            if sink.state.upper() == "RUNNING":
+                self._bt_activity[sink.name] = now
+
+        if new_bt:
+            return sorted(new_bt)[-1]
+
+        active = [
+            s for s in bt_sinks
+            if s.state.upper() in ("RUNNING", "IDLE")
+        ]
+        if not active:
+            return None
+
+        running = [s for s in active if s.state.upper() == "RUNNING"]
+        candidates = running or active
+        return max(candidates, key=lambda s: self._bt_activity.get(s.name, 0.0)).name
+
+    def _pick_priority_sink(
+        self, sinks: list[Sink], priority: list[str]
+    ) -> str | None:
+        if not priority:
+            return None
+        sink_by_name = {s.name: s for s in sinks}
+        for name in priority:
+            sink = sink_by_name.get(name)
+            if sink and sink.state.upper() == "RUNNING":
+                return name
+        for name in priority:
+            if name in sink_by_name:
+                return name
+        return None
+
     def _do_evaluate(self) -> None:
         cfg = load_auto_switch_config()
-        if not cfg.get("enabled", False):
-            return
-        priority: list[str] = cfg.get("output_priority", [])
-        if not priority:
+        bt_auto = bool(cfg.get("bluetooth_auto_switch", False))
+        priority_enabled = bool(cfg.get("enabled", False))
+        if not bt_auto and not priority_enabled:
             return
 
         sinks = list_sinks()
-        sink_by_name = {s.name: s for s in sinks}
         current_default = _get_default("sink")
-
         best: str | None = None
-        for p in priority:
-            if p in sink_by_name and sink_by_name[p].state.upper() == "RUNNING":
-                best = p
-                break
 
-        if best is None:
-            for p in priority:
-                if p in sink_by_name:
-                    best = p
-                    break
+        if bt_auto:
+            best = self._pick_bluetooth_sink(sinks)
+
+        if best is None and priority_enabled:
+            best = self._pick_priority_sink(sinks, cfg.get("output_priority", []))
 
         if best and best != current_default:
-            log.info("Auto-switch: switching default sink to %s", best)
-            ok, _ = set_default_sink(best)
+            log.info("Auto-switch: switching output to %s", best)
+            ok, _ = switch_output(best)
             if ok and self._on_switch:
                 GLib.idle_add(self._on_switch, best)
 
@@ -560,6 +639,8 @@ class AudioPage(Gtk.Box):
         self._list = Gtk.ListBox()
         self._right_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self._status = Gtk.Label(label="")
+        self._output_dropdown: Gtk.DropDown | None = None
+        self._picker_syncing = False
 
         self._monitor = _AutoSwitchMonitor(on_switch=self._on_auto_switched)
 
@@ -568,7 +649,8 @@ class AudioPage(Gtk.Box):
         self._maybe_start_monitor()
 
     def _maybe_start_monitor(self) -> None:
-        if load_auto_switch_config().get("enabled", False):
+        cfg = load_auto_switch_config()
+        if cfg.get("enabled", False) or cfg.get("bluetooth_auto_switch", False):
             self._monitor.start()
 
     def _on_auto_switched(self, new_sink_name: str) -> bool:
@@ -605,6 +687,25 @@ class AudioPage(Gtk.Box):
         toolbar.append(refresh_btn)
 
         self.append(toolbar)
+        self.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        picker_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        picker_row.set_margin_start(16)
+        picker_row.set_margin_end(16)
+        picker_row.set_margin_top(10)
+        picker_row.set_margin_bottom(6)
+
+        picker_lbl = Gtk.Label(label="Output")
+        picker_lbl.add_css_class("heading")
+        picker_lbl.set_xalign(0)
+
+        self._output_dropdown = Gtk.DropDown()
+        self._output_dropdown.set_hexpand(True)
+        self._output_dropdown.connect("notify::selected", self._on_output_picker_changed)
+
+        picker_row.append(picker_lbl)
+        picker_row.append(self._output_dropdown)
+        self.append(picker_row)
         self.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
 
         pane = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -711,7 +812,69 @@ class AudioPage(Gtk.Box):
         self._status.set_text(
             f"{len(sinks)} outputs  \u2022  {len(sources)} inputs  \u2022  {len(streams)} streams"
         )
+        self._sync_output_picker()
         return GLib.SOURCE_REMOVE
+
+    def _sync_output_picker(self) -> None:
+        if not self._output_dropdown:
+            return
+        labels = [s.description for s in self._sinks]
+        names = [s.name for s in self._sinks]
+        self._picker_syncing = True
+        try:
+            self._output_dropdown.set_model(Gtk.StringList.new(labels) if labels else None)
+            self._output_dropdown.set_sensitive(bool(labels))
+            selected = 0
+            for i, sink in enumerate(self._sinks):
+                if sink.is_default:
+                    selected = i
+                    break
+            if labels:
+                self._output_dropdown.set_selected(selected)
+            self._output_dropdown._sink_names = names  # type: ignore[attr-defined]
+        finally:
+            self._picker_syncing = False
+
+    def _on_output_picker_changed(self, dropdown: Gtk.DropDown, _param: Any) -> None:
+        if self._picker_syncing:
+            return
+        names: list[str] = getattr(dropdown, "_sink_names", [])
+        idx = dropdown.get_selected()
+        if not (0 <= idx < len(names)):
+            return
+        sink_name = names[idx]
+        if any(s.name == sink_name and s.is_default for s in self._sinks):
+            return
+        sink = next((s for s in self._sinks if s.name == sink_name), None)
+        label = sink.description if sink else sink_name
+
+        def worker() -> None:
+            ok, details = switch_output(sink_name)
+            GLib.idle_add(
+                self._action_result,
+                ok,
+                details,
+                f"Output: {label}",
+                "Failed to switch output",
+            )
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _switch_to_sink(self, sink: Sink) -> None:
+        if sink.is_default:
+            return
+
+        def worker() -> None:
+            ok, details = switch_output(sink.name)
+            GLib.idle_add(
+                self._action_result,
+                ok,
+                details,
+                f"Output: {sink.description}",
+                "Failed to switch output",
+            )
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ── List building ──────────────────────────────────────────────
 
@@ -726,7 +889,7 @@ class AudioPage(Gtk.Box):
         if self._sinks:
             for sink in self._sinks:
                 label = sink.description + (" \u2713" if sink.is_default else "")
-                self._append_item_row("sink", sink.name, label, f"{sink.volume}%")
+                self._append_sink_row(sink, label, f"{sink.volume}%")
         else:
             self._append_placeholder_row("No outputs found")
 
@@ -825,6 +988,27 @@ class AudioPage(Gtk.Box):
         row.add_css_class("sidebar-nav-row")
         action_row = Adw.ActionRow(title=title, subtitle=subtitle)
         action_row.set_activatable(False)
+        row.set_child(action_row)
+        self._list.append(row)
+
+    def _append_sink_row(self, sink: Sink, title: str, subtitle: str = "") -> None:
+        row = Gtk.ListBoxRow()
+        row._audio_kind = "sink"  # type: ignore[attr-defined]
+        row._audio_id = sink.name  # type: ignore[attr-defined]
+        row.add_css_class("sidebar-nav-row")
+        action_row = Adw.ActionRow(title=title, subtitle=subtitle)
+        action_row.set_activatable(False)
+
+        use_btn = Gtk.Button(icon_name="media-playback-start-symbolic")
+        use_btn.add_css_class("flat")
+        use_btn.set_valign(Gtk.Align.CENTER)
+        use_btn.set_sensitive(not sink.is_default)
+        use_btn.set_tooltip_text(
+            "Use this output" if not sink.is_default else "Current output"
+        )
+        use_btn.connect("clicked", lambda _: self._switch_to_sink(sink))
+        action_row.add_suffix(use_btn)
+
         row.set_child(action_row)
         self._list.append(row)
 
@@ -1007,7 +1191,7 @@ class AudioPage(Gtk.Box):
         def_btn.connect(
             "clicked",
             lambda _: self._action_result(
-                *set_default_sink(sink.name),
+                *switch_output(sink.name),
                 success=f"Default output: {sink.description}",
                 fail="Failed to set default output",
             ),
@@ -1228,17 +1412,37 @@ class AudioPage(Gtk.Box):
     def _show_autoswitch_config(self) -> None:
         box = self._build_detail_shell(
             "Auto-switch Devices",
-            "Automatically switch the default output based on device priority.",
+            "Bluetooth headphones can take over automatically when they connect. "
+            "Use the wired priority list to prefer USB or built-in outputs when idle.",
         )
 
         cfg = load_auto_switch_config()
         enabled = bool(cfg.get("enabled", False))
+        bt_auto = bool(cfg.get("bluetooth_auto_switch", False))
         priority: list[str] = cfg.get("output_priority", [])
 
         toggle_grp = Adw.PreferencesGroup()
+        bt_row = Adw.SwitchRow(
+            title="Auto-switch to Bluetooth",
+            subtitle="Use Bluetooth headphones automatically when they connect",
+        )
+        bt_row.set_active(bt_auto)
+
+        def on_bt_toggle(row: Adw.SwitchRow, _p: Any) -> None:
+            c = load_auto_switch_config()
+            c["bluetooth_auto_switch"] = row.get_active()
+            save_auto_switch_config(c)
+            if row.get_active():
+                self._monitor.start()
+            elif not load_auto_switch_config().get("enabled", False):
+                self._monitor.stop()
+
+        bt_row.connect("notify::active", on_bt_toggle)
+        toggle_grp.add(bt_row)
+
         enabled_row = Adw.SwitchRow(
-            title="Enable auto-switch",
-            subtitle="Switch to highest-priority active output automatically",
+            title="Wired device priority",
+            subtitle="Prefer outputs in the priority list when Bluetooth auto-switch is off or idle",
         )
         enabled_row.set_active(enabled)
 
@@ -1246,7 +1450,7 @@ class AudioPage(Gtk.Box):
             c = load_auto_switch_config()
             c["enabled"] = row.get_active()
             save_auto_switch_config(c)
-            if row.get_active():
+            if row.get_active() or load_auto_switch_config().get("bluetooth_auto_switch", False):
                 self._monitor.start()
             else:
                 self._monitor.stop()

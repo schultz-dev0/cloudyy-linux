@@ -777,8 +777,212 @@
     ],
     "parent": "ai",
     "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "ai.models.pull",
+    "label": "Pull / Download Model",
+    "icon": "󰇚",
+    "keywords": [
+      "pull",
+      "download",
+      "ollama"
+    ],
+    "parent": "ai.models",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "ai.models.pull.llama32-3b",
+    "label": "llama3.2:3b — Meta, fast & lightweight",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "llama3.2:3b"
+    }
+  },
+  {
+    "id": "ai.models.pull.llama32-8b",
+    "label": "llama3.2:8b — Meta, well-rounded",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "llama3.2:8b"
+    }
+  },
+  {
+    "id": "ai.models.pull.llama31-70b",
+    "label": "llama3.1:70b — Meta, large / needs VRAM",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "llama3.1:70b"
+    }
+  },
+  {
+    "id": "ai.models.pull.mistral-7b",
+    "label": "mistral:7b — Mistral AI, great instruction following",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "mistral:7b"
+    }
+  },
+  {
+    "id": "ai.models.pull.mistral-nemo-12b",
+    "label": "mistral-nemo:12b — Mistral + Nvidia, long context",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "mistral-nemo:12b"
+    }
+  },
+  {
+    "id": "ai.models.pull.gemma3-4b",
+    "label": "gemma3:4b — Google, efficient",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "gemma3:4b"
+    }
+  },
+  {
+    "id": "ai.models.pull.gemma3-12b",
+    "label": "gemma3:12b — Google, stronger",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "gemma3:12b"
+    }
+  },
+  {
+    "id": "ai.models.pull.phi4-14b",
+    "label": "phi4:14b — Microsoft, reasoning focused",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "phi4:14b"
+    }
+  },
+  {
+    "id": "ai.models.pull.qwen25-7b",
+    "label": "qwen2.5:7b — Alibaba, multilingual",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "qwen2.5:7b"
+    }
+  },
+  {
+    "id": "ai.models.pull.qwen25-coder-7b",
+    "label": "qwen2.5-coder:7b — Alibaba, code specialist",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "qwen2.5-coder:7b"
+    }
+  },
+  {
+    "id": "ai.models.pull.deepseek-r1-7b",
+    "label": "deepseek-r1:7b — DeepSeek, reasoning chain",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "deepseek-r1:7b"
+    }
+  },
+  {
+    "id": "ai.models.pull.deepseek-r1-14b",
+    "label": "deepseek-r1:14b — DeepSeek, stronger reasoning",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "deepseek-r1:14b"
+    }
+  },
+  {
+    "id": "ai.models.pull.nomic-embed",
+    "label": "nomic-embed-text — Embedding model",
+    "icon": "󰚩",
+    "parent": "ai.models.pull",
+    "action": {
+      "type": "ollama_pull",
+      "model": "nomic-embed-text"
+    }
+  },
+  {
+    "id": "ai.models.pull.custom",
+    "label": "Type custom model name...",
+    "icon": "✏",
+    "keywords": [
+      "custom",
+      "pull"
+    ],
+    "parent": "ai.models.pull",
+    "action": {
       "type": "script",
-      "path": "rofi/ai.sh"
+      "path": "_ollama_pull_custom"
+    }
+  },
+  {
+    "id": "ai.models.info",
+    "label": "Model Info",
+    "icon": "󰋼",
+    "keywords": [
+      "info",
+      "inspect",
+      "show"
+    ],
+    "parent": "ai.models",
+    "action": {
+      "type": "ollama_models_list",
+      "filter": "installed",
+      "op": "info"
+    }
+  },
+  {
+    "id": "ai.models.stop",
+    "label": "Stop Running Model",
+    "icon": "󰓩",
+    "keywords": [
+      "stop",
+      "unload"
+    ],
+    "parent": "ai.models",
+    "action": {
+      "type": "ollama_models_list",
+      "filter": "running",
+      "op": "stop"
+    }
+  },
+  {
+    "id": "ai.models.delete",
+    "label": "Delete Model",
+    "icon": "󰆴",
+    "keywords": [
+      "delete",
+      "remove",
+      "rm"
+    ],
+    "parent": "ai.models",
+    "action": {
+      "type": "ollama_models_list",
+      "filter": "installed",
+      "op": "delete"
     }
   },
   {

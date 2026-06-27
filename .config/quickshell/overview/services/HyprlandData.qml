@@ -269,13 +269,6 @@ Singleton {
         return null;
     }
 
-    function prefersOverviewIconFallback(window) {
-        const cls = `${window?.class ?? ""}`.toLowerCase();
-        const initial = `${window?.initialClass ?? ""}`.toLowerCase();
-        const hay = cls + " " + initial;
-        return /firefox|chrome|chromium|zen|brave|vivaldi|librewolf|google-chrome|waterfox|floorp|opera|msedge|mpv|vlc|streamlink|celluloid|haruna|spotify|obs|stream/.test(hay);
-    }
-
     function iconCandidatesForWindow(window) {
         const entry = desktopEntryForClass(window?.class || window?.initialClass || window?.initialTitle);
         const candidates = [];

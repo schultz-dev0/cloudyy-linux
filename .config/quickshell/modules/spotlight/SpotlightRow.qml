@@ -9,7 +9,7 @@ import "../../overview/services"
 Item {
     id: root
 
-    required property var  resultData   // {type,name,...} or {type:"web",query} or {type:"calculator"|"currency",expression,result,subtitle?}
+    required property var  resultData   // {type,name,...} or {type:"web",query} or {type:"calculator"|"currency"|"time",expression,result,subtitle?}
     required property bool isSelected
     required property int  rowWidth
 
@@ -63,6 +63,7 @@ Item {
                     if (root.resultData.type === "file") return "󰈔";
                     if (root.resultData.type === "calculator") return "󰃬";
                     if (root.resultData.type === "currency") return "󰄔";
+                    if (root.resultData.type === "time") return "󰥔";
                     if (root.resultData.type === "command" || root.resultData.type === "keybind")
                         return root.resultData.icon || "󰧭";
                     return "󰖟";
@@ -81,14 +82,14 @@ Item {
                 text:  {
                     if (root.resultData.type === "web")
                         return `Search DDG for "${root.resultData.query}"`;
-                    if (root.resultData.type === "calculator" || root.resultData.type === "currency")
+                    if (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time")
                         return root.resultData.result;
                     if (root.resultData.type === "command" || root.resultData.type === "keybind")
                         return root.resultData.name ?? root.resultData.label ?? "";
                     return root.resultData.name ?? "";
                 }
                 color: {
-                    if (root.resultData.type === "calculator" || root.resultData.type === "currency")
+                    if (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time")
                         return Theme.on_surface;
                     if (root.resultData.type === "command" || root.resultData.type === "keybind") {
                         if (root.resultData.isActive)
@@ -99,8 +100,8 @@ Item {
                         return Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6);
                     return Theme.textPrimary;
                 }
-                font.pixelSize: (root.resultData.type === "calculator" || root.resultData.type === "currency") ? 15 : 13
-                font.weight: (root.resultData.type === "calculator" || root.resultData.type === "currency")
+                font.pixelSize: (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time") ? 15 : 13
+                font.weight: (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time")
                     ? Font.Medium
                     : (root.resultData.isActive ? Font.DemiBold : Font.Normal)
                 font.family:    "JetBrainsMono Nerd Font"
@@ -110,12 +111,14 @@ Item {
             Text {
                 width:   parent.width
                 visible: root.resultData.type === "app" || root.resultData.type === "file"
-                         || root.resultData.type === "calculator" || root.resultData.type === "currency"
+                         || root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time"
                          || root.resultData.type === "command" || root.resultData.type === "keybind"
                 text:    {
                     if (root.resultData.type === "app")
                         return root.resultData.isRunning ? "Running" : (root.resultData.exec ?? "");
                     if (root.resultData.type === "calculator")
+                        return root.resultData.expression ?? "";
+                    if (root.resultData.type === "time")
                         return root.resultData.expression ?? "";
                     if (root.resultData.type === "currency")
                         return root.resultData.subtitle ?? root.resultData.expression ?? "";

@@ -24,6 +24,7 @@ Singleton {
     readonly property string hyprbindsScript: Qt.resolvedUrl("../commandcenter/scripts/hyprbinds.sh").toString().replace("file://", "")
     readonly property string cycleCtlScript: Qt.resolvedUrl("../commandcenter/scripts/cycle-ctl.sh").toString().replace("file://", "")
     readonly property string ollamaModelsScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-models.sh").toString().replace("file://", "")
+    readonly property string ollamaMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-mgmt.sh").toString().replace("file://", "")
     readonly property string packagesCtlScript: Qt.resolvedUrl("../commandcenter/scripts/packages-ctl.sh").toString().replace("file://", "")
 
     property bool visible: false
@@ -44,6 +45,11 @@ Singleton {
     property string packageManager: ""
     property string pendingPackageName: ""
     property var packageRows: []
+    property string ollamaListMode: ""
+    property string ollamaListFilter: ""
+    property string ollamaListOp: ""
+    property string pendingOllamaModel: ""
+    property var ollamaModelRows: []
 
     readonly property int overlayWidth: 640
     readonly property int topMargin: 80
@@ -88,6 +94,8 @@ Singleton {
             return ["kitty", "--hold", scriptsDir + "/cloudyy-updater.sh"];
         if (path === "_system_info")
             return ["kitty", "-e", "sh", "-c", "fastfetch 2>/dev/null || neofetch 2>/dev/null || echo 'No system info tool'; read -p 'Press Enter...'"];
+        if (path === "_ollama_pull_custom")
+            return ["bash", ollamaMgmtScript, "pull-custom"];
         return ["bash", scriptsDir + "/" + path];
     }
 
@@ -221,6 +229,10 @@ Singleton {
             return "Keybinds";
         if (type === "ollama_models")
             return "Ollama models";
+        if (type === "ollama_models_list")
+            return action.op === "delete" ? "Delete model" : (action.op === "stop" ? "Stop model" : "Model info");
+        if (type === "ollama_pull")
+            return "Pull model";
         if (type === "packages_list")
             return action.filter === "explicit" ? "Remove package" : "Package info";
         if (type === "scheme")
@@ -421,7 +433,13 @@ Singleton {
     }
 
     function applySearchResults(commands, extras) {
-        const calc = results.filter(r => r.type === "calculator" || r.type === "currency");
+        const calc = results.filter(r => {
+            if (r.type !== "calculator" && r.type !== "currency" && r.type !== "time")
+                return false;
+            if (r.type === "calculator" || r.type === "time")
+                return (r.expression ?? "") === query;
+            return true;
+        });
         const apps = extras.filter(r => r.type === "app");
         const files = extras.filter(r => r.type === "file");
         if (mode === "spotlight")
@@ -487,6 +505,11 @@ Singleton {
         packageRows = [];
         pendingPackageName = "";
         packageManager = "";
+        ollamaListMode = "";
+        ollamaListFilter = "";
+        ollamaListOp = "";
+        pendingOllamaModel = "";
+        ollamaModelRows = [];
     }
 
     function browseInto(id) {
@@ -497,6 +520,27 @@ Singleton {
     }
 
     function browseBack() {
+        if (ollamaListMode === "confirm") {
+            ollamaListMode = ollamaListOp;
+            pendingOllamaModel = "";
+            query = "";
+            filterOllamaModelRows();
+            selectedIndex = -1;
+            requestFocus();
+            return true;
+        }
+        if (ollamaListMode) {
+            ollamaListMode = "";
+            ollamaListFilter = "";
+            ollamaListOp = "";
+            ollamaModelRows = [];
+            pendingOllamaModel = "";
+            query = "";
+            selectedIndex = -1;
+            refreshDisplay();
+            requestFocus();
+            return true;
+        }
         if (packagesListMode === "confirm") {
             packagesListMode = packagesListFilter;
             pendingPackageName = "";
@@ -528,6 +572,10 @@ Singleton {
     }
 
     function refreshDisplay() {
+        if (ollamaListMode && ollamaListMode !== "confirm") {
+            filterOllamaModelRows();
+            return;
+        }
         if (packagesListMode && packagesListMode !== "confirm") {
             filterPackageRows();
             return;
@@ -604,12 +652,59 @@ Singleton {
         } else if (r.type === "file") {
             launch(["xdg-open", r.path]);
             close();
-        } else if (r.type === "calculator" || r.type === "currency") {
+        } else if (r.type === "calculator" || r.type === "currency" || r.type === "time") {
             launch(["wl-copy", r.result]);
             close();
         } else if (r.type === "ollama_model") {
-            launch(["kitty", "--class", "ollama_chat", "--title", "ollama — " + r.name, "-e", "ollama", "run", r.name]);
-            close();
+            if (ollamaListMode === "delete") {
+                pendingOllamaModel = r.name;
+                ollamaListMode = "confirm";
+                results = [
+                    {
+                        type: "ollama_action",
+                        action: "confirm_delete",
+                        label: "Confirm Deletion",
+                        name: r.name,
+                        icon: "󰆴",
+                        subtitle: r.name
+                    },
+                    {
+                        type: "ollama_action",
+                        action: "cancel",
+                        label: "Cancel",
+                        icon: "󰘐",
+                        subtitle: "Back to model list"
+                    }
+                ];
+                selectedIndex = 0;
+            } else if (ollamaListMode === "stop") {
+                ollamaMgmtProc.command = ["bash", ollamaMgmtScript, "stop", r.name];
+                ollamaMgmtProc.running = false;
+                ollamaMgmtProc.running = true;
+            } else if (ollamaListMode === "info") {
+                launch(["bash", ollamaMgmtScript, "info", r.name]);
+                close();
+            } else {
+                launch(["kitty", "--class", "ollama_chat", "--title", "ollama — " + r.name, "-e", "ollama", "run", r.name]);
+                close();
+            }
+        } else if (r.type === "ollama_action") {
+            if (r.action === "confirm_delete") {
+                const model = r.name || pendingOllamaModel;
+                launch(["bash", ollamaMgmtScript, "remove", model]);
+                ollamaListMode = "";
+                ollamaListFilter = "";
+                ollamaListOp = "";
+                ollamaModelRows = [];
+                pendingOllamaModel = "";
+                close();
+            } else {
+                ollamaListMode = ollamaListOp;
+                pendingOllamaModel = "";
+                query = "";
+                filterOllamaModelRows();
+                selectedIndex = -1;
+            }
         } else if (r.type === "package") {
             if (packagesListFilter === "explicit") {
                 pendingPackageName = r.name;
@@ -735,6 +830,15 @@ Singleton {
             loadOllamaModels();
             return;
         }
+        if (action.type === "ollama_models_list") {
+            loadOllamaModelList(action.filter || "installed", action.op || "info");
+            return;
+        }
+        if (action.type === "ollama_pull") {
+            launch(["bash", ollamaMgmtScript, "pull", action.model || ""]);
+            close();
+            return;
+        }
         if (action.type === "packages_list") {
             loadPackageList(action.filter || "all");
             return;
@@ -791,8 +895,71 @@ Singleton {
     }
 
     function loadOllamaModels() {
+        ollamaListMode = "";
+        ollamaListFilter = "";
+        ollamaListOp = "";
         ollamaModelsProc.running = false;
         ollamaModelsProc.running = true;
+    }
+
+    function loadOllamaModelList(filter, op) {
+        ollamaListMode = op || "info";
+        ollamaListFilter = filter || "installed";
+        ollamaListOp = op || "info";
+        ollamaModelRows = [];
+        ollamaModelsListProc.filter = ollamaListFilter;
+        ollamaModelsListProc.running = false;
+        ollamaModelsListProc.running = true;
+    }
+
+    function ollamaModelRowsToResults(rows) {
+        let subtitle = "Model info";
+        let icon = "󰋼";
+        if (ollamaListOp === "stop") {
+            subtitle = "Stop loaded model";
+            icon = "󰓩";
+        } else if (ollamaListOp === "delete") {
+            subtitle = "Permanently remove model";
+            icon = "󰆴";
+        }
+        const out = [];
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            out.push({
+                type: "ollama_model",
+                name: r.name,
+                label: r.name,
+                icon: icon,
+                subtitle: subtitle
+            });
+        }
+        return out;
+    }
+
+    function filterOllamaModelRows() {
+        const q = normalizeText(query);
+        let rows = ollamaModelRows;
+        if (q.length > 0) {
+            rows = [];
+            for (let i = 0; i < ollamaModelRows.length; i++) {
+                if (normalizeText(ollamaModelRows[i].name).indexOf(q) >= 0)
+                    rows.push(ollamaModelRows[i]);
+            }
+        }
+        results = ollamaModelRowsToResults(rows);
+        if (results.length === 0) {
+            let label = "No models installed";
+            if (ollamaListFilter === "running")
+                label = "No models are currently loaded";
+            results = [{
+                type: "command",
+                label: label,
+                subtitle: ollamaListFilter === "running" ? "Nothing to stop" : "Use Pull / Download Model",
+                icon: "󰚩",
+                entry: null
+            }];
+        }
+        selectedIndex = -1;
     }
 
     function packageRowsToResults(rows) {
@@ -1002,6 +1169,41 @@ Singleton {
     }
 
     Process {
+        id: ollamaModelsListProc
+        property string filter: "installed"
+        running: false
+        command: ["bash", svc.ollamaMgmtScript, filter === "running" ? "list-running" : "list-installed"]
+        stdout: StdioCollector {
+            id: ollamaModelsListCollector
+            onStreamFinished: {
+                const lines = ollamaModelsListCollector.text.split("\n");
+                const rows = [];
+                for (let i = 0; i < lines.length; i++) {
+                    const text = lines[i].trim();
+                    if (!text)
+                        continue;
+                    try {
+                        rows.push(JSON.parse(text));
+                    } catch (e) {
+                        console.warn("spotlight: bad ollama mgmt json", text);
+                    }
+                }
+                svc.ollamaModelRows = rows;
+                svc.filterOllamaModelRows();
+            }
+        }
+    }
+
+    Process {
+        id: ollamaMgmtProc
+        running: false
+        onRunningChanged: {
+            if (!running && svc.ollamaListMode === "stop" && svc.ollamaListFilter === "running")
+                svc.loadOllamaModelList("running", "stop");
+        }
+    }
+
+    Process {
         id: registryProc
         running: true
         command: ["cat", svc.commandsJson]
@@ -1085,6 +1287,11 @@ Singleton {
     onQueryChanged: {
         if (!visible)
             return;
+        if (ollamaListMode) {
+            if (ollamaListMode !== "confirm")
+                filterOllamaModelRows();
+            return;
+        }
         if (packagesListMode) {
             if (packagesListMode !== "confirm")
                 filterPackageRows();
