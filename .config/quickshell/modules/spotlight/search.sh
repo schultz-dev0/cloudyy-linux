@@ -30,13 +30,16 @@ for desktop in "${desktop_matches[@]}"; do
     icon=$(grep -m1 "^Icon=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
     exec_raw=$(grep -m1 "^Exec=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
     exec=$(printf '%s' "$exec_raw" | sed 's/ %[a-zA-Z]//g')
-    wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+    raw_wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
+    desktop_id=$(basename "$desktop" .desktop)
     if [[ "$exec" =~ steam://rungameid/([0-9]+) ]]; then
         wmclass="steam_app_${BASH_REMATCH[1]}"
-    elif [[ -z "$wmclass" ]]; then
-        wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    else
+        wmclass=$(python3 "$ICON_RESOLVE" wmclass "$desktop_id" "$raw_wmclass" "$exec" 2>/dev/null || true)
+        if [[ -z "$wmclass" ]]; then
+            wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        fi
     fi
-    desktop_id=$(basename "$desktop" .desktop)
     exec_base=$(basename "${exec%% *}" 2>/dev/null)
     icon_path=$(python3 "$ICON_RESOLVE" resolve "$icon" "$desktop_id" "$wmclass" "$exec" 2>/dev/null || true)
     [[ -z "$name" || -z "$exec" ]] && continue

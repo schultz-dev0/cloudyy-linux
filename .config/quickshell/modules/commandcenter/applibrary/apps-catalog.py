@@ -14,7 +14,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 SERVICES_DIR = SCRIPT_DIR.parent.parent.parent / "overview" / "services"
 sys.path.insert(0, str(SERVICES_DIR))
-from icon_resolve import INDEX_VERSION, resolve_app_icon  # noqa: E402
+from icon_resolve import INDEX_VERSION, resolve_app_icon, wmclass_from_fields  # noqa: E402
 
 MAP_FILE = SCRIPT_DIR / "category-map.json"
 CATALOG_VERSION = "desktop-entry-v2"
@@ -90,18 +90,6 @@ def map_categories(raw: str, cat_map: dict[str, str]) -> list[str]:
     return out
 
 
-def wmclass_from_fields(fields: dict[str, str], exec_cmd: str) -> str:
-    wmclass = fields.get("StartupWMClass", "")
-    if wmclass:
-        return wmclass
-    steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
-    if steam_match:
-        return f"steam_app_{steam_match.group(1)}"
-    if exec_cmd:
-        return Path(exec_cmd.split()[0]).name.lower()
-    return ""
-
-
 def desktop_stamp() -> str:
     count = 0
     newest = 0
@@ -154,7 +142,7 @@ def build_catalog() -> list[dict]:
                 continue
 
             icon = fields.get("Icon", "application-x-executable")
-            wmclass = wmclass_from_fields(fields, exec_cmd)
+            wmclass = wmclass_from_fields(fields, exec_cmd, app_id)
 
             exec_base = Path(exec_cmd.split()[0]).name
             icon_path = resolve_app_icon(icon, app_id, wmclass, exec_cmd)

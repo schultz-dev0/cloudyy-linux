@@ -227,7 +227,7 @@ Singleton {
         if (!app)
             return;
         if (isRunning(app))
-            HyprDispatch.focusWindowByClass(app.wmclass);
+            HyprDispatch.focusWindowForApp(app.wmclass, app.exec);
         else
             HyprDispatch.launchDesktopApp({ desktopPath: app.desktopPath, exec: app.exec });
         pushRecent(app.id);
