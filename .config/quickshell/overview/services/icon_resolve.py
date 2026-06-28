@@ -384,6 +384,83 @@ def normalize_chrome_pwa_wmclass(
     return startup
 
 
+def profile_dir_from_exec(exec_cmd: str) -> str:
+    match = PROFILE_DIR_RE.search(exec_cmd)
+    if not match:
+        return "Default"
+    profile = match.group(1) or match.group(2) or match.group(3)
+    return profile.strip()
+
+
+def chrome_pwa_launch_argv(exec_cmd: str) -> list[str]:
+    exec_cmd = re.sub(r" %[a-zA-Z]", "", exec_cmd or "").strip()
+    app_id_match = re.search(r"--app-id=([a-z0-9]+)", exec_cmd, re.I)
+    if not app_id_match:
+        return []
+    app_id = app_id_match.group(1)
+    profile = profile_dir_from_exec(exec_cmd)
+
+    if re.search(r"flatpak|com\.google\.Chrome", exec_cmd, re.I):
+        return [
+            "flatpak",
+            "run",
+            "com.google.Chrome",
+            f"--profile-directory={profile}",
+            f"--app-id={app_id}",
+        ]
+
+    if re.search(r"msedge|microsoft-edge|com\.microsoft\.Edge", exec_cmd, re.I):
+        if re.search(r"flatpak|com\.microsoft\.Edge", exec_cmd, re.I):
+            return [
+                "flatpak",
+                "run",
+                "com.microsoft.Edge",
+                f"--profile-directory={profile}",
+                f"--app-id={app_id}",
+            ]
+        edge_match = re.search(r"(/\S*(?:microsoft-edge|msedge)\S*)", exec_cmd, re.I)
+        edge_bin = edge_match.group(1) if edge_match else "microsoft-edge-stable"
+        return [edge_bin, f"--profile-directory={profile}", f"--app-id={app_id}"]
+
+    chrome_match = re.search(r"(/\S*google-chrome(?:-stable)?)", exec_cmd, re.I)
+    if chrome_match:
+        chrome_bin = chrome_match.group(1)
+    elif re.search(r"/opt/google/chrome/google-chrome", exec_cmd, re.I):
+        chrome_bin = "/opt/google/chrome/google-chrome"
+    elif re.search(r"chromium", exec_cmd, re.I) and not re.search(r"google-chrome", exec_cmd, re.I):
+        chromium_match = re.search(r"(/\S*chromium\S*)", exec_cmd, re.I)
+        chrome_bin = chromium_match.group(1) if chromium_match else "chromium"
+    elif re.search(r"brave", exec_cmd, re.I):
+        brave_match = re.search(r"(/\S*brave\S*)", exec_cmd, re.I)
+        chrome_bin = brave_match.group(1) if brave_match else "brave"
+    else:
+        chrome_bin = "google-chrome-stable"
+
+    return [chrome_bin, f"--profile-directory={profile}", f"--app-id={app_id}"]
+
+
+def parse_desktop_exec(exec_cmd: str) -> list[str]:
+    exec_cmd = re.sub(r" %[a-zA-Z]", "", exec_cmd or "").strip()
+    if not exec_cmd:
+        return []
+
+    pwa_argv = chrome_pwa_launch_argv(exec_cmd)
+    if pwa_argv:
+        return pwa_argv
+
+    parts: list[str] = []
+    for match in re.finditer(r"'([^']*)'|\"([^\"]*)\"|(\S+)", exec_cmd):
+        parts.append(match.group(1) or match.group(2) or match.group(3))
+    return parts
+
+
+def launch_argv(desktop_id: str = "", startup_wmclass: str = "", exec_cmd: str = "") -> list[str]:
+    exec_cmd = re.sub(r" %[a-zA-Z]", "", exec_cmd or "").strip()
+    if exec_cmd:
+        return parse_desktop_exec(exec_cmd)
+    return []
+
+
 def resolve_wmclass(
     desktop_id: str = "",
     startup_wmclass: str = "",
@@ -500,7 +577,7 @@ def load_or_build_index(path: Path, force: bool = False) -> dict[str, str]:
 def main() -> int:
     args = sys.argv[1:]
     if not args:
-        print("usage: icon_resolve.py {lookup|resolve|wmclass|build-index} ...", file=sys.stderr)
+        print("usage: icon_resolve.py {lookup|resolve|wmclass|launch-argv|build-index} ...", file=sys.stderr)
         return 1
 
     cmd = args[0]
@@ -528,6 +605,11 @@ def main() -> int:
         startup_wmclass = args[2] if len(args) > 2 else ""
         exec_cmd = args[3] if len(args) > 3 else ""
         print(resolve_wmclass(desktop_id, startup_wmclass, exec_cmd))
+        return 0
+
+    if cmd == "launch-argv":
+        exec_cmd = args[1] if len(args) > 1 else ""
+        print(json.dumps(launch_argv(exec_cmd=exec_cmd)))
         return 0
 
     if cmd == "build-index":

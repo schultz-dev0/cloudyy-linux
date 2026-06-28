@@ -44,17 +44,95 @@ Singleton {
         launch(["bash", "-lc", `setsid ${inner} </dev/null >/dev/null 2>&1 &`]);
     }
 
+    function profileFromExec(exec) {
+        const s = `${exec ?? ""}`;
+        const m = s.match(/--profile-directory=(?:"([^"]+)"|'([^']+)'|(Default|Profile\s+\d+))/i);
+        if (!m)
+            return "Default";
+        return (m[1] || m[2] || m[3]).trim();
+    }
+
+    function chromePwaLaunchParts(exec) {
+        const s = `${exec ?? ""}`.trim();
+        const appIdM = s.match(/--app-id=([a-z0-9]+)/i);
+        if (!appIdM)
+            return [];
+        const appId = appIdM[1];
+        const profile = profileFromExec(s);
+
+        if (/flatpak|com\.google\.Chrome/i.test(s)) {
+            return [
+                "flatpak", "run", "com.google.Chrome",
+                `--profile-directory=${profile}`,
+                `--app-id=${appId}`
+            ];
+        }
+
+        if (/msedge|microsoft-edge|com\.microsoft\.Edge/i.test(s)) {
+            if (/flatpak|com\.microsoft\.Edge/i.test(s))
+                return [
+                    "flatpak", "run", "com.microsoft.Edge",
+                    `--profile-directory=${profile}`,
+                    `--app-id=${appId}`
+                ];
+            let edgeBin = "microsoft-edge-stable";
+            const edgePath = s.match(/(\/[\w./-]*(?:microsoft-edge|msedge)[\w.-]*)/i);
+            if (edgePath)
+                edgeBin = edgePath[1];
+            return [edgeBin, `--profile-directory=${profile}`, `--app-id=${appId}`];
+        }
+
+        let bin = "google-chrome-stable";
+        const chromePath = s.match(/(\/[\w./-]*google-chrome(?:-stable)?)/i)
+            || s.match(/(\/opt\/google\/chrome\/google-chrome)/i);
+        if (chromePath)
+            bin = chromePath[1];
+        else if (/brave/i.test(s)) {
+            bin = "brave";
+            const bravePath = s.match(/(\/[\w./-]*brave[\w.-]*)/i);
+            if (bravePath)
+                bin = bravePath[1];
+        } else if (/chromium/i.test(s) && !/google-chrome/i.test(s)) {
+            bin = "chromium";
+            const chromiumPath = s.match(/(\/[\w./-]*chromium)/i);
+            if (chromiumPath)
+                bin = chromiumPath[1];
+        }
+
+        return [bin, `--profile-directory=${profile}`, `--app-id=${appId}`];
+    }
+
+    function parseDesktopExec(exec) {
+        const s = `${exec ?? ""}`.replace(/ %[a-zA-Z]/g, "").trim();
+        if (!s)
+            return [];
+
+        if (/--app-id=/i.test(s)) {
+            const pwa = chromePwaLaunchParts(s);
+            if (pwa.length > 0)
+                return pwa;
+        }
+
+        const parts = [];
+        const re = /'([^']*)'|"([^"]*)"|(\S+)/g;
+        let m;
+        while ((m = re.exec(s)) !== null)
+            parts.push(m[1] ?? m[2] ?? m[3]);
+        return parts;
+    }
+
     function launchDesktopApp(opts) {
         const desktopPath = `${opts?.desktopPath ?? ""}`.trim();
         const exec = `${opts?.exec ?? ""}`.trim();
+        const parts = parseDesktopExec(exec);
+        if (parts.length > 0) {
+            launchDetached(["uwsm-app", "--"].concat(parts));
+            return;
+        }
         if (desktopPath.length > 0) {
             launchDetached(["uwsm-app", "--", desktopPath]);
             return;
         }
-        const parts = exec.split(/\s+/).filter(part => part.length > 0);
-        if (parts.length === 0)
-            return;
-        launchDetached(["uwsm-app", "--"].concat(parts));
     }
 
     function luaString(value) {
