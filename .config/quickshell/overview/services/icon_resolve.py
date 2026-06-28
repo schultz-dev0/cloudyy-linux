@@ -436,6 +436,9 @@ def chrome_pwa_launch_argv(exec_cmd: str) -> list[str]:
     else:
         chrome_bin = "google-chrome-stable"
 
+    if chrome_bin == "/opt/google/chrome/google-chrome":
+        chrome_bin = "google-chrome-stable"
+
     return [chrome_bin, f"--profile-directory={profile}", f"--app-id={app_id}"]
 
 
