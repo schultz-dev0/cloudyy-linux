@@ -568,9 +568,13 @@ PanelWindow {
     function launchApp(app) {
         const e = dock.execForPinnedApp(app);
         if (Array.isArray(e)) {
-            dock.launch(e);
+            dock.launch(["uwsm-app", "--"].concat(e));
         } else if (e) {
-            dock.launch(["uwsm-app", "--", e]);
+            const parts = HyprDispatch.parseDesktopExec(e);
+            if (parts.length > 0)
+                dock.launch(["uwsm-app", "--"].concat(parts));
+            else
+                console.warn("dock: no launch command for", app?.class ?? "<unknown>");
         } else {
             console.warn("dock: no launch command for", app?.class ?? "<unknown>");
         }
