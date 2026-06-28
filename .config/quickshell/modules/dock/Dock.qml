@@ -83,7 +83,7 @@ PanelWindow {
 
     onDockVisibleChanged: {
         if (!dockVisible)
-            dockMouseXRaw = -9999;
+            dock.dismissMagnify();
     }
 
     function syncDockVisibility() {
@@ -205,9 +205,26 @@ PanelWindow {
     // ── App list: pinned + running, deduplicated ───────────────────────────
     readonly property var runningWindows: HyprlandData.windowList
     property var mergedApps: []
+    property string mergedAppsSignature: ""
 
     onRunningWindowsChanged: rebuildMergedApps()
     onEffectivePinnedAppsChanged: rebuildMergedApps()
+
+    function mergedAppsSignatureFor(list) {
+        let sig = "";
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i];
+            if (i > 0)
+                sig += "|";
+            sig += `${dock.classKey(e.class)}:${e.isPinned ? 1 : 0}:${e.isRunning ? 1 : 0}`;
+        }
+        return sig;
+    }
+
+    function dismissMagnify() {
+        dock.dockMouseXRaw = -9999;
+        dock.dockMouseXSmooth = -9999;
+    }
 
     function windowMatchScore(window, pinnedClass) {
         const pCls = `${pinnedClass ?? ""}`.toLowerCase().trim();
@@ -300,6 +317,21 @@ PanelWindow {
             });
         });
 
+        const sig = dock.mergedAppsSignatureFor(result);
+        if (sig === dock.mergedAppsSignature && dock.mergedApps.length === result.length) {
+            for (let i = 0; i < result.length; i++) {
+                const cur = dock.mergedApps[i];
+                const next = result[i];
+                cur.window = next.window;
+                cur.isRunning = next.isRunning;
+                cur.exec = next.exec;
+                cur.icon = next.icon;
+            }
+            dock.syncDragIndicesAfterRebuild();
+            return;
+        }
+
+        dock.mergedAppsSignature = sig;
         dock.mergedApps = result;
         dock.syncDragIndicesAfterRebuild();
     }
@@ -703,7 +735,10 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: dock.launch(["quickshell", "ipc", "call", "spotlight", "toggle"])
+                    onClicked: {
+                        dock.dismissMagnify();
+                        dock.launch(["quickshell", "ipc", "call", "spotlight", "toggle"]);
+                    }
                 }
             }
 
@@ -733,6 +768,7 @@ PanelWindow {
                             && dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass)
                         dragShiftTargetX: dock.dragShiftTargetForIndex(index)
                         onClicked: {
+                            dock.dismissMagnify();
                             if (modelData.isRunning) {
                                 if (modelData.window?.address)
                                     dock.focusWindow(modelData.window);
@@ -801,7 +837,10 @@ PanelWindow {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: dock.launch(["qs", "ipc", "call", "applibrary", "open"])
+                    onClicked: {
+                        dock.dismissMagnify();
+                        dock.launch(["qs", "ipc", "call", "applibrary", "open"]);
+                    }
                 }
             }
         }
