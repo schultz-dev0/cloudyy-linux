@@ -55,11 +55,10 @@ fi
 # ── Sync plugins ──────────────────────────────────────────────────────────────
 log "Syncing plugins (this may take a minute)..."
 
-# Quit on LazyDone rather than immediately — lets Mason finish its async installs.
 if timeout 300 nvim --headless \
-    -c "autocmd User LazyDone qall" \
-    "+Lazy! sync" 2>/dev/null; then
+    -c "lua require('lazy').sync({wait=true})" \
+    -c "qa!"; then
   log_ok "Neovim plugins installed."
 else
-  log_warn "Plugin sync exited non-zero — open nvim to check, or run: nvim --headless '+Lazy! sync' +qa"
+  log_warn "Plugin sync exited non-zero — open nvim to check, or run: nvim --headless -c \"lua require('lazy').sync({wait=true})\" -c 'qa!'"
 fi
