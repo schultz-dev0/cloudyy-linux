@@ -172,16 +172,34 @@ PanelWindow {
         if (pinnedExec.length > 0)
             return pinnedExec;
 
-        return `${app.class ?? ""}`.toLowerCase();
+        const pwaExec = HyprlandData.chromePwaExecFromClass(app.class);
+        if (pwaExec.length > 0)
+            return pwaExec;
+
+        const normalized = HyprlandData.normalizeChromePwaWmclass(app.class);
+        if (normalized !== app.class) {
+            const normExec = dock.desktopExecForClass(normalized);
+            if (normExec.length > 0)
+                return normExec;
+            const normPwa = HyprlandData.chromePwaExecFromClass(normalized);
+            if (normPwa.length > 0)
+                return normPwa;
+        }
+
+        return "";
     }
 
     function execFromWindow(w) {
         if (!w)
             return "";
-        const st = desktopExecForClass(w.class || w.initialClass || w.initialTitle);
+        const cls = w.class || w.initialClass || w.initialTitle || "";
+        const st = desktopExecForClass(cls);
         if (st.length > 0)
             return st;
-        return (w.class || "").toLowerCase();
+        const pwaExec = HyprlandData.chromePwaExecFromClass(cls);
+        if (pwaExec.length > 0)
+            return pwaExec;
+        return "";
     }
 
     // ── App list: pinned + running, deduplicated ───────────────────────────

@@ -256,6 +256,30 @@ Singleton {
         return "";
     }
 
+    function chromePwaProfileForExec(profileSegment) {
+        const p = `${profileSegment ?? ""}`.trim();
+        if (!p)
+            return "Default";
+        if (p.toLowerCase() === "default")
+            return "Default";
+        return p.replace(/_/g, " ");
+    }
+
+    function chromePwaExecFromClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        const m = cls.match(/^(chrome|chromium|msedge)-([a-z0-9]+)-(.+)$/i);
+        if (!m)
+            return "";
+        const browser = m[1].toLowerCase();
+        const appId = m[2];
+        const profile = chromePwaProfileForExec(m[3]);
+        if (browser === "msedge")
+            return `microsoft-edge-stable --profile-directory=${profile} --app-id=${appId}`;
+        if (browser === "chromium")
+            return `chromium --profile-directory=${profile} --app-id=${appId}`;
+        return `google-chrome-stable --profile-directory=${profile} --app-id=${appId}`;
+    }
+
     function normalizeChromePwaWmclass(className) {
         const cls = `${className ?? ""}`.trim();
         if (!cls)
@@ -321,10 +345,19 @@ Singleton {
         const appId = chromePwaAppId(cls);
         if (appId) {
             candidates.push(`chrome-${appId}-Default`);
+            candidates.push(`chrome-${appId}-default`);
             candidates.push(`chrome-${appId}-Profile_1`);
             candidates.push(`msedge-${appId}-Default`);
             candidates.push(`crx_${appId}`);
             candidates.push(`cr_${appId}`);
+        }
+
+        const chromeClass = cls.match(/^(chrome|chromium|msedge)-([a-z0-9]+)-(.+)$/i);
+        if (chromeClass) {
+            const profile = chromeClass[3];
+            const profileDefault = profile.charAt(0).toUpperCase() + profile.slice(1).toLowerCase();
+            if (profileDefault !== profile)
+                candidates.push(`${chromeClass[1]}-${chromeClass[2]}-${profileDefault}`);
         }
 
         return candidates;

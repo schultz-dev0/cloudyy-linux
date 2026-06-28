@@ -87,6 +87,9 @@ Singleton {
             || s.match(/(\/opt\/google\/chrome\/google-chrome)/i);
         if (chromePath)
             bin = chromePath[1];
+        // Arch/deb packages often ship only google-chrome-stable in PATH.
+        if (bin === "/opt/google/chrome/google-chrome")
+            bin = "google-chrome-stable";
         else if (/brave/i.test(s)) {
             bin = "brave";
             const bravePath = s.match(/(\/[\w./-]*brave[\w.-]*)/i);
@@ -106,6 +109,15 @@ Singleton {
         const s = `${exec ?? ""}`.replace(/ %[a-zA-Z]/g, "").trim();
         if (!s)
             return [];
+
+        if (/^(chrome|chromium|msedge)-[a-z0-9]+-/i.test(s)) {
+            const pwaExec = HyprlandData.chromePwaExecFromClass(s);
+            if (pwaExec.length > 0) {
+                const pwa = chromePwaLaunchParts(pwaExec);
+                if (pwa.length > 0)
+                    return pwa;
+            }
+        }
 
         if (/--app-id=/i.test(s)) {
             const pwa = chromePwaLaunchParts(s);

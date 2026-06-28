@@ -52,14 +52,18 @@ Singleton {
         const norm = normalizeEntry(e);
         norm.class = HyprlandData.normalizeChromePwaWmclass(norm.class);
         const entry = HyprlandData.desktopEntryForClass(norm.class);
-        if (!entry)
-            return norm;
-        const deExec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");
-        const deIcon = `${entry.icon ?? ""}`.trim();
-        if (deExec.length > 0)
-            norm.exec = deExec;
-        if (deIcon.length > 0)
-            norm.icon = deIcon;
+        if (entry) {
+            const deExec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");
+            const deIcon = `${entry.icon ?? ""}`.trim();
+            if (deExec.length > 0)
+                norm.exec = deExec;
+            if (deIcon.length > 0)
+                norm.icon = deIcon;
+        } else {
+            const pwaExec = HyprlandData.chromePwaExecFromClass(norm.class);
+            if (pwaExec.length > 0)
+                norm.exec = pwaExec;
+        }
         return norm;
     }
 
