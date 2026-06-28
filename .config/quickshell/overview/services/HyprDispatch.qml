@@ -124,6 +124,26 @@ Singleton {
         dispatch("hl.dsp.focus({ window = " + luaString("class:" + cls) + " })");
     }
 
+    function focusWindowForApp(wmclass, exec) {
+        const needle = `${wmclass ?? ""}`.trim();
+        if (!needle)
+            return;
+
+        const windows = HyprlandData.windowList || [];
+        for (let i = 0; i < windows.length; i++) {
+            const win = windows[i];
+            const cls = `${win.class || win.initialClass || ""}`.trim();
+            if (!cls)
+                continue;
+            if (cls === needle || HyprlandData.wmclassesMatch(needle, cls)) {
+                focusWindow(win);
+                return;
+            }
+        }
+
+        focusWindowByClass(HyprlandData.normalizeChromePwaWmclass(needle) || needle);
+    }
+
     function focusWindowByTitle(title) {
         const t = `${title ?? ""}`.trim();
         if (!t)

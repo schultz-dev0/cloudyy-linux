@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../../overview/services"
 
 Singleton {
     id: root
@@ -49,7 +50,8 @@ Singleton {
 
     function enrichFromDesktop(e) {
         const norm = normalizeEntry(e);
-        const entry = DesktopEntries.heuristicLookup(norm.class);
+        norm.class = HyprlandData.normalizeChromePwaWmclass(norm.class);
+        const entry = HyprlandData.desktopEntryForClass(norm.class);
         if (!entry)
             return norm;
         const deExec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");

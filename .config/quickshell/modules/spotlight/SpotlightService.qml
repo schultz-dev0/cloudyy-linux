@@ -639,7 +639,7 @@ Singleton {
             activateCommand(r.entry);
         else if (r.type === "app") {
             if (r.isRunning)
-                HyprDispatch.focusWindowByClass(r.wmclass);
+                HyprDispatch.focusWindowForApp(r.wmclass, r.exec);
             else
                 HyprDispatch.launchDesktopApp({ desktopPath: r.desktopPath, exec: r.exec });
             close();

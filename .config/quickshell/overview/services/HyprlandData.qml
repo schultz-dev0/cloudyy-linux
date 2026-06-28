@@ -243,14 +243,104 @@ Singleton {
             pushUniqueSource(sources, "file:///usr/share/pixmaps/co.anysphere.cursor.png");
     }
 
+    function chromePwaAppId(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return "";
+        let m = cls.match(/^crx?_+([a-z0-9]+)$/i);
+        if (m)
+            return m[1].toLowerCase();
+        m = cls.match(/^(?:chrome|chromium|msedge)-([a-z0-9]+)-/i);
+        if (m)
+            return m[1].toLowerCase();
+        return "";
+    }
+
+    function normalizeChromePwaWmclass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return cls;
+        if (/^(?:chrome|chromium|msedge)-/i.test(cls))
+            return cls;
+
+        const crx = cls.match(/^crx?_+([a-z0-9]+)$/i);
+        if (!crx)
+            return cls;
+
+        const appId = crx[1].toLowerCase();
+        const candidates = [
+            `chrome-${appId}-Default`,
+            `chrome-${appId}-Profile_1`,
+            `msedge-${appId}-Default`,
+            `chromium-${appId}-Default`
+        ];
+        for (let i = 0; i < candidates.length; i++) {
+            if (DesktopEntries.heuristicLookup(candidates[i]))
+                return candidates[i];
+        }
+        return cls;
+    }
+
+    function wmclassesMatch(storedClass, windowClass) {
+        const stored = `${storedClass ?? ""}`.trim().toLowerCase();
+        const window = `${windowClass ?? ""}`.trim().toLowerCase();
+        if (!stored || !window)
+            return false;
+        if (stored === window)
+            return true;
+
+        const storedId = chromePwaAppId(stored);
+        const windowId = chromePwaAppId(window);
+        if (storedId && windowId && storedId === windowId)
+            return true;
+
+        if (storedId && window.startsWith(`chrome-${storedId}-`))
+            return true;
+        if (storedId && window.startsWith(`chromium-${storedId}-`))
+            return true;
+        if (storedId && window.startsWith(`msedge-${storedId}-`))
+            return true;
+        if (windowId && stored.startsWith(`crx_`) && stored.includes(windowId))
+            return true;
+        if (windowId && stored.startsWith(`cr_`) && stored.includes(windowId))
+            return true;
+
+        return false;
+    }
+
+    function desktopEntryLookupCandidates(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return [];
+
+        const candidates = [cls];
+        const normalized = normalizeChromePwaWmclass(cls);
+        if (normalized !== cls)
+            candidates.push(normalized);
+
+        const appId = chromePwaAppId(cls);
+        if (appId) {
+            candidates.push(`chrome-${appId}-Default`);
+            candidates.push(`chrome-${appId}-Profile_1`);
+            candidates.push(`msedge-${appId}-Default`);
+            candidates.push(`crx_${appId}`);
+            candidates.push(`cr_${appId}`);
+        }
+
+        return candidates;
+    }
+
     function desktopEntryForClass(className) {
         const cls = `${className ?? ""}`.trim();
         if (!cls)
             return null;
 
-        const entry = DesktopEntries.heuristicLookup(cls);
-        if (entry)
-            return entry;
+        const candidates = desktopEntryLookupCandidates(cls);
+        for (let i = 0; i < candidates.length; i++) {
+            const entry = DesktopEntries.heuristicLookup(candidates[i]);
+            if (entry)
+                return entry;
+        }
 
         const lower = cls.toLowerCase();
         if (lower.includes("docker"))
@@ -350,6 +440,14 @@ Singleton {
             pushUnique(candidates, dockerEntry?.icon);
         }
 
+        const chromeAppId = chromePwaAppId(rawClass) || chromePwaAppId(rawInitialClass);
+        if (chromeAppId) {
+            pushUnique(candidates, `chrome-${chromeAppId}-Default`);
+            pushUnique(candidates, `crx_${chromeAppId}`);
+            const chromeEntry = desktopEntryForClass(rawClass || rawInitialClass);
+            pushUnique(candidates, chromeEntry?.icon);
+        }
+
         pushUnique(candidates, "application-default-icon");
         return candidates;
     }
@@ -396,6 +494,8 @@ Singleton {
             if (!cls)
                 continue;
             if (needle && cls === needle)
+                return true;
+            if (needle && wmclassesMatch(needle, cls))
                 return true;
             if (steamClass && cls === steamClass)
                 return true;

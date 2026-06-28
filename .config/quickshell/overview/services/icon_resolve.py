@@ -326,10 +326,101 @@ def iter_desktop_entries() -> list[tuple[Path, dict[str, str]]]:
     return entries
 
 
-def wmclass_from_fields(fields: dict[str, str], exec_cmd: str) -> str:
-    wmclass = fields.get("StartupWMClass", "")
-    if wmclass:
-        return wmclass
+CHROME_WAYLAND_DESKTOP_RE = re.compile(
+    r"^(?P<browser>chrome|chromium|msedge)-(?P<appid>[a-z0-9]+)-(?P<profile>.+)$",
+    re.I,
+)
+CHROME_WAYLAND_WMCLASS_RE = re.compile(
+    r"^(?P<browser>chrome|chromium|msedge)-(?P<appid>[a-z0-9]+)-(?P<profile>.+)$",
+    re.I,
+)
+CRX_WMCLASS_RE = re.compile(r"^crx?_+(?P<appid>[a-z0-9]+)$", re.I)
+PROFILE_DIR_RE = re.compile(
+    r'--profile-directory=(?:\"([^\"]+)\"|\'([^\']+)\'|(Default|Profile\s+\d+))',
+    re.I,
+)
+
+
+def profile_suffix_from_exec(exec_cmd: str) -> str:
+    match = PROFILE_DIR_RE.search(exec_cmd)
+    if not match:
+        return "Default"
+    profile = match.group(1) or match.group(2) or match.group(3)
+    if profile == "Default":
+        return "Default"
+    return profile.replace(" ", "_")
+
+
+def browser_prefix_from_exec(exec_cmd: str) -> str:
+    lower = exec_cmd.lower()
+    if "msedge" in lower or "microsoft-edge" in lower:
+        return "msedge"
+    if "chromium" in lower and "google-chrome" not in lower:
+        return "chromium"
+    return "chrome"
+
+
+def normalize_chrome_pwa_wmclass(
+    startup_wmclass: str = "",
+    desktop_id: str = "",
+    exec_cmd: str = "",
+) -> str:
+    """Map Chromium X11-era crx_* StartupWMClass to the Wayland app_id Hyprland reports."""
+    startup = startup_wmclass.strip()
+    desktop_id = desktop_id.strip()
+
+    if CHROME_WAYLAND_DESKTOP_RE.match(desktop_id):
+        return desktop_id
+    if startup and CHROME_WAYLAND_WMCLASS_RE.match(startup):
+        return startup
+
+    crx = CRX_WMCLASS_RE.match(startup)
+    if crx:
+        app_id = crx.group("appid")
+        prefix = browser_prefix_from_exec(exec_cmd)
+        profile = profile_suffix_from_exec(exec_cmd)
+        return f"{prefix}-{app_id}-{profile}"
+
+    return startup
+
+
+def resolve_wmclass(
+    desktop_id: str = "",
+    startup_wmclass: str = "",
+    exec_cmd: str = "",
+) -> str:
+    exec_cmd = re.sub(r" %[a-zA-Z]", "", exec_cmd or "")
+    startup_wmclass = (startup_wmclass or "").strip()
+    desktop_id = (desktop_id or "").strip()
+
+    if startup_wmclass:
+        normalized = normalize_chrome_pwa_wmclass(startup_wmclass, desktop_id, exec_cmd)
+        if normalized:
+            return normalized
+
+    if CHROME_WAYLAND_DESKTOP_RE.match(desktop_id):
+        return desktop_id
+
+    steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
+    if steam_match:
+        return f"steam_app_{steam_match.group(1)}"
+
+    if exec_cmd:
+        return Path(exec_cmd.split()[0]).name.lower()
+    return ""
+
+
+def wmclass_from_fields(
+    fields: dict[str, str],
+    exec_cmd: str,
+    desktop_id: str = "",
+) -> str:
+    exec_cmd = re.sub(r" %[a-zA-Z]", "", exec_cmd or "")
+    startup_wmclass = fields.get("StartupWMClass", "")
+    if startup_wmclass:
+        normalized = normalize_chrome_pwa_wmclass(startup_wmclass, desktop_id, exec_cmd)
+        if normalized:
+            return normalized
     steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
     if steam_match:
         return f"steam_app_{steam_match.group(1)}"
@@ -342,11 +433,12 @@ def build_index(size: int = 48) -> dict[str, str]:
     index: dict[str, str] = {}
     for path, fields in iter_desktop_entries():
         exec_cmd = re.sub(r" %[a-zA-Z]", "", fields.get("Exec", ""))
-        wmclass = wmclass_from_fields(fields, exec_cmd)
+        wmclass = wmclass_from_fields(fields, exec_cmd, path.stem)
         names = [
             fields.get("Icon", ""),
             path.stem,
             wmclass,
+            fields.get("StartupWMClass", ""),
         ]
         steam_match = re.search(r"steam://rungameid/(\d+)", exec_cmd)
         if steam_match:
@@ -408,7 +500,7 @@ def load_or_build_index(path: Path, force: bool = False) -> dict[str, str]:
 def main() -> int:
     args = sys.argv[1:]
     if not args:
-        print("usage: icon_resolve.py {lookup|resolve|build-index} ...", file=sys.stderr)
+        print("usage: icon_resolve.py {lookup|resolve|wmclass|build-index} ...", file=sys.stderr)
         return 1
 
     cmd = args[0]
@@ -431,6 +523,13 @@ def main() -> int:
             print(path)
         return 0 if path else 1
 
+    if cmd == "wmclass":
+        desktop_id = args[1] if len(args) > 1 else ""
+        startup_wmclass = args[2] if len(args) > 2 else ""
+        exec_cmd = args[3] if len(args) > 3 else ""
+        print(resolve_wmclass(desktop_id, startup_wmclass, exec_cmd))
+        return 0
+
     if cmd == "build-index":
         out = Path(args[1]) if len(args) > 1 and not args[1].startswith("-") else HOME / ".config/cloud-center/settings/quickshell/icon_index.json"
         index = load_or_build_index(out, force=force)
@@ -438,7 +537,7 @@ def main() -> int:
         sys.stdout.write("\n")
         return 0
 
-    print("usage: icon_resolve.py {lookup|resolve|build-index} ...", file=sys.stderr)
+    print("usage: icon_resolve.py {lookup|resolve|wmclass|build-index} ...", file=sys.stderr)
     return 1
 
 

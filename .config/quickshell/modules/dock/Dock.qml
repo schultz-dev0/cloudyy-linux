@@ -194,10 +194,12 @@ PanelWindow {
     function windowMatchScore(window, pinnedClass) {
         const pCls = `${pinnedClass ?? ""}`.toLowerCase().trim();
         if (!pCls) return 0;
-        const pParts = pCls.split(".");
-        const pLast = pParts[pParts.length - 1] ?? "";
         const wCls = `${window.class ?? ""}`.toLowerCase();
         const wInit = `${window.initialClass ?? ""}`.toLowerCase();
+        if (HyprlandData.wmclassesMatch(pCls, wCls) || HyprlandData.wmclassesMatch(pCls, wInit))
+            return 3;
+        const pParts = pCls.split(".");
+        const pLast = pParts[pParts.length - 1] ?? "";
         const wParts = wCls.split(".");
         const wLast = wParts[wParts.length - 1] ?? "";
         if (wCls === pCls || wInit === pCls) return 3;
