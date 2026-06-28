@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Open a terminal in the cwd of the focused Thunar window or terminal.
+# Open a terminal in the cwd of the focused Thunar/Nautilus window or terminal.
 # Bound to SUPER+Return by default. Toggle in Cloud Center, Terminal settings.
 
 set -euo pipefail
@@ -16,8 +16,8 @@ notify() {
 
 _cwd_walk_enabled() {
   [[ -f "$SETTINGS_FILE" ]] || return 0
-  case "$(tr '[:upper:]' '[:lower:]' < "$SETTINGS_FILE")" in
-    true|yes|1|on) return 0 ;;
+  case "$(tr '[:upper:]' '[:lower:]' <"$SETTINGS_FILE")" in
+  true | yes | 1 | on) return 0 ;;
   esac
   return 1
 }
@@ -46,21 +46,21 @@ launch_terminal() {
   fi
 
   case "$term" in
-    kitty)
-      exec kitty --directory="$cwd"
-      ;;
-    alacritty|Alacritty)
-      exec alacritty --working-directory "$cwd"
-      ;;
-    foot)
-      exec foot -D "$cwd"
-      ;;
-    wezterm)
-      exec wezterm start --cwd "$cwd"
-      ;;
-    *)
-      exec "$term_bin"
-      ;;
+  kitty)
+    exec kitty --directory="$cwd"
+    ;;
+  alacritty | Alacritty)
+    exec alacritty --working-directory "$cwd"
+    ;;
+  foot)
+    exec foot -D "$cwd"
+    ;;
+  wezterm)
+    exec wezterm start --cwd "$cwd"
+    ;;
+  *)
+    exec "$term_bin"
+    ;;
   esac
 }
 
@@ -69,8 +69,14 @@ main() {
     launch_terminal_plain
   fi
 
-  command -v hyprctl &>/dev/null || { notify "hyprctl not found"; exit 1; }
-  command -v jq &>/dev/null || { notify "jq not found"; exit 1; }
+  command -v hyprctl &>/dev/null || {
+    notify "hyprctl not found"
+    exit 1
+  }
+  command -v jq &>/dev/null || {
+    notify "jq not found"
+    exit 1
+  }
 
   local cwd
   if cwd=$(cwd_walk_resolve_focused); then
@@ -79,9 +85,12 @@ main() {
 
   local active_class
   active_class=$(hyprctl activewindow -j | jq -r '.class // empty')
-  if [[ "${active_class,,}" == "thunar" ]]; then
-    notify "Could not read Thunar folder — opening terminal at \$HOME"
-  fi
+  case "${active_class,,}" in
+    thunar)
+      notify "Could not read Thunar folder — opening terminal at \$HOME" ;;
+    nautilus|org.gnome.nautilus)
+      notify "Could not read Nautilus folder — opening terminal at \$HOME" ;;
+  esac
 
   launch_terminal "$HOME"
 }
