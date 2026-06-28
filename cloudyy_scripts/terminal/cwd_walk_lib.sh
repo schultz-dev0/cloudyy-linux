@@ -52,7 +52,9 @@ cwd_walk_resolve_thunar_title() {
   printf '%s' "$path"
 }
 
-cwd_walk_resolve_thunar_location_bar() {
+# Generic: open location bar (Ctrl+L), copy path, restore clipboard.
+# Works for any file manager that uses Ctrl+L for the location bar.
+cwd_walk_resolve_location_bar() {
   local address=$1 old_clipboard path
 
   command -v wl-copy &>/dev/null && command -v wl-paste &>/dev/null || return 1
@@ -164,7 +166,15 @@ cwd_walk_resolve_focused() {
         return 0
       fi
       if [[ -n "$active_address" ]] \
-        && cwd=$(cwd_walk_resolve_thunar_location_bar "$active_address"); then
+        && cwd=$(cwd_walk_resolve_location_bar "$active_address"); then
+        printf '%s' "$cwd"
+        return 0
+      fi
+      return 1
+      ;;
+    nautilus|org.gnome.nautilus)
+      if [[ -n "$active_address" ]] \
+        && cwd=$(cwd_walk_resolve_location_bar "$active_address"); then
         printf '%s' "$cwd"
         return 0
       fi

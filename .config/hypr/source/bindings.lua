@@ -12,8 +12,12 @@ hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen(), { desc = "Toggle fullscre
 
 -- ── Apps ──────────────────────────────────────────────────────────────────────
 
-hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(scripts .. "/terminal/cwd_walk.sh"), { desc = "Open terminal in focused dir" })
-hl.bind(mainMod .. " + SHIFT + F", hl.dsp.exec_cmd(fileManager), { desc = "Open filemanager" })
+hl.bind(
+	mainMod .. " + Return",
+	hl.dsp.exec_cmd(scripts .. "/terminal/cwd_walk.sh"),
+	{ desc = "Open terminal in focused dir" }
+)
+hl.bind(mainMod .. " + SHIFT + F", hl.dsp.exec_cmd(scripts .. "/terminal/fm_walk.sh"), { desc = "Open filemanager" })
 hl.bind(mainMod .. " + SHIFT + B", hl.dsp.exec_cmd(browser .. " --new-window"), { desc = "Open browser" })
 hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exec_cmd("uwsm-app spotify"), { desc = "Open Spotify" })
 hl.bind(mainMod .. " + SHIFT + O", hl.dsp.exec_cmd("uwsm-app obs"), { desc = "Open OBS" })
@@ -67,21 +71,9 @@ hl.bind(
 
 -- ── Spotlight / Command Center (Quickshell) ───────────────────────────────────
 
-hl.bind(
-	mainMod .. " + Space",
-	hl.dsp.exec_cmd("qs ipc call spotlight command"),
-	{ desc = "Command Center" }
-)
-hl.bind(
-	mainMod .. " + ALT + Space",
-	hl.dsp.exec_cmd("qs ipc call applibrary open"),
-	{ desc = "App menu" }
-)
-hl.bind(
-	"ALT + Space",
-	hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"),
-	{ desc = "Wallpaper menu" }
-)
+hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd("qs ipc call spotlight command"), { desc = "Command Center" })
+hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd("qs ipc call applibrary open"), { desc = "App menu" })
+hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"), { desc = "Wallpaper menu" })
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -158,7 +150,11 @@ hl.bind(
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("qs ipc call notifs toggle"), { desc = "Toggle notif center" })
 hl.bind(mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("qs ipc call notifs dnd"), { desc = "Toggle DND" })
 hl.bind(mainMod .. " + CTRL + N", hl.dsp.exec_cmd("qs ipc call notifs clearAll"), { desc = "Clear all notifications" })
-hl.bind(mainMod .. " + ALT + N", hl.dsp.exec_cmd(scripts .. "/sliders/nightlight.sh toggle"), { desc = "Toggle night light" })
+hl.bind(
+	mainMod .. " + ALT + N",
+	hl.dsp.exec_cmd(scripts .. "/sliders/nightlight.sh toggle"),
+	{ desc = "Toggle night light" }
+)
 
 -- ── quickshell ─────────────────────────────────────────────────────────
 
