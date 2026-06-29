@@ -19,6 +19,7 @@ KEY_LIGHTWEIGHT = "quickshell/lightweight"
 KEY_LIGHTWEIGHT_OVERVIEW = "quickshell/lightweight_overview"
 
 _LEGACY_JSON = utility.SETTINGS_DIR / "monitors" / "quickshell.json"
+_QS_ENV_FILE = Path.home() / ".config" / "quickshell" / "qs.env"
 
 
 def _migrate_legacy_json() -> None:
@@ -79,18 +80,39 @@ def save(*, bar_on_all_screens: bool, dock_on_all_screens: bool) -> None:
     utility.save_setting(KEY_DOCK_ALL, dock_on_all_screens)
 
 
-def kill_quickshell() -> None:
-    subprocess.run(
-        ["quickshell", "kill"],
+def _write_env_file() -> None:
+    lines = []
+    if lightweight_enabled():
+        lines.append("CLOUDYY_LIGHTWEIGHT=1")
+    if lightweight_overview_enabled():
+        lines.append("CLOUDYY_LIGHTWEIGHT_OVERVIEW=1")
+    try:
+        _QS_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _QS_ENV_FILE.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
+    except OSError as exc:
+        log.warning("Could not write QS env file %s: %s", _QS_ENV_FILE, exc)
+
+
+def _systemctl(*args: str, timeout: int = 5) -> bool:
+    result = subprocess.run(
+        ["systemctl", "--user", *args],
         capture_output=True,
-        text=True,
-        timeout=5,
+        timeout=timeout,
     )
+    return result.returncode == 0
+
+
+def kill_quickshell() -> None:
+    if _systemctl("stop", "quickshell.service"):
+        return
+    subprocess.run(["quickshell", "kill"], capture_output=True, text=True, timeout=5)
     subprocess.run(["killall", "-9", "quickshell"], capture_output=True, timeout=3)
     subprocess.run(["killall", "-9", "qs"], capture_output=True, timeout=3)
 
 
 def start_daemon(extra_args: list[str] | None = None) -> tuple[bool, str]:
+    if not extra_args and _systemctl("start", "quickshell.service"):
+        return True, "Quickshell started"
     cmd = ["qs", *(extra_args or ["-n", "-d"])]
     try:
         subprocess.Popen(
@@ -107,6 +129,9 @@ def start_daemon(extra_args: list[str] | None = None) -> tuple[bool, str]:
 
 
 def restart_quickshell() -> tuple[bool, str]:
+    _write_env_file()
+    if _systemctl("restart", "quickshell.service", timeout=10):
+        return True, "Quickshell restarted"
     kill_quickshell()
     return start_daemon()
 

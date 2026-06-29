@@ -136,15 +136,13 @@ Singleton {
     function launchDesktopApp(opts) {
         const desktopPath = `${opts?.desktopPath ?? ""}`.trim();
         const exec = `${opts?.exec ?? ""}`.trim();
-        const parts = parseDesktopExec(exec);
-        if (parts.length > 0) {
-            launchDetached(["uwsm-app", "--"].concat(parts));
-            return;
-        }
         if (desktopPath.length > 0) {
             launchDetached(["uwsm-app", "--", desktopPath]);
             return;
         }
+        const parts = parseDesktopExec(exec);
+        if (parts.length > 0)
+            launchDetached(["uwsm-app", "--"].concat(parts));
     }
 
     function luaString(value) {
@@ -245,6 +243,19 @@ Singleton {
         const address = `${windowData?.address ?? ""}`.trim();
         if (!/^0x[0-9a-fA-F]+$/.test(address))
             return;
+
+        const workspaceName = `${windowData?.workspace?.name ?? ""}`.trim();
+        if (workspaceName.startsWith("special:")) {
+            const specialName = workspaceName.slice("special:".length);
+            const activeName = `${HyprlandData.activeWorkspace?.name ?? ""}`.trim();
+            const onActiveSpecial = activeName === workspaceName
+                || activeName === specialName
+                || activeName === `special:${specialName}`;
+            if (!onActiveSpecial)
+                dispatch("hl.dsp.workspace.toggle_special(" + luaString(specialName) + ")");
+            Qt.callLater(() => dispatch("hl.dsp.focus({ window = " + luaString("address:" + address) + " })"));
+            return;
+        }
 
         const workspaceId = Number(windowData?.workspace?.id ?? -1);
         if (Number.isFinite(workspaceId) && workspaceId > 0)

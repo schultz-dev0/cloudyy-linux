@@ -8,6 +8,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
 import "../../overview/services"
+import "../commandcenter/applibrary" as AppLibrary
 
 PanelWindow {
     id: dock
@@ -161,23 +162,28 @@ PanelWindow {
     function execForPinnedApp(app) {
         if (!app)
             return "";
-        if (Array.isArray(app.exec))
-            return app.exec;
+        const resolved = {
+            class: HyprlandData.normalizeDockClass(app.class),
+            exec: app.exec,
+            icon: app.icon
+        };
+        if (Array.isArray(resolved.exec))
+            return resolved.exec;
 
-        const desktopExec = dock.desktopExecForClass(app.class);
+        const desktopExec = dock.desktopExecForClass(resolved.class);
         if (desktopExec.length > 0)
             return desktopExec;
 
-        const pinnedExec = stripDesktopExecField(app.exec);
-        if (pinnedExec.length > 0)
+        const pinnedExec = stripDesktopExecField(resolved.exec);
+        if (pinnedExec.length > 0 && !HyprlandData.isStubDockerCliExec(pinnedExec))
             return pinnedExec;
 
-        const pwaExec = HyprlandData.chromePwaExecFromClass(app.class);
+        const pwaExec = HyprlandData.chromePwaExecFromClass(resolved.class);
         if (pwaExec.length > 0)
             return pwaExec;
 
-        const normalized = HyprlandData.normalizeChromePwaWmclass(app.class);
-        if (normalized !== app.class) {
+        const normalized = HyprlandData.normalizeChromePwaWmclass(resolved.class);
+        if (normalized !== resolved.class) {
             const normExec = dock.desktopExecForClass(normalized);
             if (normExec.length > 0)
                 return normExec;
@@ -616,18 +622,9 @@ PanelWindow {
     }
 
     function launchApp(app) {
-        const e = dock.execForPinnedApp(app);
-        if (Array.isArray(e)) {
-            dock.launch(["uwsm-app", "--"].concat(e));
-        } else if (e) {
-            const parts = HyprDispatch.parseDesktopExec(e);
-            if (parts.length > 0)
-                dock.launch(["uwsm-app", "--"].concat(parts));
-            else
-                console.warn("dock: no launch command for", app?.class ?? "<unknown>");
-        } else {
+        const cls = HyprlandData.normalizeDockClass(app?.class ?? "");
+        if (!AppLibrary.AppLibraryService.launchByClass(cls, dock.execForPinnedApp(app)))
             console.warn("dock: no launch command for", app?.class ?? "<unknown>");
-        }
     }
 
     function focusWindow(window) {

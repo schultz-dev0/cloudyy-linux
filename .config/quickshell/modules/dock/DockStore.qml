@@ -50,15 +50,19 @@ Singleton {
 
     function enrichFromDesktop(e) {
         const norm = normalizeEntry(e);
-        norm.class = HyprlandData.normalizeChromePwaWmclass(norm.class);
+        norm.class = HyprlandData.normalizeDockClass(norm.class);
         const entry = HyprlandData.desktopEntryForClass(norm.class);
         if (entry) {
             const deExec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");
             const deIcon = `${entry.icon ?? ""}`.trim();
-            if (deExec.length > 0)
+            if (deExec.length > 0 && !HyprlandData.isStubDockerCliExec(deExec))
                 norm.exec = deExec;
+            else if (HyprlandData.isStubDockerCliExec(norm.exec))
+                norm.exec = "";
             if (deIcon.length > 0)
                 norm.icon = deIcon;
+        } else if (HyprlandData.isStubDockerCliExec(norm.exec)) {
+            norm.exec = "";
         } else {
             const pwaExec = HyprlandData.chromePwaExecFromClass(norm.class);
             if (pwaExec.length > 0)

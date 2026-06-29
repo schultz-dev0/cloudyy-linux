@@ -88,6 +88,92 @@ Singleton {
         return HyprlandData.isAppRunning(app.wmclass, app.exec);
     }
 
+    function catalogAppForClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls || catalog.length === 0)
+            return null;
+
+        for (let i = 0; i < catalog.length; i++) {
+            const app = catalog[i];
+            if (`${app.id ?? ""}` === cls)
+                return app;
+            const wm = `${app.wmclass ?? ""}`.trim();
+            if (wm.length > 0 && HyprlandData.wmclassesMatch(cls, wm))
+                return app;
+        }
+
+        const lower = cls.toLowerCase();
+        for (let i = 0; i < catalog.length; i++) {
+            const app = catalog[i];
+            const id = `${app.id ?? ""}`.toLowerCase();
+            const wm = `${app.wmclass ?? ""}`.toLowerCase();
+            if (lower === id || lower === wm)
+                return app;
+            if (lower.includes("nautilus") && (id.includes("nautilus") || wm.includes("nautilus")))
+                return app;
+            if (lower.includes("docker") && id.includes("docker"))
+                return app;
+        }
+
+        if (HyprlandData.isMainBrowserClass(cls)) {
+            const preferIds = ["google-chrome", "com.google.Chrome", "chromium", "microsoft-edge"];
+            for (let i = 0; i < preferIds.length; i++) {
+                const hit = appById(preferIds[i]);
+                if (hit)
+                    return hit;
+            }
+            for (let i = 0; i < catalog.length; i++) {
+                const app = catalog[i];
+                const id = `${app.id ?? ""}`.toLowerCase();
+                const wm = `${app.wmclass ?? ""}`.toLowerCase();
+                if (id.includes("chrome") || wm.includes("chrome"))
+                    return app;
+            }
+        }
+
+        return null;
+    }
+
+    function launchCatalogApp(app) {
+        if (!app)
+            return false;
+        HyprDispatch.launchDesktopApp({
+            desktopPath: app.desktopPath,
+            exec: app.exec
+        });
+        return true;
+    }
+
+    function launchByClass(className, execFallback) {
+        const cls = `${className ?? ""}`.trim();
+        const app = catalogAppForClass(cls);
+        if (launchCatalogApp(app))
+            return true;
+
+        if (Array.isArray(execFallback)) {
+            HyprDispatch.launchDetached(["uwsm-app", "--"].concat(execFallback));
+            return true;
+        }
+
+        const fb = typeof execFallback === "string" ? execFallback.trim() : "";
+        const pwaExec = HyprlandData.chromePwaExecFromClass(cls);
+        const execCandidate = fb || pwaExec;
+        if (execCandidate.length > 0) {
+            const parts = HyprDispatch.parseDesktopExec(execCandidate);
+            if (parts.length > 0) {
+                HyprDispatch.launchDetached(["uwsm-app", "--"].concat(parts));
+                return true;
+            }
+        }
+
+        const opts = HyprlandData.desktopLaunchOptionsForClass(cls, fb);
+        if (opts.desktopPath.length > 0 || opts.exec.length > 0) {
+            HyprDispatch.launchDesktopApp(opts);
+            return true;
+        }
+        return false;
+    }
+
     function appMatchesCategory(app, category) {
         if (category === "All")
             return true;
@@ -229,7 +315,7 @@ Singleton {
         if (isRunning(app))
             HyprDispatch.focusWindowForApp(app.wmclass, app.exec);
         else
-            HyprDispatch.launchDesktopApp({ desktopPath: app.desktopPath, exec: app.exec });
+            launchCatalogApp(app);
         pushRecent(app.id);
         close();
     }
