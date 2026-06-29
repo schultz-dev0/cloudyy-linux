@@ -128,49 +128,63 @@ PanelWindow {
         ensureSelectionVisible();
     }
 
-    function prependTimeResult() {
-        const withoutTime = svc.results.filter(r => r.type !== "time");
-        if (!timeCalculator.isTimeExpression(svc.query)) {
-            if (withoutTime.length !== svc.results.length)
-                svc.results = withoutTime;
-            return;
-        }
+    function buildTimeEntry() {
+        if (!timeCalculator.isTimeExpression(svc.query))
+            return null;
         const seconds = timeCalculator.evaluate(svc.query);
-        if (seconds === null) {
-            if (withoutTime.length !== svc.results.length)
-                svc.results = withoutTime;
-            return;
-        }
-        const entry = {
+        if (seconds === null)
+            return null;
+        return {
             type: "time",
             expression: svc.query,
             result: timeCalculator.formatResult(seconds),
             subtitle: timeCalculator.formatSubtitle(seconds)
         };
-        svc.results = [entry, ...withoutTime];
     }
 
-    function prependCalcCurrency() {
-        prependTimeResult();
-
-        const withoutCalc = svc.results.filter(r => r.type !== "calculator");
-        if (!calculator.isMathExpression(svc.query)) {
-            if (withoutCalc.length !== svc.results.length)
-                svc.results = withoutCalc;
-            return;
-        }
+    function buildCalcEntry() {
+        if (!calculator.isMathExpression(svc.query))
+            return null;
         const value = calculator.evaluate(svc.query);
-        if (calculator.hasError || value === null) {
-            if (withoutCalc.length !== svc.results.length)
-                svc.results = withoutCalc;
-            return;
-        }
-        const entry = {
+        if (calculator.hasError || value === null)
+            return null;
+        return {
             type: "calculator",
             expression: svc.query,
             result: calculator.formatResult(value)
         };
-        svc.results = [entry, ...withoutCalc];
+    }
+
+    function inlineResultMatches(entry, candidate) {
+        return entry.type === candidate.type
+            && (entry.expression ?? "") === (candidate.expression ?? "")
+            && (entry.result ?? "") === (candidate.result ?? "");
+    }
+
+    function prependInlineResults() {
+        const timeEntry = buildTimeEntry();
+        const calcEntry = buildCalcEntry();
+        const withoutInline = svc.results.filter(r =>
+            r.type !== "time" && r.type !== "calculator");
+        const next = [];
+        if (timeEntry)
+            next.push(timeEntry);
+        if (calcEntry)
+            next.push(calcEntry);
+
+        if (next.length === 0) {
+            if (withoutInline.length !== svc.results.length)
+                svc.results = withoutInline;
+            return;
+        }
+
+        const prefix = svc.results.slice(0, next.length);
+        if (prefix.length === next.length
+            && prefix.every((entry, i) => inlineResultMatches(entry, next[i]))
+            && svc.results.length === next.length + withoutInline.length)
+            return;
+
+        svc.results = next.concat(withoutInline);
     }
 
     Process {
@@ -209,7 +223,7 @@ PanelWindow {
             if (svc.visible && searchInput.text !== svc.query)
                 searchInput.text = svc.query;
 
-            prependTimeResult();
+            prependInlineResults();
 
             const parsed = currencyConverter.parseQuery(svc.query);
             if (!parsed)
@@ -225,7 +239,7 @@ PanelWindow {
             currencyProc.running = true;
         }
         function onResultsChanged() {
-            prependCalcCurrency();
+            prependInlineResults();
         }
         function onBrowseStackChanged() {
             browseFlick.contentY = 0;
