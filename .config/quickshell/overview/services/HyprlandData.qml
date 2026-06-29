@@ -360,7 +360,51 @@ Singleton {
                 candidates.push(`${chromeClass[1]}-${chromeClass[2]}-${profileDefault}`);
         }
 
+        const lower = cls.toLowerCase();
+        if (!/^(chrome|chromium|msedge)-[a-z0-9]+-/i.test(cls)) {
+            if (/google[- ]?chrome/.test(lower) || lower === "chrome")
+                candidates.push("google-chrome", "com.google.Chrome");
+            else if (lower.includes("chromium"))
+                candidates.push("chromium");
+            else if (lower.includes("msedge") || lower.includes("microsoft-edge"))
+                candidates.push("microsoft-edge", "com.microsoft.Edge");
+        }
+
         return candidates;
+    }
+
+    function isChromePwaClass(className) {
+        return /^(chrome|chromium|msedge)-[a-z0-9]+-/i.test(`${className ?? ""}`.trim());
+    }
+
+    function isMainBrowserClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls || isChromePwaClass(cls))
+            return false;
+        const lower = cls.toLowerCase();
+        return lower.includes("chrome") || lower.includes("chromium")
+            || lower.includes("msedge") || lower.includes("microsoft-edge")
+            || lower === "google chrome";
+    }
+
+    function normalizeDockClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return cls;
+        const lower = cls.toLowerCase();
+        if (lower === "google chrome" || lower === "google-chrome" || lower === "googlechrome")
+            return "google-chrome";
+        return normalizeChromePwaWmclass(cls);
+    }
+
+    function desktopPathForEntryId(entryId) {
+        const id = `${entryId ?? ""}`.trim();
+        if (!id)
+            return "";
+        const home = `${root.homeDir ?? ""}`.trim();
+        if (/^(chrome|chromium|msedge)-/i.test(id) && home.length > 0)
+            return `${home}/.local/share/applications/${id}.desktop`;
+        return `/usr/share/applications/${id}.desktop`;
     }
 
     function desktopEntryForClass(className) {
@@ -382,6 +426,11 @@ Singleton {
         if (lower.includes("cloudcenter"))
             return DesktopEntries.heuristicLookup("org.cloudyy.cloudcenter")
                 || DesktopEntries.heuristicLookup("Cloud Center");
+        if (isMainBrowserClass(cls))
+            return DesktopEntries.heuristicLookup("google-chrome")
+                || DesktopEntries.heuristicLookup("com.google.Chrome")
+                || DesktopEntries.heuristicLookup("chromium")
+                || DesktopEntries.heuristicLookup("microsoft-edge");
 
         if (cls.includes(".")) {
             const last = cls.split(".").pop();
@@ -390,6 +439,67 @@ Singleton {
         }
 
         return null;
+    }
+
+    function stripDesktopExecField(s) {
+        const t = `${s ?? ""}`.trim();
+        if (!t)
+            return "";
+        return t.replace(/%[A-Za-z]/g, "").trim();
+    }
+
+    function isStubDockerCliExec(exec) {
+        const s = `${exec ?? ""}`.trim().toLowerCase();
+        return s === "docker desktop" || s === "docker";
+    }
+
+    function desktopEntryIdForClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return "";
+        const entry = desktopEntryForClass(cls);
+        if (!entry)
+            return "";
+
+        const candidates = desktopEntryLookupCandidates(cls);
+        const lower = cls.toLowerCase();
+        if (lower.includes("docker"))
+            candidates.push("docker-desktop");
+        if (lower.includes("nautilus"))
+            candidates.push("org.gnome.Nautilus");
+        if (isMainBrowserClass(cls)) {
+            candidates.push("google-chrome", "com.google.Chrome", "chromium", "microsoft-edge");
+        } else if (isChromePwaClass(cls)) {
+            candidates.push(cls);
+        }
+
+        const seen = {};
+        for (let i = 0; i < candidates.length; i++) {
+            const id = candidates[i];
+            if (!id || seen[id])
+                continue;
+            seen[id] = true;
+            if (DesktopEntries.heuristicLookup(id) === entry)
+                return id;
+        }
+        return "";
+    }
+
+    function desktopLaunchOptionsForClass(className, execFallback) {
+        const entry = desktopEntryForClass(className);
+        const entryId = desktopEntryIdForClass(className);
+        let exec = "";
+        if (entry)
+            exec = stripDesktopExecField(entry.exec ?? entry.Exec ?? "");
+        if (isStubDockerCliExec(exec))
+            exec = "";
+        const fallback = `${execFallback ?? ""}`.trim();
+        if (!exec && fallback.length > 0 && !isStubDockerCliExec(fallback))
+            exec = fallback;
+        let desktopPath = "";
+        if (entryId.length > 0)
+            desktopPath = desktopPathForEntryId(entryId);
+        return { desktopPath: desktopPath, exec: exec };
     }
 
     function iconCandidatesForWindow(window) {
