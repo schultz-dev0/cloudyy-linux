@@ -302,6 +302,13 @@ phase_services() {
     log_warn "Could not enable hyprpolkitagent.service — polkit password dialogs may not appear."
   fi
 
+  local qs_service_script="${SCRIPT_DIR}/setup-quickshell-service.sh"
+  if [[ -f "$qs_service_script" ]]; then
+    bash "$qs_service_script" || log_warn "Quickshell service setup encountered issues (non-fatal)."
+  else
+    log_warn "setup-quickshell-service.sh not found — quickshell crash-restart will not be configured."
+  fi
+
   log_ok "Services configured."
 }
 

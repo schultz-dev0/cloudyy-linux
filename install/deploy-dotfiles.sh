@@ -690,6 +690,14 @@ main() {
     else
       log_warn "schema_settings.sh not found at ${_schema_script} — skipping"
     fi
+
+    local _qs_service_script
+    _qs_service_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/setup-quickshell-service.sh"
+    if [[ -f "$_qs_service_script" ]]; then
+      bash "$_qs_service_script" || log_warn "setup-quickshell-service.sh encountered issues (non-fatal)"
+    else
+      log_warn "setup-quickshell-service.sh not found at ${_qs_service_script} — skipping"
+    fi
   fi
 
   if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
