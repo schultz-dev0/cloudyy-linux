@@ -15,8 +15,8 @@ mkdir -p "$cache_dir"
 CACHE_DIR="$cache_dir"
 THUMB_SIZE="$thumb_size"
 HOME="$home"
-# shellcheck source=../../../../cloudyy_scripts/rofi/lib/thumb_cache.sh
-source "${home}/cloudyy_scripts/rofi/lib/thumb_cache.sh"
+# shellcheck source=../../../../cloudyy_scripts/quickshell/lib/thumb_cache.sh
+source "${home}/cloudyy_scripts/quickshell/lib/thumb_cache.sh"
 export -f gen_thumb
 export CACHE_DIR THUMB_SIZE HOME
 

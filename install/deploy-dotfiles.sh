@@ -438,6 +438,21 @@ deploy_defaults() {
     log_skip "show_mascot"
   fi
 
+  # Hyprlock welcome messages — user-editable; seed once from distro default
+  local welcome_msg="${HOME}/.config/hypr/USER_WELCOME_MESSAGE.txt"
+  local welcome_default="${defaults_dir}/USER_WELCOME_MESSAGE.txt"
+  if [[ ! -f "$welcome_msg" ]]; then
+    if [[ -f "$welcome_default" ]]; then
+      mkdir -p "$(dirname "$welcome_msg")"
+      cp "$welcome_default" "$welcome_msg"
+      log_ok "USER_WELCOME_MESSAGE.txt deployed (default)."
+    else
+      log_warn "No default USER_WELCOME_MESSAGE.txt in ${defaults_dir}."
+    fi
+  else
+    log_skip "USER_WELCOME_MESSAGE.txt"
+  fi
+
   local cwd_walk_file="${cc_terminal_dir}/cwd_walk"
   if [[ ! -f "$cwd_walk_file" ]]; then
     printf 'true\n' > "$cwd_walk_file"
@@ -504,6 +519,7 @@ reapply_skip_worktree() {
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
     ".config/hypr/hyprland.lua"
+    ".config/hypr/USER_WELCOME_MESSAGE.txt"
     ".config/zsh/.zshrc"
     ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"

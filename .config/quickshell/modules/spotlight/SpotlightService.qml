@@ -263,6 +263,8 @@ Singleton {
                 return "System update";
             if (path === "_system_info")
                 return "System info";
+            if (path.includes("welcome-messages"))
+                return "Edit in nvim";
             return "Run script";
         }
         return "Command";
@@ -459,6 +461,11 @@ Singleton {
             WallpaperPickerService.close();
     }
 
+    function loadCommandsRegistry() {
+        registryProc.running = false;
+        registryProc.running = true;
+    }
+
     function openMode(m) {
         if (m === "wallpaper") {
             WallpaperPickerService.open();
@@ -473,6 +480,8 @@ Singleton {
         selectedIndex = -1;
         keybindRows = [];
         visible = true;
+        if (m === "command")
+            loadCommandsRegistry();
         refreshDynamicState();
         refreshDisplay();
         requestFocus();
@@ -1218,8 +1227,12 @@ Singleton {
                     console.warn("spotlight: failed to parse commands.json", e);
                 }
                 svc.registryLoaded = true;
-                if (svc.visible && svc.query.trim().length > 0)
-                    svc.runSearch();
+                if (svc.visible) {
+                    if (svc.query.trim().length > 0)
+                        svc.runSearch();
+                    else if (svc.mode === "command")
+                        svc.refreshDisplay();
+                }
             }
         }
     }

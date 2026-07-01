@@ -23,19 +23,18 @@ PanelWindow {
     screen: assignedScreen
 
     // ── Tunables ─────────────────────────────────────
-    readonly property int barHeight: 30          // thinner macOS-like
-    readonly property int topGap: 0              // flush to screen top (vignette is separate)
+    readonly property int barHeight: 18          // shrink the size a bit 
+    readonly property int topGap: 3              // create a larger gap to accomodate for the shrink ^ 
     readonly property int sideGap: 0
-    readonly property int radius: 0              // no big rounded bg for pure floating
+    readonly property int radius: 0              
     readonly property int pillRadius: 6
     readonly property int pillPadH: 6
     readonly property int pillPadV: 3
     readonly property int pillGap: 6
-    readonly property real bgOpacity: 0.0        // transparent — no pill background
+    readonly property real bgOpacity: 0.0        
 
     // ── Bar colors (macOS floating style) ─────────────────────────────────────
-    // These are intentionally light / non-flipping with light/dark mode.
-    // Vignette solves readability like on macos
+    // Basic colors for the bar
     readonly property color barFg: Qt.rgba(1, 1, 1, 0.92)
     readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
     readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.98) //0.58)

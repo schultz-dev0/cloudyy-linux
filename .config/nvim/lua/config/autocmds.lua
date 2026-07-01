@@ -345,3 +345,13 @@ vim.api.nvim_create_autocmd({ "FocusGained", "CursorHold", "BufEnter" }, {
 vim.api.nvim_create_user_command("ThemeReload", function()
   apply_mode_and_theme(true)
 end, {})
+
+-- bindings.lua is hand-formatted (one hl.bind() arg per line for readability).
+-- stylua only wraps lines over column_width, so it would collapse short binds
+-- back to one line on every save — disable autoformat for this file specifically.
+vim.api.nvim_create_autocmd("BufReadPost", {
+  pattern = "*/hypr/source/bindings.lua",
+  callback = function(args)
+    vim.b[args.buf].autoformat = false
+  end,
+})

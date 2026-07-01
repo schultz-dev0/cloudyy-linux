@@ -6,7 +6,7 @@ HOME="${HOME:-$(printf '%s' ~)}"
 CYCLE_CONF="${HOME}/.config/hypr/theme_state/cycle.conf"
 SVC_DIR="${HOME}/.config/systemd/user"
 THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
-AUTOMODE_HELPER="${HOME}/cloudyy_scripts/rofi/lib/automode_switch.sh"
+AUTOMODE_HELPER="${HOME}/cloudyy_scripts/quickshell/lib/automode_switch.sh"
 
 CYCLE_ENABLED="false"
 CYCLE_INTERVAL="1800"

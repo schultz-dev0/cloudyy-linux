@@ -41,8 +41,8 @@ PanelWindow {
     readonly property int iconSpacing: 25
     readonly property int paddingH: 14
     readonly property int paddingV: 12
-    readonly property int bottomGap: 0
-    readonly property int activationHeight: 16
+    readonly property int bottomGap: 2
+    readonly property int activationHeight: 4 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 
 
     // ── Drag / interaction ─────────────────────────────────────────────────
     property int dragSourceIndex: -1
