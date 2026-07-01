@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
-# Paths
-PERSONAL_MSG="$HOME/.config/hypr/welcome_message.txt"
-USER_MSG="$HOME/.config/hypr/USER_WELCOME_MESSAGE.txt"
+PERSONAL_MSG="${HOME}/.config/hypr/welcome_message.txt"
+USER_MSG="${HOME}/.config/hypr/USER_WELCOME_MESSAGE.txt"
 
 if [[ -f "$PERSONAL_MSG" ]]; then
   FILE="$PERSONAL_MSG"
-else
+elif [[ -f "$USER_MSG" ]]; then
   FILE="$USER_MSG"
+else
+  echo "Add lock screen messages in Command Center → Learn → Lock Screen Messages"
+  exit 0
 fi
 
-# Filter, Randomise.
 grep '^>' "$FILE" | shuf -n 1 | sed 's/^>//;s/^"//;s/"$//'

@@ -11,6 +11,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import gi
+
+gi.require_version("Adw", "1")
+gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, GLib, Gtk
 
 import lib.utility as utility
@@ -588,7 +592,8 @@ class _AutoSwitchMonitor:
             if sink and sink.state.upper() == "RUNNING":
                 return name
         for name in priority:
-            if name in sink_by_name:
+            sink = sink_by_name.get(name)
+            if sink and sink.state.upper() == "IDLE":
                 return name
         return None
 

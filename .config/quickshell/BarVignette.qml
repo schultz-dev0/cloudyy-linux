@@ -16,7 +16,7 @@ PanelWindow {
 
     // ── Tunables ──────────────────────────────────────────────────────────────
     readonly property int stripHeight: 104
-    readonly property real strength: 0.55
+    readonly property real strength: 0.7
 
     anchors {
         top: true

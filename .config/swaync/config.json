@@ -48,7 +48,7 @@
         },
         {
           "label": "󰸉",
-          "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi/appearance.sh --select"
+          "command": "qs ipc call spotlight wallpaper"
         },
         {
           "label": "",
@@ -64,7 +64,7 @@
         },
         {
           "label": "󰐥",
-          "command": "uwsm-app -- $HOME/cloudyy_scripts/rofi/power-menu.sh"
+          "command": "qs ipc call powermenu open"
         }
       ]
     }

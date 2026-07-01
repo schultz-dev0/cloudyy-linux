@@ -64,6 +64,24 @@
     }
   },
   {
+    "id": "learn.welcome",
+    "label": "Lock Screen Messages",
+    "icon": "󰌾",
+    "keywords": [
+      "welcome",
+      "message",
+      "hyprlock",
+      "lock",
+      "screen",
+      "quote"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "script",
+      "path": "quickshell/lib/welcome-messages.sh"
+    }
+  },
+  {
     "id": "learn.zen",
     "label": "Zen Binds",
     "icon": "󰈹",
@@ -75,7 +93,7 @@
     "parent": "learn",
     "action": {
       "type": "script",
-      "path": "rofi/browser-keybinds.sh"
+      "path": "quickshell/lib/zen-binds.sh"
     }
   },
   {
@@ -997,7 +1015,7 @@
     "parent": "ai",
     "action": {
       "type": "script",
-      "path": "rofi/ai.sh"
+      "path": "quickshell/lib/ollama-service.sh"
     }
   },
   {

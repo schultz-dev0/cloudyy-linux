@@ -14,6 +14,7 @@
 
 # Hyprland local user overrides
 .config/hypr/user-configs/
+.config/hypr/welcome_message.txt
 
 # Shell runtime state
 .config/zsh/oh-my-zsh
