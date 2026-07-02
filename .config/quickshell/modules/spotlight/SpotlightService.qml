@@ -28,6 +28,8 @@ Singleton {
     readonly property string packagesCtlScript: Qt.resolvedUrl("../commandcenter/scripts/packages-ctl.sh").toString().replace("file://", "")
 
     property bool visible: false
+    property bool keyboardGrab: false
+    property bool closing: false
     property string mode: "spotlight"
     property string anchor: "top"
     property string query: ""
@@ -479,7 +481,7 @@ Singleton {
         results = [];
         selectedIndex = -1;
         keybindRows = [];
-        visible = true;
+        svc.showPanel();
         if (m === "command")
             loadCommandsRegistry();
         refreshDynamicState();
@@ -495,14 +497,22 @@ Singleton {
         query = "";
         results = [];
         selectedIndex = -1;
-        visible = true;
+        svc.showPanel();
         refreshDynamicState();
         refreshDisplay();
         requestFocus();
     }
 
-    function close() {
+    function showPanel() {
+        hideTimer.stop();
+        closing = false;
+        visible = true;
+        keyboardGrab = true;
+    }
+
+    function finishClose() {
         visible = false;
+        closing = false;
         cancelAsyncSearch();
         query = "";
         results = [];
@@ -519,6 +529,25 @@ Singleton {
         ollamaListOp = "";
         pendingOllamaModel = "";
         ollamaModelRows = [];
+    }
+
+    function close() {
+        keyboardGrab = false;
+        if (!visible && !closing) {
+            finishClose();
+            return;
+        }
+        if (closing)
+            return;
+        closing = true;
+        hideTimer.restart();
+    }
+
+    Timer {
+        id: hideTimer
+        interval: 140
+        repeat: false
+        onTriggered: svc.finishClose()
     }
 
     function browseInto(id) {

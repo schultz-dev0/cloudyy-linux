@@ -24,6 +24,7 @@ Singleton {
     readonly property int visibleRows: 4
 
     property bool visible: false
+    property bool keyboardGrab: false
     property string query: ""
     property int selectedIndex: -1
     property var catalog: []
@@ -37,6 +38,9 @@ Singleton {
     property bool returnToCommandCenter: false
     property string commandCenterReturnMode: "command"
     property var commandCenterReturnBrowseStack: []
+    property bool windowPickerOpen: false
+    property var windowPickerWindows: []
+    property var windowPickerApp: null
 
     signal requestFocus()
 
@@ -238,7 +242,7 @@ Singleton {
 
     function openInternal() {
         closeOtherPanels();
-        visible = true;
+        showPanel();
         query = "";
         activeCategory = "All";
         selectedIndex = -1;
@@ -251,7 +255,14 @@ Singleton {
         requestFocus();
     }
 
-    function close() {
+    function showPanel() {
+        hideTimer.stop();
+        visible = true;
+        keyboardGrab = true;
+    }
+
+    function finishClose() {
+        closeWindowPicker();
         visible = false;
         query = "";
         selectedIndex = -1;
@@ -259,7 +270,27 @@ Singleton {
         commandCenterReturnBrowseStack = [];
     }
 
+    function close() {
+        keyboardGrab = false;
+        if (!visible) {
+            finishClose();
+            return;
+        }
+        hideTimer.restart();
+    }
+
+    Timer {
+        id: hideTimer
+        interval: 80
+        repeat: false
+        onTriggered: svc.finishClose()
+    }
+
     function escapePressed() {
+        if (windowPickerOpen) {
+            closeWindowPicker();
+            return { commandCenter: false, closedPicker: true };
+        }
         if (query.trim().length > 0) {
             query = "";
             return { commandCenter: false, clearedQuery: true };
@@ -309,13 +340,53 @@ Singleton {
         saveRecents();
     }
 
+    function runningWindowsForApp(app) {
+        if (!app)
+            return [];
+        return HyprlandData.runningWindowsForClass(app.wmclass);
+    }
+
+    function closeWindowPicker() {
+        windowPickerOpen = false;
+        windowPickerWindows = [];
+        windowPickerApp = null;
+    }
+
+    function choosePickerWindow(win) {
+        if (win)
+            HyprDispatch.focusWindow(win);
+        if (windowPickerApp)
+            pushRecent(windowPickerApp.id);
+        closeWindowPicker();
+        close();
+    }
+
     function activateApp(app) {
         if (!app)
             return;
-        if (isRunning(app))
-            HyprDispatch.focusWindowForApp(app.wmclass, app.exec);
-        else
+        if (!isRunning(app)) {
             launchCatalogApp(app);
+            pushRecent(app.id);
+            close();
+            return;
+        }
+
+        const wins = runningWindowsForApp(app);
+        if (wins.length === 1) {
+            HyprDispatch.focusWindow(wins[0]);
+            pushRecent(app.id);
+            close();
+            return;
+        }
+
+        if (wins.length > 1) {
+            windowPickerWindows = wins;
+            windowPickerApp = app;
+            windowPickerOpen = true;
+            return;
+        }
+
+        HyprDispatch.focusWindowForApp(app.wmclass, app.exec);
         pushRecent(app.id);
         close();
     }

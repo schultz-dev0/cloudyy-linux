@@ -47,12 +47,17 @@ PanelWindow {
         right: svc.anchor === "right" ? 24 : 0
     }
 
-    implicitWidth: svc.overlayWidth
-    implicitHeight: svc.visible ? contentPanel.implicitHeight + (svc.anchor === "top" || svc.anchor === "bottom" ? svc.topMargin : 0) : 0
+    readonly property bool panelActive: svc.visible || svc.closing
+
+    implicitWidth: panelActive ? svc.overlayWidth : 0
+    implicitHeight: panelActive
+        ? contentPanel.implicitHeight + (svc.anchor === "top" || svc.anchor === "bottom" ? svc.topMargin : 0)
+        : 0
+    visible: panelActive
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:command"
-    WlrLayershell.keyboardFocus: svc.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: svc.keyboardGrab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     color: "transparent"
 
     Component {
@@ -269,6 +274,16 @@ PanelWindow {
         id: contentPanel
         width: svc.overlayWidth
         implicitHeight: searchBar.height + bodyCol.listBodyHeight
+        opacity: svc.closing ? 0 : 1
+
+        Behavior on opacity {
+            enabled: Perf.animationsEnabled
+            NumberAnimation {
+                duration: Perf.msHalf(140)
+                easing.type: Easing.OutCubic
+            }
+        }
+
         anchors.horizontalCenter: svc.anchor === "top" || svc.anchor === "bottom" ? parent.horizontalCenter : undefined
         anchors.verticalCenter: svc.anchor === "left" || svc.anchor === "right" ? parent.verticalCenter : undefined
         anchors.top: svc.anchor === "top" ? parent.top : undefined

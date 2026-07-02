@@ -61,7 +61,7 @@ PanelWindow {
             return WlrKeyboardFocus.None;
         if (timerWindow.showingNewForm)
             return WlrKeyboardFocus.Exclusive;
-        return WlrKeyboardFocus.OnDemand;
+        return WlrKeyboardFocus.None;
     }
 
     // ── Window ────────────────────────────────────────────────────────────

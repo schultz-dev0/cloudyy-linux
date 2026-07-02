@@ -3,3 +3,4 @@ singleton HyprDispatch 1.0 HyprDispatch.qml
 singleton GlobalStates 1.0 GlobalStates.qml
 singleton IconResolver 1.0 IconResolver.qml
 AppIcon 1.0 AppIcon.qml
+WindowGroupMenu 1.0 WindowGroupMenu.qml

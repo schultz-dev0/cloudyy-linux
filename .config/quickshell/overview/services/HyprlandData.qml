@@ -105,6 +105,139 @@ Singleton {
         }, null);
     }
 
+    function mostRecentWindow() {
+        const windows = root.windowList ?? [];
+        if (windows.length === 0)
+            return null;
+
+        let best = windows[0];
+        let bestHistory = best?.focusHistoryID ?? 999999;
+        for (let i = 1; i < windows.length; i++) {
+            const win = windows[i];
+            const history = win?.focusHistoryID ?? 999999;
+            if (history < bestHistory) {
+                bestHistory = history;
+                best = win;
+            }
+        }
+        return best;
+    }
+
+    function isTerminalClass(className) {
+        const lower = `${className ?? ""}`.trim().toLowerCase();
+        if (!lower)
+            return false;
+
+        const terminals = [
+            "kitty", "alacritty", "foot", "wezterm", "ghostty", "hyper",
+            "gnome-terminal", "org.gnome.terminal", "konsole", "xterm",
+            "xfce4-terminal", "terminator", "tilix", "rxvt", "urxvt",
+            "st-256color", "st"
+        ];
+        for (let i = 0; i < terminals.length; i++) {
+            if (lower === terminals[i])
+                return true;
+        }
+        return lower.includes("terminal");
+    }
+
+    function shellPromptTitlePattern(title) {
+        const t = `${title ?? ""}`.trim();
+        return /^[\w.-]+@[\w.-]+:/.test(t);
+    }
+
+    function isMultiplexerTerminal(window) {
+        const cls = `${window?.class || window?.initialClass || ""}`.trim();
+        if (!isTerminalClass(cls))
+            return false;
+
+        const title = `${window?.title ?? ""}`.trim();
+        const initialTitle = `${window?.initialTitle ?? ""}`.trim();
+        if (!title.length || title === initialTitle)
+            return false;
+
+        const lower = title.toLowerCase();
+        if (lower.includes("tmux") || lower.includes("zellij") || lower.includes(" screen "))
+            return true;
+
+        // Zellij titles are commonly "session-name | pane title".
+        if (title.includes(" | "))
+            return true;
+
+        // tmux titles are commonly "session: window" or "0: pane".
+        if (/^\d+:\s*\S/.test(title))
+            return true;
+        if (/^[^@]+:[^:]+/.test(title) && !shellPromptTitlePattern(title))
+            return true;
+
+        return false;
+    }
+
+    function appGroupKey(window) {
+        const cls = normalizeDockClass(window?.class || window?.initialClass || "");
+        const key = `${cls}`.toLowerCase().trim();
+        if (!key)
+            return "";
+        if (isTerminalClass(cls))
+            return key + (isMultiplexerTerminal(window) ? "#mux" : "#shell");
+        return key;
+    }
+
+    function windowsForGroupKey(groupKey) {
+        const needle = `${groupKey ?? ""}`.trim().toLowerCase();
+        if (!needle)
+            return [];
+
+        const windows = root.windowList || [];
+        const result = [];
+        for (let i = 0; i < windows.length; i++) {
+            const win = windows[i];
+            if (appGroupKey(win) === needle)
+                result.push(win);
+        }
+
+        result.sort((a, b) => (a.focusHistoryID ?? 9999) - (b.focusHistoryID ?? 9999));
+        return result;
+    }
+
+    function windowLabel(window) {
+        const title = `${window?.title ?? ""}`.trim();
+        if (title.length)
+            return title;
+
+        const cls = `${window?.class || window?.initialClass || ""}`.trim();
+        return cls.length ? cls : "Window";
+    }
+
+    function groupDisplayName(groupKey) {
+        const gk = `${groupKey ?? ""}`.trim().toLowerCase();
+        if (gk.endsWith("#mux"))
+            return "Multiplexer";
+        if (gk.endsWith("#shell"))
+            return "Shell";
+        return "";
+    }
+
+    function runningWindowsForClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return [];
+
+        const windows = root.windowList || [];
+        const result = [];
+        for (let i = 0; i < windows.length; i++) {
+            const win = windows[i];
+            const winClass = `${win.class || win.initialClass || ""}`.trim();
+            if (!winClass)
+                continue;
+            if (winClass === cls || wmclassesMatch(cls, winClass))
+                result.push(win);
+        }
+
+        result.sort((a, b) => (a.focusHistoryID ?? 9999) - (b.focusHistoryID ?? 9999));
+        return result;
+    }
+
     function monitorNameForWindow(window) {
         const monitorId = Number(window?.monitor ?? -1);
         if (!Number.isFinite(monitorId) || monitorId < 0)
@@ -671,7 +804,7 @@ Singleton {
         const byKey = {};
         for (let i = 0; i < windows.length; i++) {
             const w = windows[i];
-            const key = `${normalizeDockClass(w?.class || w?.initialClass || "")}`.toLowerCase().trim();
+            const key = appGroupKey(w);
             if (!key)
                 continue;
             const existing = byKey[key];
@@ -681,7 +814,8 @@ Singleton {
         const result = [];
         const keys = Object.keys(byKey).sort();
         for (let i = 0; i < keys.length; i++) {
-            const w = byKey[keys[i]].window;
+            const entry = byKey[keys[i]];
+            const w = entry.window;
             const cls = w.class || w.initialClass || "";
             const candidates = iconCandidatesForWindow(w);
             let iconName = "";
@@ -696,11 +830,14 @@ Singleton {
                 iconName = cls;
             if (cls && cls.toLowerCase().includes("matlab"))
                 iconName = `${root.homeDir}/.local/share/icons/matlab.png`;
+            const groupWindows = windowsForGroupKey(entry.key);
             result.push({
                 class: cls,
                 exec: execFromWindow(w),
                 icon: iconName,
                 window: w,
+                groupKey: entry.key,
+                windowCount: groupWindows.length,
                 isRunning: true
             });
         }

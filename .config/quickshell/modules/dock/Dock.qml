@@ -32,7 +32,7 @@ PanelWindow {
 
     // ── Tunables ───────────────────────────────────────────────────────────
     readonly property int iconSize: 48
-    readonly property real maxScale: 1.8
+    readonly property real maxScale: 1.7
     readonly property real spread: 1
     readonly property int frameMs: Perf.dockFrameMs
     readonly property int triggerHeight: 0
@@ -48,6 +48,7 @@ PanelWindow {
     property int dragSourceIndex: -1
     property int dragHoverVisualIndex: -1
     property string dragSourceClass: ""
+    property string dragSourceGroupKey: ""
     property bool dragStoreCommitPending: false
     property bool interactionBlock: false
     property var dragGhostAppData: null
@@ -63,8 +64,12 @@ PanelWindow {
     property bool dockVisible: false
     property real dockMouseXRaw: -9999
     property real dockMouseXSmooth: -9999
-    readonly property bool dockHovered: triggerZone.containsMouse || dockMagnifyPointer.hovered
-    readonly property bool animationActive: dockVisible || dockHovered || interactionBlock || dragSourceIndex >= 0
+    property int exposeOverflowPx: 0
+    readonly property bool dockHovered: triggerZone.containsMouse
+        || dockMagnifyPointer.hovered
+        || dockPanelPointer.hovered
+    readonly property bool animationActive: dockVisible || dockHovered || interactionBlock
+        || dragSourceIndex >= 0
     readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
     readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseXSmooth
     readonly property bool anyFullscreen: {
@@ -199,6 +204,9 @@ PanelWindow {
     readonly property var runningWindows: HyprlandData.windowList
     property var mergedApps: []
     property string mergedAppsSignature: ""
+    property bool windowPickerOpen: false
+    property string windowPickerGroupKey: ""
+    property Item windowPickerAnchor: null
 
     onRunningWindowsChanged: rebuildMergedApps()
     onEffectivePinnedAppsChanged: rebuildMergedApps()
@@ -209,7 +217,8 @@ PanelWindow {
             const e = list[i];
             if (i > 0)
                 sig += "|";
-            sig += `${dock.classKey(e.class)}:${e.isPinned ? 1 : 0}:${e.isRunning ? 1 : 0}`;
+            const key = `${e.groupKey || dock.classKey(e.class)}`.trim();
+            sig += `${key}:${e.isPinned ? 1 : 0}:${e.isRunning ? 1 : 0}:${e.windowCount ?? 0}`;
         }
         return sig;
     }
@@ -250,26 +259,146 @@ PanelWindow {
         return best;
     }
 
-    function rebuildMergedApps() {
-        const windows = dock.runningWindows;
-        const pinnedApps = dock.effectivePinnedApps;
+    function dockEntryForWindow(app, win, isPinned) {
+        const groupKey = HyprlandData.appGroupKey(win);
+        const windowCount = HyprlandData.windowsForGroupKey(groupKey).length;
+        return {
+            class: win.class || win.initialClass || app.class,
+            exec: app.exec,
+            icon: dock.iconForApp(app),
+            isRunning: true,
+            window: win,
+            groupKey: groupKey,
+            windowCount: windowCount,
+            groupLabel: HyprlandData.groupDisplayName(groupKey),
+            isPinned: isPinned
+        };
+    }
 
-        const result = pinnedApps.map(app => {
+    function pinnedEntriesForApp(app, windows) {
+        if (!HyprlandData.isTerminalClass(app.class)) {
             const win = dock.findWindowForClass(app.class, windows);
-            return {
+            const groupKey = win ? HyprlandData.appGroupKey(win) : "";
+            return [{
                 class: app.class,
                 exec: app.exec,
                 icon: dock.iconForApp(app),
                 isRunning: win != null,
                 window: win,
+                groupKey: groupKey,
+                windowCount: groupKey ? HyprlandData.windowsForGroupKey(groupKey).length : 0,
+                groupLabel: HyprlandData.groupDisplayName(groupKey),
                 isPinned: true
-            };
+            }];
+        }
+
+        const byGroup = {};
+        for (let i = 0; i < windows.length; i++) {
+            const w = windows[i];
+            if (dock.windowMatchScore(w, app.class) <= 0)
+                continue;
+            const gk = HyprlandData.appGroupKey(w);
+            const existing = byGroup[gk];
+            if (!existing || (w.focusHistoryID ?? 9999) < (existing.focusHistoryID ?? 9999))
+                byGroup[gk] = w;
+        }
+
+        const keys = Object.keys(byGroup).sort();
+        if (keys.length === 0) {
+            return [{
+                class: app.class,
+                exec: app.exec,
+                icon: dock.iconForApp(app),
+                isRunning: false,
+                window: null,
+                groupKey: "",
+                windowCount: 0,
+                groupLabel: "",
+                isPinned: true
+            }];
+        }
+
+        const entries = [];
+        for (let k = 0; k < keys.length; k++)
+            entries.push(dock.dockEntryForWindow(app, byGroup[keys[k]], true));
+        return entries;
+    }
+
+    function isGroupCovered(list, groupKey) {
+        const gk = `${groupKey ?? ""}`.trim();
+        if (!gk)
+            return false;
+        for (let i = 0; i < list.length; i++) {
+            if (`${list[i].groupKey ?? ""}` === gk)
+                return true;
+        }
+        return false;
+    }
+
+    function activateDockEntry(appData) {
+        if (dock.windowPickerOpen)
+            dock.closeWindowPicker();
+
+        dock.dismissMagnify();
+        if (!appData?.isRunning) {
+            dock.launchApp(appData);
+            return;
+        }
+
+        const groupKey = `${appData.groupKey ?? ""}`.trim();
+        if (groupKey.length)
+            HyprDispatch.focusGroupMru(groupKey);
+        else if (appData.window)
+            HyprDispatch.focusWindow(appData.window);
+        else
+            HyprDispatch.focusWindowByClass(appData.class);
+    }
+
+    function openWindowPicker(groupKey, anchorItem) {
+        const gk = `${groupKey ?? ""}`.trim();
+        if (!gk.length || HyprlandData.windowsForGroupKey(gk).length <= 1)
+            return;
+
+        dock.cancelExposeAutoClose();
+        dock.windowPickerAnchor = anchorItem;
+        dock.windowPickerGroupKey = gk;
+        dock.windowPickerOpen = true;
+        dock.positionWindowPicker();
+        Qt.callLater(() => {
+            if (dock.windowPickerOpen)
+                dock.positionWindowPicker();
         });
+        dock.syncDockVisibility();
+    }
+
+    function closeWindowPicker() {
+        dock.cancelExposeAutoClose();
+        dock.windowPickerOpen = false;
+        dock.windowPickerGroupKey = "";
+        dock.windowPickerAnchor = null;
+        dock.exposeOverflowPx = 0;
+        dock.syncDockVisibility();
+    }
+
+    function rebuildMergedApps() {
+        const windows = dock.runningWindows;
+        const pinnedApps = dock.effectivePinnedApps;
+
+        const result = [];
+        for (let p = 0; p < pinnedApps.length; p++) {
+            const entries = dock.pinnedEntriesForApp(pinnedApps[p], windows);
+            for (let e = 0; e < entries.length; e++)
+                result.push(entries[e]);
+        }
 
         const runningApps = HyprlandData.buildRunningAppList();
         for (let i = 0; i < runningApps.length; i++) {
             const entry = runningApps[i];
-            if (pinnedApps.some(app => dock.windowMatchScore(entry.window, app.class) > 0))
+            if (dock.isGroupCovered(result, entry.groupKey))
+                continue;
+            if (pinnedApps.some(app =>
+                !HyprlandData.isTerminalClass(app.class)
+                && dock.windowMatchScore(entry.window, app.class) > 0))
                 continue;
             result.push({
                 class: entry.class,
@@ -277,6 +406,9 @@ PanelWindow {
                 icon: dock.iconForApp({ class: entry.class, icon: entry.icon }),
                 isRunning: true,
                 window: entry.window,
+                groupKey: entry.groupKey || HyprlandData.appGroupKey(entry.window),
+                windowCount: entry.windowCount ?? 1,
+                groupLabel: HyprlandData.groupDisplayName(entry.groupKey),
                 isPinned: false
             });
         }
@@ -290,10 +422,16 @@ PanelWindow {
                 cur.isRunning = next.isRunning;
                 cur.exec = next.exec;
                 cur.icon = next.icon;
+                cur.groupKey = next.groupKey;
+                cur.windowCount = next.windowCount;
+                cur.groupLabel = next.groupLabel;
             }
             dock.syncDragIndicesAfterRebuild();
             return;
         }
+
+        if (dock.windowPickerOpen)
+            dock.closeWindowPicker();
 
         dock.mergedAppsSignature = sig;
         dock.mergedApps = result;
@@ -316,11 +454,23 @@ PanelWindow {
         return -1;
     }
 
+    function visualIndexForGroupKey(groupKey, className) {
+        const gk = `${groupKey ?? ""}`.trim().toLowerCase();
+        if (gk.length) {
+            const list = dock.mergedApps;
+            for (let i = 0; i < list.length; i++) {
+                if (`${list[i].groupKey ?? ""}`.trim().toLowerCase() === gk)
+                    return i;
+            }
+        }
+        return dock.visualIndexForClass(className);
+    }
+
     function syncDragIndicesAfterRebuild() {
         if (dock.dragSourceIndex < 0)
             return;
 
-        const srcIdx = dock.visualIndexForClass(dock.dragSourceClass);
+        const srcIdx = dock.visualIndexForGroupKey(dock.dragSourceGroupKey, dock.dragSourceClass);
         if (srcIdx < 0) {
             dock.abortIconDrag();
             return;
@@ -399,6 +549,7 @@ PanelWindow {
         const entry = dock.mergedApps[visualIndex] ?? null;
         dock.dragGhostAppData = entry;
         dock.dragSourceClass = entry?.class ?? "";
+        dock.dragSourceGroupKey = `${entry?.groupKey ?? ""}`.trim();
         const cx = dock.clampDragGhostCenterX(ghostCenterBodyX);
         const cy = dock.clampDragGhostCenterY(ghostCenterBodyY);
         dock.dragGhostTargetCenterX = cx;
@@ -440,6 +591,7 @@ PanelWindow {
         dock.dragSourceIndex = -1;
         dock.dragHoverVisualIndex = -1;
         dock.dragSourceClass = "";
+        dock.dragSourceGroupKey = "";
         dock.interactionBlock = false;
         dock.clearDragGhost();
         dock.syncDockVisibility();
@@ -548,17 +700,33 @@ PanelWindow {
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
+    readonly property int visibleDockHeight: dockVisible ? dockFullHeight + exposeOverflowPx : activationHeight
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
         bottom: true
     }
     implicitWidth: dockWidth
-    implicitHeight: dockVisible ? dockFullHeight : activationHeight
+    implicitHeight: visibleDockHeight
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:dock"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     color: "transparent"
+
+    HoverHandler {
+        id: dockPanelPointer
+
+        onHoveredChanged: {
+            dock.syncDockVisibility();
+            if (dock.windowPickerOpen && !hovered)
+                dock.scheduleExposeAutoClose();
+        }
+        onPointChanged: {
+            if (dock.windowPickerOpen)
+                dock.syncExposeDismissState();
+        }
+    }
 
     // ── Launch helper ──────────────────────────────────────────────────────
     Component {
@@ -585,14 +753,6 @@ PanelWindow {
             console.warn("dock: no launch command for", app?.class ?? "<unknown>");
     }
 
-    function focusWindow(window) {
-        HyprDispatch.focusWindow(window);
-    }
-
-    function focusClass(className) {
-        HyprDispatch.focusWindowByClass(className);
-    }
-
     Component.onCompleted: rebuildMergedApps()
 
     // Overview's full-screen Overlay can steal the mouse release during a dock drag.
@@ -614,11 +774,18 @@ PanelWindow {
         width: dock.dockWidth
         height: dock.dockBodyHeight
         anchors.horizontalCenter: parent.horizontalCenter
-        y: dock.dockVisible ? 0 : dock.dockFullHeight
-        Behavior on y {
-            NumberAnimation {
-                duration: Perf.msHalf(220)
-                easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: dock.bottomGap
+        clip: false
+
+        transform: Translate {
+            id: dockBodySlide
+            y: dock.dockVisible ? 0 : dock.dockFullHeight
+            Behavior on y {
+                NumberAnimation {
+                    duration: Perf.msHalf(220)
+                    easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
+                }
             }
         }
 
@@ -704,6 +871,7 @@ PanelWindow {
                 Repeater {
                     model: dock.mergedApps
                     DockIcon {
+                        id: dockIconRoot
                         required property var modelData
                         required property int index
                         dockBodyRef: dockBody
@@ -720,20 +888,25 @@ PanelWindow {
                         dockIdle: dock.dockIdle
                         dockDragActive: dock.dragSourceIndex >= 0
                         isDragSource: dock.dragSourceIndex >= 0
-                            && dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass)
+                            && (`${modelData.groupKey ?? ""}`.trim().length
+                                ? `${modelData.groupKey ?? ""}`.trim().toLowerCase()
+                                    === dock.dragSourceGroupKey.toLowerCase()
+                                : dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass))
                         dragShiftTargetX: dock.dragShiftTargetForIndex(index)
-                        onClicked: {
-                            dock.dismissMagnify();
-                            if (modelData.isRunning) {
-                                if (modelData.window?.address)
-                                    dock.focusWindow(modelData.window);
-                                else
-                                    dock.focusClass(modelData.class);
+                        onClicked: dock.activateDockEntry(modelData)
+                        onExposeRequested: {
+                            if (`${modelData.groupKey ?? ""}`.length)
+                                dock.openWindowPicker(modelData.groupKey, dockIconRoot);
+                        }
+                        onContextMenuRequested: {
+                            if (modelData.isRunning
+                                && (modelData.windowCount ?? 1) > 1
+                                && `${modelData.groupKey ?? ""}`.length) {
+                                dock.openWindowPicker(modelData.groupKey, dockIconRoot);
                             } else {
-                                dock.launchApp(modelData);
+                                dock.togglePinAtIndex(index);
                             }
                         }
-                        onRequestTogglePin: dock.togglePinAtIndex(index)
                         onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
                         onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
                         onDragReorderEnded: dock.finalizeIconDrag()
@@ -900,6 +1073,8 @@ PanelWindow {
                 onPointChanged: {
                     if (hovered || dock.dockVisible)
                         updateMouseX();
+                    if (dock.windowPickerOpen)
+                        dock.syncExposeDismissState();
                 }
             }
         }
@@ -920,6 +1095,195 @@ PanelWindow {
                     dockMagnifyPointer.updateMouseX();
             }
         }
+
+    }
+
+    Item {
+        id: exposeHoverPad
+
+        visible: dock.windowPickerOpen
+        z: 500
+
+        HoverHandler {
+            id: exposePadPointer
+
+            onHoveredChanged: {
+                if (hovered) {
+                    dock.cancelExposeAutoClose();
+                } else if (dock.windowPickerOpen) {
+                    dock.scheduleExposeAutoClose();
+                }
+            }
+        }
+
+        WindowGroupMenu {
+            id: dockWindowPicker
+
+            anchors.top: parent.top
+            anchors.topMargin: 6
+            anchors.horizontalCenter: parent.horizontalCenter
+            open: dock.windowPickerOpen
+            groupKey: dock.windowPickerGroupKey
+            maxMenuWidth: Math.min(520, Math.max(280, dock.width - 16))
+
+            onOpenChanged: {
+                if (open)
+                    dock.positionWindowPicker();
+                else
+                    dock.exposeOverflowPx = 0;
+                dock.syncDockVisibility();
+            }
+
+            onWidthChanged: {
+                if (dock.windowPickerOpen)
+                    dock.positionWindowPicker();
+            }
+
+            onHeightChanged: {
+                if (dock.windowPickerOpen)
+                    dock.positionWindowPicker();
+            }
+
+            onWindowChosen: win => {
+                HyprDispatch.focusWindow(win);
+                dock.closeWindowPicker();
+            }
+
+            onDismissed: dock.closeWindowPicker()
+
+            onPointerInsideChanged: {
+                if (dockWindowPicker.pointerInside) {
+                    dock.cancelExposeAutoClose();
+                } else if (dock.windowPickerOpen) {
+                    dock.scheduleExposeAutoClose();
+                }
+            }
+        }
+    }
+
+    function pointerInExposeZone() {
+        if (!dock.windowPickerOpen || !dockWindowPicker.open)
+            return false;
+
+        return exposePadPointer.hovered || dockWindowPicker.pointerInside;
+    }
+
+    function pointerOnWindowPickerSource() {
+        if (!dock.windowPickerOpen || !dock.windowPickerAnchor)
+            return false;
+
+        let local = null;
+        if (dockMagnifyPointer.hovered) {
+            const p = dockMagnifyPointer.point.position;
+            local = dock.windowPickerAnchor.mapFromItem(dockMagnifyHover, p.x, p.y);
+        } else if (dockBodyHover.hovered) {
+            const p = dockBodyHover.point.position;
+            local = dock.windowPickerAnchor.mapFromItem(dockBody, p.x, p.y);
+        }
+
+        if (!local)
+            return false;
+
+        return local.x >= 0
+            && local.y >= 0
+            && local.x <= dock.windowPickerAnchor.width
+            && local.y <= dock.windowPickerAnchor.height;
+    }
+
+    function shouldKeepWindowPickerOpen() {
+        if (dock.pointerOnWindowPickerSource())
+            return true;
+
+        // Dock hover is the most reliable signal when moving from exposé down
+        // to another icon. Treat any non-source dock hover as leaving exposé,
+        // even if the exposé HoverHandler is stale.
+        if (dockMagnifyPointer.hovered || dockBodyHover.hovered)
+            return false;
+
+        return dock.pointerInExposeZone();
+    }
+
+    function syncExposeDismissState() {
+        if (!dock.windowPickerOpen)
+            return;
+
+        if (dock.shouldKeepWindowPickerOpen()) {
+            dock.cancelExposeAutoClose();
+            return;
+        }
+
+        dock.scheduleExposeAutoClose();
+    }
+
+    function scheduleExposeAutoClose() {
+        if (!dock.windowPickerOpen)
+            return;
+        if (exposeCloseTimer.running)
+            return;
+        exposeCloseTimer.restart();
+    }
+
+    function cancelExposeAutoClose() {
+        exposeCloseTimer.stop();
+    }
+
+    function positionWindowPicker() {
+        if (!dock.windowPickerAnchor || !dock.windowPickerOpen)
+            return;
+
+        const gk = `${dock.windowPickerGroupKey ?? ""}`.trim();
+        const wins = HyprlandData.windowsForGroupKey(gk);
+        if (wins.length === 0)
+            return;
+
+        const menuW = Math.max(dockWindowPicker.width, 200);
+        const menuH = Math.max(dockWindowPicker.height, wins.length * 38 + 16);
+
+        const iconInBody = dock.windowPickerAnchor.mapToItem(dockBody, 0, 0);
+        const iconCX = dockBody.x + iconInBody.x + dock.windowPickerAnchor.width / 2;
+        const padW = menuW + 16;
+        const padH = menuH + 12;
+        const requiredOverflow = Math.max(0, Math.round(padH + 8 - iconInBody.y)) + 8;
+        // dockBody is bottom-anchored with bottomGap; when exposeOverflowPx grows,
+        // dockBody.y equals requiredOverflow — use that predicted Y, not dockBody.y.
+        const finalDockBodyY = requiredOverflow;
+
+        if (dock.exposeOverflowPx !== requiredOverflow) {
+            dock.exposeOverflowPx = requiredOverflow;
+            Qt.callLater(() => {
+                if (dock.windowPickerOpen)
+                    dock.positionWindowPicker();
+            });
+        }
+
+        exposeHoverPad.width = Math.round(padW);
+        exposeHoverPad.height = Math.round(padH);
+        exposeHoverPad.x = Math.round(Math.max(8, Math.min(
+            iconCX - padW / 2,
+            dock.width - padW - 8
+        )));
+        exposeHoverPad.y = Math.round(finalDockBodyY + iconInBody.y - padH - 8);
+    }
+
+    Timer {
+        id: exposeCloseTimer
+        interval: 40
+        repeat: false
+        onTriggered: {
+            if (!dock.windowPickerOpen)
+                return;
+            if (dock.shouldKeepWindowPickerOpen())
+                return;
+            dock.closeWindowPicker();
+        }
+    }
+
+    Timer {
+        id: exposePointerPoll
+        interval: 32
+        repeat: true
+        running: dock.windowPickerOpen
+        onTriggered: dock.syncExposeDismissState()
     }
 
     Timer {
@@ -961,8 +1325,11 @@ PanelWindow {
         interval: 500
         repeat: false
         onTriggered: {
-            if (!dock.dockHovered)
-                dock.dockVisible = false;
+            if (dock.dockHovered)
+                return;
+            if (dock.windowPickerOpen)
+                dock.closeWindowPicker();
+            dock.dockVisible = false;
         }
     }
 
