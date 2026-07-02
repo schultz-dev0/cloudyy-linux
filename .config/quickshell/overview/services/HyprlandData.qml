@@ -105,6 +105,14 @@ Singleton {
         }, null);
     }
 
+    function monitorNameForWindow(window) {
+        const monitorId = Number(window?.monitor ?? -1);
+        if (!Number.isFinite(monitorId) || monitorId < 0)
+            return "";
+        const monitor = (root.monitors ?? []).find(m => Number(m?.id ?? -2) === monitorId);
+        return `${monitor?.name ?? ""}`.trim();
+    }
+
     function normalizeIconName(icon) {
         const raw = `${icon ?? ""}`.trim();
         const withoutProviderPrefix = raw.replace(/^image:\/\/icon\//, "");
