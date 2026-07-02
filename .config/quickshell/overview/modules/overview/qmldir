@@ -6,4 +6,5 @@ WorkspaceTile 1.0 WorkspaceTile.qml
 WorkspacePreview 1.0 WorkspacePreview.qml
 WindowThumbnail 1.0 WindowThumbnail.qml
 WorkspaceIconStrip 1.0 WorkspaceIconStrip.qml
+AppStripIcon 1.0 AppStripIcon.qml
 WorkspacePeekPopup 1.0 WorkspacePeekPopup.qml
