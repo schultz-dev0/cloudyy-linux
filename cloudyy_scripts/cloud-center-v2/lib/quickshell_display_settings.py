@@ -16,7 +16,6 @@ log = logging.getLogger(__name__)
 KEY_BAR_ALL = "monitors/quickshell/bar_on_all_screens"
 KEY_DOCK_ALL = "monitors/quickshell/dock_on_all_screens"
 KEY_LIGHTWEIGHT = "quickshell/lightweight"
-KEY_LIGHTWEIGHT_OVERVIEW = "quickshell/lightweight_overview"
 
 _LEGACY_JSON = utility.SETTINGS_DIR / "monitors" / "quickshell.json"
 _QS_ENV_FILE = Path.home() / ".config" / "quickshell" / "qs.env"
@@ -46,10 +45,6 @@ def lightweight_enabled() -> bool:
     return utility.load_setting(KEY_LIGHTWEIGHT, False)
 
 
-def lightweight_overview_enabled() -> bool:
-    return utility.load_setting(KEY_LIGHTWEIGHT_OVERVIEW, False)
-
-
 def launch_env() -> dict[str, str]:
     """Environment for qs / quickshell (includes Cloud Center performance flags)."""
     env = os.environ.copy()
@@ -58,10 +53,6 @@ def launch_env() -> dict[str, str]:
         env["CLOUDYY_LIGHTWEIGHT"] = "1"
     else:
         env.pop("CLOUDYY_LIGHTWEIGHT", None)
-    if lightweight_overview_enabled():
-        env["CLOUDYY_LIGHTWEIGHT_OVERVIEW"] = "1"
-    else:
-        env.pop("CLOUDYY_LIGHTWEIGHT_OVERVIEW", None)
     return env
 
 
@@ -71,7 +62,6 @@ def load() -> dict[str, bool]:
         "bar_on_all_screens": utility.load_setting(KEY_BAR_ALL, False),
         "dock_on_all_screens": utility.load_setting(KEY_DOCK_ALL, False),
         "lightweight": lightweight_enabled(),
-        "lightweight_overview": lightweight_overview_enabled(),
     }
 
 
@@ -84,8 +74,6 @@ def _write_env_file() -> None:
     lines = []
     if lightweight_enabled():
         lines.append("CLOUDYY_LIGHTWEIGHT=1")
-    if lightweight_overview_enabled():
-        lines.append("CLOUDYY_LIGHTWEIGHT_OVERVIEW=1")
     try:
         _QS_ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
         _QS_ENV_FILE.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
