@@ -654,6 +654,59 @@ Singleton {
         return false;
     }
 
+    function execFromWindow(window) {
+        const cls = `${window?.class || window?.initialClass || ""}`.trim();
+        const entry = desktopEntryForClass(cls);
+        let exec = stripDesktopExecField(entry?.exec ?? entry?.Exec ?? "");
+        if (!exec || isStubDockerCliExec(exec)) {
+            const pwa = chromePwaExecFromClass(cls);
+            if (pwa.length > 0)
+                exec = pwa;
+        }
+        return exec;
+    }
+
+    function buildRunningAppList() {
+        const windows = root.windowList || [];
+        const byKey = {};
+        for (let i = 0; i < windows.length; i++) {
+            const w = windows[i];
+            const key = `${normalizeDockClass(w?.class || w?.initialClass || "")}`.toLowerCase().trim();
+            if (!key)
+                continue;
+            const existing = byKey[key];
+            if (!existing || (w.focusHistoryID ?? 9999) < (existing.window.focusHistoryID ?? 9999))
+                byKey[key] = { window: w, key: key };
+        }
+        const result = [];
+        const keys = Object.keys(byKey).sort();
+        for (let i = 0; i < keys.length; i++) {
+            const w = byKey[keys[i]].window;
+            const cls = w.class || w.initialClass || "";
+            const candidates = iconCandidatesForWindow(w);
+            let iconName = "";
+            for (let c = 0; c < candidates.length; c++) {
+                const candidate = `${candidates[c] ?? ""}`.trim();
+                if (candidate && candidate !== "application-default-icon") {
+                    iconName = candidate;
+                    break;
+                }
+            }
+            if (!iconName)
+                iconName = cls;
+            if (cls && cls.toLowerCase().includes("matlab"))
+                iconName = `${root.homeDir}/.local/share/icons/matlab.png`;
+            result.push({
+                class: cls,
+                exec: execFromWindow(w),
+                icon: iconName,
+                window: w,
+                isRunning: true
+            });
+        }
+        return result;
+    }
+
     function iconSourcesForWindow(window) {
         const candidates = iconCandidatesForWindow(window);
         const cacheKey = candidates.join("|");
