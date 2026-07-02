@@ -302,21 +302,6 @@ pages:
                   cd ~/cloudyy_scripts/cloud-center-v2 &&
                   python3 -m lib.quickshell_display_settings --restart
 
-          - type: toggle
-            properties:
-              title: Lightweight overview
-              description: Less intense GPU usage for rendering workspaces
-              key: quickshell/lightweight_overview
-            on_toggle:
-              enabled:
-                command: >-
-                  cd ~/cloudyy_scripts/cloud-center-v2 &&
-                  python3 -m lib.quickshell_display_settings --restart
-              disabled:
-                command: >-
-                  cd ~/cloudyy_scripts/cloud-center-v2 &&
-                  python3 -m lib.quickshell_display_settings --restart
-
   - id: input
     title: Input
     icon: input-keyboard-symbolic
@@ -470,7 +455,7 @@ pages:
           - type: selection
             properties:
               title: Follow Mouse
-              description: Focus follows mouse behavior
+              description: Focus behavior
               icon: focus-windows-symbolic
               key: input/follow_mouse
               options:
@@ -481,7 +466,8 @@ pages:
                 enabled: 1
             on_change:
               command: >-
-                hcm apply input:follow_mouse {value}
+                hcm apply input:follow_mouse {value} &&
+                hyprctl eval 'hl.config({ input = { mouse_refocus = false, float_switch_override_focus = 0 } })'
 
       - type: section
         properties:

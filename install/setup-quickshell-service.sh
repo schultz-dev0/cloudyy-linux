@@ -14,7 +14,7 @@
 # This script handles the remaining first-install steps:
 #   1. Reload the systemd user daemon to pick up the new unit file.
 #   2. Write ~/.config/quickshell/qs.env with Cloud Center performance flags
-#      (CLOUDYY_LIGHTWEIGHT, CLOUDYY_LIGHTWEIGHT_OVERVIEW) read from CC settings.
+#      (CLOUDYY_LIGHTWEIGHT) read from CC settings.
 #      The service has EnvironmentFile=-%h/.config/quickshell/qs.env (optional),
 #      so an empty or absent file is safe.
 #   3. Start the service now if a Wayland session is already running.
@@ -101,11 +101,9 @@ write_env_file() {
 import sys
 sys.path.insert(0, '${cc_dir}')
 try:
-    from lib.quickshell_display_settings import lightweight_enabled, lightweight_overview_enabled
+    from lib.quickshell_display_settings import lightweight_enabled
     if lightweight_enabled():
         print("CLOUDYY_LIGHTWEIGHT=1")
-    if lightweight_overview_enabled():
-        print("CLOUDYY_LIGHTWEIGHT_OVERVIEW=1")
 except Exception:
     pass
 PYEOF
