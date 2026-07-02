@@ -198,17 +198,128 @@ Singleton {
         applyWorkspaceFocus(id);
     }
 
+    function windowCenter(windowData) {
+        const at = windowData?.at ?? [0, 0];
+        const size = windowData?.size ?? [0, 0];
+        return {
+            x: Math.round((at[0] ?? 0) + (size[0] ?? 0) / 2),
+            y: Math.round((at[1] ?? 0) + (size[1] ?? 0) / 2)
+        };
+    }
+
+    function monitorNameForWindow(windowData) {
+        const fromWindow = HyprlandData.monitorNameForWindow(windowData);
+        if (fromWindow.length)
+            return fromWindow;
+
+        const workspaceId = Number(windowData?.workspace?.id ?? -1);
+        if (Number.isFinite(workspaceId) && workspaceId > 0)
+            return monitorNameForWorkspace(workspaceId);
+
+        return "";
+    }
+
+    function warpCursorToWindow(windowData) {
+        const center = windowCenter(windowData);
+        dispatch("hl.dsp.cursor.move({ x = " + center.x + ", y = " + center.y + " })");
+    }
+
+    function focusWindowAddress(address) {
+        const addr = `${address ?? ""}`.trim();
+        if (!/^0x[0-9a-fA-F]+$/.test(addr))
+            return;
+        dispatch("hl.dsp.focus({ window = " + luaString("address:" + addr) + " })");
+    }
+
+    function runFocusChain(windowData) {
+        const address = `${windowData?.address ?? ""}`.trim();
+        if (!/^0x[0-9a-fA-F]+$/.test(address))
+            return;
+
+        const workspaceName = `${windowData?.workspace?.name ?? ""}`.trim();
+        if (workspaceName.startsWith("special:")) {
+            const specialName = workspaceName.slice("special:".length);
+            const activeName = `${HyprlandData.activeWorkspace?.name ?? ""}`.trim();
+            const onActiveSpecial = activeName === workspaceName
+                || activeName === specialName
+                || activeName === `special:${specialName}`;
+            if (!onActiveSpecial)
+                dispatch("hl.dsp.workspace.toggle_special(" + luaString(specialName) + ")");
+            Qt.callLater(() => {
+                focusWindowAddress(address);
+                Qt.callLater(() => warpCursorToWindow(windowData));
+            });
+            return;
+        }
+
+        const workspaceId = Number(windowData?.workspace?.id ?? -1);
+        const monitorName = monitorNameForWindow(windowData);
+        if (monitorName.length)
+            dispatch("hl.dsp.focus({ monitor = " + luaString(monitorName) + " })");
+
+        if (Number.isFinite(workspaceId) && workspaceId > 0)
+            dispatch("hl.dsp.focus({ workspace = " + workspaceId + " })");
+
+        Qt.callLater(() => {
+            focusWindowAddress(address);
+            Qt.callLater(() => warpCursorToWindow(windowData));
+        });
+    }
+
     function focusWorkspaceRelative(direction) {
         const dir = `${direction ?? ""}`.trim();
         if (dir.length === 0)
             return;
         dispatch('hl.dsp.focus({ workspace = "' + dir.replace(/"/g, "") + '" })');
+        Qt.callLater(() => {
+            const activeId = Number(HyprlandData.activeWorkspace?.id ?? -1);
+            if (!Number.isFinite(activeId) || activeId < 1)
+                return;
+            const targetWindow = HyprlandData.mostRecentWindowForWorkspace(activeId)
+                ?? HyprlandData.biggestWindowForWorkspace(activeId);
+            if (targetWindow)
+                runFocusChain(targetWindow);
+        });
+    }
+
+    function findWindowByClass(className) {
+        const cls = `${className ?? ""}`.trim();
+        if (!cls)
+            return null;
+
+        const windows = HyprlandData.windowList || [];
+        let best = null;
+        let bestHistory = 999999;
+
+        for (let i = 0; i < windows.length; i++) {
+            const win = windows[i];
+            const winClass = `${win.class || win.initialClass || ""}`.trim();
+            if (!winClass)
+                continue;
+            if (!HyprlandData.wmclassesMatch(cls, winClass))
+                continue;
+            const history = win?.focusHistoryID ?? 999999;
+            if (history < bestHistory) {
+                bestHistory = history;
+                best = win;
+            }
+        }
+
+        return best;
     }
 
     function focusWindowByClass(className) {
         const cls = `${className ?? ""}`.trim();
         if (!cls)
             return;
+
+        const normalized = HyprlandData.normalizeChromePwaWmclass(cls) || cls;
+        const match = findWindowByClass(normalized) || findWindowByClass(cls);
+        if (match) {
+            focusWindow(match);
+            return;
+        }
+
         dispatch("hl.dsp.focus({ window = " + luaString("class:" + cls) + " })");
     }
 
@@ -236,32 +347,22 @@ Singleton {
         const t = `${title ?? ""}`.trim();
         if (!t)
             return;
+
+        const windows = HyprlandData.windowList || [];
+        for (let i = 0; i < windows.length; i++) {
+            const win = windows[i];
+            const winTitle = `${win.title ?? ""}`.trim();
+            if (winTitle === t) {
+                focusWindow(win);
+                return;
+            }
+        }
+
         dispatch("hl.dsp.focus({ window = " + luaString("title:" + t) + " })");
     }
 
     function focusWindow(windowData) {
-        const address = `${windowData?.address ?? ""}`.trim();
-        if (!/^0x[0-9a-fA-F]+$/.test(address))
-            return;
-
-        const workspaceName = `${windowData?.workspace?.name ?? ""}`.trim();
-        if (workspaceName.startsWith("special:")) {
-            const specialName = workspaceName.slice("special:".length);
-            const activeName = `${HyprlandData.activeWorkspace?.name ?? ""}`.trim();
-            const onActiveSpecial = activeName === workspaceName
-                || activeName === specialName
-                || activeName === `special:${specialName}`;
-            if (!onActiveSpecial)
-                dispatch("hl.dsp.workspace.toggle_special(" + luaString(specialName) + ")");
-            Qt.callLater(() => dispatch("hl.dsp.focus({ window = " + luaString("address:" + address) + " })"));
-            return;
-        }
-
-        const workspaceId = Number(windowData?.workspace?.id ?? -1);
-        if (Number.isFinite(workspaceId) && workspaceId > 0)
-            applyWorkspaceFocus(workspaceId);
-
-        Qt.callLater(() => dispatch("hl.dsp.focus({ window = " + luaString("address:" + address) + " })"));
+        runFocusChain(windowData);
     }
 
     function closeWindowByAddress(address) {
