@@ -1,8 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell.Hyprland
-import Quickshell.Wayland
 import "../../../"
 import "../../services"
 
@@ -12,135 +10,22 @@ Item {
     required property var screenModel
     required property var monitorData
     required property bool overviewActive
-    property int selectedWorkspaceId: activeWorkspaceId()
 
-    signal selectedWorkspaceChanged(int workspaceId)
-    signal requestWorkspace(int workspaceId)
-    signal requestFocusWindow(var windowData)
-    signal requestCloseWindow(var windowData)
-    signal requestCloseWorkspace(int workspaceId)
+    property int selectedIndex: 0
 
-    property int peekWorkspaceId: -1
-    property var peekAnchorItem: null
-    property bool peekPointerInside: false
-    property int hoverWorkspaceId: -1
-    property var tileByWorkspaceId: ({})
-    property var toplevelByAddress: ({})
-    property var frozenWindowsByWorkspace: ({})
-    property int snapshotPrepRetries: 0
+    signal requestFocusApp(var appData)
 
-    function rebuildToplevelMap() {
-        const map = {};
-        for (const t of ToplevelManager.toplevels?.values ?? []) {
-            if (!t?.HyprlandToplevel?.address)
-                continue;
-            const addr = normalizeAddress(t.HyprlandToplevel.address);
-            if (addr.length)
-                map[addr] = t;
-        }
-        toplevelByAddress = map;
-    }
-
-    function freezeWindowLayout() {
-        const frozen = {};
-        for (const id of visibleWorkspaceIds) {
-            const windows = HyprlandData.windowsByWorkspace[id] ?? [];
-            frozen[id] = windows.slice();
-        }
-        frozenWindowsByWorkspace = frozen;
-    }
-
-    function frozenLayoutMissingLiveWindows() {
-        for (const id of visibleWorkspaceIds) {
-            const live = HyprlandData.windowsByWorkspace[id] ?? [];
-            const frozen = frozenWindowsByWorkspace[id] ?? [];
-            if (live.length > 0 && frozen.length === 0)
-                return true;
-        }
-        return false;
-    }
-
-    function prepareOverviewSnapshot() {
-        snapshotPrepRetries = 0;
-        freezeWindowLayout();
-        rebuildToplevelMap();
-        refreshPeek();
-        if (Object.keys(toplevelByAddress).length === 0 || frozenLayoutMissingLiveWindows())
-            toplevelPrepTimer.restart();
-    }
-
-    function registerTile(workspaceId, tileItem) {
-        const id = Number(workspaceId);
-        if (!Number.isFinite(id) || id < 1 || !tileItem)
-            return;
-        const next = Object.assign({}, tileByWorkspaceId);
-        next[id] = tileItem;
-        tileByWorkspaceId = next;
-        if (overviewActive && hoverWorkspaceId < 0 && id === selectedWorkspaceId)
-            Qt.callLater(refreshPeek);
-    }
-
-    function unregisterTile(workspaceId) {
-        const id = Number(workspaceId);
-        if (!tileByWorkspaceId[id])
-            return;
-        const next = Object.assign({}, tileByWorkspaceId);
-        delete next[id];
-        tileByWorkspaceId = next;
-    }
-
-    function hidePeekImmediate() {
-        peekHideTimer.stop();
-        hoverWorkspaceId = -1;
-        peekWorkspaceId = -1;
-        peekAnchorItem = null;
-        peekPointerInside = false;
-    }
-
-    function refreshPeek() {
-        const targetId = hoverWorkspaceId > 0 ? hoverWorkspaceId : selectedWorkspaceId;
-        const tile = tileByWorkspaceId[targetId];
-        if (!overviewActive || !tile || !Number.isFinite(targetId) || targetId < 1) {
-            peekWorkspaceId = -1;
-            peekAnchorItem = null;
-            return;
-        }
-        peekHideTimer.stop();
-        peekWorkspaceId = targetId;
-        peekAnchorItem = tile;
-    }
-
-    function showPeekForHover(workspaceId, tileItem) {
-        peekHideTimer.stop();
-        hoverWorkspaceId = Number(workspaceId);
-        peekWorkspaceId = hoverWorkspaceId;
-        peekAnchorItem = tileItem;
-    }
-
-    function scheduleHidePeek() {
-        if (peekPointerInside)
-            return;
-        peekHideTimer.restart();
-    }
-
-    onSelectedWorkspaceIdChanged: {
-        if (hoverWorkspaceId < 0)
-            Qt.callLater(refreshPeek);
-    }
-
-    readonly property var visibleWorkspaceIds: computeVisibleWorkspaceIds()
-    readonly property int tileHeight: 180
-    readonly property int previewLabelHeight: 22
-    readonly property int previewMargin: 16
-    readonly property int minTileWidth: 80
-    readonly property int maxTileWidth: 380
-    readonly property real previewAreaHeight: tileHeight - previewLabelHeight - previewMargin
-    readonly property int panelPaddingH: 18
-    readonly property int panelPaddingV: 20
-    readonly property int panelOuterMargin: 40
-    readonly property int tileSpacing: 12
-    readonly property real panelMaxWidth: Math.max(0, parent.width - panelOuterMargin * 2)
-    readonly property real panelMaxHeight: Math.max(0, parent.height - panelOuterMargin * 2)
+    readonly property var appList: HyprlandData.buildRunningAppList()
+    readonly property int iconSize: 44
+    readonly property int iconSpacing: 14
+    readonly property int paddingH: 18
+    readonly property int paddingV: 14
+    readonly property int outerMargin: Math.max(40, Math.round(parent.width * 0.06))
+    readonly property int availableWidth: Math.max(0, parent.width - outerMargin * 2)
+    readonly property int iconsPerRow: Math.max(1, Math.floor((availableWidth - paddingH * 2 + iconSpacing) / (iconSize + iconSpacing)))
+    readonly property int rowCount: Math.max(1, appList.length === 0 ? 1 : Math.ceil(appList.length / iconsPerRow))
+    readonly property int panelWidth: Math.min(availableWidth, iconsPerRow * (iconSize + iconSpacing) - iconSpacing + paddingH * 2)
+    readonly property int panelHeight: Math.min(parent.height - outerMargin * 2, rowCount * (iconSize + 8) + (rowCount - 1) * iconSpacing + paddingV * 2)
 
     function normalizeAddress(addr) {
         const s = `${addr ?? ""}`.trim().toLowerCase();
@@ -149,219 +34,77 @@ Item {
         return s.startsWith("0x") ? s : "0x" + s;
     }
 
-    onOverviewActiveChanged: {
-        if (overviewActive) {
-            Hyprland.refreshToplevels();
-            Qt.callLater(prepareOverviewSnapshot);
-        } else {
-            snapshotPrepRetries = 0;
-            frozenWindowsByWorkspace = {};
-            toplevelByAddress = {};
-            hidePeekImmediate();
-        }
-    }
+    function focusedWindow() {
+        const windows = HyprlandData.windowList ?? [];
+        if (windows.length === 0)
+            return null;
 
-    function tileCaptureActive(workspaceId) {
-        if (!overviewActive)
-            return false;
-        // Snapshot-only mode: one frame per tile is cheap — capture all visible workspaces.
-        if (!Perf.lightweightOverview)
-            return true;
-        if (peekWorkspaceId === workspaceId)
-            return true;
-        return workspaceId === selectedWorkspaceId || workspaceId === activeWorkspaceId();
-    }
-
-    function activeWorkspaceId() {
-        return Number(HyprlandData.activeWorkspace?.id ?? 1);
-    }
-
-    function windowsForWorkspace(workspaceId) {
-        const live = HyprlandData.windowsByWorkspace[workspaceId] ?? [];
-        if (overviewActive) {
-            const frozen = frozenWindowsByWorkspace[workspaceId];
-            // Hyprland client data can arrive a tick after the overlay opens. If we
-            // froze an empty workspace but live data now has windows, prefer live
-            // data rather than rendering an apparently blank tile.
-            if (frozen && (frozen.length > 0 || live.length === 0))
-                return frozen;
-        }
-        return live;
-    }
-
-    function monitorUsableSize(monitor) {
-        if (!monitor)
-            return { width: 1920, height: 1080 };
-
-        const t = Number(monitor.transform ?? 0);
-        const rawW = (t % 2 === 1) ? monitor.height : monitor.width;
-        const rawH = (t % 2 === 1) ? monitor.width : monitor.height;
-        return {
-            width: Math.max(1, rawW - (monitor.reserved?.[0] ?? 0) - (monitor.reserved?.[2] ?? 0)),
-            height: Math.max(1, rawH - (monitor.reserved?.[1] ?? 0) - (monitor.reserved?.[3] ?? 0))
-        };
-    }
-
-    function tileWidthForWorkspace(workspaceId) {
-        const monitor = monitorForWorkspace(workspaceId);
-        const usable = monitorUsableSize(monitor);
-        const previewWidth = previewAreaHeight * (usable.width / usable.height);
-        const width = Math.round(previewWidth + previewMargin);
-        return Math.max(minTileWidth, Math.min(maxTileWidth, width));
-    }
-
-    function tilesRowWidth(workspaceIds) {
-        if (!workspaceIds?.length)
-            return 0;
-
-        let width = 0;
-        for (let i = 0; i < workspaceIds.length; i++) {
-            width += tileWidthForWorkspace(workspaceIds[i]);
-            if (i > 0)
-                width += tileSpacing;
-        }
-        return width;
-    }
-
-    function computeWorkspaceRows(workspaceIds, packWidth) {
-        if (!workspaceIds?.length || packWidth <= 0)
-            return [];
-
-        const rows = [];
-        let currentRow = [];
-        let currentWidth = 0;
-
-        for (const workspaceId of workspaceIds) {
-            const tileW = tileWidthForWorkspace(workspaceId);
-            const gap = currentRow.length > 0 ? tileSpacing : 0;
-
-            if (currentRow.length > 0 && currentWidth + gap + tileW > packWidth) {
-                rows.push(currentRow);
-                currentRow = [workspaceId];
-                currentWidth = tileW;
-            } else {
-                currentRow.push(workspaceId);
-                currentWidth += gap + tileW;
+        let best = windows[0];
+        let bestHistory = best?.focusHistoryID ?? 999999;
+        for (let i = 1; i < windows.length; i++) {
+            const w = windows[i];
+            const history = w?.focusHistoryID ?? 999999;
+            if (history < bestHistory) {
+                bestHistory = history;
+                best = w;
             }
         }
-
-        if (currentRow.length > 0)
-            rows.push(currentRow);
-
-        return rows;
+        return best;
     }
 
-    readonly property real flowContentWidth: {
-        const rowWidth = tilesRowWidth(visibleWorkspaceIds);
-        const maxInner = panelMaxWidth - panelPaddingH * 2;
-        if (rowWidth <= 0)
-            return Math.max(0, maxInner);
-        return Math.min(rowWidth, maxInner);
-    }
+    function indexForWindow(win) {
+        if (!win || appList.length === 0)
+            return -1;
 
-    readonly property real panelWidth: {
-        const rowWidth = tilesRowWidth(visibleWorkspaceIds);
-        const maxInner = panelMaxWidth - panelPaddingH * 2;
-        const inner = rowWidth > 0 ? Math.min(rowWidth, maxInner) : maxInner;
-        return inner + panelPaddingH * 2;
-    }
+        const addr = normalizeAddress(win.address);
+        const cls = `${HyprlandData.normalizeDockClass(win?.class || win?.initialClass || "")}`.toLowerCase().trim();
 
-    readonly property var workspaceRows: computeWorkspaceRows(visibleWorkspaceIds, flowContentWidth)
+        for (let i = 0; i < appList.length; i++) {
+            const app = appList[i];
+            const appAddr = normalizeAddress(app?.window?.address);
+            if (addr.length && appAddr === addr)
+                return i;
 
-    readonly property real panelContentHeight: workspacesColumn.implicitHeight
-    readonly property real panelHeight: Math.min(
-        panelContentHeight + panelPaddingV * 2,
-        panelMaxHeight
-    )
-
-    function monitorForWorkspace(workspaceId) {
-        const windows = windowsForWorkspace(workspaceId);
-        for (const window of windows) {
-            const monitorId = Number(window?.monitor ?? -1);
-            const match = (HyprlandData.monitors ?? []).find(monitor => Number(monitor?.id ?? -2) === monitorId);
-            if (match)
-                return match;
+            const appCls = `${HyprlandData.normalizeDockClass(app?.class || "")}`.toLowerCase().trim();
+            if (cls.length && appCls === cls)
+                return i;
         }
-
-        if (workspaceId === activeWorkspaceId() && monitorData)
-            return monitorData;
-
-        return monitorData ?? null;
-    }
-
-    function computeVisibleWorkspaceIds() {
-        const ids = new Set();
-        for (const workspaceId of Object.keys(HyprlandData.windowsByWorkspace ?? {})) {
-            const id = Number(workspaceId);
-            if (Number.isFinite(id) && id > 0)
-                ids.add(id);
-        }
-
-        const activeId = activeWorkspaceId();
-        if (Number.isFinite(activeId) && activeId > 0)
-            ids.add(activeId);
-
-        return Array.from(ids).sort((a, b) => a - b);
+        return -1;
     }
 
     function ensureSelectionValid() {
-        const ids = visibleWorkspaceIds;
-        if (ids.length === 0)
+        if (appList.length === 0) {
+            selectedIndex = 0;
             return;
-
-        if (!ids.includes(selectedWorkspaceId)) {
-            const activeId = activeWorkspaceId();
-            selectedWorkspaceId = ids.includes(activeId) ? activeId : ids[0];
-            selectedWorkspaceChanged(selectedWorkspaceId);
         }
+        if (selectedIndex < 0)
+            selectedIndex = 0;
+        if (selectedIndex >= appList.length)
+            selectedIndex = appList.length - 1;
     }
 
     function resetSelectionToNext() {
-        const ids = visibleWorkspaceIds;
-        if (ids.length === 0)
+        if (appList.length === 0)
             return;
 
-        let index = ids.indexOf(activeWorkspaceId());
-        if (index < 0)
-            index = -1;
-
-        const nextId = ids[(index + 1) % ids.length];
-        if (selectedWorkspaceId === nextId)
-            return;
-
-        selectedWorkspaceId = nextId;
-        selectedWorkspaceChanged(selectedWorkspaceId);
+        const currentIdx = indexForWindow(focusedWindow());
+        const base = currentIdx >= 0 ? currentIdx : -1;
+        selectedIndex = (base + 1) % appList.length;
     }
 
     function resetSelectionToActive() {
-        const ids = visibleWorkspaceIds;
-        if (ids.length === 0)
+        if (appList.length === 0)
             return;
 
-        const activeId = activeWorkspaceId();
-        const nextId = ids.includes(activeId) ? activeId : ids[0];
-        if (selectedWorkspaceId === nextId)
-            return;
-
-        selectedWorkspaceId = nextId;
-        selectedWorkspaceChanged(selectedWorkspaceId);
+        const idx = indexForWindow(focusedWindow());
+        selectedIndex = idx >= 0 ? idx : 0;
     }
 
     function selectDelta(delta) {
-        const ids = visibleWorkspaceIds;
-        if (ids.length === 0)
+        if (appList.length === 0)
             return;
 
-        let index = ids.indexOf(selectedWorkspaceId);
-        if (index < 0)
-            index = Math.max(0, ids.indexOf(activeWorkspaceId()));
-
-        const next = (index + delta + ids.length) % ids.length;
-        if (selectedWorkspaceId === ids[next])
-            return;
-
-        selectedWorkspaceId = ids[next];
-        selectedWorkspaceChanged(selectedWorkspaceId);
+        selectedIndex = (selectedIndex + delta + appList.length) % appList.length;
     }
 
     function selectPrevious() {
@@ -372,56 +115,25 @@ Item {
         selectDelta(1);
     }
 
-    function selectWorkspace(workspaceId) {
-        const id = Number(workspaceId);
-        if (!Number.isFinite(id) || !visibleWorkspaceIds.includes(id))
-            return false;
+    function selectRowDelta(rowDelta) {
+        if (appList.length === 0)
+            return;
 
-        if (selectedWorkspaceId !== id) {
-            selectedWorkspaceId = id;
-            selectedWorkspaceChanged(selectedWorkspaceId);
-        }
-        return true;
+        const next = selectedIndex + rowDelta * iconsPerRow;
+        selectedIndex = ((next % appList.length) + appList.length) % appList.length;
+    }
+
+    function selectWorkspace(workspaceId) {
+        return false;
     }
 
     function activateSelected() {
-        if (Number.isFinite(selectedWorkspaceId) && selectedWorkspaceId > 0)
-            requestWorkspace(selectedWorkspaceId);
+        if (selectedIndex >= 0 && selectedIndex < appList.length)
+            requestFocusApp(appList[selectedIndex]);
     }
 
-    function closeSelectedWorkspace() {
-        if (Number.isFinite(selectedWorkspaceId) && selectedWorkspaceId > 0)
-            requestCloseWorkspace(selectedWorkspaceId);
-    }
-
-    onVisibleWorkspaceIdsChanged: Qt.callLater(ensureSelectionValid)
+    onAppListChanged: Qt.callLater(ensureSelectionValid)
     Component.onCompleted: ensureSelectionValid()
-
-    Timer {
-        id: peekHideTimer
-
-        interval: 200
-        repeat: false
-        onTriggered: {
-            hoverWorkspaceId = -1;
-            refreshPeek();
-        }
-    }
-
-    Timer {
-        id: toplevelPrepTimer
-
-        interval: 150
-        repeat: false
-        onTriggered: {
-            snapshotPrepRetries += 1;
-            freezeWindowLayout();
-            rebuildToplevelMap();
-            refreshPeek();
-            if ((Object.keys(toplevelByAddress).length === 0 || frozenLayoutMissingLiveWindows()) && overviewActive && snapshotPrepRetries < 8)
-                toplevelPrepTimer.restart();
-        }
-    }
 
     Rectangle {
         id: panel
@@ -429,7 +141,7 @@ Item {
         anchors.centerIn: parent
         width: root.panelWidth
         height: root.panelHeight
-        radius: 24
+        radius: 22
         color: Theme.glassShell
         border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
@@ -447,97 +159,35 @@ Item {
             NumberAnimation { duration: Perf.msHalf(140); easing.type: Easing.OutCubic }
         }
 
-        Flickable {
-            id: workspacesScroller
+        Text {
+            anchors.centerIn: parent
+            visible: root.appList.length === 0
+            text: "No open windows"
+            color: Theme.on_surface_variant
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 13
+            font.weight: Font.Medium
+        }
 
-            anchors.fill: parent
-            anchors.leftMargin: root.panelPaddingH
-            anchors.rightMargin: root.panelPaddingH
-            anchors.topMargin: root.panelPaddingV
-            anchors.bottomMargin: root.panelPaddingV
-            contentWidth: workspacesColumn.width
-            contentHeight: workspacesColumn.implicitHeight
-            clip: true
-            flickableDirection: Flickable.VerticalFlick
-            boundsBehavior: Flickable.StopAtBounds
-            interactive: contentHeight > height
+        Flow {
+            anchors.centerIn: parent
+            width: root.panelWidth - root.paddingH * 2
+            spacing: root.iconSpacing
+            visible: root.appList.length > 0
 
-            onMovementStarted: root.hidePeekImmediate()
-            onContentYChanged: {
-                if (moving || flicking)
-                    root.hidePeekImmediate();
-            }
+            Repeater {
+                model: root.appList
 
-            Column {
-                id: workspacesColumn
+                delegate: AppStripIcon {
+                    required property var modelData
+                    required property int index
 
-                width: root.flowContentWidth
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: root.tileSpacing
-
-                Repeater {
-                    model: root.workspaceRows
-
-                    delegate: Row {
-                        required property var modelData
-
-                        spacing: root.tileSpacing
-                        anchors.horizontalCenter: parent.horizontalCenter
-
-                        Repeater {
-                            model: modelData
-
-                            delegate: WorkspaceTile {
-                                id: tileItem
-
-                                required property int modelData
-
-                                workspaceId: modelData
-                                windows: root.windowsForWorkspace(modelData)
-                                active: modelData === root.activeWorkspaceId()
-                                selected: modelData === root.selectedWorkspaceId
-                                monitorData: root.monitorForWorkspace(modelData)
-                                overviewActive: root.overviewActive
-                                toplevelByAddress: root.toplevelByAddress
-                                tileCaptureActive: root.tileCaptureActive(modelData)
-                                tileWidth: root.tileWidthForWorkspace(modelData)
-                                tileHeight: root.tileHeight
-                                Component.onCompleted: root.registerTile(modelData, tileItem)
-                                Component.onDestruction: root.unregisterTile(modelData)
-                                onRequestWorkspace: workspaceId => root.requestWorkspace(workspaceId)
-                                onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
-                                onRequestCloseWindow: windowData => root.requestCloseWindow(windowData)
-                                onPeekRequested: root.showPeekForHover(modelData, tileItem)
-                                onPeekDismissed: root.scheduleHidePeek()
-                            }
-                        }
-                    }
+                    appData: modelData
+                    selected: index === root.selectedIndex
+                    iconSize: root.iconSize
+                    onClicked: root.requestFocusApp(modelData)
                 }
             }
-        }
-    }
-
-    WorkspacePeekPopup {
-        id: workspacePeek
-
-        outerMargin: root.panelOuterMargin
-        anchorItem: root.peekAnchorItem
-        workspaceId: root.peekWorkspaceId
-        windows: root.peekWorkspaceId > 0 ? root.windowsForWorkspace(root.peekWorkspaceId) : []
-        monitorData: root.peekWorkspaceId > 0 ? root.monitorForWorkspace(root.peekWorkspaceId) : null
-        toplevelByAddress: root.toplevelByAddress
-        overviewActive: root.overviewActive
-        active: root.peekWorkspaceId === root.activeWorkspaceId()
-        selected: root.peekWorkspaceId === root.selectedWorkspaceId
-
-        onRequestFocusWindow: windowData => root.requestFocusWindow(windowData)
-        onPeekEntered: {
-            root.peekPointerInside = true;
-            root.peekHideTimer.stop();
-        }
-        onPeekExited: {
-            root.peekPointerInside = false;
-            root.scheduleHidePeek();
         }
     }
 }
