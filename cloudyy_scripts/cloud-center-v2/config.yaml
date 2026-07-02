@@ -238,9 +238,9 @@ pages:
           - type: online_wallpaper_browser
             properties:
               title: Wallpaper Browser
-              description: Infinite browsing with light/dark save targets
-              light_directory: ~/Wallpapers/Light
-              dark_directory: ~/Wallpapers/Dark
+              description: Infinite browsing — downloads go to your private user_wallpapers pool
+              light_directory: ~/Wallpapers/user_wallpapers/Light
+              dark_directory: ~/Wallpapers/user_wallpapers/Dark
               per_page: 60
               height: 700
               apply_command: ~/cloudyy_scripts/theme_controller.sh set-image {path}

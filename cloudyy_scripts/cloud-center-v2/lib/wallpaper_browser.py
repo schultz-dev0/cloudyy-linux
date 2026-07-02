@@ -72,8 +72,8 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         def _expand(p: str) -> Path:
             return Path(os.path.expandvars(p)).expanduser()
 
-        self._light_dir = _expand(props.get("light_directory", "~/Wallpapers/Light"))
-        self._dark_dir = _expand(props.get("dark_directory", "~/Wallpapers/Dark"))
+        self._light_dir = _expand(props.get("light_directory", "~/Wallpapers/user_wallpapers/Light"))
+        self._dark_dir = _expand(props.get("dark_directory", "~/Wallpapers/user_wallpapers/Dark"))
         self._download_dir = self._dark_dir
         self._per_page = max(1, min(24, int(props.get("per_page", 24))))
         self._apply_cmd_tmpl = props.get("apply_command", "~/cloudyy_scripts/theme_controller.sh set-image {path}")
@@ -478,9 +478,18 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         self._set_status(f"Applying {item.title}...")
         threading.Thread(target=self._apply_worker, args=(item,), daemon=True).start()
 
-    def _next_number(self, directory: Path) -> int:
-        nums = [int(f.stem) for f in directory.iterdir() if f.is_file() and f.stem.isdigit()]
-        return (max(nums) + 1) if nums else 1
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+    def _next_filename(self, directory: Path, ext: str) -> str:
+        """Next sequential zero-padded name in a flat mode directory."""
+        nums = [
+            int(f.stem)
+            for f in directory.iterdir()
+            if f.is_file() and f.suffix.lower() in self._IMAGE_EXTS and f.stem.isdigit()
+        ]
+        n = (max(nums) + 1) if nums else 1
+        width = max(3, len(str(n)))
+        return f"{n:0{width}d}{ext}"
 
     def _download_worker(self, item: WallpaperItem) -> None:
         try:
@@ -504,12 +513,14 @@ class OnlineWallpaperBrowserRow(Adw.PreferencesRow):
         if not image_url:
             raise RuntimeError("No image URL available for this wallpaper")
 
-        src_dir = self._download_dir
+        src_dir = self._download_dir.resolve()
         src_dir.mkdir(parents=True, exist_ok=True)
 
         parsed = urlparse(image_url)
         ext = Path(parsed.path).suffix.lower() or ".jpg"
-        file_path = src_dir / f"{self._next_number(src_dir)}{ext}"
+        if ext not in self._IMAGE_EXTS:
+            ext = ".jpg"
+        file_path = src_dir / self._next_filename(src_dir, ext)
 
         data = self._http_get(image_url, binary=True)
         if not isinstance(data, bytes):
