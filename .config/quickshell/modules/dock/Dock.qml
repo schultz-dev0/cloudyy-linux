@@ -41,8 +41,8 @@ PanelWindow {
     readonly property int iconSpacing: 25
     readonly property int paddingH: 14
     readonly property int paddingV: 12
-    readonly property int bottomGap: 2
-    readonly property int activationHeight: 4 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 
+    readonly property int bottomGap: 4
+    readonly property int activationHeight: 1 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 
 
     // ── Drag / interaction ─────────────────────────────────────────────────
     property int dragSourceIndex: -1
@@ -195,19 +195,6 @@ PanelWindow {
         return "";
     }
 
-    function execFromWindow(w) {
-        if (!w)
-            return "";
-        const cls = w.class || w.initialClass || w.initialTitle || "";
-        const st = desktopExecForClass(cls);
-        if (st.length > 0)
-            return st;
-        const pwaExec = HyprlandData.chromePwaExecFromClass(cls);
-        if (pwaExec.length > 0)
-            return pwaExec;
-        return "";
-    }
-
     // ── App list: pinned + running, deduplicated ───────────────────────────
     readonly property var runningWindows: HyprlandData.windowList
     property var mergedApps: []
@@ -263,14 +250,6 @@ PanelWindow {
         return best;
     }
 
-    function windowAppKey(window) {
-        return `${window?.class || window?.initialClass || ""}`.toLowerCase().trim();
-    }
-
-    function moreRecentWindow(current, candidate) {
-        return !current || ((candidate?.focusHistoryID ?? 9999) < (current?.focusHistoryID ?? 9999));
-    }
-
     function rebuildMergedApps() {
         const windows = dock.runningWindows;
         const pinnedApps = dock.effectivePinnedApps;
@@ -287,41 +266,20 @@ PanelWindow {
             };
         });
 
-        const unpinnedByKey = ({});
-        windows.forEach(w => {
-            if (pinnedApps.some(app => dock.windowMatchScore(w, app.class) > 0))
-                return;
-            const key = dock.windowAppKey(w);
-            if (!key)
-                return;
-            if (dock.moreRecentWindow(unpinnedByKey[key], w))
-                unpinnedByKey[key] = w;
-        });
-
-        Object.keys(unpinnedByKey).forEach(key => {
-            const w = unpinnedByKey[key];
-            const candidates = HyprlandData.iconCandidatesForWindow(w);
-            let iconName = "";
-            for (let i = 0; i < candidates.length; i++) {
-                const candidate = `${candidates[i] ?? ""}`.trim();
-                if (!candidate || candidate === "application-default-icon")
-                    continue;
-                iconName = candidate;
-                break;
-            }
-            if (!iconName)
-                iconName = w.class || "";
-            if (w.class && w.class.toLowerCase().includes("matlab"))
-                iconName = `${HyprlandData.homeDir}/.local/share/icons/matlab.png`;
+        const runningApps = HyprlandData.buildRunningAppList();
+        for (let i = 0; i < runningApps.length; i++) {
+            const entry = runningApps[i];
+            if (pinnedApps.some(app => dock.windowMatchScore(entry.window, app.class) > 0))
+                continue;
             result.push({
-                class: w.class,
-                exec: dock.execFromWindow(w),
-                icon: dock.iconForApp({ class: w.class, icon: iconName }),
+                class: entry.class,
+                exec: entry.exec,
+                icon: dock.iconForApp({ class: entry.class, icon: entry.icon }),
                 isRunning: true,
-                window: w,
+                window: entry.window,
                 isPinned: false
             });
-        });
+        }
 
         const sig = dock.mergedAppsSignatureFor(result);
         if (sig === dock.mergedAppsSignature && dock.mergedApps.length === result.length) {
