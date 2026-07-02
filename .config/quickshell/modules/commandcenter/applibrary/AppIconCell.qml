@@ -30,8 +30,8 @@ Item {
 
             Rectangle {
                 anchors.centerIn: parent
-                width: 50
-                height: 50
+                width: parent.width + 4
+                height: parent.height + 4
                 radius: 10
                 visible: root.selected
                 color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
@@ -40,9 +40,7 @@ Item {
             }
 
             AppIcon {
-                anchors.centerIn: parent
-                width: 48
-                height: 48
+                anchors.fill: parent
                 iconSize: 48
                 appData: root.appData
             }

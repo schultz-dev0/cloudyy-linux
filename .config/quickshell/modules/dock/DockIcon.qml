@@ -7,7 +7,7 @@ import Quickshell
 Item {
     id: root
 
-    required property var appData // { class, exec, icon, isRunning, isPinned, window? }
+    required property var appData // { class, exec, icon, isRunning, isPinned, groupKey, windowCount, window? }
     required property int iconSize
     required property real maxScale
     required property real spread
@@ -29,11 +29,20 @@ Item {
     property real pressStartX: 0
 
     signal clicked()
-    signal requestTogglePin()
+    signal contextMenuRequested()
+    signal exposeRequested()
     signal dragReorderStarted(int visualIndex, real centerBodyX, real centerBodyY)
     signal dragReorderMoved(real centerBodyX, real centerBodyY)
     signal dragReorderEnded()
     signal dragReorderCanceled()
+
+    readonly property bool canExpose: (root.appData?.isRunning ?? false)
+        && (root.appData.windowCount ?? 0) > 1
+        && `${root.appData.groupKey ?? ""}`.length > 0
+
+    readonly property int exposeHoldMs: 400
+
+    property bool exposeTriggered: false
 
     readonly property real targetScale: {
         if (dockMouseX < -1000)
@@ -86,35 +95,32 @@ Item {
         }
     }
 
+    Timer {
+        id: exposeHoldTimer
+        interval: root.exposeHoldMs
+        repeat: false
+        onTriggered: {
+            if (!root.pressed || !root.canExpose)
+                return;
+            root.exposeTriggered = true;
+            root.exposeRequested();
+        }
+    }
+
     Item {
         id: visualLayer
         width: parent.width
         height: parent.height
         x: root.currentDragShiftX
 
-        Image {
-            id: iconImg
-
-            property int sourceIndex: 0
-            property var sources: root.appData
-                ? HyprlandData.iconSourcesForAppData(root.appData)
-                : [IconResolver.genericIconSource]
+        Item {
+            id: iconContainer
 
             width: root.iconSize
             height: root.iconSize
-            onSourcesChanged: sourceIndex = 0
-            source: sources[sourceIndex] ?? IconResolver.genericIconSource
-            sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
-            smooth: true
             scale: root.currentScale
             transformOrigin: Item.Bottom
             opacity: root.isDragSource ? 0.2 : 1
-            onStatusChanged: {
-                if (status === Image.Error && sourceIndex < sources.length - 1)
-                    Qt.callLater(() => {
-                        sourceIndex++;
-                    });
-            }
 
             anchors {
                 bottom: parent.bottom
@@ -122,6 +128,35 @@ Item {
                 horizontalCenter: parent.horizontalCenter
             }
 
+            AppIcon {
+                anchors.fill: parent
+                iconSize: root.iconSize
+                appData: root.appData
+            }
+
+            Rectangle {
+                visible: (root.appData.windowCount ?? 0) > 1 && !root.isDragSource
+                width: countLabel.implicitWidth + 8
+                height: 16
+                radius: 8
+                color: Theme.primary
+                anchors {
+                    top: parent.top
+                    right: parent.right
+                    topMargin: -4
+                    rightMargin: -4
+                }
+
+                Text {
+                    id: countLabel
+                    anchors.centerIn: parent
+                    text: `${root.appData.windowCount ?? 0}`
+                    color: Theme.on_primary
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 9
+                    font.weight: Font.Bold
+                }
+            }
         }
 
         Rectangle {
@@ -158,12 +193,16 @@ Item {
             root.pressed = true;
             root.pressStartX = mouse.x;
             root.leftDragging = false;
+            root.exposeTriggered = false;
+            if (root.canExpose)
+                exposeHoldTimer.restart();
         }
         onPositionChanged: mouse => {
             if (!pressed)
                 return;
             if (!root.leftDragging) {
                 if (Math.abs(mouse.x - root.pressStartX) > 10) {
+                    exposeHoldTimer.stop();
                     root.leftDragging = true;
                     const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
                     root.dragReorderStarted(root.visualIndex, p.x, p.y);
@@ -174,20 +213,24 @@ Item {
             root.dragReorderMoved(p.x, p.y);
         }
         onReleased: mouse => {
+            exposeHoldTimer.stop();
             if (mouse.button === Qt.LeftButton) {
                 if (root.leftDragging)
                     root.dragReorderEnded();
-                else
+                else if (!root.exposeTriggered)
                     root.clicked();
             }
+            root.exposeTriggered = false;
             root.pressed = false;
             root.leftDragging = false;
         }
         onCanceled: {
+            exposeHoldTimer.stop();
             if (root.leftDragging)
                 root.dragReorderCanceled();
             root.pressed = false;
             root.leftDragging = false;
+            root.exposeTriggered = false;
         }
     }
 
@@ -195,7 +238,7 @@ Item {
         acceptedButtons: Qt.RightButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
         enabled: !root.dockDragActive
-        onTapped: root.requestTogglePin()
+        onTapped: root.contextMenuRequested()
     }
 
 }

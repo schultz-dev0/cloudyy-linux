@@ -73,10 +73,14 @@ Item {
 
     Image {
         id: iconImg
+
         anchors.fill: parent
         property int sourceIndex: 0
-        sourceSize: Qt.size(root.iconSize, root.iconSize)
+        // Load at 2x so magnified dock icons and HiDPI screens stay sharp.
+        sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
         smooth: true
+        mipmap: true
+        antialiasing: true
         fillMode: root.fillMode
         opacity: root.iconOpacity
         source: root.sources[sourceIndex] ?? IconResolver.genericIconSource

@@ -14,6 +14,7 @@ Scope {
     property int openedAtMs: 0
     property var activeOverviewWidget: null
     property bool selectNextOnOpen: false
+    property var pendingCloseCallback: null
 
     function open() {
         if (GlobalStates.overviewOpen)
@@ -21,12 +22,13 @@ Scope {
 
         openedAtMs = Date.now();
         GlobalStates.overviewOpen = true;
+        GlobalStates.overviewKeyboardGrab = true;
         Hyprland.refreshToplevels();
     }
 
     function openOrCycle() {
         if (GlobalStates.overviewOpen) {
-            root.activeOverviewWidget?.selectNext();
+            root.activeOverviewWidget?.advanceTabSelection();
             return;
         }
 
@@ -36,15 +38,30 @@ Scope {
 
     function cyclePrevious() {
         if (GlobalStates.overviewOpen)
-            root.activeOverviewWidget?.selectPrevious();
+            root.activeOverviewWidget?.retreatTabSelection();
+    }
+
+    function beginClose(onFinished) {
+        if (!GlobalStates.overviewOpen) {
+            if (onFinished)
+                onFinished();
+            return;
+        }
+
+        root.pendingCloseCallback = onFinished ?? null;
+        GlobalStates.overviewKeyboardGrab = false;
+        closeTimer.restart();
     }
 
     function close() {
-        GlobalStates.overviewOpen = false;
+        beginClose(null);
     }
 
     function toggle() {
-        GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+        if (GlobalStates.overviewOpen)
+            close();
+        else
+            open();
     }
 
     function resetOverviewSelection() {
@@ -85,18 +102,26 @@ Scope {
     }
 
     function focusWindow(windowData) {
-        close();
-        focusWindowTimer.windowData = windowData;
-        focusWindowTimer.restart();
+        beginClose(() => {
+            if (windowData?.window)
+                HyprDispatch.focusWindow(windowData.window);
+        });
     }
 
     Timer {
-        id: focusWindowTimer
+        id: closeTimer
 
-        property var windowData: null
-        interval: 50
+        interval: 80
         repeat: false
-        onTriggered: HyprDispatch.focusWindow(windowData);
+        onTriggered: {
+            GlobalStates.overviewOpen = false;
+            root.activeOverviewWidget = null;
+            if (root.pendingCloseCallback) {
+                const cb = root.pendingCloseCallback;
+                root.pendingCloseCallback = null;
+                cb();
+            }
+        }
     }
 
     IpcHandler {
@@ -147,7 +172,9 @@ Scope {
 
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.namespace: "quickshell:overview"
-            WlrLayershell.keyboardFocus: GlobalStates.overviewOpen && isFocusedScreen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: GlobalStates.overviewKeyboardGrab && isFocusedScreen
+                ? WlrKeyboardFocus.Exclusive
+                : WlrKeyboardFocus.None
 
             function focusOverview() {
                 if (!GlobalStates.overviewOpen || !overlay.isFocusedScreen)
@@ -169,7 +196,7 @@ Scope {
 
                 anchors.fill: parent
                 color: "transparent"
-                focus: GlobalStates.overviewOpen
+                focus: GlobalStates.overviewOpen && GlobalStates.overviewKeyboardGrab
 
                 Keys.onPressed: event => {
                     const overviewWidget = overviewLoader.item;
@@ -222,7 +249,7 @@ Scope {
                         screenModel: overlay.modelData
                         monitorData: overlay.monitorData
                         overviewActive: overlay.visible
-                        onRequestFocusApp: appData => root.focusWindow(appData?.window)
+                        onRequestFocusApp: appData => root.focusWindow(appData)
                     }
                     onLoaded: {
                         if (overlay.isFocusedScreen)
@@ -238,10 +265,11 @@ Scope {
                 function onOverviewOpenChanged() {
                     if (GlobalStates.overviewOpen)
                         Qt.callLater(() => overlay.focusOverview());
-                    else {
+                }
+
+                function onOverviewKeyboardGrabChanged() {
+                    if (!GlobalStates.overviewKeyboardGrab)
                         focusSurface.focus = false;
-                        root.activeOverviewWidget = null;
-                    }
                 }
             }
 

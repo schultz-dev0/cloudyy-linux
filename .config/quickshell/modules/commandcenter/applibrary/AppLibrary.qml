@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import "../../.."
 import "../../spotlight" as QuickSpotlight
+import "../../../overview/services"
 
 PanelWindow {
     id: root
@@ -45,7 +46,7 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:command"
-    WlrLayershell.keyboardFocus: svc.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: svc.keyboardGrab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     MouseArea {
         anchors.fill: parent
@@ -680,6 +681,22 @@ PanelWindow {
             else if (root.focusZone === "grid")
                 root.ensureGridCellVisible(svc.selectedIndex);
         }
+    }
+
+    WindowGroupMenu {
+        id: appWindowPicker
+
+        anchors.horizontalCenter: panel.horizontalCenter
+        anchors.bottom: panel.bottom
+        anchors.bottomMargin: 12
+        z: 50
+        groupKey: ""
+        windowsOverride: svc.windowPickerWindows
+        open: svc.windowPickerOpen
+        showGroupLabels: true
+
+        onWindowChosen: win => svc.choosePickerWindow(win)
+        onDismissed: svc.closeWindowPicker()
     }
 
     IpcHandler {

@@ -282,30 +282,41 @@ Singleton {
         });
     }
 
-    function findWindowByClass(className) {
+    function normalizeAddress(addr) {
+        const s = `${addr ?? ""}`.trim().toLowerCase();
+        if (!s.length)
+            return "";
+        return s.startsWith("0x") ? s : "0x" + s;
+    }
+
+    function windowsMatchingClass(className) {
         const cls = `${className ?? ""}`.trim();
         if (!cls)
-            return null;
+            return [];
 
         const windows = HyprlandData.windowList || [];
-        let best = null;
-        let bestHistory = 999999;
-
+        const result = [];
         for (let i = 0; i < windows.length; i++) {
             const win = windows[i];
             const winClass = `${win.class || win.initialClass || ""}`.trim();
             if (!winClass)
                 continue;
-            if (!HyprlandData.wmclassesMatch(cls, winClass))
-                continue;
-            const history = win?.focusHistoryID ?? 999999;
-            if (history < bestHistory) {
-                bestHistory = history;
-                best = win;
-            }
+            if (winClass === cls || HyprlandData.wmclassesMatch(cls, winClass))
+                result.push(win);
         }
+        return result;
+    }
 
-        return best;
+    function focusGroupMru(groupKey) {
+        const gk = `${groupKey ?? ""}`.trim();
+        if (!gk)
+            return;
+
+        const wins = HyprlandData.windowsForGroupKey(gk);
+        if (wins.length === 0)
+            return;
+
+        focusWindow(wins[0]);
     }
 
     function focusWindowByClass(className) {
@@ -313,14 +324,13 @@ Singleton {
         if (!cls)
             return;
 
-        const normalized = HyprlandData.normalizeChromePwaWmclass(cls) || cls;
-        const match = findWindowByClass(normalized) || findWindowByClass(cls);
-        if (match) {
-            focusWindow(match);
+        const matching = windowsMatchingClass(cls);
+        if (matching.length === 0) {
+            dispatch("hl.dsp.focus({ window = " + luaString("class:" + cls) + " })");
             return;
         }
 
-        dispatch("hl.dsp.focus({ window = " + luaString("class:" + cls) + " })");
+        focusGroupMru(HyprlandData.appGroupKey(matching[0]));
     }
 
     function focusWindowForApp(wmclass, exec) {
@@ -328,19 +338,20 @@ Singleton {
         if (!needle)
             return;
 
-        const windows = HyprlandData.windowList || [];
-        for (let i = 0; i < windows.length; i++) {
-            const win = windows[i];
-            const cls = `${win.class || win.initialClass || ""}`.trim();
-            if (!cls)
-                continue;
-            if (cls === needle || HyprlandData.wmclassesMatch(needle, cls)) {
-                focusWindow(win);
-                return;
-            }
+        const execText = `${exec ?? ""}`;
+        const steamMatch = execText.match(/steam:\/\/rungameid\/(\d+)/i);
+        if (steamMatch) {
+            focusGroupMru(`steam_app_${steamMatch[1]}`.toLowerCase());
+            return;
         }
 
-        focusWindowByClass(HyprlandData.normalizeChromePwaWmclass(needle) || needle);
+        const matching = windowsMatchingClass(needle);
+        if (matching.length === 0) {
+            dispatch("hl.dsp.focus({ window = " + luaString("class:" + needle) + " })");
+            return;
+        }
+
+        focusGroupMru(HyprlandData.appGroupKey(matching[0]));
     }
 
     function focusWindowByTitle(title) {

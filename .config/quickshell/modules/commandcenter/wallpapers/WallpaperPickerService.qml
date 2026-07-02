@@ -19,6 +19,7 @@ Singleton {
     readonly property int debounceMs: 120
 
     property bool visible: false
+    property bool keyboardGrab: false
     property string query: ""
     property int selectedIndex: -1
     property string themeMode: "dark"
@@ -78,7 +79,7 @@ Singleton {
 
     function openInternal() {
         closeOtherPanels();
-        visible = true;
+        showPanel();
         query = "";
         selectedIndex = -1;
         if (wallpapers.length > 0) {
@@ -92,12 +93,34 @@ Singleton {
         requestFocus();
     }
 
-    function close() {
+    function showPanel() {
+        hideTimer.stop();
+        visible = true;
+        keyboardGrab = true;
+    }
+
+    function finishClose() {
         visible = false;
         query = "";
         selectedIndex = -1;
         returnToCommandCenter = false;
         commandCenterReturnBrowseStack = [];
+    }
+
+    function close() {
+        keyboardGrab = false;
+        if (!visible) {
+            finishClose();
+            return;
+        }
+        hideTimer.restart();
+    }
+
+    Timer {
+        id: hideTimer
+        interval: 80
+        repeat: false
+        onTriggered: svc.finishClose()
     }
 
     function escapePressed() {

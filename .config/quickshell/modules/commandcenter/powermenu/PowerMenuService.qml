@@ -13,6 +13,7 @@ Singleton {
     id: svc
 
     property bool visible: false
+    property bool keyboardGrab: false
     property bool returnToCommandCenter: false
     property string commandCenterReturnMode: "command"
     property var commandCenterReturnBrowseStack: []
@@ -131,7 +132,7 @@ Singleton {
 
     function openInternal() {
         closeOtherPanels();
-        visible = true;
+        showPanel();
         selectedIndex = 0;
         profileFocusIndex = Math.max(0, profileIds.indexOf(powerProfile));
         focusZone = "actions";
@@ -139,11 +140,33 @@ Singleton {
         requestFocus();
     }
 
-    function close() {
+    function showPanel() {
+        hideTimer.stop();
+        visible = true;
+        keyboardGrab = true;
+    }
+
+    function finishClose() {
         visible = false;
         selectedIndex = 0;
         returnToCommandCenter = false;
         commandCenterReturnBrowseStack = [];
+    }
+
+    function close() {
+        keyboardGrab = false;
+        if (!visible) {
+            finishClose();
+            return;
+        }
+        hideTimer.restart();
+    }
+
+    Timer {
+        id: hideTimer
+        interval: 80
+        repeat: false
+        onTriggered: svc.finishClose()
     }
 
     function escapePressed() {

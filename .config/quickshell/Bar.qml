@@ -62,7 +62,7 @@ PanelWindow {
     implicitHeight: barHeight + topGap
     exclusiveZone: barHeight + topGap
     color: "transparent"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     // ── One-shot command launcher ─────────────────────────────────────────────
     Component {
