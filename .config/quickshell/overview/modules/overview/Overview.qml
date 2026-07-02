@@ -84,22 +84,6 @@ Scope {
         p.running = true;
     }
 
-    function focusWorkspace(workspaceId) {
-        // Close before focus so the overlay does not re-mount on the target monitor.
-        close();
-        focusWorkspaceTimer.workspaceId = workspaceId;
-        focusWorkspaceTimer.restart();
-    }
-
-    Timer {
-        id: focusWorkspaceTimer
-
-        property int workspaceId: -1
-        interval: 50
-        repeat: false
-        onTriggered: HyprDispatch.focusWorkspace(workspaceId);
-    }
-
     function focusWindow(windowData) {
         close();
         focusWindowTimer.windowData = windowData;
@@ -113,20 +97,6 @@ Scope {
         interval: 50
         repeat: false
         onTriggered: HyprDispatch.focusWindow(windowData);
-    }
-
-    function closeWindow(windowData) {
-        HyprDispatch.closeWindowByAddress(windowData?.address);
-    }
-
-    function closeWorkspace(workspaceId) {
-        const id = Number(workspaceId);
-        if (!Number.isFinite(id) || id < 1)
-            return;
-
-        const windows = (HyprlandData.windowList ?? []).filter(window => Number(window?.workspace?.id ?? -1) === id);
-        for (const window of windows)
-            closeWindow(window);
     }
 
     IpcHandler {
@@ -225,18 +195,14 @@ Scope {
                         else
                             overviewWidget.selectNext();
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K || event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                    } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+                        overviewWidget.selectRowDelta(-1);
+                        event.accepted = true;
+                    } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                        overviewWidget.selectRowDelta(1);
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         overviewWidget.activateSelected();
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Backspace) {
-                        overviewWidget.closeSelectedWorkspace();
-                        event.accepted = true;
-                    } else if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
-                        const workspaceId = event.key === Qt.Key_0 ? 10 : event.key - Qt.Key_0;
-                        if (overviewWidget.selectWorkspace(workspaceId))
-                            overviewWidget.activateSelected();
                         event.accepted = true;
                     }
                 }
@@ -256,10 +222,7 @@ Scope {
                         screenModel: overlay.modelData
                         monitorData: overlay.monitorData
                         overviewActive: overlay.visible
-                        onRequestWorkspace: workspaceId => root.focusWorkspace(workspaceId)
-                        onRequestFocusWindow: windowData => root.focusWindow(windowData)
-                        onRequestCloseWindow: windowData => root.closeWindow(windowData)
-                        onRequestCloseWorkspace: workspaceId => root.closeWorkspace(workspaceId)
+                        onRequestFocusApp: appData => root.focusWindow(appData?.window)
                     }
                     onLoaded: {
                         if (overlay.isFocusedScreen)
