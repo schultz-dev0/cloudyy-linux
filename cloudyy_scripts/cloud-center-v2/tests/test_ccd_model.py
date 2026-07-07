@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -191,6 +192,34 @@ class TestWallpaperPickerModel(ModelTest):
             item["wallpapers"], [str(wall_dir / "a.jpg"), str(wall_dir / "b.png")]
         )
         self.assertEqual(item["current"], str(wall_dir / "a.jpg"))
+
+    def test_missing_directory_property_yields_empty_list(self):
+        # cwd contains an image: an empty directory must not fall back to cwd.
+        cwd_dir = Path(self.tmp.name) / "cwd"
+        cwd_dir.mkdir()
+        (cwd_dir / "sneaky.jpg").write_bytes(b"x")
+        old_cwd = Path.cwd()
+        os.chdir(cwd_dir)
+        self.addCleanup(os.chdir, old_cwd)
+
+        config = Path(self.tmp.name) / "walls.yaml"
+        config.write_text(
+            WALLPAPER_YAML.replace('              directory: "{dir}"\n', "")
+        )
+
+        result = model.load_model(config)
+        item = result["pages"][0]["sections"][0]["items"][0]
+        self.assertEqual(item["wallpapers"], [])
+
+    def test_nonexistent_directory_yields_empty_list(self):
+        config = Path(self.tmp.name) / "walls.yaml"
+        config.write_text(
+            WALLPAPER_YAML.replace("{dir}", str(Path(self.tmp.name) / "missing"))
+        )
+
+        result = model.load_model(config)
+        item = result["pages"][0]["sections"][0]["items"][0]
+        self.assertEqual(item["wallpapers"], [])
 
 
 if __name__ == "__main__":

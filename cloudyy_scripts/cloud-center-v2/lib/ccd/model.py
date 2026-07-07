@@ -165,10 +165,15 @@ def multi_selection_values(props: dict) -> list[str]:
 
 
 def wallpaper_list(directory: str) -> list[str]:
-    path = Path(directory).expanduser()
+    if not directory:
+        return []
+    path = Path(directory).expanduser().resolve()
     if not path.is_dir():
         return []
-    files = [p for p in path.iterdir() if p.suffix.lower() in WALLPAPER_EXTS]
+    files = [
+        p for p in path.iterdir()
+        if p.is_file() and p.suffix.lower() in WALLPAPER_EXTS
+    ]
     return sorted(str(p) for p in files)
 
 
