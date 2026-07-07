@@ -94,13 +94,18 @@ def command_env() -> dict[str, str]:
     return env
 
 
+def expand_command(cmd: str) -> str:
+    """Expand ~, $VARS, and the bare `hcm` name to its resolved binary path."""
+    expanded = os.path.expandvars(_TILDE.sub(str(Path.home()), cmd)).strip()
+    return _HCM.sub(str(_HCM_BIN), expanded)
+
+
 def execute_command(cmd: str, title: str = "", terminal: bool = False) -> bool:
     """Run a shell command off the GTK thread with a GUI-safe PATH."""
     if not cmd.strip():
         return False
 
-    expanded = os.path.expandvars(_TILDE.sub(str(Path.home()), cmd)).strip()
-    expanded = _HCM.sub(str(_HCM_BIN), expanded)
+    expanded = expand_command(cmd)
 
     argv = (
         ["kitty", "--", "bash", "-c", expanded]
