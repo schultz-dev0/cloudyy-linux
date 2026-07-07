@@ -119,7 +119,6 @@ hl.window_rule({
 	size = "1100 760",
 	center = true,
 	opacity = "1.0 override 1.0 override",
-	blur = true,
 })
 
 hl.window_rule({
