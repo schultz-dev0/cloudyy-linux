@@ -113,6 +113,16 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "cloudcenter-qml",
+	match = { class = "^(org.quickshell)$", title = "^(Cloud Center)$" },
+	float = true,
+	size = "1100 760",
+	center = true,
+	opacity = "1.0 override 1.0 override",
+	blur = true,
+})
+
+hl.window_rule({
 	name = "openrgb",
 	match = { class = "org.openrgb.OpenRGB" },
 	float = true,
