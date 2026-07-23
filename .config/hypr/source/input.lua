@@ -3,7 +3,7 @@
 
 hl.config({
 	input = {
-		kb_layout = "gb,ru",
+		kb_layout = "gb",
 		kb_options = "grp:alt_shift_toggle",
 		follow_mouse = 1,
 		mouse_refocus = false,
