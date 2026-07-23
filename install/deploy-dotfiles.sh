@@ -425,6 +425,23 @@ deploy_defaults() {
     log_skip "USER_WELCOME_MESSAGE.txt"
   fi
 
+  # Hyprland Lua entry point — never tracked in git; Cloud Center rewrites its
+  # require lines at runtime as surfaces get customized. Seed once from the
+  # generic preset, then leave it alone forever.
+  local hyprland_lua="${HOME}/.config/hypr/hyprland.lua"
+  local hyprland_lua_default="${defaults_dir}/hyprland.lua"
+  if [[ ! -f "$hyprland_lua" ]]; then
+    if [[ -f "$hyprland_lua_default" ]]; then
+      mkdir -p "$(dirname "$hyprland_lua")"
+      cp "$hyprland_lua_default" "$hyprland_lua"
+      log_ok "hyprland.lua deployed (default)."
+    else
+      log_warn "No default hyprland.lua in ${defaults_dir} — Hyprland will not start until configured."
+    fi
+  else
+    log_skip "hyprland.lua"
+  fi
+
   local cwd_walk_file="${cc_terminal_dir}/cwd_walk"
   if [[ ! -f "$cwd_walk_file" ]]; then
     printf 'true\n' > "$cwd_walk_file"
@@ -491,7 +508,6 @@ reapply_skip_worktree() {
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
-    ".config/hypr/hyprland.lua"
     ".config/hypr/USER_WELCOME_MESSAGE.txt"
     ".config/zsh/.zshrc"
     ".config/quickshell/.current_preset"
