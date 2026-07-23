@@ -129,8 +129,6 @@ PanelWindow {
             NumberAnimation { duration: Perf.msHalf(200); easing.type: Easing.OutCubic }
         }
 
-        ElevatedEffect { target: panelRect }
-
         ColumnLayout {
             id: contentCol
             anchors {
@@ -239,8 +237,6 @@ PanelWindow {
                         border.width: 1
                         implicitHeight: storageCol.implicitHeight + 28
 
-                        ElevatedEffect { target: parent }
-
                         ColumnLayout {
                             id: storageCol
                             anchors {
@@ -301,8 +297,6 @@ PanelWindow {
                             border.width: 1
                             implicitHeight: netCol.implicitHeight + 28
 
-                            ElevatedEffect { target: parent }
-
                             ColumnLayout {
                                 id: netCol
                                 anchors {
@@ -347,8 +341,6 @@ PanelWindow {
                             border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                             border.width: 1
                             implicitHeight: tempCol.implicitHeight + 28
-
-                            ElevatedEffect { target: parent }
 
                             ColumnLayout {
                                 id: tempCol

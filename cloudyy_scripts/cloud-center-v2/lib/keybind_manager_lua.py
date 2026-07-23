@@ -195,6 +195,52 @@ def _evaluate_key_expr(expr: str, variables: dict[str, str]) -> str | None:
     return "".join(resolved).strip()
 
 
+def _iter_bind_statements(text: str) -> list[tuple[str, int]]:
+    """Yield (statement_text, starting_line_no) for each hl.bind(...) call.
+
+    hl.bind() calls in this config are written multi-line (key, dispatcher,
+    opts each on their own line) — _parse_bind_line expects one complete
+    call, so this groups the physical lines of each call into one logical
+    statement before handing it off. Single-line calls (e.g. everything this
+    module itself writes via _entry_to_line) still work: paren depth returns
+    to 0 after the first line, so the loop below collects just that one line.
+    """
+    lines = text.splitlines()
+    statements: list[tuple[str, int]] = []
+    i = 0
+    while i < len(lines):
+        if not lines[i].strip().startswith("hl.bind("):
+            i += 1
+            continue
+        start = i
+        depth = 0
+        quote: str | None = None
+        escape = False
+        buf: list[str] = []
+        while i < len(lines):
+            buf.append(lines[i])
+            for ch in lines[i]:
+                if quote:
+                    if escape:
+                        escape = False
+                    elif ch == "\\":
+                        escape = True
+                    elif ch == quote:
+                        quote = None
+                    continue
+                if ch in ('"', "'"):
+                    quote = ch
+                elif ch == "(":
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+            i += 1
+            if depth <= 0:
+                break
+        statements.append(("\n".join(buf), start + 1))
+    return statements
+
+
 def _parse_bind_line(line: str, variables: dict[str, str] | None = None) -> Optional[LuaKeybindEntry]:
     """Return a LuaKeybindEntry from an hl.bind(...) line, or None."""
     stripped = line.strip()
@@ -385,7 +431,7 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
     owned: list[LuaKeybindEntry]  = []
     locked: list[LuaKeybindEntry] = []
 
-    for idx, raw in enumerate(cc_section.splitlines(), 1):
+    for raw, idx in _iter_bind_statements(cc_section):
         e = _parse_bind_line(raw, variables)
         if e:
             e.owned       = True
@@ -393,7 +439,7 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
             e.line_no     = idx
             owned.append(e)
 
-    for idx, raw in enumerate(before.splitlines(), 1):
+    for raw, idx in _iter_bind_statements(before):
         e = _parse_bind_line(raw, variables)
         if e:
             e.owned       = False

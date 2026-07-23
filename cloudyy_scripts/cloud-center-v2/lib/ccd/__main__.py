@@ -12,7 +12,25 @@ import logging
 import sys
 
 # Importing these modules registers their methods in protocol.METHODS.
-from lib.ccd import actions, model, protocol, state, watchers  # noqa: F401
+from lib.ccd import (  # noqa: F401
+    actions,
+    audio,
+    battery,
+    bluetooth,
+    cursor,
+    keybinds,
+    model,
+    monitors,
+    online_wallpapers,
+    protocol,
+    region,
+    rules_startup,
+    state,
+    watchers,
+    wifi,
+    zsh_plugins,
+    bezier,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +48,15 @@ def main() -> None:
             if reply is not None:
                 protocol.write_line(reply)
     finally:
+        audio.shutdown()
+        battery.shutdown()
+        bluetooth.shutdown()
+        cursor.shutdown()
+        monitors.shutdown()
+        region.shutdown()
+        rules_startup.shutdown()
         state.shutdown()
+        wifi.shutdown()
 
 
 if __name__ == "__main__":

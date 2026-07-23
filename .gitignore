@@ -13,7 +13,6 @@
 .config/zsh/personal_alias.md
 
 # Hyprland local user overrides
-.config/hypr/user-configs/
 .config/hypr/welcome_message.txt
 
 # Shell runtime state
@@ -59,11 +58,7 @@ cloudyy_scripts/trcc-headless.py
 
 .config/hypr/theme_state/*
 !.config/hypr/theme_state/apply_theme.sh
-.config/hypr/hyprland.conf
 .config/matugen/generated/
-
-# matugen output — lives on disk under the quickshell symlink, not in git
-.config/quickshell/Theme.qml
 
 # External Rust crates — source in ~/Projects/, binaries from AUR
 .config/quickshell/cloudyy-system-monitor/
@@ -97,6 +92,8 @@ cloudyy_scripts/source/*
 .claude*
 .worktrees/
 **/.docs/
+.codex**
+**/.cursor/
 
 # User-specific and generated configs
 .config/btop/btop.conf

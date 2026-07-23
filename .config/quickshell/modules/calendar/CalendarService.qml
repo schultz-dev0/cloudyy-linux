@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../.."
 
 Singleton {
     id: root
@@ -34,6 +35,13 @@ Singleton {
 
     function monthLabel(year, month) {
         return Qt.formatDate(new Date(year, month, 1), "MMMM yyyy")
+    }
+
+    function tagColor(tag) {
+        return tag === "secondary" ? Theme.secondary
+             : tag === "tertiary"  ? Theme.tertiary
+             : tag === "error"     ? Theme.error
+             : Theme.primary
     }
 
     function dayOfWeekLabel(year, month, day) {

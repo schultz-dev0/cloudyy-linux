@@ -18,7 +18,7 @@ PanelWindow {
     property string focusZone: "search"
     property int categoryFocusIndex: 0
     property int recentFocusIndex: -1
-    readonly property int gridRowHeight: 84
+    readonly property int gridRowHeight: 88
     readonly property int gridRowSpacing: 4
     readonly property int panelPaddingH: 18
     readonly property int panelPaddingV: 6
@@ -36,7 +36,7 @@ PanelWindow {
         }
         let h = panelPaddingV * 2 + 40 + 8 + 36 + 8 + gridViewportHeight + 14;
         if (svc.recentEntries.length > 0)
-            h += 100;
+            h += recentRow.height + 6;
         return h;
     }
 
@@ -171,8 +171,8 @@ PanelWindow {
                                 root.moveGrid(1, 0);
                             event.accepted = true;
                         }
-                        Keys.onReturnPressed: {
-                            root.activateSelection();
+                        Keys.onReturnPressed: event => {
+                            root.activateSelection(event);
                             event.accepted = true;
                         }
                 }
@@ -266,7 +266,7 @@ PanelWindow {
                         event.accepted = true;
                     }
                     Keys.onReturnPressed: event => {
-                        root.activateSelection();
+                        root.activateSelection(event);
                         event.accepted = true;
                     }
                     Keys.onEscapePressed: event => {
@@ -284,6 +284,7 @@ PanelWindow {
                     isRunningFunc: app => svc.isRunning(app)
                     keyboardFocusIndex: root.focusZone === "recents" ? root.recentFocusIndex : -1
                     onAppActivated: app => svc.activateApp(app)
+                    onAppNewInstance: app => svc.launchNewInstance(app)
                 }
 
                 CategoryPills {
@@ -338,6 +339,7 @@ PanelWindow {
                                 cellWidth: appFlick.gridCellWidth
                                 selected: root.focusZone === "grid" && svc.selectedIndex === index
                                 onActivated: svc.activateApp(modelData)
+                                onNewInstanceRequested: svc.launchNewInstance(modelData)
                             }
                         }
                     }
@@ -385,8 +387,10 @@ PanelWindow {
                                     };
                                 }
                                 isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
+                                isRunning: svc.isRunning(modelData)
                                 rowWidth: root.panelWidth
                                 onActivated: svc.activateApp(modelData)
+                                onNewInstanceRequested: svc.launchNewInstance(modelData)
                                 onHovered: svc.selectedIndex = index
                             }
                         }
@@ -569,10 +573,13 @@ PanelWindow {
             searchFlick.contentY = Math.max(0, rowBottom - searchFlick.height);
     }
 
-    function activateSelection() {
+    function activateSelection(event) {
+        const newInstance = event && ((event.modifiers ?? 0) & Qt.ShiftModifier) !== 0;
+        const opts = newInstance ? { newInstance: true } : {};
+
         if (focusZone === "recents") {
             if (recentFocusIndex >= 0 && recentFocusIndex < svc.recentEntries.length)
-                svc.activateApp(svc.recentEntries[recentFocusIndex]);
+                svc.activateApp(svc.recentEntries[recentFocusIndex], opts);
             return;
         }
         if (focusZone === "categories") {
@@ -580,7 +587,7 @@ PanelWindow {
             return;
         }
         if (svc.selectedIndex >= 0)
-            svc.activateIndex(svc.selectedIndex);
+            svc.activateApp(svc.filteredApps[svc.selectedIndex], opts);
     }
 
     function handleEscape() {

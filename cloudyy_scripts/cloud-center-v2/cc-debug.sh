@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# cc-debug.sh — kill and restart Cloud Center daemon with live log output
+# cc-debug.sh — kill and restart QML Cloud Center with live log output
 #
 # Usage:
 #   cc-debug.sh            — restart and follow logs
@@ -10,75 +10,70 @@
 
 set -euo pipefail
 
-APP_ID="dev.cloudyy.CloudCenter"
-SCRIPT="$HOME/cloudyy_scripts/cloud-center-v2/cloud-center.py"
+LAUNCHER="$HOME/cloudyy_scripts/cloud-center"
+CONFIG="$HOME/.config/quickshell/cloud-center"
 LOG_FILE="/tmp/cloud-center-debug.log"
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 log()  { printf '\033[1;34m[cc-debug]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[cc-debug]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[cc-debug]\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m[cc-debug]\033[0m %s\n' "$*" >&2; }
 
-kill_daemon() {
-    # Try graceful D-Bus quit first, then SIGTERM, then SIGKILL
-    if gdbus call \
-        --session \
-        --dest "$APP_ID" \
-        --object-path /dev/cloudyy/CloudCenter \
-        --method org.gtk.Application.Quit \
-        2>/dev/null; then
-        log "Sent D-Bus quit signal"
-        sleep 0.5
-    fi
+cloud_center_pids() {
+    unset __QUICKSHELL_CRASH_DUMP_PID __QUICKSHELL_CRASH_INFO_FD __QUICKSHELL_CRASH_SIGNAL || true
+    qs list --all -j 2>/dev/null | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for row in data if isinstance(data, list) else []:
+    path = str(row.get("config_path") or "")
+    if path.endswith("/cloud-center/shell.qml"):
+        pid = row.get("pid")
+        if pid is not None:
+            print(pid)
+' || true
+}
 
+kill_daemon() {
     local pids
-    pids=$(pgrep -f "cloud-center.py" 2>/dev/null || true)
+    pids=$(cloud_center_pids)
 
     if [[ -n "$pids" ]]; then
         log "Sending SIGTERM to PIDs: $pids"
         kill -TERM $pids 2>/dev/null || true
-        sleep 0.8
+        sleep 0.6
 
-        # Check if still alive
-        pids=$(pgrep -f "cloud-center.py" 2>/dev/null || true)
+        pids=$(cloud_center_pids)
         if [[ -n "$pids" ]]; then
             warn "Still running — sending SIGKILL"
             kill -KILL $pids 2>/dev/null || true
-            sleep 0.3
+            sleep 0.2
         fi
         ok "Killed."
     else
-        warn "No running cloud-center.py found."
+        warn "No running Cloud Center Quickshell instance found."
     fi
 }
 
 start_daemon() {
-    if [[ ! -f "$SCRIPT" ]]; then
-        err "Script not found at: $SCRIPT"
-        err "Edit SCRIPT= at the top of this file to point at your cloud-center.py"
+    if [[ ! -f "$LAUNCHER" ]]; then
+        err "Launcher not found at: $LAUNCHER"
         exit 1
     fi
 
     log "Starting Cloud Center — logging to $LOG_FILE"
-    log "Press Ctrl+C to stop following logs (daemon keeps running)"
+    log "Press Ctrl+C to stop following logs (app keeps running)"
     echo ""
 
-    # Truncate log so we only see output from this run
     : > "$LOG_FILE"
-
-    # Launch detached, stdout+stderr → log file
-    nohup python3 "$SCRIPT" >> "$LOG_FILE" 2>&1 &
+    nohup "$LAUNCHER" >> "$LOG_FILE" 2>&1 &
     local pid=$!
-    ok "Launched PID $pid"
+    ok "Launched via launcher (shell pid $pid)"
     echo ""
-
-    # Follow the log
     tail -f "$LOG_FILE"
 }
-
-# ── Argument handling ─────────────────────────────────────────────────────────
 
 case "${1:-}" in
     --kill)

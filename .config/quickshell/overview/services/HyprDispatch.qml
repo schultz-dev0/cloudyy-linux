@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "AppIdentity.js" as AppIdentity
 
 /**
  * Hyprland 0.55+ Lua dispatch helpers.
@@ -137,12 +138,58 @@ Singleton {
         const desktopPath = `${opts?.desktopPath ?? ""}`.trim();
         const exec = `${opts?.exec ?? ""}`.trim();
         if (desktopPath.length > 0) {
-            launchDetached(["uwsm-app", "--", desktopPath]);
-            return;
+            const desktopId = AppIdentity.desktopIdFromPath(desktopPath);
+            if (desktopId.length > 0) {
+                // Resolve through the XDG application search path. Pins may come
+                // from ~/.local/share/applications or /usr/share/applications,
+                // and a synthesized absolute path cannot reliably choose one.
+                launchDetached(["uwsm-app", "--", "gtk-launch", desktopId]);
+                return;
+            }
         }
         const parts = parseDesktopExec(exec);
         if (parts.length > 0)
             launchDetached(["uwsm-app", "--"].concat(parts));
+    }
+
+    function launchIdentityDecision(decision, identity) {
+        const target = decision?.launchTarget;
+        const parts = parseDesktopExec(decision?.exec);
+        const launchArguments = AppIdentity.launchArguments(identity, target);
+        if ((target?.value || launchArguments.length > 0) && parts.length > 0) {
+            launchDetached(["uwsm-app", "--"].concat(parts, launchArguments));
+            return true;
+        }
+        const desktopPath = `${decision?.desktopPath ?? ""}`.trim();
+        if (target?.value && desktopPath.length > 0) {
+            const desktopId = AppIdentity.desktopIdFromPath(desktopPath);
+            if (desktopId.length > 0) {
+                launchDetached(["uwsm-app", "--", "gtk-launch", desktopId, `${target.value}`]);
+                return true;
+            }
+        }
+        if (target?.value)
+            console.warn("app-identity: launch target unavailable without an executable or desktop entry");
+        launchDesktopApp({
+            desktopPath: decision?.desktopPath,
+            exec: decision?.exec
+        });
+        return false;
+    }
+
+    function activateIdentity(identity, options) {
+        const opts = options || {};
+        const matchingWindows = opts.newInstance ? [] : HyprlandData.windowsForIdentity(identity);
+        if (matchingWindows.length > 0) {
+            focusWindow(matchingWindows[0]);
+            return { action: "focus", window: matchingWindows[0] };
+        }
+        const cls = `${identity?.class ?? ""}`.trim();
+        const desktop = opts.app || HyprlandData.desktopModelForClass(cls);
+        const decision = AppIdentity.activationDecision(
+            identity, [], desktop, CursorWorkspaceStore.recentUris);
+        launchIdentityDecision(decision, identity);
+        return decision;
     }
 
     function luaString(value) {

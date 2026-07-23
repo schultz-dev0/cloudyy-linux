@@ -11,7 +11,7 @@ Singleton {
     // ── Public state ──────────────────────────────────────────────────────
     property bool open: false
     readonly property ListModel timers: ListModel {}
-    property string homeDir: ""
+    readonly property string homeDir: Quickshell.env("HOME") || ""
     property bool loaded: false
     readonly property bool hasRunningTimers: runningCount > 0
 
@@ -40,15 +40,6 @@ Singleton {
             }
         }
         return false
-    }
-
-    // ── $HOME reader ─────────────────────────────────────────────────────
-    readonly property Process _homeReader: Process {
-        command: ["sh", "-c", "echo $HOME"]
-        running: true
-        stdout: SplitParser {
-            onRead: line => root.homeDir = line.trim()
-        }
     }
 
     // ── Per-second tick ───────────────────────────────────────────────────
@@ -219,6 +210,16 @@ Singleton {
             timers.setProperty(idx, "label", newLabel)
             _scheduleSave()
         }
+    }
+
+    function fmtTime(secs) {
+        secs = Math.floor(secs)
+        const h = Math.floor(secs / 3600)
+        const m = Math.floor((secs % 3600) / 60)
+        const s = secs % 60
+        if (h > 0)
+            return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
+        return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
     }
 
     Process {

@@ -19,9 +19,10 @@ mapfile -t app_dirs < <(
 )
 
 # ── App search ─────────────────────────────────────────────────────────────
+# ponytail: grep -r avoids xargs splitting paths with spaces (Steam game names)
 mapfile -t desktop_matches < <(
-    grep -rl "^Name=" "${app_dirs[@]}" 2>/dev/null \
-    | xargs grep -lFi -- "$query"      2>/dev/null \
+    grep -rlFi -- "$query" "${app_dirs[@]}" 2>/dev/null \
+    | grep '\.desktop$' \
     | head -8
 )
 

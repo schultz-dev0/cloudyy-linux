@@ -5,61 +5,59 @@ import "../.."
 Item {
     id: root
 
-    // Set by DynamicIsland after Loader is ready (not via item.data — bindings break).
     property string appName: ""
     property string summary: ""
 
-    implicitWidth:  320
-    implicitHeight: 32
+    anchors.fill: parent
 
     RowLayout {
         anchors.fill: parent
-        spacing: 10
+        spacing: 11
 
         Rectangle {
-            width:  28
-            height: 28
-            radius: 8
-            color:  Qt.rgba(Theme.surface_container_high.r,
-                            Theme.surface_container_high.g,
-                            Theme.surface_container_high.b, 0.6)
+            Layout.preferredWidth: 28
+            Layout.preferredHeight: 28
             Layout.alignment: Qt.AlignVCenter
+            radius: 9
+            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.92)
 
             Text {
                 anchors.centerIn: parent
-                text:             "󰂚"
-                color:            Theme.on_surface_variant
-                font.family:      "JetBrainsMono Nerd Font"
-                font.pixelSize:   15
+                text: "󰂚"
+                color: Qt.rgba(0, 0, 0, 0.82)
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 14
             }
         }
 
         ColumnLayout {
-            Layout.fillWidth:   true
-            Layout.alignment:   Qt.AlignVCenter
-            spacing: 2
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 1
 
             Text {
                 Layout.fillWidth: true
                 text: {
                     const name = root.appName || "";
-                    return name ? name.toUpperCase() : "NOTIFICATION";
+                    return name || "Notification";
                 }
-                color:            Theme.on_surface_variant
-                font.family:      "JetBrainsMono Nerd Font"
-                font.pixelSize:   9
-                font.letterSpacing: 0.8
-                elide:            Text.ElideRight
+                color: Qt.rgba(1, 1, 1, 0.52)
+                font.family: "sans-serif"
+                font.pixelSize: 10
+                font.weight: Font.DemiBold
+                maximumLineCount: 1
+                elide: Text.ElideRight
             }
 
             Text {
                 Layout.fillWidth: true
-                text:             root.summary
-                color:            Theme.on_surface
-                font.family:      "JetBrainsMono Nerd Font"
-                font.pixelSize:   12
-                font.weight:      Font.Bold
-                elide:            Text.ElideRight
+                text: root.summary
+                color: Qt.rgba(1, 1, 1, 0.94)
+                font.family: "sans-serif"
+                font.pixelSize: 13
+                font.weight: Font.Medium
+                maximumLineCount: 1
+                elide: Text.ElideRight
             }
         }
     }

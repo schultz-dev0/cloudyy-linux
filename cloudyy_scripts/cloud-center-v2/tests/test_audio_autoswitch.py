@@ -5,12 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from lib.audio_page import Sink, _AutoSwitchMonitor
+from lib.audio_core import AutoSwitchPolicy, Sink
 
 
 class TestPriorityAutoSwitch(unittest.TestCase):
     def test_priority_picker_ignores_suspended_sinks(self):
-        monitor = _AutoSwitchMonitor()
+        policy = AutoSwitchPolicy()
         sinks = [
             Sink(
                 index=1,
@@ -24,7 +24,7 @@ class TestPriorityAutoSwitch(unittest.TestCase):
             )
         ]
 
-        self.assertIsNone(monitor._pick_priority_sink(sinks, [sinks[0].name]))
+        self.assertIsNone(policy.pick_priority_sink(sinks, [sinks[0].name]))
 
 
 if __name__ == "__main__":

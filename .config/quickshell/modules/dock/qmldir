@@ -2,3 +2,6 @@ module QuickDock
 singleton DockStore 1.0 DockStore.qml
 Dock 1.0 Dock.qml
 DockIcon 1.0 DockIcon.qml
+DockDockButton 1.0 DockDockButton.qml
+DockDivider 1.0 DockDivider.qml
+DockHoverLabel 1.0 DockHoverLabel.qml

@@ -17,7 +17,7 @@ Singleton {
     readonly property string homeDir: Quickshell.env("HOME") || ""
     readonly property string scriptsDir: homeDir ? homeDir + "/cloudyy_scripts" : ""
     readonly property string themeCtl: scriptsDir + "/theme_controller.sh"
-    readonly property string cloudCenterPy: scriptsDir + "/cloud-center-v2/cloud-center.py"
+    readonly property string cloudCenter: scriptsDir + "/cloud-center"
     readonly property string searchScript: Qt.resolvedUrl("search.sh").toString().replace("file://", "")
     // Command Center data + helper scripts live in modules/commandcenter/
     readonly property string commandsJson: Qt.resolvedUrl("../commandcenter/commands.json").toString().replace("file://", "")
@@ -25,6 +25,8 @@ Singleton {
     readonly property string cycleCtlScript: Qt.resolvedUrl("../commandcenter/scripts/cycle-ctl.sh").toString().replace("file://", "")
     readonly property string ollamaModelsScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-models.sh").toString().replace("file://", "")
     readonly property string ollamaMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-mgmt.sh").toString().replace("file://", "")
+    readonly property string ollamaServiceScript: scriptsDir + "/quickshell/lib/ollama-service.sh"
+    readonly property string openWebuiMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/open-webui-mgmt.sh").toString().replace("file://", "")
     readonly property string packagesCtlScript: Qt.resolvedUrl("../commandcenter/scripts/packages-ctl.sh").toString().replace("file://", "")
 
     property bool visible: false
@@ -41,6 +43,8 @@ Singleton {
     property bool registryLoaded: false
     property string pendingScheme: ""
     property string powerProfile: "balanced"
+    property string ollamaServiceStatus: ""
+    property string openWebuiStatus: ""
     property var cycleState: ({})
     property string packagesListMode: ""
     property string packagesListFilter: ""
@@ -76,7 +80,7 @@ Singleton {
             return;
         const resolved = cmd.map(part => {
             if (part === "_cloud_center")
-                return cloudCenterPy;
+                return cloudCenter;
             return part;
         });
         const p = procProto.createObject(svc, { command: resolved });
@@ -85,6 +89,18 @@ Singleton {
                 p.destroy();
         });
         p.running = true;
+    }
+
+    function runOllamaServiceAction(op) {
+        ollamaServiceProc.op = op || "";
+        ollamaServiceProc.running = false;
+        ollamaServiceProc.running = true;
+    }
+
+    function runOpenWebuiServiceAction(op) {
+        openWebuiServiceProc.op = op || "";
+        openWebuiServiceProc.running = false;
+        openWebuiServiceProc.running = true;
     }
 
     function resolveScript(path) {
@@ -215,6 +231,14 @@ Singleton {
             const names = { "performance": "Performance", "balanced": "Balanced", "power-saver": "Power Saver" };
             return entry.label + ` — ${names[powerProfile] || powerProfile}`;
         }
+        if (id === "ai.service" && ollamaServiceStatus) {
+            const names = { "running": "Running", "stopped": "Stopped" };
+            return entry.label + ` — ${names[ollamaServiceStatus] || ollamaServiceStatus}`;
+        }
+        if (id === "ai.chat" && openWebuiStatus) {
+            const names = { "running": "Running", "stopped": "Stopped" };
+            return entry.label + ` — Open WebUI ${names[openWebuiStatus] || openWebuiStatus}`;
+        }
 
         return entry.label;
     }
@@ -235,6 +259,10 @@ Singleton {
             return action.op === "delete" ? "Delete model" : (action.op === "stop" ? "Stop model" : "Model info");
         if (type === "ollama_pull")
             return "Pull model";
+        if (type === "ollama_service")
+            return "Ollama service";
+        if (type === "open_webui_service")
+            return "Open WebUI";
         if (type === "packages_list")
             return action.filter === "explicit" ? "Remove package" : "Package info";
         if (type === "scheme")
@@ -436,6 +464,30 @@ Singleton {
         return false;
     }
 
+    function isInOllamaServiceMenu() {
+        const parentId = currentParentId();
+        if (parentId === "ai" || parentId === "ai.service")
+            return true;
+        for (let i = 0; i < browseStack.length; i++) {
+            const id = browseStack[i];
+            if (id === "ai" || id === "ai.service")
+                return true;
+        }
+        return false;
+    }
+
+    function isInAiChatMenu() {
+        const parentId = currentParentId();
+        if (parentId === "ai" || parentId === "ai.chat")
+            return true;
+        for (let i = 0; i < browseStack.length; i++) {
+            const id = browseStack[i];
+            if (id === "ai" || id === "ai.chat")
+                return true;
+        }
+        return false;
+    }
+
     function applySearchResults(commands, extras) {
         const calc = results.filter(r => {
             if (r.type !== "calculator" && r.type !== "currency" && r.type !== "time")
@@ -541,6 +593,13 @@ Singleton {
             return;
         closing = true;
         hideTimer.restart();
+    }
+
+    function toggle() {
+        if (visible && mode === "spotlight")
+            close();
+        else
+            openMode("spotlight");
     }
 
     Timer {
@@ -659,7 +718,8 @@ Singleton {
         if (searchProc.activeQuery !== query.trim())
             return;
         if (result.type === "app") {
-            result.isRunning = HyprlandData.isAppRunning(result.wmclass, result.exec);
+            result.identity = HyprlandData.primaryIdentityForApp(result);
+            result.isRunning = HyprlandData.isIdentityRunning(result.identity);
         }
         searchExtras = searchExtras.concat([result]);
         applySearchResults(lastCommandHits, searchExtras);
@@ -676,10 +736,8 @@ Singleton {
         if (r.type === "command")
             activateCommand(r.entry);
         else if (r.type === "app") {
-            if (r.isRunning)
-                HyprDispatch.focusWindowForApp(r.wmclass, r.exec);
-            else
-                HyprDispatch.launchDesktopApp({ desktopPath: r.desktopPath, exec: r.exec });
+            const identity = r.identity || HyprlandData.primaryIdentityForApp(r);
+            HyprDispatch.activateIdentity(identity, { app: r });
             close();
         } else if (r.type === "keybind") {
             const args = ["hyprctl", "dispatch", r.dispatcher];
@@ -877,6 +935,14 @@ Singleton {
             close();
             return;
         }
+        if (action.type === "ollama_service") {
+            runOllamaServiceAction(action.op || "");
+            return;
+        }
+        if (action.type === "open_webui_service") {
+            runOpenWebuiServiceAction(action.op || "");
+            return;
+        }
         if (action.type === "packages_list") {
             loadPackageList(action.filter || "all");
             return;
@@ -923,6 +989,14 @@ Singleton {
 
     function loadPowerProfile() {
         powerProfileProc.running = true;
+    }
+
+    function loadOllamaServiceStatus() {
+        ollamaServiceStatusProc.running = true;
+    }
+
+    function loadOpenWebuiStatus() {
+        openWebuiStatusProc.running = true;
     }
 
     function loadCycleState() {
@@ -1074,6 +1148,10 @@ Singleton {
 
     function refreshDynamicState() {
         loadPowerProfile();
+        if (isInOllamaServiceMenu())
+            loadOllamaServiceStatus();
+        if (isInAiChatMenu())
+            loadOpenWebuiStatus();
         if (isInCycleMenu())
             loadCycleState();
     }
@@ -1101,6 +1179,64 @@ Singleton {
                 if (svc.visible && svc.isInPowerMenu())
                     svc.reloadCommandResults();
             }
+        }
+    }
+
+    Process {
+        id: ollamaServiceStatusProc
+        running: false
+        command: ["bash", svc.ollamaServiceScript, "status"]
+        stdout: SplitParser {
+            onRead: line => {
+                const v = line.trim();
+                if (v.length > 0)
+                    svc.ollamaServiceStatus = v;
+                if (svc.visible && svc.isInOllamaServiceMenu())
+                    svc.reloadCommandResults();
+            }
+        }
+    }
+
+    Process {
+        id: ollamaServiceProc
+        property string op: ""
+        running: false
+        command: ["bash", svc.ollamaServiceScript, op]
+        stdout: SplitParser {
+            onRead: line => {
+                if (line.trim() === "TERMINAL")
+                    svc.close();
+            }
+        }
+        onRunningChanged: {
+            if (!running && svc.visible && op !== "show-status")
+                svc.loadOllamaServiceStatus();
+        }
+    }
+
+    Process {
+        id: openWebuiStatusProc
+        running: false
+        command: ["bash", svc.openWebuiMgmtScript, "status"]
+        stdout: SplitParser {
+            onRead: line => {
+                const v = line.trim();
+                if (v.length > 0)
+                    svc.openWebuiStatus = v;
+                if (svc.visible && svc.isInAiChatMenu())
+                    svc.reloadCommandResults();
+            }
+        }
+    }
+
+    Process {
+        id: openWebuiServiceProc
+        property string op: ""
+        running: false
+        command: ["bash", svc.openWebuiMgmtScript, op]
+        onRunningChanged: {
+            if (!running && svc.visible)
+                svc.loadOpenWebuiStatus();
         }
     }
 

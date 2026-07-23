@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.Notifications
+import Quickshell.Services.Mpris
 import "modules/dock" as QuickDock
 import "modules/sliders" as QuickSliders
 import "modules/calendar" as QuickCalendar
@@ -63,6 +64,29 @@ ShellRoot {
     readonly property var dockScreens: {
         const _fm = Hyprland.focusedMonitor; // register as dep so binding re-evaluates on monitor focus change
         return root.targetScreens(root.dockOnAllScreens);
+    }
+    // Pin the island to its current screen while a preview drag is live so
+    // monitor-focus changes (common when dragging to another app) don't
+    // remount the layer and free the QMimeData mid-transfer.
+    property var islandScreenPin: null
+    readonly property var islandScreen: {
+        if (root.islandScreenPin)
+            return root.islandScreenPin;
+        const _fm = Hyprland.focusedMonitor; // keep the island on the focused monitor
+        const screens = root.targetScreens(false);
+        return screens.length ? screens[0] : null;
+    }
+
+    Connections {
+        target: QuickIsland.DynamicIslandService
+        function onPreviewDragActiveChanged() {
+            if (QuickIsland.DynamicIslandService.previewDragActive) {
+                const screens = root.targetScreens(false);
+                root.islandScreenPin = screens.length ? screens[0] : null;
+            } else {
+                root.islandScreenPin = null;
+            }
+        }
     }
 
     function barIpcEnabled(screen) {
@@ -139,6 +163,11 @@ ShellRoot {
     Component {
         id: recordPickerActivityComp
         QuickIsland.RecordPickerActivity {}
+    }
+
+    Component {
+        id: osdBurstActivityComp
+        QuickIsland.OsdBurstActivity {}
     }
 
     // Polls the first kbd_backlight LED device found in /sys/class/leds every 200 ms.
@@ -236,8 +265,29 @@ ShellRoot {
         QuickIsland.DynamicIslandService.recordingPreviewComponent = recordingActivityComp;
         QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
         QuickIsland.DynamicIslandService.playSoundScript = root.playSoundScript;
+        QuickIsland.DynamicIslandService.osdBurstComponent = osdBurstActivityComp;
         recordingStateRestore.running = true;
         loadShellSettings.running = true;
+        QuickIsland.MprisFocus.refresh();
+    }
+
+    Connections {
+        target: Mpris.players
+        function onValuesChanged() {
+            QuickIsland.MprisFocus.refresh();
+        }
+    }
+
+    Instantiator {
+        model: Mpris.players.values
+        delegate: Connections {
+            required property var modelData
+            target: modelData
+            ignoreUnknownSignals: true
+            function onPlaybackStateChanged() {
+                QuickIsland.MprisFocus.refresh();
+            }
+        }
     }
 
     // ── Notification service ─────────────────────────────────────────────────
@@ -259,11 +309,12 @@ ShellRoot {
 
             QuickIsland.DynamicIslandService.playNotifSound();
 
-            const islandId = QuickIsland.DynamicIslandService.push({
+            QuickIsland.DynamicIslandService.push({
                 priority:   10,
                 durationMs: QuickIsland.DynamicIslandService.notificationIslandDurationMs(
                                   notif.expireTimeout),
                 data: {
+                    activityType:   "notification",
                     notificationId: notif.id,
                     appName:        notif.appName || "",
                     summary:        notif.summary || "",
@@ -274,7 +325,6 @@ ShellRoot {
 
             // Island timeout is visual-only; panel keeps the notification until dismiss/clearAll.
             notif.closed.connect(() => {
-                QuickIsland.DynamicIslandService.remove(islandId);
                 QuickIsland.DynamicIslandService.removeForNotification(notif.id);
             });
         }
@@ -295,6 +345,7 @@ ShellRoot {
                 list[list.length - 1].dismiss();
         }
         function clearAll() {
+            QuickIsland.DynamicIslandService.clearAllNotifications();
             notifPanel.snapNotificationsEmpty();
             const list = notifServer.trackedNotifications.values.slice();
             for (const notif of list)
@@ -421,7 +472,9 @@ ShellRoot {
         onCalculatorToggle: root.calculatorOpen = !root.calculatorOpen
     }
 
-    QuickIsland.DynamicIsland {}
+    QuickIsland.DynamicIsland {
+        assignedScreen: root.islandScreen
+    }
 
     Variants {
         id: dockVariants

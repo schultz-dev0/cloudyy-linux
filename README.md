@@ -1,6 +1,6 @@
 Disclaimer: Some of the things in this projects are written with AI, as this is a work in progress project I will overwrite and fix things as I go, but AI makes my student life easier. Thanks! Enjoy the dotfiles.
 
-A Hyprland rice for Arch Linux (and SOON NixOS). A lot of things are inspired by MacOS. A lot of the utility in this rice is adjusted specific for developers. 
+A Hyprland rice intended to be a competitor to Omarchy, suitable for new users and advanced users alike. Inspired heavily by the workflow and visuals of MacOS 27.
 
 ## Install
 

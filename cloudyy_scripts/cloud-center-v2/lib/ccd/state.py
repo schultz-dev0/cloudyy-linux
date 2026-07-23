@@ -139,6 +139,36 @@ def make_label_watcher(item_id: str, raw: dict) -> Watcher:
     return watcher
 
 
+def make_wallpaper_watcher(item_id: str, raw: dict) -> Watcher:
+    """Re-list the wallpaper pool when the system theme mode changes.
+
+    theme_controller.sh has no hook into ccd (it's invoked externally by
+    keybinds/waybar too, not just from this app), so there's nothing to
+    subscribe to — poll theme_mode() (a cheap file read) and only re-send
+    the (possibly large) wallpaper list when the mode it's keyed off of
+    actually flips, same shape as make_label_watcher.
+    """
+    props = raw.get("properties", {}) or {}
+    directory = props.get("directory", "")
+    max_items = int(props.get("max_items", 100))
+    interval = float(props.get("interval", DEFAULT_INTERVAL))
+
+    watcher = Watcher(item_id=item_id, check=lambda: None, interval=interval)
+
+    def check() -> None:
+        mode = model.theme_mode()
+        if mode == watcher.last:
+            return
+        watcher.last = mode
+        wallpapers = model.wallpaper_list(directory, max_items)
+        protocol.send_event(
+            {"event": "wallpapers", "item": item_id, "wallpapers": wallpapers}
+        )
+
+    watcher.check = check
+    return watcher
+
+
 def make_watcher(item_id: str, raw: dict) -> Watcher | None:
     """Build the right watcher for one item, or None if it has no state."""
     props = raw.get("properties", {}) or {}
@@ -151,6 +181,8 @@ def make_watcher(item_id: str, raw: dict) -> Watcher | None:
             return make_toggle_watcher(item_id, raw)
         case "label" if raw.get("value"):
             return make_label_watcher(item_id, raw)
+        case "wallpaper_picker":
+            return make_wallpaper_watcher(item_id, raw)
     return None
 
 
@@ -212,10 +244,17 @@ def shutdown() -> None:
 
 
 def recheck_after_action(item_id: str) -> None:
-    """Confirm an item's real state right after its action ran."""
+    """Confirm an item's real state right after its action ran.
+
+    last is reset so the check always emits — a failed command leaves real
+    state unchanged, and change-suppression would otherwise swallow the
+    event the UI needs to correct its optimistic flip. Stream watchers
+    (bluetoothctl etc.) have a one-shot check() too, so they recheck as well.
+    """
     for watchers in ACTIVE.values():
         for watcher in watchers:
-            if watcher.item_id == item_id and watcher.run is None:
+            if watcher.item_id == item_id:
+                watcher.last = UNSET
                 threading.Thread(target=watcher.check, daemon=True).start()
 
 

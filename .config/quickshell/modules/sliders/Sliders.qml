@@ -6,9 +6,9 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import "../.."
 import "../../overview/services"
+import "../island" as QuickIsland
 
 Scope {
     id: sliders
@@ -25,6 +25,7 @@ Scope {
     property int nightLightTemp: 3500
     property int pendingNightLightTemp: 3500
     property bool _nightLightReapplyTempAfterToggle: false
+    property bool _osdAwaitingRefresh: false
 
     readonly property bool osdVisible: osdKind !== ""
     readonly property string volumeIcon: volumeMuted ? "󰖁" : (volumeValue < 33 ? "󰕿" : volumeValue < 66 ? "󰕾" : "󱄠")
@@ -174,7 +175,8 @@ Scope {
             volumeMuted = false;
         volumeWriteTimer.restart();
         osdKind = "volume";
-        osdTimer.restart();
+        _osdAwaitingRefresh = false;
+        _pushOsdBurst();
     }
 
     function toggleMute() {
@@ -187,7 +189,8 @@ Scope {
         brightnessValue = target;
         brightnessWriteTimer.restart();
         osdKind = "brightness";
-        osdTimer.restart();
+        _osdAwaitingRefresh = false;
+        _pushOsdBurst();
     }
 
     function toggleNightLight() {
@@ -214,7 +217,8 @@ Scope {
         nightLightTemp = pendingNightLightTemp;
         nightLightWriteTimer.restart();
         osdKind = "nightlight";
-        osdTimer.restart();
+        _osdAwaitingRefresh = false;
+        _pushOsdBurst();
     }
 
     function writeNightLightTemp() {
@@ -222,16 +226,21 @@ Scope {
         launch(nightLightExecArgv("set", temp));
     }
 
+    function _pushOsdBurst() {
+        QuickIsland.DynamicIslandService.showOsdBurst(
+            osdKind, osdIcon, osdValueLabel, osdProgress);
+    }
+
     function showVolume() {
         osdKind = "volume";
+        _osdAwaitingRefresh = true;
         refreshVolume();
-        osdTimer.restart();
     }
 
     function showBrightness() {
         osdKind = "brightness";
+        _osdAwaitingRefresh = true;
         refreshBrightness();
-        osdTimer.restart();
     }
 
     function showKbdBrightness(level, max) {
@@ -239,13 +248,13 @@ Scope {
         if (max > 0)
             kbdBrightnessMax = max;
         osdKind = "kbdbrightness";
-        osdTimer.restart();
+        _pushOsdBurst();
     }
 
     function showNightLight() {
         osdKind = "nightlight";
+        _osdAwaitingRefresh = true;
         refreshNightLight();
-        osdTimer.restart();
     }
 
     function hideOsd() {
@@ -263,6 +272,10 @@ Scope {
                 if (match) {
                     sliders.volumeValue = Math.max(0, Math.min(100, Math.round(parseFloat(match[1]) * 100)));
                     sliders.volumeMuted = muted;
+                    if (sliders.osdKind === "volume" && sliders._osdAwaitingRefresh) {
+                        sliders._osdAwaitingRefresh = false;
+                        sliders._pushOsdBurst();
+                    }
                 }
             }
         }
@@ -275,8 +288,13 @@ Scope {
             splitMarker: "\n"
             onRead: line => {
                 const parsed = parseFloat(line.trim());
-                if (!Number.isNaN(parsed))
+                if (!Number.isNaN(parsed)) {
                     sliders.brightnessValue = Math.max(1, Math.min(100, parsed));
+                    if (sliders.osdKind === "brightness" && sliders._osdAwaitingRefresh) {
+                        sliders._osdAwaitingRefresh = false;
+                        sliders._pushOsdBurst();
+                    }
+                }
             }
         }
     }
@@ -296,6 +314,10 @@ Scope {
                     const t = parseInt(tempMatch[1], 10);
                     sliders.nightLightTemp = t;
                     sliders.pendingNightLightTemp = t;
+                }
+                if (sliders.osdKind === "nightlight" && sliders._osdAwaitingRefresh) {
+                    sliders._osdAwaitingRefresh = false;
+                    sliders._pushOsdBurst();
                 }
             }
         }
@@ -318,13 +340,6 @@ Scope {
                 Qt.callLater(() => sliders.refreshNightLight());
             }
         }
-    }
-
-    Timer {
-        id: osdTimer
-        interval: 2500
-        repeat: false
-        onTriggered: sliders.hideOsd()
     }
 
     Timer {
@@ -361,87 +376,6 @@ Scope {
         interval: 200
         repeat: false
         onTriggered: sliders.writeNightLightTemp()
-    }
-
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            id: osdWindow
-            required property var modelData
-
-            screen: modelData
-            anchors {
-                top: true
-                left: true
-                right: true
-            }
-            implicitHeight: sliders.osdVisible ? 86 : 0
-            exclusiveZone: 0
-            visible: sliders.osdVisible
-            color: "transparent"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.namespace: "quickshell:sliders"
-
-            Rectangle {
-                width: 280
-                height: 64
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 16
-                radius: 20
-                color: Theme.glassShell
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.28)
-                border.width: 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    spacing: 12
-
-                    Text {
-                        text: sliders.osdIcon
-                        color: Theme.on_surface
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 18
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    PillSlider {
-                        id: osdSlider
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignVCenter
-                        value: sliders.osdProgress * 100
-                        from: 0
-                        to: 100
-
-                        onMoved: {
-                            if (sliders.osdKind === "brightness") {
-                                sliders.setBrightness(value);
-                            } else if (sliders.osdKind === "volume") {
-                                sliders.setVolume(value);
-                            } else if (sliders.osdKind === "nightlight") {
-                                // Value 0-100 maps to 1000-6500K
-                                sliders.setNightLightTemp(1000 + (value / 100) * 5500);
-                            }
-                            sliders.osdTimer.restart();
-                        }
-                    }
-
-                    Text {
-                        text: sliders.osdValueLabel
-                        color: Theme.on_surface_variant
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        font.weight: Font.DemiBold
-                        Layout.alignment: Qt.AlignVCenter
-                        Layout.preferredWidth: 60
-                        horizontalAlignment: Text.AlignRight
-                    }
-                }
-            }
-        }
     }
 
     IpcHandler {

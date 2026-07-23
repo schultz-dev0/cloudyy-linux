@@ -4,45 +4,79 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
 import "../../overview/services"
+import "../../overview/services/AppIdentity.js" as AppIdentity
+import "DockVisibilityPolicy.js" as DockVisibilityPolicy
+import "fit" as DockFit
 import "../commandcenter/applibrary" as AppLibrary
+import "../spotlight"
 
 PanelWindow {
     id: dock
 
     property var assignedScreen: null
-    screen: assignedScreen
     property bool ipcEnabled: true
 
-    property string systemIconTheme: "Fluent-green"
-    Process {
-        command: ["bash", "-c", "theme=$(grep -m1 '^gtk-icon-theme-name=' \"$HOME/.config/gtk-3.0/settings.ini\" 2>/dev/null | cut -d= -f2- | tr -d '\\r'); if [[ -z \"$theme\" ]] && command -v gtk-query-settings >/dev/null 2>&1; then theme=$(gtk-query-settings 2>/dev/null | sed -n 's/.*gtk-icon-theme-name: \"\\(.*\\)\"/\\1/p' | head -n1); fi; if [[ -z \"$theme\" ]] && command -v gsettings >/dev/null 2>&1; then theme=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d \"'\"); fi; printf '%s\\n' \"${theme:-Fluent-green}\""]
-        running: true
-        stdout: SplitParser {
-            onRead: line => {
-                const t = line.trim();
-                if (t.length > 0)
-                    dock.systemIconTheme = t;
-            }
+    readonly property var resolvedScreen: {
+        const pref = assignedScreen;
+        const all = Quickshell.screens;
+        if (!all.length)
+            return null;
+        if (!pref)
+            return all[0];
+        const name = pref.name;
+        for (let i = 0; i < all.length; i++) {
+            if (all[i].name === name)
+                return all[i];
         }
+        return all[0];
+    }
+
+    screen: resolvedScreen
+
+    DockFit.DockFitMetrics {
+        id: fitMetrics
+        screenWidth: Number(dock.resolvedScreen?.width ?? 0)
+        appCount: dock.mergedApps.length
+        folderCount: dock.openFolderEntries.length
     }
 
     // ── Tunables ───────────────────────────────────────────────────────────
-    readonly property int iconSize: 48
+    readonly property real iconSize: fitMetrics.iconSize
     readonly property real maxScale: 1.7
     readonly property real spread: 1
     readonly property int frameMs: Perf.dockFrameMs
     readonly property int triggerHeight: 0
-    readonly property int pillHeight: iconSize + paddingV * 2
+    readonly property real pillHeight: iconSize + paddingV * 2
     readonly property int dockBodyHeight: 110
-    readonly property int iconSpacing: 25
-    readonly property int paddingH: 14
-    readonly property int paddingV: 12
-    readonly property int bottomGap: 4
-    readonly property int activationHeight: 1 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 
+    readonly property real iconSpacing: fitMetrics.iconSpacing
+    readonly property real paddingH: fitMetrics.paddingH
+    readonly property real paddingV: fitMetrics.paddingV
+    readonly property int bottomGap: 1
+    readonly property int activationHeight: 1 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up.
+    // Reveal intent: dwell on the 1px strip + a few hyprctl cursorpos checks
+    // confirming the pointer stays on this monitor's bottom edge (event-driven
+    // only — no background poller while the dock is idle).
+    readonly property int revealDwellMs: 190
+    readonly property int revealSampleCount: 4
+    readonly property int revealSampleIntervalMs: 48
+    readonly property int revealBottomSlopPx: 4
+    // Reject U-sweeps / edge skimming: X must stay nearly planted while dwelling.
+    readonly property int revealMaxHorizontalSpanPx: 30
+    readonly property int showAnimMs: 500
+    readonly property int hideAnimMs: 480
+    // After a successful reveal, block hide briefly so the slide can finish and
+    // the cursor can settle onto the pill / an icon (avoids between-icon races).
+    readonly property int postRevealGraceMs: 500
+    // One soft retry after a near-miss — long enough that a parked cursor
+    // doesn't casually clear the gate (keeps the push-down feel).
+    readonly property int revealRearmDelayMs: 220
+    readonly property int revealRearmMax: 1
+    readonly property int occupancyHideDelayMs: 180
 
     // ── Drag / interaction ─────────────────────────────────────────────────
     property int dragSourceIndex: -1
@@ -59,24 +93,117 @@ PanelWindow {
     property real dragGhostLiftScale: 1
 
     readonly property var effectivePinnedApps: DockStore.loaded ? DockStore.pinnedApps : DockStore.defaultPinnedApps
+    readonly property bool hasOpenFolders: openFolderEntries.length > 0
+    readonly property real rightClusterStartX: iconsRow.width + iconSpacing + 1 + iconSpacing
+    readonly property real appBrowserCenterX: (hasOpenFolders
+        ? rightClusterStartX + openFolderEntries.length * (iconSize + iconSpacing) + iconSpacing + 1 + iconSpacing
+        : iconsRow.width + iconSpacing + 1 + iconSpacing)
+        + iconSize / 2
+
+    property var dynamicFolderEntries: []
+    property string dynamicFolderEntriesSignature: ""
+    property var openFolderEntries: []
+    property string folderBarSignature: ""
+    property string folderIconPath: ""
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
     property real dockMouseXRaw: -9999
     property real dockMouseXSmooth: -9999
-    property int exposeOverflowPx: 0
-    readonly property bool dockHovered: triggerZone.containsMouse
-        || dockMagnifyPointer.hovered
-        || dockPanelPointer.hovered
+    property bool revealIntentArmed: false
+    property int revealSampleHits: 0
+    property int revealSampleMisses: 0
+    property int revealSamplesDone: 0
+    property bool revealDwellElapsed: false
+    property bool revealSamplesComplete: false
+    property bool revealVerifyComplete: false
+    property bool revealHorizontalStable: false
+    property real revealSampleMinX: 0
+    property real revealSampleMaxX: 0
+    property bool revealSampleXInit: false
+    property bool postRevealGrace: false
+    // After hide while still on the 1px strip, require leaving before re-intent
+    // (breaks hide → immediate re-arm → show flicker loops).
+    property bool revealNeedsStripExit: false
+    property int revealRearmCount: 0
+    property bool previousWorkspaceEmpty: false
+    property bool occupancyHidePending: false
+    readonly property bool dockBodyHovered: dockMagnifyPointer.hovered || dockInteractPointer.hovered
+    readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHovered
     readonly property bool animationActive: dockVisible || dockHovered || interactionBlock
-        || dragSourceIndex >= 0
+        || dragSourceIndex >= 0 || revealIntentArmed || postRevealGrace
     readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
+        && !revealIntentArmed && !postRevealGrace
     readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseXSmooth
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
+    readonly property var dockMonitor: assignedScreen ? Hyprland.monitorFor(assignedScreen) : Hyprland.focusedMonitor
+    readonly property int dockMonitorId: {
+        const id = Number(dockMonitor?.id ?? -1);
+        return Number.isFinite(id) ? id : -1;
+    }
+    readonly property var dockHyprMonitor: {
+        const name = `${dockMonitor?.name ?? resolvedScreen?.name ?? ""}`;
+        const list = HyprlandData.monitors;
+        for (let i = 0; i < list.length; i++) {
+            if (`${list[i]?.name ?? ""}` === name)
+                return list[i];
+        }
+        const mid = dock.dockMonitorId;
+        if (mid < 0)
+            return null;
+        for (let i = 0; i < list.length; i++) {
+            if (Number(list[i]?.id ?? -2) === mid)
+                return list[i];
+        }
+        return null;
+    }
+    readonly property bool specialWorkspaceVisibleOnMonitor: {
+        const spId = Number(dockHyprMonitor?.specialWorkspace?.id ?? 0);
+        return spId < 0;
+    }
+    readonly property int dockWorkspaceId: {
+        const mon = dockMonitor;
+        const id = Number(dockHyprMonitor?.activeWorkspace?.id ?? mon?.activeWorkspace?.id
+            ?? Hyprland.focusedWorkspace?.id ?? HyprlandData.activeWorkspace?.id ?? -1);
+        return Number.isFinite(id) ? id : -1;
+    }
+    readonly property bool currentWorkspaceEmpty: {
+        const id = dockWorkspaceId;
+        if (id < 1)
+            return false;
+        const windows = HyprlandData.windowsByWorkspace[id];
+        if (windows && windows.length > 0)
+            return false;
+        // Scratchpad toggled visible treat like a non-empty workspace for autohide.
+        if (dock.specialWorkspaceVisibleOnMonitor)
+            return false;
+        return true;
+    }
+    onCurrentWorkspaceEmptyChanged: syncWorkspaceOccupancy()
+    onDockWorkspaceIdChanged: {
+        occupancyHideTimer.stop();
+        occupancyHidePending = false;
+        previousWorkspaceEmpty = currentWorkspaceEmpty;
+        syncDockVisibility();
+    }
+    onInteractionBlockChanged: {
+        if (interactionBlock) {
+            if (occupancyHideTimer.running)
+                occupancyHideTimer.stop();
+        } else if (occupancyHidePending && !currentWorkspaceEmpty && !anyFullscreen) {
+            occupancyHideTimer.restart();
+        }
+        syncDockVisibility();
+    }
     onAnyFullscreenChanged: {
         if (anyFullscreen) {
+            occupancyHideTimer.stop();
+            occupancyHidePending = false;
+            dock.cancelRevealIntent();
+            dock.postRevealGrace = false;
+            postRevealGraceTimer.stop();
             hideTimer.stop();
             dockMouseXRaw = -9999;
             dockVisible = false;
@@ -88,24 +215,311 @@ PanelWindow {
     onDockHoveredChanged: syncDockVisibility()
 
     onDockVisibleChanged: {
-        if (!dockVisible)
+        if (!dockVisible) {
+            dock.postRevealGrace = false;
+            postRevealGraceTimer.stop();
             dock.dismissMagnify();
+        } else {
+            dock.cancelRevealIntent();
+            dock.refreshOpenFolders();
+        }
+    }
+
+    // ── Reveal intent (1px strip dwell + cursorpos verify) ────────────────
+    function revealMonitorGeom() {
+        // QScreen geometry is already transformed into logical coordinates.
+        const scr = dock.resolvedScreen;
+        if (scr) {
+            const x = Number(scr.x);
+            const y = Number(scr.y);
+            const w = Number(scr.width);
+            const h = Number(scr.height);
+            if ([x, y, w, h].every(Number.isFinite) && w > 0 && h > 0)
+                return { x: x, y: y, width: w, height: h };
+        }
+        const mon = dock.dockHyprMonitor;
+        if (mon) {
+            const x = Number(mon.x);
+            const y = Number(mon.y);
+            const w = Number(mon.width);
+            const h = Number(mon.height);
+            if ([x, y, w, h].every(Number.isFinite) && w > 0 && h > 0)
+                return { x: x, y: y, width: w, height: h };
+        }
+        return null;
+    }
+
+    function cursorAtDockActivationEdge(cx, cy) {
+        const g = dock.revealMonitorGeom();
+        if (!g)
+            return false;
+        const bottom = g.y + g.height - 1;
+        if (cy < bottom - dock.revealBottomSlopPx)
+            return false;
+        const dockW = dock.dockWidth;
+        const left = g.x + (g.width - dockW) / 2;
+        return cx >= left - 4 && cx <= left + dockW + 4;
+    }
+
+    function resetRevealSamples() {
+        dock.revealSampleHits = 0;
+        dock.revealSampleMisses = 0;
+        dock.revealSamplesDone = 0;
+        dock.revealDwellElapsed = false;
+        dock.revealSamplesComplete = false;
+        dock.revealVerifyComplete = false;
+        dock.revealHorizontalStable = false;
+        dock.revealSampleMinX = 0;
+        dock.revealSampleMaxX = 0;
+        dock.revealSampleXInit = false;
+    }
+
+    function cancelRevealIntent(allowRearm) {
+        if (allowRearm === undefined)
+            allowRearm = true;
+        if (!dock.revealIntentArmed && !revealDwellTimer.running
+                && !revealCursorProc.running && !revealVerifyProc.running
+                && !revealRearmTimer.running)
+            return;
+        const stillOnStrip = triggerZone.containsMouse;
+        dock.revealIntentArmed = false;
+        revealDwellTimer.stop();
+        if (revealCursorProc.running)
+            revealCursorProc.running = false;
+        if (revealVerifyProc.running)
+            revealVerifyProc.running = false;
+        dock.resetRevealSamples();
+        // Soft push / near-miss: at most one delayed re-arm (keeps push feel).
+        if (allowRearm && stillOnStrip && !dock.dockVisible && !dock.revealNeedsStripExit
+                && !dock.anyFullscreen && !dock.currentWorkspaceEmpty
+                && dock.revealRearmCount < dock.revealRearmMax)
+            revealRearmTimer.restart();
+        else
+            revealRearmTimer.stop();
+    }
+
+    function noteRevealSamplePoint(cx, cy) {
+        const ok = dock.cursorAtDockActivationEdge(cx, cy);
+        dock.revealSamplesDone++;
+        if (!ok) {
+            dock.revealSampleMisses++;
+            return false;
+        }
+        dock.revealSampleHits++;
+        if (!dock.revealSampleXInit) {
+            dock.revealSampleMinX = cx;
+            dock.revealSampleMaxX = cx;
+            dock.revealSampleXInit = true;
+        } else {
+            if (cx < dock.revealSampleMinX)
+                dock.revealSampleMinX = cx;
+            if (cx > dock.revealSampleMaxX)
+                dock.revealSampleMaxX = cx;
+        }
+        const span = dock.revealSampleMaxX - dock.revealSampleMinX;
+        dock.revealHorizontalStable = span <= dock.revealMaxHorizontalSpanPx;
+        return dock.revealHorizontalStable;
+    }
+
+    function armRevealIntent() {
+        if (dock.dockVisible || dock.revealIntentArmed || dock.anyFullscreen)
+            return;
+        if (dock.currentWorkspaceEmpty || dock.interactionBlock)
+            return;
+        if (dock.revealNeedsStripExit)
+            return;
+        if (!triggerZone.containsMouse)
+            return;
+        revealRearmTimer.stop();
+        dock.revealIntentArmed = true;
+        dock.resetRevealSamples();
+        revealDwellTimer.restart();
+        // One short burst (~4 samples over the dwell). Idle dock pays nothing.
+        if (revealCursorProc.running)
+            revealCursorProc.running = false;
+        Qt.callLater(() => {
+            if (!dock.revealIntentArmed)
+                return;
+            revealCursorProc.running = true;
+        });
+    }
+
+    function onRevealCursorBurst(text) {
+        if (!dock.revealIntentArmed)
+            return;
+        const raw = `${text ?? ""}`.trim();
+        if (!raw.length) {
+            dock.revealSampleMisses++;
+            dock.revealSamplesComplete = true;
+            dock.revealHorizontalStable = false;
+            dock.tryCommitRevealIntent();
+            return;
+        }
+        const chunks = raw.split(/\n+/).map(s => s.trim()).filter(s => s.length > 0);
+        let prevX = NaN;
+        for (let i = 0; i < chunks.length; i++) {
+            const m = chunks[i].match(/^(-?\d+)\s*,\s*(-?\d+)\s*$/);
+            if (!m) {
+                dock.revealSampleMisses++;
+                dock.revealSamplesDone++;
+                continue;
+            }
+            const cx = Number(m[1]);
+            const cy = Number(m[2]);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+                dock.revealSampleMisses++;
+                dock.revealSamplesDone++;
+                continue;
+            }
+            if (Number.isFinite(prevX) && Math.abs(cx - prevX) > dock.revealMaxHorizontalSpanPx) {
+                dock.revealSampleMisses++;
+                dock.revealSamplesDone++;
+                dock.revealHorizontalStable = false;
+                break;
+            }
+            if (!dock.noteRevealSamplePoint(cx, cy))
+                break;
+            prevX = cx;
+        }
+        dock.revealSamplesComplete = true;
+        if (dock.revealSampleMisses > 0 || !dock.revealHorizontalStable || !triggerZone.containsMouse) {
+            dock.cancelRevealIntent();
+            return;
+        }
+        dock.tryCommitRevealIntent();
+    }
+
+    function onRevealDwellElapsed() {
+        if (!dock.revealIntentArmed)
+            return;
+        dock.revealDwellElapsed = true;
+        // End-of-dwell verify catches U-sweeps that stayed still during the early burst.
+        if (revealVerifyProc.running)
+            revealVerifyProc.running = false;
+        Qt.callLater(() => {
+            if (!dock.revealIntentArmed || !dock.revealDwellElapsed)
+                return;
+            revealVerifyProc.running = true;
+        });
+    }
+
+    function onRevealVerifySample(text) {
+        if (!dock.revealIntentArmed)
+            return;
+        const line = `${text ?? ""}`.trim().split(/\n+/)[0] ?? "";
+        const m = line.match(/^(-?\d+)\s*,\s*(-?\d+)\s*$/);
+        if (!m || !dock.noteRevealSamplePoint(Number(m[1]), Number(m[2]))) {
+            dock.cancelRevealIntent();
+            return;
+        }
+        dock.revealVerifyComplete = true;
+        if (!triggerZone.containsMouse || !dock.revealHorizontalStable) {
+            dock.cancelRevealIntent();
+            return;
+        }
+        dock.tryCommitRevealIntent();
+    }
+
+    function tryCommitRevealIntent() {
+        if (!dock.revealIntentArmed)
+            return;
+        // Dwell + mid-burst samples + end-of-dwell verify must all agree.
+        if (!dock.revealDwellElapsed || !dock.revealSamplesComplete || !dock.revealVerifyComplete)
+            return;
+        const stripOk = triggerZone.containsMouse;
+        const samplesOk = dock.revealSampleMisses === 0
+            && dock.revealSampleHits >= Math.min(2, dock.revealSampleCount)
+            && dock.revealSamplesDone > 0
+            && dock.revealHorizontalStable;
+        if (!stripOk || !samplesOk) {
+            dock.cancelRevealIntent();
+            return;
+        }
+        if (dock.anyFullscreen) {
+            dock.cancelRevealIntent();
+            return;
+        }
+        dock.cancelRevealIntent(false);
+        hideTimer.stop();
+        dock.revealNeedsStripExit = false;
+        dock.revealRearmCount = 0;
+        dock.postRevealGrace = true;
+        postRevealGraceTimer.restart();
+        dock.dockVisible = true;
+        Qt.callLater(() => {
+            if (dockMagnifyPointer.hovered)
+                dockMagnifyPointer.updateMouseX();
+        });
     }
 
     function syncDockVisibility() {
         if (interactionBlock) {
+            dock.cancelRevealIntent();
+            dock.postRevealGrace = false;
+            postRevealGraceTimer.stop();
             hideTimer.stop();
             dockVisible = true;
             return;
         }
         if (anyFullscreen) {
+            occupancyHideTimer.stop();
+            occupancyHidePending = false;
+            dock.cancelRevealIntent();
+            dock.postRevealGrace = false;
+            postRevealGraceTimer.stop();
             hideTimer.stop();
             dockMouseXRaw = -9999;
             dockVisible = false;
             return;
         }
 
-        if (dockHovered) {
+        if (currentWorkspaceEmpty) {
+            occupancyHideTimer.stop();
+            occupancyHidePending = false;
+            dock.cancelRevealIntent();
+            dock.postRevealGrace = false;
+            postRevealGraceTimer.stop();
+            hideTimer.stop();
+            dockVisible = true;
+            if (!dockMagnifyPointer.hovered && !dockBodyHover.hovered)
+                dismissMagnify();
+            return;
+        }
+
+        // The first mapped window owns this short edge transition. Inherited
+        // hover from the launch click must not replace it with the normal hide delay.
+        if (occupancyHidePending) {
+            if (!occupancyHideTimer.running && !interactionBlock)
+                occupancyHideTimer.restart();
+            return;
+        }
+
+        if (!DockVisibilityPolicy.canRevealAfterForcedHide(
+                dock.revealNeedsStripExit, dock.dockHovered)) {
+            dock.cancelRevealIntent(false);
+            hideTimer.stop();
+            return;
+        }
+        if (dock.revealNeedsStripExit && !dock.dockHovered)
+            dock.revealNeedsStripExit = false;
+
+        // Already visible: hover or post-reveal grace keeps it up.
+        if (dockVisible) {
+            if (dockHovered || dock.postRevealGrace) {
+                hideTimer.stop();
+                Qt.callLater(() => {
+                    if (dockMagnifyPointer.hovered)
+                        dockMagnifyPointer.updateMouseX();
+                });
+                return;
+            }
+            hideTimer.restart();
+            return;
+        }
+
+        // Hidden: body hover is rare (slid away) but still an immediate show.
+        if (dockBodyHovered) {
+            dock.cancelRevealIntent();
             hideTimer.stop();
             dockVisible = true;
             Qt.callLater(() => {
@@ -115,21 +529,189 @@ PanelWindow {
             return;
         }
 
-        // Keep last mouse X while the dock is still visible — clearing it here
-        // caused a magnify feedback loop when scaled icons paint above the hover region.
-        if (dockVisible)
-            hideTimer.restart();
+        // Hidden + strip: arm intent only after a clean enter (not residual sit).
+        if (triggerZone.containsMouse) {
+            dock.armRevealIntent();
+        } else {
+            dock.revealNeedsStripExit = false;
+            dock.revealRearmCount = 0;
+            revealRearmTimer.stop();
+            dock.cancelRevealIntent(false);
+        }
+    }
+
+    function syncWorkspaceOccupancy() {
+        const action = DockVisibilityPolicy.occupancyTransition(
+            dock.previousWorkspaceEmpty,
+            dock.currentWorkspaceEmpty,
+            dock.interactionBlock
+        );
+        dock.occupancyHidePending = DockVisibilityPolicy.nextPending(
+            dock.occupancyHidePending, action);
+        dock.previousWorkspaceEmpty = dock.currentWorkspaceEmpty;
+        if (action === "cancel")
+            occupancyHideTimer.stop();
+        else if (action === "schedule")
+            occupancyHideTimer.restart();
+        dock.syncDockVisibility();
+    }
+
+    function commitOccupancyHide() {
+        if (!DockVisibilityPolicy.shouldCommitOccupancyHide(
+                dock.currentWorkspaceEmpty, dock.interactionBlock, dock.anyFullscreen)) {
+            if (dock.currentWorkspaceEmpty || dock.anyFullscreen)
+                dock.occupancyHidePending = false;
+            return;
+        }
+        dock.cancelRevealIntent(false);
+        dock.postRevealGrace = false;
+        postRevealGraceTimer.stop();
+        hideTimer.stop();
+        dock.revealNeedsStripExit = dock.dockHovered;
+        dock.revealRearmCount = 0;
+        dock.dockVisible = false;
+        dock.occupancyHidePending = false;
     }
 
     function iconSlotCenterX(index) {
         return index * (iconSize + iconSpacing) + iconSize / 2;
     }
 
+    function openFolderSlotCenterX(index) {
+        return rightClusterStartX + index * (iconSize + iconSpacing) + iconSize / 2;
+    }
+
+    function openFolderStructureSignature(list) {
+        let sig = "";
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i];
+            if (i > 0)
+                sig += "|";
+            sig += `${e.path ?? ""}`;
+            const addrs = e.addresses || (e.windows || []).map(w => `${w.address ?? ""}`);
+            sig += ":" + addrs.filter(a => a.length > 0).sort().join(",");
+        }
+        return sig;
+    }
+
+    function folderBarSignatureFor(list) {
+        let sig = "";
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i];
+            if (i > 0)
+                sig += "|";
+            sig += `${e.pinned ? 1 : 0}:${e.path ?? ""}`;
+            const addrs = e.addresses || [];
+            sig += ":" + addrs.filter(a => `${a}`.length > 0).join(",");
+        }
+        return sig;
+    }
+
+    function folderPathKey(path) {
+        return `${path ?? ""}`.trim().toLowerCase();
+    }
+
+    function dynamicEntryForPath(path) {
+        const key = dock.folderPathKey(path);
+        if (!key.length)
+            return null;
+        const list = dock.dynamicFolderEntries || [];
+        for (let i = 0; i < list.length; i++) {
+            if (dock.folderPathKey(list[i].path) === key)
+                return list[i];
+        }
+        return null;
+    }
+
+    function rebuildFolderBar() {
+        const pinned = DockStore.foldersLoaded ? DockStore.pinnedFolders : [];
+        const dynamic = dock.dynamicFolderEntries || [];
+        const seen = {};
+        const result = [];
+
+        for (let p = 0; p < pinned.length; p++) {
+            const pin = pinned[p];
+            const path = `${pin.path ?? ""}`.trim();
+            const key = dock.folderPathKey(path);
+            if (!key.length || seen[key])
+                continue;
+            seen[key] = true;
+            const live = dock.dynamicEntryForPath(path);
+            result.push({
+                path: path,
+                label: `${pin.label ?? ""}`.trim() || dock.pathLabel(path),
+                pinned: true,
+                addresses: live?.addresses ?? []
+            });
+        }
+
+        for (let d = 0; d < dynamic.length; d++) {
+            const entry = dynamic[d];
+            const path = `${entry.path ?? ""}`.trim();
+            const key = dock.folderPathKey(path);
+            if (!key.length || seen[key])
+                continue;
+            seen[key] = true;
+            result.push({
+                path: path,
+                label: `${entry.label ?? ""}`.trim() || dock.pathLabel(path),
+                pinned: false,
+                addresses: entry.addresses ?? []
+            });
+        }
+
+        const sig = dock.folderBarSignatureFor(result);
+        if (sig === dock.folderBarSignature && dock.openFolderEntries.length === result.length) {
+            for (let i = 0; i < result.length; i++) {
+                const cur = dock.openFolderEntries[i];
+                const next = result[i];
+                cur.addresses = next.addresses;
+                cur.pinned = next.pinned;
+            }
+            return;
+        }
+
+        dock.folderBarSignature = sig;
+        dock.openFolderEntries = result;
+    }
+
+    function applyDynamicFolderEntries(parsed) {
+        const list = Array.isArray(parsed) ? parsed : [];
+        const sig = dock.openFolderStructureSignature(list);
+        if (sig === dock.dynamicFolderEntriesSignature && dock.dynamicFolderEntries.length === list.length) {
+            for (let i = 0; i < list.length; i++) {
+                const cur = dock.dynamicFolderEntries[i];
+                const next = list[i];
+                cur.addresses = next.addresses;
+            }
+            dock.rebuildFolderBar();
+            return;
+        }
+        dock.dynamicFolderEntriesSignature = sig;
+        dock.dynamicFolderEntries = list;
+        dock.rebuildFolderBar();
+    }
+
+    function windowForAddress(address) {
+        const needle = HyprDispatch.normalizeAddress(address);
+        if (!needle.length)
+            return null;
+        const byAddr = HyprlandData.windowByAddress ?? {};
+        const raw = `${address ?? ""}`.trim();
+        if (raw.length && byAddr[raw])
+            return byAddr[raw];
+        if (byAddr[needle])
+            return byAddr[needle];
+        const keys = Object.keys(byAddr);
+        for (let i = 0; i < keys.length; i++) {
+            if (HyprDispatch.normalizeAddress(keys[i]) === needle)
+                return byAddr[keys[i]];
+        }
+        return null;
+    }
+
     function stripDesktopExecField(s) {
-        const t = `${s ?? ""}`.trim();
-        if (!t)
-            return "";
-        return t.replace(/%[A-Za-z]/g, "").trim();
+        return HyprlandData.stripDesktopExecField(s);
     }
 
     function shellQuote(s) {
@@ -204,11 +786,12 @@ PanelWindow {
     readonly property var runningWindows: HyprlandData.windowList
     property var mergedApps: []
     property string mergedAppsSignature: ""
-    property bool windowPickerOpen: false
-    property string windowPickerGroupKey: ""
-    property Item windowPickerAnchor: null
 
-    onRunningWindowsChanged: rebuildMergedApps()
+    onRunningWindowsChanged: {
+        rebuildMergedApps();
+        syncDockVisibility();
+        openDirsRefreshDebounce.restart();
+    }
     onEffectivePinnedAppsChanged: rebuildMergedApps()
 
     function mergedAppsSignatureFor(list) {
@@ -217,7 +800,7 @@ PanelWindow {
             const e = list[i];
             if (i > 0)
                 sig += "|";
-            const key = `${e.groupKey || dock.classKey(e.class)}`.trim();
+            const key = `${e.groupKey || e.identityKey || dock.classKey(e.class)}`.trim();
             sig += `${key}:${e.isPinned ? 1 : 0}:${e.isRunning ? 1 : 0}:${e.windowCount ?? 0}`;
         }
         return sig;
@@ -262,6 +845,7 @@ PanelWindow {
     function dockEntryForWindow(app, win, isPinned) {
         const groupKey = HyprlandData.appGroupKey(win);
         const windowCount = HyprlandData.windowsForGroupKey(groupKey).length;
+        const identity = HyprlandData.identityForWindow(win);
         return {
             class: win.class || win.initialClass || app.class,
             exec: app.exec,
@@ -271,13 +855,18 @@ PanelWindow {
             groupKey: groupKey,
             windowCount: windowCount,
             groupLabel: HyprlandData.groupDisplayName(groupKey),
+            identity: identity,
+            identityKey: AppIdentity.canonicalKey(identity),
+            label: AppIdentity.displayLabel(identity),
             isPinned: isPinned
         };
     }
 
     function pinnedEntriesForApp(app, windows) {
+        const identityKey = AppIdentity.pinKey(app);
+        const matchingWindows = HyprlandData.windowsForIdentity(app);
         if (!HyprlandData.isTerminalClass(app.class)) {
-            const win = dock.findWindowForClass(app.class, windows);
+            const win = matchingWindows.length > 0 ? matchingWindows[0] : null;
             const groupKey = win ? HyprlandData.appGroupKey(win) : "";
             return [{
                 class: app.class,
@@ -288,15 +877,16 @@ PanelWindow {
                 groupKey: groupKey,
                 windowCount: groupKey ? HyprlandData.windowsForGroupKey(groupKey).length : 0,
                 groupLabel: HyprlandData.groupDisplayName(groupKey),
+                identity: app,
+                identityKey: identityKey,
+                label: AppIdentity.displayLabel(app),
                 isPinned: true
             }];
         }
 
         const byGroup = {};
-        for (let i = 0; i < windows.length; i++) {
-            const w = windows[i];
-            if (dock.windowMatchScore(w, app.class) <= 0)
-                continue;
+        for (let i = 0; i < matchingWindows.length; i++) {
+            const w = matchingWindows[i];
             const gk = HyprlandData.appGroupKey(w);
             const existing = byGroup[gk];
             if (!existing || (w.focusHistoryID ?? 9999) < (existing.focusHistoryID ?? 9999))
@@ -314,6 +904,9 @@ PanelWindow {
                 groupKey: "",
                 windowCount: 0,
                 groupLabel: "",
+                identity: app,
+                identityKey: identityKey,
+                label: AppIdentity.displayLabel(app),
                 isPinned: true
             }];
         }
@@ -335,10 +928,7 @@ PanelWindow {
         return false;
     }
 
-    function activateDockEntry(appData) {
-        if (dock.windowPickerOpen)
-            dock.closeWindowPicker();
-
+    function activateDockEntry(appData, instanceIndex) {
         dock.dismissMagnify();
         if (!appData?.isRunning) {
             dock.launchApp(appData);
@@ -346,38 +936,20 @@ PanelWindow {
         }
 
         const groupKey = `${appData.groupKey ?? ""}`.trim();
-        if (groupKey.length)
+        if (groupKey.length) {
+            const wins = HyprlandData.windowsForGroupKey(groupKey);
+            if (wins.length > 1 && instanceIndex !== undefined && instanceIndex >= 0) {
+                const idx = Math.max(0, Math.min(instanceIndex, wins.length - 1));
+                HyprDispatch.focusWindow(wins[idx]);
+                return;
+            }
             HyprDispatch.focusGroupMru(groupKey);
-        else if (appData.window)
+            return;
+        }
+        if (appData.window)
             HyprDispatch.focusWindow(appData.window);
         else
-            HyprDispatch.focusWindowByClass(appData.class);
-    }
-
-    function openWindowPicker(groupKey, anchorItem) {
-        const gk = `${groupKey ?? ""}`.trim();
-        if (!gk.length || HyprlandData.windowsForGroupKey(gk).length <= 1)
-            return;
-
-        dock.cancelExposeAutoClose();
-        dock.windowPickerAnchor = anchorItem;
-        dock.windowPickerGroupKey = gk;
-        dock.windowPickerOpen = true;
-        dock.positionWindowPicker();
-        Qt.callLater(() => {
-            if (dock.windowPickerOpen)
-                dock.positionWindowPicker();
-        });
-        dock.syncDockVisibility();
-    }
-
-    function closeWindowPicker() {
-        dock.cancelExposeAutoClose();
-        dock.windowPickerOpen = false;
-        dock.windowPickerGroupKey = "";
-        dock.windowPickerAnchor = null;
-        dock.exposeOverflowPx = 0;
-        dock.syncDockVisibility();
+            HyprDispatch.activateIdentity(appData.identity, { app: appData });
     }
 
     function rebuildMergedApps() {
@@ -396,10 +968,6 @@ PanelWindow {
             const entry = runningApps[i];
             if (dock.isGroupCovered(result, entry.groupKey))
                 continue;
-            if (pinnedApps.some(app =>
-                !HyprlandData.isTerminalClass(app.class)
-                && dock.windowMatchScore(entry.window, app.class) > 0))
-                continue;
             result.push({
                 class: entry.class,
                 exec: entry.exec,
@@ -409,6 +977,9 @@ PanelWindow {
                 groupKey: entry.groupKey || HyprlandData.appGroupKey(entry.window),
                 windowCount: entry.windowCount ?? 1,
                 groupLabel: HyprlandData.groupDisplayName(entry.groupKey),
+                identity: entry.identity,
+                identityKey: entry.identityKey,
+                label: entry.label,
                 isPinned: false
             });
         }
@@ -425,13 +996,13 @@ PanelWindow {
                 cur.groupKey = next.groupKey;
                 cur.windowCount = next.windowCount;
                 cur.groupLabel = next.groupLabel;
+                cur.identity = next.identity;
+                cur.identityKey = next.identityKey;
+                cur.label = next.label;
             }
             dock.syncDragIndicesAfterRebuild();
             return;
         }
-
-        if (dock.windowPickerOpen)
-            dock.closeWindowPicker();
 
         dock.mergedAppsSignature = sig;
         dock.mergedApps = result;
@@ -610,6 +1181,8 @@ PanelWindow {
         const srcEntry = list[src];
         return {
             srcClass: srcEntry.class,
+            srcIdentity: srcEntry.identity,
+            srcIdentityKey: srcEntry.identityKey,
             srcPinned: !!srcEntry.isPinned,
             dst: Math.min(dst, Math.max(0, list.length - 1)),
             exec: dock.execForPinnedApp(srcEntry),
@@ -627,7 +1200,7 @@ PanelWindow {
 
         if (snapshot.srcPinned) {
             const srcIdx = DockStore.pinnedApps.findIndex(
-                a => dock.classKey(a.class) === dock.classKey(snapshot.srcClass));
+                a => AppIdentity.pinKey(a) === snapshot.srcIdentityKey);
             if (srcIdx < 0)
                 return;
             if (dstClamped < pinnedCount) {
@@ -639,11 +1212,12 @@ PanelWindow {
             }
         } else {
             const insertAt = Math.min(dstClamped, pinnedCount);
-            DockStore.pinEntry({
+            const pin = Object.assign({}, snapshot.srcIdentity || {}, {
                 class: snapshot.srcClass,
                 exec: snapshot.exec,
                 icon: snapshot.icon
-            }, insertAt);
+            });
+            DockStore.pinEntry(pin, insertAt);
         }
     }
 
@@ -682,25 +1256,130 @@ PanelWindow {
         dock.endDragSession();
     }
 
-    function togglePinAtIndex(visualIndex) {
+    function togglePinAtIndex(visualIndex, instanceIndex) {
         const list = dock.mergedApps;
         if (visualIndex < 0 || visualIndex >= list.length)
             return;
         const e = list[visualIndex];
         if (e.isPinned)
-            DockStore.unpinClass(e.class);
-        else
-            DockStore.pinEntry({
+            DockStore.unpinIdentity(e.identityKey || AppIdentity.pinKey(e.identity));
+        else {
+            const groupWindows = `${e.groupKey ?? ""}`.length
+                ? HyprlandData.windowsForGroupKey(e.groupKey) : [];
+            const idx = Math.max(0, Math.min(instanceIndex ?? 0, groupWindows.length - 1));
+            const selectedWindow = groupWindows.length > 0 ? groupWindows[idx] : e.window;
+            const identity = selectedWindow
+                ? HyprlandData.identityForWindow(selectedWindow)
+                : (e.identity || HyprlandData.primaryIdentityForApp(e));
+            const pin = Object.assign({}, identity, {
                 class: e.class,
                 exec: dock.execForPinnedApp(e),
                 icon: dock.iconForApp(e)
-            }, DockStore.pinnedApps.length);
+            });
+            DockStore.pinEntry(pin, DockStore.pinnedApps.length);
+        }
+    }
+
+    function openPath(path) {
+        const p = `${path ?? ""}`.trim();
+        if (!p)
+            return;
+        dock.launch(["xdg-open", p]);
+    }
+
+    function focusOpenFolderAt(index) {
+        dock.dismissMagnify();
+        if (index < 0 || index >= dock.openFolderEntries.length)
+            return;
+
+        const entry = dock.openFolderEntries[index];
+        const addrs = entry?.addresses;
+        if (Array.isArray(addrs) && addrs.length > 0) {
+            for (let i = 0; i < addrs.length; i++) {
+                const live = dock.windowForAddress(addrs[i]);
+                if (live) {
+                    HyprDispatch.focusWindow(live);
+                    return;
+                }
+            }
+            const addr = `${addrs[0] ?? ""}`.trim();
+            if (addr.length > 0) {
+                HyprDispatch.focusWindowAddress(addr);
+                return;
+            }
+        }
+
+        dock.openPath(entry?.path);
+    }
+
+    function toggleFolderPinAt(index) {
+        if (index < 0 || index >= dock.openFolderEntries.length)
+            return;
+        const entry = dock.openFolderEntries[index];
+        const path = `${entry?.path ?? ""}`.trim();
+        if (!path.length)
+            return;
+        if (entry.pinned)
+            DockStore.unpinFolder(path);
+        else
+            DockStore.pinFolder(path);
+    }
+
+    function pathLabel(path) {
+        const t = `${path ?? ""}`.trim();
+        if (!t.length)
+            return "";
+        const slash = t.lastIndexOf("/");
+        return slash >= 0 ? t.slice(slash + 1) : t;
+    }
+
+    function openAppLibrary() {
+        dock.dismissMagnify();
+        AppLibrary.AppLibraryService.open();
+    }
+
+    function refreshOpenFolders() {
+        openDirsProc.running = false;
+        openDirsProc.running = true;
+    }
+
+    readonly property string folderImageSource: dock.folderIconSource()
+
+    function folderIconSource() {
+        const cached = `${dock.folderIconPath ?? ""}`.trim();
+        if (cached.length > 0)
+            return dock.fileUrl(cached);
+        const themed = Quickshell.iconPath("folder", "");
+        return themed && `${themed}`.length > 0 ? themed : "";
+    }
+
+    function fileUrl(path) {
+        const p = `${path ?? ""}`.trim();
+        if (!p)
+            return "";
+        if (p.startsWith("file://"))
+            return p;
+        if (p.startsWith("/"))
+            return "file://" + p;
+        return p;
     }
 
     // ── Dimensions ────────────────────────────────────────────────────────
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
-    readonly property int dockWidth: (mergedApps.length + 2) * (iconSize + iconSpacing) - iconSpacing + paddingH * 2
-    readonly property int visibleDockHeight: dockVisible ? dockFullHeight + exposeOverflowPx : activationHeight
+    // Extra window height above the pill for magnify + instance labels
+    readonly property int visualOverflowPx: Math.ceil(iconSize * (maxScale - 1)) + 44
+    // Pill + magnify lift only excludes the instance-label band above icons.
+    readonly property int magnifyHoverHeight: pillHeight + Math.ceil(iconSize * (maxScale - 1))
+    // Nudge the hit band a few px below the peak magnify tip so the label
+    // band / near-miss cursor above icons doesn't keep the dock "hot".
+    readonly property int interactTrimPx: 10
+    readonly property int magnifyInteractHeight: Math.max(pillHeight, magnifyHoverHeight - interactTrimPx)
+    // Bottom activation strip + dock body hover up to (trimmed) magnify top.
+    readonly property int interactBandHeight: activationHeight + bottomGap + magnifyInteractHeight
+    readonly property real dockWidth: fitMetrics.dockWidth
+    readonly property int visibleDockHeight: dockVisible
+        ? dockFullHeight + activationHeight + visualOverflowPx
+        : activationHeight
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -713,18 +1392,26 @@ PanelWindow {
     WlrLayershell.namespace: "quickshell:dock"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     color: "transparent"
+    // Window stays tall for tooltip paint; only this band accepts input.
+    // Label overflow above magnified icons stays click-through.
+    mask: Region {
+        item: dockInteractZone
+    }
 
-    HoverHandler {
-        id: dockPanelPointer
-
-        onHoveredChanged: {
-            dock.syncDockVisibility();
-            if (dock.windowPickerOpen && !hovered)
-                dock.scheduleExposeAutoClose();
+    // Hover / input footprint ends at the (trimmed) magnify tip — not the
+    // visual-overflow band used for hover labels above icons.
+    Item {
+        id: dockInteractZone
+        anchors {
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
         }
-        onPointChanged: {
-            if (dock.windowPickerOpen)
-                dock.syncExposeDismissState();
+        width: dock.dockWidth
+        height: dock.interactBandHeight
+
+        HoverHandler {
+            id: dockInteractPointer
+            onHoveredChanged: dock.syncDockVisibility()
         }
     }
 
@@ -748,12 +1435,23 @@ PanelWindow {
     }
 
     function launchApp(app) {
-        const cls = HyprlandData.normalizeDockClass(app?.class ?? "");
-        if (!AppLibrary.AppLibraryService.launchByClass(cls, dock.execForPinnedApp(app)))
-            console.warn("dock: no launch command for", app?.class ?? "<unknown>");
+        const identity = Object.assign({}, app?.identity || HyprlandData.primaryIdentityForApp(app), {
+            exec: app?.identity?.exec || dock.execForPinnedApp(app),
+            icon: app?.identity?.icon || dock.iconForApp(app)
+        });
+        HyprDispatch.activateIdentity(identity, { app: app });
     }
 
-    Component.onCompleted: rebuildMergedApps()
+    Component.onCompleted: {
+        previousWorkspaceEmpty = currentWorkspaceEmpty;
+        rebuildMergedApps();
+        syncDockVisibility();
+        refreshOpenFolders();
+        folderIconProc.running = true;
+        rebuildFolderBar();
+    }
+
+    Component.onDestruction: occupancyHideTimer.stop()
 
     // Overview's full-screen Overlay can steal the mouse release during a dock drag.
     Connections {
@@ -768,22 +1466,40 @@ PanelWindow {
         }
     }
 
-    // ── Dock body ──────────────────────────────────────────────────────────
+    // ── Dock body (fixed to screen bottom; overflow grows above, not under) ─
     Item {
-        id: dockBody
-        width: dock.dockWidth
-        height: dock.dockBodyHeight
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: dock.bottomGap
+        id: dockChrome
+        anchors {
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
+        }
+        anchors.bottomMargin: dock.activationHeight
+        width: parent.width
+        height: dock.dockFullHeight + dock.visualOverflowPx
         clip: false
+
+        Item {
+            id: dockFoot
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: dock.dockFullHeight
+            clip: false
+
+        Item {
+            id: dockBody
+            width: dock.dockWidth
+            height: dock.dockBodyHeight
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: dock.bottomGap
+            clip: false
 
         transform: Translate {
             id: dockBodySlide
             y: dock.dockVisible ? 0 : dock.dockFullHeight
             Behavior on y {
                 NumberAnimation {
-                    duration: Perf.msHalf(220)
+                    duration: dock.dockVisible ? Perf.ms(dock.showAnimMs) : Perf.ms(dock.hideAnimMs)
                     easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
                 }
             }
@@ -807,60 +1523,19 @@ PanelWindow {
             }
             spacing: dock.iconSpacing
 
-            // Search button — always leftmost, never displaced by app list
-            Item {
-                id: searchBtn
-                width: dock.iconSize
-                height: dock.iconSize * dock.maxScale + 6
-
-                readonly property real btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
-                readonly property real targetScale: {
-                    if (dock.dockMouseXEffective < -1000)
-                        return 1.0;
-                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
-                    const sigma = dock.iconSize * dock.spread;
-                    return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
-                }
-                property real currentScale: 1.0
-                Timer {
-                    interval: dock.frameMs
-                    running: dock.animationActive
-                    repeat: true
-                    onTriggered: {
-                        const delta = searchBtn.targetScale - searchBtn.currentScale;
-                        if (Math.abs(delta) < 0.005) {
-                            searchBtn.currentScale = searchBtn.targetScale;
-                            return;
-                        }
-                        const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        searchBtn.currentScale += delta * lerp;
-                    }
-                }
-
-                Text {
-                    width: dock.iconSize
-                    height: dock.iconSize
-                    anchors {
-                        bottom: parent.bottom
-                        bottomMargin: 6
-                        horizontalCenter: parent.horizontalCenter
-                    }
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    text: "󰍉"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: Math.round(dock.iconSize * 0.72)
-                    color: Theme.on_surface
-                    scale: searchBtn.currentScale
-                    transformOrigin: Item.Bottom
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        dock.dismissMagnify();
-                        dock.launch(["quickshell", "ipc", "call", "spotlight", "toggle"]);
-                    }
+            DockDockButton {
+                iconSize: dock.iconSize
+                maxScale: dock.maxScale
+                spread: dock.spread
+                frameMs: dock.frameMs
+                dockMouseX: dock.dockMouseXEffective
+                btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
+                animationActive: dock.animationActive
+                glyph: "󰍉"
+                hoverLabel: "Search"
+                onClicked: {
+                    dock.dismissMagnify();
+                    SpotlightService.toggle();
                 }
             }
 
@@ -893,20 +1568,8 @@ PanelWindow {
                                     === dock.dragSourceGroupKey.toLowerCase()
                                 : dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass))
                         dragShiftTargetX: dock.dragShiftTargetForIndex(index)
-                        onClicked: dock.activateDockEntry(modelData)
-                        onExposeRequested: {
-                            if (`${modelData.groupKey ?? ""}`.length)
-                                dock.openWindowPicker(modelData.groupKey, dockIconRoot);
-                        }
-                        onContextMenuRequested: {
-                            if (modelData.isRunning
-                                && (modelData.windowCount ?? 1) > 1
-                                && `${modelData.groupKey ?? ""}`.length) {
-                                dock.openWindowPicker(modelData.groupKey, dockIconRoot);
-                            } else {
-                                dock.togglePinAtIndex(index);
-                            }
-                        }
+                        onClicked: dock.activateDockEntry(modelData, dockIconRoot.instanceIndex)
+                        onContextMenuRequested: instanceIndex => dock.togglePinAtIndex(index, instanceIndex)
                         onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
                         onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
                         onDragReorderEnded: dock.finalizeIconDrag()
@@ -915,61 +1578,50 @@ PanelWindow {
                 }
             }
 
-            // Apps launcher button — always rightmost
-            Item {
-                id: appsBtn
-                width: dock.iconSize
-                height: dock.iconSize * dock.maxScale + 6
+            DockDivider { iconSize: dock.iconSize; maxScale: dock.maxScale }
 
-                readonly property real btnCenterX: iconsRow.width + dock.iconSpacing + dock.iconSize / 2
-                readonly property real targetScale: {
-                    if (dock.dockMouseXEffective < -1000)
-                        return 1.0;
-                    const d = Math.abs(dock.dockMouseXEffective - btnCenterX);
-                    const sigma = dock.iconSize * dock.spread;
-                    return 1.0 + (dock.maxScale - 1.0) * Math.exp(-0.5 * (d / sigma) * (d / sigma));
-                }
-                property real currentScale: 1.0
-                Timer {
-                    interval: dock.frameMs
-                    running: dock.animationActive
-                    repeat: true
-                    onTriggered: {
-                        const delta = appsBtn.targetScale - appsBtn.currentScale;
-                        if (Math.abs(delta) < 0.005) {
-                            appsBtn.currentScale = appsBtn.targetScale;
-                            return;
-                        }
-                        const lerp = 1.0 - Math.exp(-12.0 * dock.frameMs / 1000.0);
-                        appsBtn.currentScale += delta * lerp;
+            Row {
+                id: openFoldersRow
+                spacing: dock.iconSpacing
+                visible: dock.hasOpenFolders
+
+                Repeater {
+                    model: dock.openFolderEntries
+                    DockDockButton {
+                        required property var modelData
+                        required property int index
+                        iconSize: dock.iconSize
+                        maxScale: dock.maxScale
+                        spread: dock.spread
+                        frameMs: dock.frameMs
+                        dockMouseX: dock.dockMouseXEffective
+                        btnCenterX: dock.openFolderSlotCenterX(index)
+                        animationActive: dock.animationActive
+                        imageSource: dock.folderImageSource
+                        hoverLabel: dock.pathLabel(modelData.path)
+                        onClicked: dock.focusOpenFolderAt(index)
+                        onRightClicked: dock.toggleFolderPinAt(index)
                     }
                 }
+            }
 
-                Text {
-                    width: dock.iconSize
-                    height: dock.iconSize
-                    anchors {
-                        bottom: parent.bottom
-                        bottomMargin: 6
-                        horizontalCenter: parent.horizontalCenter
-                    }
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    text: "󰀻"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: Math.round(dock.iconSize * 0.72)
-                    color: Theme.on_surface
-                    scale: appsBtn.currentScale
-                    transformOrigin: Item.Bottom
-                }
+            DockDivider {
+                iconSize: dock.iconSize
+                maxScale: dock.maxScale
+                visible: dock.hasOpenFolders
+            }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        dock.dismissMagnify();
-                        dock.launch(["qs", "ipc", "call", "applibrary", "open"]);
-                    }
-                }
+            DockDockButton {
+                iconSize: dock.iconSize
+                maxScale: dock.maxScale
+                spread: dock.spread
+                frameMs: dock.frameMs
+                dockMouseX: dock.dockMouseXEffective
+                btnCenterX: dock.appBrowserCenterX
+                animationActive: dock.animationActive
+                glyph: "󰀻"
+                hoverLabel: "Apps"
+                onClicked: dock.openAppLibrary()
             }
         }
 
@@ -1045,7 +1697,7 @@ PanelWindow {
             }
         }
 
-        // Taller than the pill so hover stays active over magnified icon pixels.
+        // Covers magnified icon pixels only (trimmed), not the label overflow band above.
         Item {
             id: dockMagnifyHover
             anchors {
@@ -1053,14 +1705,14 @@ PanelWindow {
                 bottom: parent.bottom
             }
             width: parent.width
-            height: dock.dockBodyHeight + dock.iconSize * (dock.maxScale - 1)
+            height: dock.magnifyInteractHeight
 
             HoverHandler {
                 id: dockMagnifyPointer
 
                 function updateMouseX() {
                     dock.dockMouseXRaw = iconsRow.mapFromGlobal(
-                        dockBody.mapToGlobal(point.position.x, point.position.y).x,
+                        dockMagnifyHover.mapToGlobal(point.position.x, point.position.y).x,
                         0
                     ).x;
                 }
@@ -1069,12 +1721,12 @@ PanelWindow {
                     dock.syncDockVisibility();
                     if (hovered)
                         updateMouseX();
+                    else if (dock.currentWorkspaceEmpty && !dockBodyHover.hovered)
+                        dock.dismissMagnify();
                 }
                 onPointChanged: {
-                    if (hovered || dock.dockVisible)
+                    if (hovered)
                         updateMouseX();
-                    if (dock.windowPickerOpen)
-                        dock.syncExposeDismissState();
                 }
             }
         }
@@ -1089,201 +1741,21 @@ PanelWindow {
                     0
                 ).x;
             }
-            onHoveredChanged: dock.syncDockVisibility()
+            onHoveredChanged: {
+                dock.syncDockVisibility();
+                if (!hovered && dock.currentWorkspaceEmpty && !dockMagnifyPointer.hovered)
+                    dock.dismissMagnify();
+            }
             onPointChanged: {
                 if (hovered)
-                    dockMagnifyPointer.updateMouseX();
+                    updateMouseX();
             }
         }
 
-    }
-
-    Item {
-        id: exposeHoverPad
-
-        visible: dock.windowPickerOpen
-        z: 500
-
-        HoverHandler {
-            id: exposePadPointer
-
-            onHoveredChanged: {
-                if (hovered) {
-                    dock.cancelExposeAutoClose();
-                } else if (dock.windowPickerOpen) {
-                    dock.scheduleExposeAutoClose();
-                }
-            }
         }
 
-        WindowGroupMenu {
-            id: dockWindowPicker
-
-            anchors.top: parent.top
-            anchors.topMargin: 6
-            anchors.horizontalCenter: parent.horizontalCenter
-            open: dock.windowPickerOpen
-            groupKey: dock.windowPickerGroupKey
-            maxMenuWidth: Math.min(520, Math.max(280, dock.width - 16))
-
-            onOpenChanged: {
-                if (open)
-                    dock.positionWindowPicker();
-                else
-                    dock.exposeOverflowPx = 0;
-                dock.syncDockVisibility();
-            }
-
-            onWidthChanged: {
-                if (dock.windowPickerOpen)
-                    dock.positionWindowPicker();
-            }
-
-            onHeightChanged: {
-                if (dock.windowPickerOpen)
-                    dock.positionWindowPicker();
-            }
-
-            onWindowChosen: win => {
-                HyprDispatch.focusWindow(win);
-                dock.closeWindowPicker();
-            }
-
-            onDismissed: dock.closeWindowPicker()
-
-            onPointerInsideChanged: {
-                if (dockWindowPicker.pointerInside) {
-                    dock.cancelExposeAutoClose();
-                } else if (dock.windowPickerOpen) {
-                    dock.scheduleExposeAutoClose();
-                }
-            }
-        }
-    }
-
-    function pointerInExposeZone() {
-        if (!dock.windowPickerOpen || !dockWindowPicker.open)
-            return false;
-
-        return exposePadPointer.hovered || dockWindowPicker.pointerInside;
-    }
-
-    function pointerOnWindowPickerSource() {
-        if (!dock.windowPickerOpen || !dock.windowPickerAnchor)
-            return false;
-
-        let local = null;
-        if (dockMagnifyPointer.hovered) {
-            const p = dockMagnifyPointer.point.position;
-            local = dock.windowPickerAnchor.mapFromItem(dockMagnifyHover, p.x, p.y);
-        } else if (dockBodyHover.hovered) {
-            const p = dockBodyHover.point.position;
-            local = dock.windowPickerAnchor.mapFromItem(dockBody, p.x, p.y);
         }
 
-        if (!local)
-            return false;
-
-        return local.x >= 0
-            && local.y >= 0
-            && local.x <= dock.windowPickerAnchor.width
-            && local.y <= dock.windowPickerAnchor.height;
-    }
-
-    function shouldKeepWindowPickerOpen() {
-        if (dock.pointerOnWindowPickerSource())
-            return true;
-
-        // Dock hover is the most reliable signal when moving from exposé down
-        // to another icon. Treat any non-source dock hover as leaving exposé,
-        // even if the exposé HoverHandler is stale.
-        if (dockMagnifyPointer.hovered || dockBodyHover.hovered)
-            return false;
-
-        return dock.pointerInExposeZone();
-    }
-
-    function syncExposeDismissState() {
-        if (!dock.windowPickerOpen)
-            return;
-
-        if (dock.shouldKeepWindowPickerOpen()) {
-            dock.cancelExposeAutoClose();
-            return;
-        }
-
-        dock.scheduleExposeAutoClose();
-    }
-
-    function scheduleExposeAutoClose() {
-        if (!dock.windowPickerOpen)
-            return;
-        if (exposeCloseTimer.running)
-            return;
-        exposeCloseTimer.restart();
-    }
-
-    function cancelExposeAutoClose() {
-        exposeCloseTimer.stop();
-    }
-
-    function positionWindowPicker() {
-        if (!dock.windowPickerAnchor || !dock.windowPickerOpen)
-            return;
-
-        const gk = `${dock.windowPickerGroupKey ?? ""}`.trim();
-        const wins = HyprlandData.windowsForGroupKey(gk);
-        if (wins.length === 0)
-            return;
-
-        const menuW = Math.max(dockWindowPicker.width, 200);
-        const menuH = Math.max(dockWindowPicker.height, wins.length * 38 + 16);
-
-        const iconInBody = dock.windowPickerAnchor.mapToItem(dockBody, 0, 0);
-        const iconCX = dockBody.x + iconInBody.x + dock.windowPickerAnchor.width / 2;
-        const padW = menuW + 16;
-        const padH = menuH + 12;
-        const requiredOverflow = Math.max(0, Math.round(padH + 8 - iconInBody.y)) + 8;
-        // dockBody is bottom-anchored with bottomGap; when exposeOverflowPx grows,
-        // dockBody.y equals requiredOverflow — use that predicted Y, not dockBody.y.
-        const finalDockBodyY = requiredOverflow;
-
-        if (dock.exposeOverflowPx !== requiredOverflow) {
-            dock.exposeOverflowPx = requiredOverflow;
-            Qt.callLater(() => {
-                if (dock.windowPickerOpen)
-                    dock.positionWindowPicker();
-            });
-        }
-
-        exposeHoverPad.width = Math.round(padW);
-        exposeHoverPad.height = Math.round(padH);
-        exposeHoverPad.x = Math.round(Math.max(8, Math.min(
-            iconCX - padW / 2,
-            dock.width - padW - 8
-        )));
-        exposeHoverPad.y = Math.round(finalDockBodyY + iconInBody.y - padH - 8);
-    }
-
-    Timer {
-        id: exposeCloseTimer
-        interval: 40
-        repeat: false
-        onTriggered: {
-            if (!dock.windowPickerOpen)
-                return;
-            if (dock.shouldKeepWindowPickerOpen())
-                return;
-            dock.closeWindowPicker();
-        }
-    }
-
-    Timer {
-        id: exposePointerPoll
-        interval: 32
-        repeat: true
-        running: dock.windowPickerOpen
-        onTriggered: dock.syncExposeDismissState()
     }
 
     Timer {
@@ -1306,6 +1778,13 @@ PanelWindow {
         }
     }
 
+    Timer {
+        id: occupancyHideTimer
+        interval: dock.occupancyHideDelayMs
+        repeat: false
+        onTriggered: dock.commitOccupancyHide()
+    }
+
     // ── Autohide trigger strip ─────────────────────────────────────────────
     MouseArea {
         id: triggerZone
@@ -1319,17 +1798,133 @@ PanelWindow {
         onContainsMouseChanged: dock.syncDockVisibility()
     }
 
+    // ── Reveal intent timers / cursor burst ────────────────────────────────
+    Timer {
+        id: revealDwellTimer
+        interval: dock.revealDwellMs
+        repeat: false
+        onTriggered: dock.onRevealDwellElapsed()
+    }
+
+    Timer {
+        id: revealRearmTimer
+        interval: dock.revealRearmDelayMs
+        repeat: false
+        onTriggered: {
+            if (dock.dockVisible || dock.revealNeedsStripExit)
+                return;
+            if (!triggerZone.containsMouse)
+                return;
+            if (dock.revealRearmCount >= dock.revealRearmMax)
+                return;
+            dock.revealRearmCount++;
+            dock.armRevealIntent();
+        }
+    }
+
+    Timer {
+        id: postRevealGraceTimer
+        interval: dock.postRevealGraceMs
+        repeat: false
+        onTriggered: {
+            dock.postRevealGrace = false;
+            dock.syncDockVisibility();
+        }
+    }
+
+    Process {
+        id: revealCursorProc
+        // Event-driven only: runs while the 1px strip is held during reveal intent.
+        command: {
+            const n = Math.max(1, dock.revealSampleCount);
+            const sleepSec = Math.max(0.01, dock.revealSampleIntervalMs / 1000);
+            // Avoid `bash -lc` / alias pollution (e.g. sleep → systemctl suspend).
+            const script = `for i in $(seq 1 ${n}); do hyprctl cursorpos; if [ "$i" -lt ${n} ]; then /bin/sleep ${sleepSec}; fi; done`;
+            return ["bash", "--noprofile", "--norc", "-c", script];
+        }
+        stdout: StdioCollector {
+            id: revealCursorOut
+            onStreamFinished: dock.onRevealCursorBurst(revealCursorOut.text)
+        }
+    }
+
+    Process {
+        id: revealVerifyProc
+        command: ["hyprctl", "cursorpos"]
+        stdout: StdioCollector {
+            id: revealVerifyOut
+            onStreamFinished: dock.onRevealVerifySample(revealVerifyOut.text)
+        }
+    }
+
     // ── Hide delay timer ───────────────────────────────────────────────────
     Timer {
         id: hideTimer
         interval: 500
         repeat: false
         onTriggered: {
-            if (dock.dockHovered)
+            if (dock.dockHovered || dock.postRevealGrace)
                 return;
-            if (dock.windowPickerOpen)
-                dock.closeWindowPicker();
+            if (dock.currentWorkspaceEmpty)
+                return;
+            // Still parked on the activation strip → require a leave before
+            // the next reveal, so hide doesn't immediately re-arm intent.
+            dock.revealNeedsStripExit = triggerZone.containsMouse;
             dock.dockVisible = false;
+        }
+    }
+
+    readonly property string iconResolveScript: Qt.resolvedUrl("../../overview/services/icon_resolve.py").toString().replace("file://", "")
+
+    Process {
+        id: folderIconProc
+        command: ["python3", dock.iconResolveScript, "lookup", "folder"]
+        stdout: StdioCollector {
+            id: folderIconCollector
+            onStreamFinished: {
+                const path = folderIconCollector.text.trim();
+                if (path.length > 0)
+                    dock.folderIconPath = path;
+            }
+        }
+    }
+
+    Process {
+        id: openDirsProc
+        command: ["python3", dock.iconResolveScript, "open-dirs", "scan"]
+        stdout: StdioCollector {
+            id: openDirsCollector
+            onStreamFinished: {
+                const text = openDirsCollector.text.trim();
+                if (!text) {
+                    dock.applyDynamicFolderEntries([]);
+                    return;
+                }
+                try {
+                    dock.applyDynamicFolderEntries(JSON.parse(text));
+                } catch (e) {
+                    console.warn("dock: failed to parse open-dirs json", e);
+                    dock.applyDynamicFolderEntries([]);
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: openDirsRefreshDebounce
+        interval: 800
+        repeat: false
+        onTriggered: dock.refreshOpenFolders()
+    }
+
+    Connections {
+        target: DockStore
+        function onPinnedFoldersChanged() {
+            dock.rebuildFolderBar();
+        }
+        function onFoldersLoadedChanged() {
+            if (DockStore.foldersLoaded)
+                dock.rebuildFolderBar();
         }
     }
 

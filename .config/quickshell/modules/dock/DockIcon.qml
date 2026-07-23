@@ -8,7 +8,7 @@ Item {
     id: root
 
     required property var appData // { class, exec, icon, isRunning, isPinned, groupKey, windowCount, window? }
-    required property int iconSize
+    required property real iconSize
     required property real maxScale
     required property real spread
     required property int frameMs
@@ -23,26 +23,25 @@ Item {
     property bool isDragSource: false
     property real dragShiftTargetX: 0
 
-    property bool hovered: false
     property bool pressed: false
     property bool leftDragging: false
     property real pressStartX: 0
+    property int instanceIndex: 0
 
     signal clicked()
-    signal contextMenuRequested()
-    signal exposeRequested()
+    signal contextMenuRequested(int instanceIndex)
     signal dragReorderStarted(int visualIndex, real centerBodyX, real centerBodyY)
     signal dragReorderMoved(real centerBodyX, real centerBodyY)
     signal dragReorderEnded()
     signal dragReorderCanceled()
 
-    readonly property bool canExpose: (root.appData?.isRunning ?? false)
-        && (root.appData.windowCount ?? 0) > 1
-        && `${root.appData.groupKey ?? ""}`.length > 0
-
-    readonly property int exposeHoldMs: 400
-
-    property bool exposeTriggered: false
+    readonly property int windowCount: root.appData?.windowCount ?? 0
+    readonly property bool multiWindow: root.windowCount > 1
+    readonly property var groupWindows: {
+        const _deps = HyprlandData.windowList;
+        const gk = `${root.appData?.groupKey ?? ""}`.trim();
+        return gk.length ? HyprlandData.windowsForGroupKey(gk) : [];
+    }
 
     readonly property real targetScale: {
         if (dockMouseX < -1000)
@@ -54,10 +53,88 @@ Item {
     property real currentScale: 1
     property real currentDragShiftX: 0
 
-    z: isDragSource ? 80 : 0
+    readonly property real labelLiftPx: root.iconSize * Math.max(0, root.currentScale - 1)
+    readonly property real pointerDeltaX: dockMouseX < -1000 ? 99999 : Math.abs(dockMouseX - iconCenterX)
+    readonly property bool pointerOverIcon: root.pointerDeltaX <= root.iconSize * 0.72
+    readonly property bool showInstanceControls: root.multiWindow && root.pointerOverIcon
+    readonly property bool showHoverLabel: root.pointerOverIcon
+
+    readonly property string hoverLabelText: {
+        const app = root.appData;
+        if (!app)
+            return "";
+
+        if (root.multiWindow) {
+            const wins = root.groupWindows;
+            if (wins.length > 1) {
+                const idx = Math.max(0, Math.min(root.instanceIndex, wins.length - 1));
+                return `${idx + 1}/${wins.length} — ${HyprlandData.windowLabel(wins[idx])}`;
+            }
+        }
+
+        const groupLabel = `${app.groupLabel ?? ""}`.trim();
+        if (groupLabel.length)
+            return groupLabel;
+
+        const identityLabel = `${app.label ?? app.identity?.label ?? ""}`.trim();
+        if (identityLabel.length)
+            return identityLabel;
+
+        const entry = HyprlandData.desktopEntryForClass(app.class);
+        const desktopName = `${entry?.name ?? entry?.Name ?? ""}`.trim();
+        if (desktopName.length)
+            return desktopName;
+
+        if (app.window)
+            return HyprlandData.windowLabel(app.window);
+
+        return `${app.class ?? ""}`.trim();
+    }
+
+    property bool magnifyLatch: false
+
+    z: isDragSource ? 80 : (showHoverLabel ? 40 : 0)
 
     width: root.iconSize
     height: root.iconSize * root.maxScale + 6
+
+    function syncInstanceToFocused() {
+        const wins = root.groupWindows;
+        if (wins.length === 0) {
+            root.instanceIndex = 0;
+            return;
+        }
+
+        let focused = null;
+        let bestHistory = 999999;
+        const list = HyprlandData.windowList ?? [];
+        for (let i = 0; i < list.length; i++) {
+            const w = list[i];
+            const history = w?.focusHistoryID ?? 999999;
+            if (history < bestHistory) {
+                bestHistory = history;
+                focused = w;
+            }
+        }
+
+        const addr = HyprDispatch.normalizeAddress(focused?.address);
+        let idx = 0;
+        for (let j = 0; j < wins.length; j++) {
+            if (HyprDispatch.normalizeAddress(wins[j].address) === addr) {
+                idx = j;
+                break;
+            }
+        }
+        root.instanceIndex = idx;
+    }
+
+    function cycleInstance(delta) {
+        const wins = root.groupWindows;
+        if (wins.length <= 1)
+            return;
+        const n = wins.length;
+        root.instanceIndex = (root.instanceIndex + delta + n) % n;
+    }
 
     onDockDragActiveChanged: {
         if (!dockDragActive)
@@ -68,6 +145,7 @@ Item {
         if (dockIdle) {
             currentScale = 1;
             currentDragShiftX = 0;
+            magnifyLatch = false;
         }
     }
 
@@ -84,6 +162,13 @@ Item {
             else
                 root.currentScale += scaleDelta * lerp;
 
+            if (root.showInstanceControls && !root.magnifyLatch) {
+                root.syncInstanceToFocused();
+                root.magnifyLatch = true;
+            } else if (!root.showInstanceControls) {
+                root.magnifyLatch = false;
+            }
+
             if (!root.dockDragActive)
                 return;
 
@@ -92,18 +177,6 @@ Item {
                 root.currentDragShiftX = root.dragShiftTargetX;
             else
                 root.currentDragShiftX += shiftDelta * lerp;
-        }
-    }
-
-    Timer {
-        id: exposeHoldTimer
-        interval: root.exposeHoldMs
-        repeat: false
-        onTriggered: {
-            if (!root.pressed || !root.canExpose)
-                return;
-            root.exposeTriggered = true;
-            root.exposeRequested();
         }
     }
 
@@ -135,7 +208,7 @@ Item {
             }
 
             Rectangle {
-                visible: (root.appData.windowCount ?? 0) > 1 && !root.isDragSource
+                visible: root.multiWindow && !root.isDragSource
                 width: countLabel.implicitWidth + 8
                 height: 16
                 radius: 8
@@ -150,13 +223,22 @@ Item {
                 Text {
                     id: countLabel
                     anchors.centerIn: parent
-                    text: `${root.appData.windowCount ?? 0}`
+                    text: root.showInstanceControls
+                        ? `${root.instanceIndex + 1}/${root.windowCount}`
+                        : `${root.windowCount}`
                     color: Theme.on_primary
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 9
                     font.weight: Font.Bold
                 }
             }
+        }
+
+        DockHoverLabel {
+            anchorItem: iconContainer
+            active: root.showHoverLabel
+            label: root.hoverLabelText
+            labelLiftPx: root.labelLiftPx
         }
 
         Rectangle {
@@ -174,35 +256,34 @@ Item {
         }
     }
 
+    WheelHandler {
+        enabled: root.showInstanceControls && !root.dockDragActive
+        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        onWheel: event => {
+            if (event.angleDelta.y === 0)
+                return;
+            root.cycleInstance(event.angleDelta.y < 0 ? 1 : -1);
+            event.accepted = true;
+        }
+    }
+
     MouseArea {
         id: leftDragArea
         anchors.fill: parent
         enabled: !root.dockDragActive || root.isDragSource
         preventStealing: root.isDragSource
         acceptedButtons: Qt.LeftButton
-        hoverEnabled: true
-        onEntered: root.hovered = true
-        onExited: {
-            root.hovered = false;
-            if (!pressed) {
-                root.pressed = false;
-                root.leftDragging = false;
-            }
-        }
+        hoverEnabled: false
         onPressed: mouse => {
             root.pressed = true;
             root.pressStartX = mouse.x;
             root.leftDragging = false;
-            root.exposeTriggered = false;
-            if (root.canExpose)
-                exposeHoldTimer.restart();
         }
         onPositionChanged: mouse => {
             if (!pressed)
                 return;
             if (!root.leftDragging) {
                 if (Math.abs(mouse.x - root.pressStartX) > 10) {
-                    exposeHoldTimer.stop();
                     root.leftDragging = true;
                     const p = root.mapToItem(dockBodyRef, mouse.x, mouse.y);
                     root.dragReorderStarted(root.visualIndex, p.x, p.y);
@@ -213,24 +294,20 @@ Item {
             root.dragReorderMoved(p.x, p.y);
         }
         onReleased: mouse => {
-            exposeHoldTimer.stop();
             if (mouse.button === Qt.LeftButton) {
                 if (root.leftDragging)
                     root.dragReorderEnded();
-                else if (!root.exposeTriggered)
+                else
                     root.clicked();
             }
-            root.exposeTriggered = false;
             root.pressed = false;
             root.leftDragging = false;
         }
         onCanceled: {
-            exposeHoldTimer.stop();
             if (root.leftDragging)
                 root.dragReorderCanceled();
             root.pressed = false;
             root.leftDragging = false;
-            root.exposeTriggered = false;
         }
     }
 
@@ -238,7 +315,7 @@ Item {
         acceptedButtons: Qt.RightButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
         enabled: !root.dockDragActive
-        onTapped: root.contextMenuRequested()
+        onTapped: root.contextMenuRequested(root.instanceIndex)
     }
 
 }

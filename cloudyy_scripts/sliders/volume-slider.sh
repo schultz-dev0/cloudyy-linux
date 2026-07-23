@@ -12,7 +12,8 @@ STEP=5
 
 show_osd() {
     command -v qs >/dev/null 2>&1 || return 0
-    qs ipc call sliders showVolume >/dev/null 2>&1 || true
+    env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL \
+      qs -p "$HOME/.config/quickshell" ipc call sliders showVolume >/dev/null 2>&1 || true
 }
 
 case "${1:-}" in

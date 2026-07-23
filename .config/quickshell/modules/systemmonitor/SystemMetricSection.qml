@@ -23,8 +23,6 @@ Rectangle {
     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
     border.width: 1
 
-    ElevatedEffect { target: sectionRoot }
-
     ColumnLayout {
         id: sectionCol
         anchors {

@@ -12,8 +12,10 @@ Item {
     required property var  resultData   // {type,name,...} or {type:"web",query} or {type:"calculator"|"currency"|"time",expression,result,subtitle?}
     required property bool isSelected
     required property int  rowWidth
+    property bool isRunning: false
 
     signal activated()
+    signal newInstanceRequested()
     signal hovered()
 
     width:  rowWidth
@@ -138,7 +140,17 @@ Item {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
         onEntered: root.hovered()
-        onClicked: root.activated()
+        onClicked: mouse => {
+            if (root.isRunning && mouse) {
+                if (mouse.button === Qt.MiddleButton
+                        || ((mouse.modifiers ?? 0) & Qt.ShiftModifier) !== 0) {
+                    root.newInstanceRequested();
+                    return;
+                }
+            }
+            root.activated();
+        }
     }
 }

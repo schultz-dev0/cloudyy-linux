@@ -72,6 +72,7 @@ run_test "hyprland-install.sh exists"  "[ -f './hyprland-install.sh' ]"
 run_test "deploy-dotfiles.sh exists"   "[ -f './deploy-dotfiles.sh' ]"
 run_test "dependencies.conf exists"    "[ -f './dependencies.conf' ]"
 run_test "test-install.sh exists"      "[ -f './test-install.sh' ]"
+run_test "Audio service setup exists"  "[ -f './setup_services/setup-audio-autoswitch.sh' ]"
 
 # =============================================================================
 # TEST GROUP 2: Executable Permissions
@@ -80,6 +81,7 @@ print_header "Executable Permissions"
 run_test "install.sh is executable"           "[ -x './install.sh' ]"
 run_test "hyprland-install.sh is executable"  "[ -x './hyprland-install.sh' ]"
 run_test "deploy-dotfiles.sh is executable"   "[ -x './deploy-dotfiles.sh' ]"
+run_test "Audio service setup executable"     "[ -x './setup_services/setup-audio-autoswitch.sh' ]"
 
 # =============================================================================
 # TEST GROUP 3: Bash Syntax Validation
@@ -89,6 +91,7 @@ run_test "install.sh syntax valid"          "bash -n ./install.sh"
 run_test "hyprland-install.sh syntax valid" "bash -n ./hyprland-install.sh"
 run_test "deploy-dotfiles.sh syntax valid"  "bash -n ./deploy-dotfiles.sh"
 run_test "dependencies.conf syntax valid"   "bash -n ./dependencies.conf"
+run_test "Audio service setup syntax valid" "bash -n ./setup_services/setup-audio-autoswitch.sh"
 
 # =============================================================================
 # TEST GROUP 4: Script Best Practices
@@ -103,6 +106,9 @@ run_test "hyprland-install.sh uses strict mode" \
 
 run_test "deploy-dotfiles.sh uses strict mode" \
     "grep -q 'set -euo pipefail' ./deploy-dotfiles.sh"
+
+run_test "Audio service setup uses strict mode" \
+    "grep -q 'set -euo pipefail' ./setup_services/setup-audio-autoswitch.sh"
 
 run_test "install.sh prevents root execution" \
     "grep -q 'EUID' ./install.sh"

@@ -3,18 +3,15 @@
 
 from __future__ import annotations
 
-import configparser
 import json
-import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SERVICES_DIR = SCRIPT_DIR.parent.parent.parent / "overview" / "services"
 sys.path.insert(0, str(SERVICES_DIR))
-from icon_resolve import INDEX_VERSION, resolve_app_icon, wmclass_from_fields  # noqa: E402
+from icon_resolve import INDEX_VERSION, get_icon_theme, read_desktop, resolve_app_icon, wmclass_from_fields  # noqa: E402
 
 MAP_FILE = SCRIPT_DIR / "category-map.json"
 CATALOG_VERSION = "desktop-entry-v2"
@@ -23,55 +20,7 @@ CACHE_DIR = HOME / ".config/cloud-center/settings/quickshell"
 CACHE_FILE = CACHE_DIR / "app_catalog.json"
 STAMP_FILE = CACHE_DIR / "app_catalog.stamp"
 DESKTOP_DIRS = (HOME / ".local/share/applications", Path("/usr/share/applications"))
-FIELD_RE = re.compile(r"^([A-Za-z0-9-]+)=(.*)$")
-SECTION_RE = re.compile(r"^\[([^\]]+)\]$")
 EXEC_FIELD_RE = re.compile(r" %[a-zA-Z]")
-
-
-def get_icon_theme() -> str:
-    settings = HOME / ".config/gtk-3.0/settings.ini"
-    if settings.is_file():
-        parser = configparser.ConfigParser()
-        try:
-            parser.read(settings, encoding="utf-8")
-            theme = parser.get("Settings", "gtk-icon-theme-name", fallback="").strip()
-            if theme:
-                return theme
-        except (configparser.Error, OSError):
-            pass
-
-    try:
-        out = subprocess.check_output(
-            ["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip().strip("'")
-        if out:
-            return out
-    except (subprocess.CalledProcessError, OSError, FileNotFoundError):
-        pass
-
-    return "Fluent-green"
-
-
-def read_desktop(path: Path) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    in_entry = False
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return fields
-    for line in text.splitlines():
-        section_match = SECTION_RE.match(line.strip())
-        if section_match:
-            in_entry = section_match.group(1) == "Desktop Entry"
-            continue
-        if not in_entry:
-            continue
-        match = FIELD_RE.match(line)
-        if match:
-            fields[match.group(1)] = match.group(2).strip()
-    return fields
 
 
 def map_categories(raw: str, cat_map: dict[str, str]) -> list[str]:

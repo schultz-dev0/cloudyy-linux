@@ -21,13 +21,6 @@ Item {
     readonly property int _numDays:  CalendarService.daysInMonth(displayYear, displayMonth)
     readonly property int _cellCount: Math.ceil((_offset + _numDays) / 7) * 7
 
-    function _tagColor(tag) {
-        return tag === "secondary" ? Theme.secondary
-             : tag === "tertiary"  ? Theme.tertiary
-             : tag === "error"     ? Theme.error
-             : Theme.primary
-    }
-
     function _dateForCell(idx) {
         const dayNum = idx - _offset + 1
         if (dayNum < 1 || dayNum > _numDays) return ""
@@ -142,7 +135,7 @@ Item {
                     color: "transparent"
                     border.width: 2
                     border.color: cellItem.isMarked && cellItem.markedInfo
-                        ? root._tagColor(cellItem.markedInfo.color)
+                        ? CalendarService.tagColor(cellItem.markedInfo.color)
                         : "transparent"
                     visible: cellItem.isMarked && !cellItem.isSelected
                 }
@@ -191,7 +184,7 @@ Item {
                             required property string modelData
                             width: 5; height: 5
                             radius: 3
-                            color: root._tagColor(modelData)
+                            color: CalendarService.tagColor(modelData)
                         }
                     }
                 }

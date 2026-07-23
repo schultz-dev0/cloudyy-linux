@@ -541,10 +541,7 @@ PanelWindow {
     IpcHandler {
         target: "spotlight"
         function toggle() {
-            if (svc.visible && svc.mode === "spotlight")
-                svc.close();
-            else
-                svc.openMode("spotlight");
+            svc.toggle();
         }
         function show() {
             svc.openMode("spotlight");

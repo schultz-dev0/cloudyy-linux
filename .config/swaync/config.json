@@ -60,7 +60,7 @@
         },
         {
           "label": "󰘴",
-          "command": "uwsmp-app -- python3 $HOME/cloudyy_scripts/cloud-center-v2/cloud-center.py"
+          "command": "uwsm-app -- $HOME/cloudyy_scripts/cloud-center"
         },
         {
           "label": "󰐥",
