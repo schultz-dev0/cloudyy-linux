@@ -442,6 +442,22 @@ deploy_defaults() {
     log_skip "hyprland.lua"
   fi
 
+  # Audio auto-switch systemd unit — gitignored; setup-audio-autoswitch.sh
+  # expects it already deployed and only enables/disables it.
+  local audio_unit="${HOME}/.config/systemd/user/cloudyy-audio-autoswitch.service"
+  local audio_unit_default="${defaults_dir}/systemd/cloudyy-audio-autoswitch.service"
+  if [[ ! -f "$audio_unit" ]]; then
+    if [[ -f "$audio_unit_default" ]]; then
+      mkdir -p "$(dirname "$audio_unit")"
+      cp "$audio_unit_default" "$audio_unit"
+      log_ok "cloudyy-audio-autoswitch.service deployed (default)."
+    else
+      log_warn "No default cloudyy-audio-autoswitch.service in ${defaults_dir}/systemd."
+    fi
+  else
+    log_skip "cloudyy-audio-autoswitch.service"
+  fi
+
   local cwd_walk_file="${cc_terminal_dir}/cwd_walk"
   if [[ ! -f "$cwd_walk_file" ]]; then
     printf 'true\n' > "$cwd_walk_file"

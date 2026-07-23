@@ -1,6 +1,6 @@
 import QtQuick
 import QtTest
-import "../../.superpowers/sdd/task7-staging/.config/quickshell/cloud-center/components/AudioState.js" as AudioState
+import "../../../../.config/quickshell/cloud-center/components/AudioState.js" as AudioState
 
 TestCase {
     name: "AudioState"
