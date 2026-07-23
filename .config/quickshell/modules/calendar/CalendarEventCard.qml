@@ -12,13 +12,6 @@ Rectangle {
     signal editRequested(var event)
     signal deleteRequested(string id)
 
-    function _tagColor(tag) {
-        return tag === "secondary" ? Theme.secondary
-             : tag === "tertiary"  ? Theme.tertiary
-             : tag === "error"     ? Theme.error
-             : Theme.primary
-    }
-
     implicitHeight: cardContent.implicitHeight + 16
     radius: 10
     color: Theme.surface_container_high
@@ -37,7 +30,7 @@ Rectangle {
             leftMargin: 4
         }
         radius: 2
-        color: root.event ? root._tagColor(root.event.color || "primary") : Theme.primary
+        color: root.event ? CalendarService.tagColor(root.event.color || "primary") : Theme.primary
     }
 
     ColumnLayout {
@@ -124,8 +117,6 @@ Rectangle {
 
         function open() { ctxMenu.visible = true }
         function close() { ctxMenu.visible = false }
-
-        ElevatedEffect { target: ctxMenu }
 
         ColumnLayout {
             anchors { fill: parent; margins: 6 }

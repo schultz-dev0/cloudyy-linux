@@ -86,7 +86,7 @@ Rectangle {
                         visible: labelField.text.length === 0
                         anchors.fill: parent
                         verticalAlignment: Text.AlignVCenter
-                        text: "e.g. Gemini 3.1 prompt training"
+                        text: "..."
                         color: Theme.on_surface_variant
                         font.pixelSize: 12
                         font.family: "JetBrainsMono Nerd Font"

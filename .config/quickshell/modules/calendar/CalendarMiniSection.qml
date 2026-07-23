@@ -14,16 +14,7 @@ Rectangle {
     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.22)
     border.width: 1
 
-    ElevatedEffect { target: root }
-
     readonly property var _upcoming: CalendarService.upcomingEvents(3)
-
-    function _tagColor(tag) {
-        return tag === "secondary" ? Theme.secondary
-             : tag === "tertiary"  ? Theme.tertiary
-             : tag === "error"     ? Theme.error
-             : Theme.primary
-    }
 
     ColumnLayout {
         id: innerCol
@@ -69,7 +60,7 @@ Rectangle {
                 // Color dot
                 Rectangle {
                     width: 7; height: 7; radius: 4
-                    color: root._tagColor(modelData.color || "primary")
+                    color: CalendarService.tagColor(modelData.color || "primary")
                 }
 
                 // Title

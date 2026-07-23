@@ -11,7 +11,7 @@ FIXTURE_YAML = """
 pages:
   - id: home
     title: Home
-    icon: go-home-symbolic
+    icon: "\U000f02dc"
     layout:
       - type: section
         properties:
@@ -20,7 +20,7 @@ pages:
           - type: toggle
             properties:
               title: Dark Mode
-              icon: weather-clear-night-symbolic
+              icon: "\U000f0594"
               key: theme/dark_mode
               default: true
             on_toggle:
@@ -43,7 +43,7 @@ pages:
           - type: label
             properties:
               title: CPU
-              icon: computer-symbolic
+              icon: "\U000f01c4"
             value:
               type: system
               key: cpu
@@ -72,6 +72,10 @@ class ModelTest(unittest.TestCase):
         settings_patch.start()
         self.addCleanup(settings_patch.stop)
 
+        thumb_patch = mock.patch.object(model, "THUMB_DIR", tmp_path / "thumbs")
+        thumb_patch.start()
+        self.addCleanup(thumb_patch.stop)
+
 
 class TestLoadModel(ModelTest):
     def test_pages_sections_items_come_through(self):
@@ -91,20 +95,14 @@ class TestLoadModel(ModelTest):
         second_section = result["pages"][0]["sections"][1]["items"]
         self.assertEqual(second_section[0]["id"], "home/1/0")
 
-    def test_symbolic_icons_translate_to_glyphs(self):
+    def test_icons_pass_through_unchanged(self):
+        # config.yaml holds literal Nerd Font glyphs directly — no name-to-glyph
+        # translation layer — so the model's icon field is exactly what's there.
         result = model.load_model(self.config_path)
         home = result["pages"][0]
         dark_mode = home["sections"][0]["items"][0]
-        self.assertNotIn("symbolic", home["icon"])
-        self.assertNotIn("symbolic", dark_mode["icon"])
-        # Glyphs are single non-ASCII characters
-        self.assertGreater(ord(home["icon"][0]), 127)
-
-    def test_unknown_icon_falls_back_to_default(self):
-        self.assertEqual(model.icon_glyph("no-such-icon-symbolic"), model.DEFAULT_ICON)
-
-    def test_existing_glyph_passes_through(self):
-        self.assertEqual(model.icon_glyph("\U000f02dc"), "\U000f02dc")
+        self.assertEqual(home["icon"], "\U000f02dc")
+        self.assertEqual(dark_mode["icon"], "\U000f0594")
 
     def test_toggle_initial_state_from_settings(self):
         utility.save_setting("theme/dark_mode", False)
@@ -125,14 +123,27 @@ class TestLoadModel(ModelTest):
         selection = result["pages"][0]["sections"][1]["items"][1]
         self.assertEqual(selection["options"], ["dwindle", "master"])
 
-    def test_native_pages_are_appended_with_deep_links(self):
+    def test_native_pages_are_appended_with_qml_kinds(self):
         result = model.load_model(self.config_path)
         by_id = {p["id"]: p for p in result["pages"]}
         wifi = by_id["__wifi__"]
-        self.assertEqual(wifi["kind"], "native")
+        self.assertEqual(wifi["kind"], "wifi")
         self.assertEqual(wifi["title"], "Wi-Fi")
-        self.assertIn("--wifi", wifi["deep_link"])
-        self.assertTrue(any("cloud-center.py" in part for part in wifi["deep_link"]))
+        self.assertNotIn("deep_link", wifi)
+
+    def test_ported_native_pages_get_their_own_kind(self):
+        result = model.load_model(self.config_path)
+        by_id = {p["id"]: p for p in result["pages"]}
+        self.assertEqual(by_id["__mon__"]["kind"], "monitors")
+        self.assertEqual(by_id["__rules__"]["kind"], "rules_startup")
+        self.assertEqual(by_id["__hkbm__"]["kind"], "keybinds")
+        self.assertEqual(by_id["__bt__"]["kind"], "bluetooth")
+        self.assertEqual(by_id["__wifi__"]["kind"], "wifi")
+        self.assertEqual(by_id["__battery__"]["kind"], "battery")
+        self.assertEqual(by_id["__audio__"]["kind"], "audio")
+        self.assertEqual(by_id["__region__"]["kind"], "region")
+        self.assertNotIn("deep_link", by_id["__mon__"])
+        self.assertNotIn("deep_link", by_id["__bt__"])
 
     def test_categories_reference_page_ids(self):
         result = model.load_model(self.config_path)
@@ -153,8 +164,23 @@ class TestRealConfig(unittest.TestCase):
         self.assertIn("home", page_ids)
         self.assertIn("__wifi__", page_ids)
 
-        missing = model.unmapped_icons()
-        self.assertEqual(missing, set(), f"ICON_MAP is missing: {missing}")
+        # Icons are literal glyphs now, no ICON_MAP to fall back on — catch a
+        # stale freedesktop-style name (e.g. copy-pasted from an old page)
+        # rendering as literal text instead of an icon.
+        def walk_icons(pages):
+            for page in pages:
+                if page.get("icon"):
+                    yield page["id"], page["icon"]
+                for section in page.get("sections", []):
+                    for item in section.get("items", []):
+                        if item.get("icon"):
+                            yield item["id"], item["icon"]
+
+        stale = [
+            (owner, icon) for owner, icon in walk_icons(result["pages"])
+            if icon.isascii()
+        ]
+        self.assertEqual(stale, [], f"non-glyph icon values: {stale}")
 
 
 WALLPAPER_YAML = """
@@ -189,8 +215,10 @@ class TestWallpaperPickerModel(ModelTest):
         result = model.load_model(config)
         item = result["pages"][0]["sections"][0]["items"][0]
         self.assertEqual(
-            item["wallpapers"], [str(wall_dir / "a.jpg"), str(wall_dir / "b.png")]
+            [w["path"] for w in item["wallpapers"]],
+            [str(wall_dir / "a.jpg"), str(wall_dir / "b.png")],
         )
+        self.assertTrue(all("thumb" in w for w in item["wallpapers"]))
         self.assertEqual(item["current"], str(wall_dir / "a.jpg"))
 
     def test_missing_directory_property_yields_empty_list(self):
@@ -220,6 +248,61 @@ class TestWallpaperPickerModel(ModelTest):
         result = model.load_model(config)
         item = result["pages"][0]["sections"][0]["items"][0]
         self.assertEqual(item["wallpapers"], [])
+
+    def test_max_items_caps_the_list_like_gtk_picker(self):
+        wall_dir = Path(self.tmp.name) / "walls"
+        wall_dir.mkdir()
+        for name in ["a.jpg", "b.jpg", "c.jpg"]:
+            (wall_dir / name).write_bytes(b"x")
+        config = Path(self.tmp.name) / "walls.yaml"
+        config.write_text(
+            WALLPAPER_YAML.replace('directory: "{dir}"', f'directory: "{wall_dir}"\n              max_items: 2')
+        )
+
+        result = model.load_model(config)
+        item = result["pages"][0]["sections"][0]["items"][0]
+        self.assertEqual(len(item["wallpapers"]), 2)
+
+    def test_undecodable_file_falls_back_to_original_path(self):
+        wall_dir = Path(self.tmp.name) / "walls"
+        wall_dir.mkdir()
+        (wall_dir / "a.jpg").write_bytes(b"x")  # not a real image
+        config = Path(self.tmp.name) / "walls.yaml"
+        config.write_text(WALLPAPER_YAML.replace("{dir}", str(wall_dir)))
+
+        result = model.load_model(config)
+        item = result["pages"][0]["sections"][0]["items"][0]
+        # b"x" isn't decodable by Pillow either way; thumb falls back to path.
+        self.assertEqual(item["wallpapers"][0]["thumb"], str(wall_dir / "a.jpg"))
+
+    def test_mode_subdirs_scanned_recursively_like_gtk_picker(self):
+        # ~/Wallpapers layout: Dark/, Light/nested/, user_wallpapers/Light/.
+        # With THEME_MODE=light only the Light trees are listed, recursively.
+        base = Path(self.tmp.name) / "walls"
+        for sub in ["Dark", "Light/nested", "user_wallpapers/Light"]:
+            (base / sub).mkdir(parents=True)
+        (base / "Dark" / "d.jpg").write_bytes(b"x")
+        (base / "Light" / "a.jpg").write_bytes(b"x")
+        (base / "Light" / "nested" / "b.png").write_bytes(b"x")
+        (base / "user_wallpapers" / "Light" / "u.webp").write_bytes(b"x")
+
+        state = Path(self.tmp.name) / "state.conf"
+        state.write_text('THEME_MODE="light"\n')
+
+        config = Path(self.tmp.name) / "walls.yaml"
+        config.write_text(WALLPAPER_YAML.replace("{dir}", str(base)))
+
+        with mock.patch.object(model, "THEME_STATE", state):
+            result = model.load_model(config)
+        item = result["pages"][0]["sections"][0]["items"][0]
+        self.assertEqual(
+            [w["path"] for w in item["wallpapers"]],
+            sorted([
+                str(base / "Light" / "a.jpg"),
+                str(base / "Light" / "nested" / "b.png"),
+                str(base / "user_wallpapers" / "Light" / "u.webp"),
+            ]),
+        )
 
 
 if __name__ == "__main__":

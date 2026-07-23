@@ -74,7 +74,7 @@ hl.bind(
 )
 hl.bind(
 	"ALT + 4",
-	hl.dsp.exec_cmd("uwsm-app python3 " .. scripts .. "/cloud-center-v2/cloud-center.py"),
+	hl.dsp.exec_cmd("uwsm-app -- " .. scripts .. "/cloud-center"),
 	{ desc = "Cloud Center" }
 )
 hl.bind(
@@ -83,7 +83,7 @@ hl.bind(
 	{ desc = "Visual input toggle" }
 )
 hl.bind(
-	mainMod .. " + D",
+	mainMod .. " + K",
 	hl.dsp.exec_cmd("quickshell ipc call spotlight toggle"),
 	{ desc = "Open spotlight search" }
 )

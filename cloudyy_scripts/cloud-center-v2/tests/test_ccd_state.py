@@ -165,6 +165,103 @@ class TestAfterActionRecheck(StateTest):
         self.assertTrue(wait_for(lambda: len(self.state_events()) == 2, timeout=3))
         self.assertIs(self.state_events()[1]["value"], True)
 
+    def test_failed_command_still_emits_correcting_state(self):
+        # The command fails, so real state never changes. Change-suppression
+        # would swallow the recheck — the UI's optimistic flip must still be
+        # corrected by an explicit confirming event.
+        model.ITEMS["home/0/0"]["properties"]["interval"] = 60
+        state.subscribe({"page": "home"})
+        self.assertTrue(wait_for(lambda: len(self.state_events()) == 1))
+        self.assertIs(self.state_events()[0]["value"], False)
+
+        # state file stays "0": the toggle command had no effect
+        actions.run_action({"item": "home/0/0", "value": True})
+        self.assertTrue(wait_for(lambda: len(self.state_events()) == 2, timeout=3))
+        self.assertIs(self.state_events()[1]["value"], False)
+
+
+WALLPAPER_WATCHER_YAML = """
+pages:
+  - id: home
+    title: Home
+    layout:
+      - type: section
+        properties: {title: Test}
+        items:
+          - type: wallpaper_picker
+            properties:
+              title: Wallpaper
+              key: test/wallpaper
+              directory: {dir}
+              interval: 0.05
+"""
+
+
+class TestWallpaperWatcher(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        tmp_path = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+
+        wall_dir = tmp_path / "walls"
+        (wall_dir / "Light").mkdir(parents=True)
+        (wall_dir / "Dark").mkdir(parents=True)
+        (wall_dir / "Light" / "a.jpg").write_bytes(b"x")
+        (wall_dir / "Dark" / "d.jpg").write_bytes(b"x")
+
+        self.theme_state = tmp_path / "state.conf"
+        self.theme_state.write_text('THEME_MODE="light"\n')
+        theme_state_patch = mock.patch.object(model, "THEME_STATE", self.theme_state)
+        theme_state_patch.start()
+        self.addCleanup(theme_state_patch.stop)
+
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(WALLPAPER_WATCHER_YAML.replace("{dir}", str(wall_dir)))
+
+        settings_patch = mock.patch.object(
+            utility, "SETTINGS_DIR", tmp_path / "settings"
+        )
+        settings_patch.start()
+        self.addCleanup(settings_patch.stop)
+
+        model.load_model(config_path)
+
+        self.events = []
+        events_patch = mock.patch.object(
+            protocol, "write_line", lambda payload: self.events.append(payload)
+        )
+        events_patch.start()
+        self.addCleanup(events_patch.stop)
+
+        self.addCleanup(state.shutdown)
+
+    def wallpaper_events(self):
+        return [e for e in self.events if e.get("event") == "wallpapers"]
+
+    def test_initial_wallpapers_reported_for_current_mode(self):
+        state.subscribe({"page": "home"})
+        self.assertTrue(wait_for(lambda: self.wallpaper_events()))
+        first = self.wallpaper_events()[0]
+        self.assertEqual(first["item"], "home/0/0")
+        paths = [w["path"] for w in first["wallpapers"]]
+        self.assertTrue(paths and all("Light" in p for p in paths))
+
+    def test_mode_flip_re_lists_wallpapers(self):
+        state.subscribe({"page": "home"})
+        self.assertTrue(wait_for(lambda: len(self.wallpaper_events()) == 1))
+
+        self.theme_state.write_text('THEME_MODE="dark"\n')
+        self.assertTrue(wait_for(lambda: len(self.wallpaper_events()) == 2))
+        second_paths = [w["path"] for w in self.wallpaper_events()[1]["wallpapers"]]
+        self.assertTrue(all("Dark" in p for p in second_paths))
+        self.assertTrue(any(p.endswith("d.jpg") for p in second_paths))
+
+    def test_unchanged_mode_does_not_re_emit(self):
+        state.subscribe({"page": "home"})
+        self.assertTrue(wait_for(lambda: len(self.wallpaper_events()) == 1))
+        time.sleep(0.3)  # several poll cycles, mode never changes
+        self.assertEqual(len(self.wallpaper_events()), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

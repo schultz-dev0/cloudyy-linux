@@ -203,9 +203,7 @@ PanelWindow {
             //          [                         ]  [ Dark Mode      ]
             //   Row 2: [ Night Light             ]  [ Calculator     ]
             //
-            // Using explicit RowLayout / ColumnLayout instead of GridLayout
-            // rowSpan so ElevatedEffect shadows never fight z-ordering between
-            // sibling tiles — each tile lives in its own layout branch.
+            // Using explicit RowLayout / ColumnLayout instead of GridLayout rowSpan.
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
@@ -275,10 +273,6 @@ PanelWindow {
                 border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                 border.width: 1
                 implicitHeight: 72
-
-                ElevatedEffect {
-                    target: parent
-                }
 
                 ColumnLayout {
                     anchors {
@@ -382,10 +376,6 @@ PanelWindow {
                 border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
                 border.width: 1
                 implicitHeight: 72
-
-                ElevatedEffect {
-                    target: parent
-                }
 
                 ColumnLayout {
                     anchors {
@@ -544,8 +534,6 @@ PanelWindow {
                         width:   notifStack.width - (index * notifStack.widthInset * 2)
                         height:  panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
                         opacity: 1.0 - (index * 0.18)
-
-                        ElevatedEffect { target: card }
 
                         Rectangle {
                             id: card

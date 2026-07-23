@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import configparser
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 HOME = Path.home()
 FIELD_RE = re.compile(r"^([A-Za-z0-9-]+)=(.*)$")
@@ -29,6 +31,20 @@ STANDARD_APP_DIRS = (
     "22x22/apps",
     "16x16/apps",
 )
+STANDARD_PLACES_DIRS = (
+    "scalable/places",
+    "512x512/places",
+    "256x256/places",
+    "128x128/places",
+    "96x96/places",
+    "64x64/places",
+    "48x48/places",
+    "32x32/places",
+    "24x24/places",
+    "22x22/places",
+    "16x16/places",
+)
+FLAT_PLACES_SIZES = ("16", "22", "24", "32", "48", "64", "96", "128", "256", "512")
 GENERIC_ICONS = frozenset(
     {
         "",
@@ -54,6 +70,7 @@ ICON_ALIASES: dict[str, str] = {
     "md.obsidian.obsidian": "obsidian",
     "appimagekit-obsidian": "obsidian",
     "org.cloudyy.cloudcenter": "cloud-center",
+    "inode-directory": "folder",
 }
 
 
@@ -240,6 +257,54 @@ def _filesystem_lookup(name: str) -> str:
     return ""
 
 
+def _filesystem_places_lookup(name: str) -> str:
+    stem = icon_file_stem(name)
+    if not stem:
+        return ""
+    for base in theme_search_roots():
+        for sub in STANDARD_PLACES_DIRS:
+            hit = _match_icon_file(base / sub, stem)
+            if hit:
+                return hit
+        for size in FLAT_PLACES_SIZES:
+            hit = _match_icon_file(base / "places" / size, stem)
+            if hit:
+                return hit
+    return ""
+
+
+def _filesystem_mimetype_lookup(name: str) -> str:
+    stem = icon_file_stem(name)
+    if not stem:
+        return ""
+    for base in theme_search_roots():
+        for sub in (
+            "scalable/mimetypes",
+            "512x512/mimetypes",
+            "256x256/mimetypes",
+            "128x128/mimetypes",
+            "48x48/mimetypes",
+        ):
+            hit = _match_icon_file(base / sub, stem)
+            if hit:
+                return hit
+    return ""
+
+
+def _lookup_file_icon_name(name: str, size: int = 128) -> str:
+    for candidate in alias_names(name):
+        path = _gtk_lookup(candidate, size)
+        if path:
+            return path
+        path = _filesystem_mimetype_lookup(candidate)
+        if path:
+            return path
+        path = _filesystem_lookup(candidate)
+        if path:
+            return path
+    return ""
+
+
 def lookup_icon(name: str, size: int = 48) -> str:
     for candidate in alias_names(name):
         path = _gtk_lookup(candidate, size)
@@ -248,7 +313,334 @@ def lookup_icon(name: str, size: int = 48) -> str:
         path = _filesystem_lookup(candidate)
         if path:
             return path
+        path = _filesystem_places_lookup(candidate)
+        if path:
+            return path
     return ""
+
+
+def _file_uri(path: Path) -> str:
+    return "file://" + quote(path.resolve().as_posix())
+
+
+def _thumbnail_path(path: Path) -> str:
+    digest = hashlib.md5(_file_uri(path).encode()).hexdigest()
+    for size in ("large", "normal"):
+        candidate = HOME / ".cache/thumbnails" / size / f"{digest}.png"
+        if candidate.is_file():
+            return str(candidate)
+    return ""
+
+
+def _gio_file_info(path: Path) -> tuple[str, list[str]]:
+    os.environ.setdefault("DISPLAY", ":0")
+    try:
+        import gi
+
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio
+
+        info = Gio.File.new_for_path(str(path)).query_info(
+            "standard::icon,standard::content-type",
+            Gio.FileQueryInfoFlags.NONE,
+            None,
+        )
+        ctype = info.get_content_type() or ""
+        icon = info.get_icon()
+        names: list[str] = []
+        if isinstance(icon, Gio.ThemedIcon):
+            names = list(icon.get_names())
+        elif icon is not None:
+            raw = icon.to_string()
+            if raw:
+                names = [raw]
+        return ctype, names
+    except Exception:
+        return "", []
+
+
+def file_icon_path(path: str, size: int = 128) -> str:
+    p = Path(path)
+    if p.is_dir():
+        return lookup_icon("folder", size)
+    if not p.is_file():
+        return ""
+
+    ctype, icon_names = _gio_file_info(p)
+    if ctype.startswith("image/"):
+        return str(p.resolve())
+
+    thumb = _thumbnail_path(p)
+    if thumb:
+        return thumb
+
+    for name in icon_names:
+        hit = _lookup_file_icon_name(name, size)
+        if hit:
+            return hit
+    return _lookup_file_icon_name("text-x-generic", size)
+
+
+TERMINAL_CLASSES = frozenset(
+    {
+        "kitty",
+        "foot",
+        "alacritty",
+        "ghostty",
+        "wezterm",
+        "org.wezfurlong.wezterm",
+        "com.mitchellh.ghostty",
+        "terminal",
+        "org.gnome.terminal",
+        "konsole",
+        "hyper",
+        "tabby",
+    }
+)
+
+FILE_MANAGER_MARKERS = (
+    "thunar",
+    "dolphin",
+    "nautilus",
+    "nemo",
+    "caja",
+    "pcmanfm",
+    "files",
+    "konqueror",
+    "krusader",
+    "doublecmd",
+    "spacefm",
+)
+
+
+def _proc_cwd(pid: int) -> Path | None:
+    if pid <= 0:
+        return None
+    try:
+        return Path(os.readlink(f"/proc/{pid}/cwd"))
+    except OSError:
+        return None
+
+
+def _hypr_clients() -> list[dict]:
+    try:
+        raw = subprocess.check_output(["hyprctl", "clients", "-j"], stderr=subprocess.DEVNULL, text=True)
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
+        return []
+
+
+def _is_overlay_client(client: dict) -> bool:
+    cls = f"{client.get('class') or client.get('initialClass') or ''}".lower()
+    title = f"{client.get('title') or ''}".lower()
+    return "quickshell" in cls or "quickshell" in title
+
+
+def _path_from_title(title: str) -> Path | None:
+    text = f"{title or ''}".strip()
+    if not text:
+        return None
+    if " - " in text:
+        tail = text.rsplit(" - ", 1)[-1].strip()
+        if tail.startswith("/"):
+            path = Path(tail)
+            if path.is_dir():
+                return path
+    if text.startswith("/"):
+        path = Path(text)
+        if path.is_dir():
+            return path
+    return None
+
+
+def _is_terminal_class(cls: str) -> bool:
+    lower = f"{cls or ''}".lower()
+    if lower in TERMINAL_CLASSES:
+        return True
+    return "terminal" in lower
+
+
+def _is_file_manager_class(cls: str) -> bool:
+    lower = f"{cls or ''}".lower()
+    return any(marker in lower for marker in FILE_MANAGER_MARKERS)
+
+
+def _thunar_dir_from_title(title: str) -> Path | None:
+    text = f"{title or ''}".strip()
+    for suffix in (" — Thunar", " - Thunar"):
+        if text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+    return _path_from_title(text)
+
+
+def _terminal_shell_cwd(root_pid: int) -> Path | None:
+    if root_pid <= 0:
+        return None
+    try:
+        raw = subprocess.check_output(["pgrep", "-P", str(root_pid)], stderr=subprocess.DEVNULL, text=True)
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            pid = int(line)
+        except ValueError:
+            continue
+        try:
+            comm = subprocess.check_output(["ps", "-o", "comm=", "-p", str(pid)], stderr=subprocess.DEVNULL, text=True)
+        except (subprocess.CalledProcessError, OSError):
+            continue
+        shell = comm.strip()
+        if shell in {"zsh", "bash", "fish", "sh"}:
+            cwd = _proc_cwd(pid)
+            if cwd and cwd.is_dir():
+                return cwd
+        nested = _terminal_shell_cwd(pid)
+        if nested:
+            return nested
+    return None
+
+
+def _kitty_cwd(hypr_pid: int) -> Path | None:
+    if hypr_pid <= 0:
+        return None
+    socket = os.environ.get("KITTY_LISTEN_ON", "unix:/tmp/kitty")
+    try:
+        raw = subprocess.check_output(["kitty", "@", "ls", "--to", socket], stderr=subprocess.DEVNULL, text=True)
+        data = json.loads(raw)
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError, FileNotFoundError):
+        return None
+    if not isinstance(data, list):
+        return None
+
+    def _is_descendant(ancestor: int, child: int) -> bool:
+        pid = child
+        while pid > 1:
+            if pid == ancestor:
+                return True
+            try:
+                ppid_raw = subprocess.check_output(
+                    ["ps", "-o", "ppid=", "-p", str(pid)],
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                )
+                pid = int(ppid_raw.strip() or "0")
+            except (subprocess.CalledProcessError, OSError, ValueError):
+                break
+        return False
+
+    focused: Path | None = None
+    fallback: Path | None = None
+    for top in data:
+        tabs = top.get("tabs") or []
+        for tab in tabs:
+            tab_active = bool(tab.get("is_active"))
+            for window in tab.get("windows") or []:
+                wpid = int(window.get("pid") or 0)
+                cwd_text = f"{window.get('cwd') or ''}".strip()
+                if not wpid or not cwd_text:
+                    continue
+                if not _is_descendant(hypr_pid, wpid):
+                    continue
+                try:
+                    cwd = Path(cwd_text)
+                except (TypeError, ValueError):
+                    continue
+                if not cwd.is_dir():
+                    continue
+                if tab_active and bool(window.get("is_focused")):
+                    focused = cwd
+                elif fallback is None:
+                    fallback = cwd
+    return focused or fallback
+
+
+def resolve_client_dir(client: dict) -> Path | None:
+    cls = f"{client.get('class') or client.get('initialClass') or ''}".strip()
+    lower = cls.lower()
+    if not _is_terminal_class(lower) and not _is_file_manager_class(lower):
+        return None
+
+    pid = int(client.get("pid") or 0)
+    title = f"{client.get('title') or ''}"
+
+    if _is_file_manager_class(lower):
+        if "thunar" in lower:
+            path = _thunar_dir_from_title(title)
+            if path:
+                return path
+        path = _path_from_title(title)
+        if path:
+            return path
+        cwd = _proc_cwd(pid)
+        if cwd and cwd.is_dir():
+            return cwd
+        return None
+
+    if lower == "kitty":
+        path = _kitty_cwd(pid)
+        if path:
+            return path
+    path = _terminal_shell_cwd(pid)
+    if path:
+        return path
+    cwd = _proc_cwd(pid)
+    if cwd and cwd.is_dir():
+        return cwd
+    return _path_from_title(title)
+
+
+def scan_open_dirs() -> list[dict]:
+    clients = _hypr_clients()
+    by_path: dict[str, dict] = {}
+
+    for client in clients:
+        if not client.get("mapped") or client.get("hidden"):
+            continue
+        if _is_overlay_client(client):
+            continue
+        path = resolve_client_dir(client)
+        if not path:
+            continue
+        try:
+            key = str(path.resolve())
+        except OSError:
+            key = str(path)
+        if not Path(key).is_dir():
+            continue
+
+        win = {
+            "address": f"{client.get('address') or ''}",
+            "focusHistoryID": int(client.get("focusHistoryID") or 9999),
+        }
+
+        entry = by_path.get(key)
+        if not entry:
+            entry = {
+                "path": key,
+                "label": Path(key).name or key,
+                "windows": [],
+            }
+            by_path[key] = entry
+        entry["windows"].append(win)
+
+    scored: list[tuple[int, dict]] = []
+    for entry in by_path.values():
+        wins = entry["windows"]
+        wins.sort(key=lambda w: w["focusHistoryID"])
+        scored.append((
+            wins[0]["focusHistoryID"] if wins else 9999,
+            {
+                "path": entry["path"],
+                "label": entry["label"],
+                "addresses": [w["address"] for w in wins if w.get("address")],
+            },
+        ))
+    scored.sort(key=lambda item: item[0])
+    return [row for _, row in scored]
 
 
 def resolve_app_icon(
@@ -622,7 +1014,23 @@ def main() -> int:
         sys.stdout.write("\n")
         return 0
 
-    print("usage: icon_resolve.py {lookup|resolve|wmclass|build-index} ...", file=sys.stderr)
+    if cmd == "file-icon":
+        path = args[1] if len(args) > 1 else ""
+        icon = file_icon_path(path)
+        if icon:
+            print(icon)
+        return 0 if icon else 1
+
+    if cmd == "open-dirs":
+        sub = args[1] if len(args) > 1 else "scan"
+        if sub == "scan":
+            json.dump(scan_open_dirs(), sys.stdout, separators=(",", ":"))
+            sys.stdout.write("\n")
+            return 0
+        print("usage: icon_resolve.py open-dirs {scan}", file=sys.stderr)
+        return 1
+
+    print("usage: icon_resolve.py {lookup|resolve|wmclass|launch-argv|build-index|open-dirs|file-icon} ...", file=sys.stderr)
     return 1
 
 

@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Cloud Center launcher — single instance, optional page target.
+# Accepts the same page words as before: `cloud-center bluetooth`,
+# `cloud-center --wifi`, `cloud-center --page=cursor`.
+set -euo pipefail
+
+CONFIG="${HOME}/.config/quickshell/cloud-center"
+SHELL_QML="${CONFIG}/shell.qml"
+
+# Cursor/agent terminals (and some crash-recovery children) leak these into the
+# environment. Any subsequent `qs` CLI then tries to "restart" a dead crash with
+# an empty config path and either coredumps or spawns a bogus instance.
+unset __QUICKSHELL_CRASH_DUMP_PID __QUICKSHELL_CRASH_INFO_FD __QUICKSHELL_CRASH_SIGNAL || true
+
+declare -A ALIASES=(
+  [wifi]="__wifi__" [bluetooth]="__bt__" [monitors]="__mon__" [monitor]="__mon__"
+  [audio]="__audio__" [keybinds]="__hkbm__" [keybind-manager]="__hkbm__"
+  [cursor]="__cursor__" [region]="__region__" [time]="__region__" [datetime]="__region__"
+  [battery]="__battery__" [rules]="__rules__" [config-manager]="__hkbm__"
+)
+
+page="${1:-}"
+page="${page#--}"          # --wifi -> wifi
+page="${page#page=}"       # page=cursor -> cursor
+target="${page:+${ALIASES[$page]:-$page}}"
+
+# Prefer JSON listing — human `qs list` paragraphs are easy to mis-parse, and
+# that mis-parse is what caused Settings to spawn a second qs instead of IPC.
+cloud_center_pids() {
+  qs list --all -j 2>/dev/null | python3 -c '
+import json, sys
+want = sys.argv[1]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for row in data if isinstance(data, list) else []:
+    path = str(row.get("config_path") or "")
+    if path == want or path.endswith("/cloud-center/shell.qml"):
+        pid = row.get("pid")
+        if pid is not None:
+            print(pid)
+' "$SHELL_QML" || true
+}
+
+has_window() {
+  local pid="$1"
+  [[ -n "$pid" ]] || return 1
+  # Prefer -j clients (Hyprland 0.55); fall back to clients -j.
+  local json
+  json=$(hyprctl -j clients 2>/dev/null || hyprctl clients -j 2>/dev/null || true)
+  [[ -n "$json" ]] || return 1
+  printf '%s' "$json" | python3 -c '
+import json, sys
+pid = sys.argv[1]
+try:
+    clients = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+for c in clients:
+    if str(c.get("pid")) == pid and c.get("class") == "org.quickshell":
+        sys.exit(0)
+sys.exit(1)
+' "$pid"
+}
+
+instance_pid="$(cloud_center_pids | head -n1 || true)"
+
+window_open=""
+if [[ -n "$instance_pid" ]] && has_window "$instance_pid"; then
+  window_open=1
+fi
+
+if [[ -n "$instance_pid" && -n "$window_open" ]]; then
+  if [[ -n "$target" ]]; then
+    # Do not use `call -- …` — newer qs treats `--` as an extra positional.
+    qs -p "$CONFIG" ipc call nav page "$target" >/dev/null 2>&1 || true
+  fi
+  # hyprctl dispatch on this machine parses args as Lua (hl.dispatch(...)).
+  hyprctl dispatch 'hl.dsp.focus({window = "title:^(Cloud Center)$"})' >/dev/null 2>&1 || true
+  exit 0
+fi
+
+# Registered but window-less (or detection failed while a corpse remains):
+# kill every matching pid, then spawn one fresh instance with -n.
+if [[ -n "$instance_pid" ]]; then
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill "$pid" 2>/dev/null || true
+  done < <(cloud_center_pids)
+  sleep 0.3
+fi
+
+# -n: refuse a duplicate if one raced us. -d: detach (no bash job control).
+# Target page via env avoids a post-spawn IPC race on first paint (see Nav.qml).
+if ! CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -d -p "$CONFIG" >/dev/null 2>&1; then
+  CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -p "$CONFIG" >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+fi

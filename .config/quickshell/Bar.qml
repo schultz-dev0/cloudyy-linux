@@ -14,13 +14,30 @@ import "overview/services"
 import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/battery" as QuickBattery
+import "modules/island" as QuickIsland
 
 PanelWindow {
     id: bar
 
     property var assignedScreen: null
     property bool ipcEnabled: true
-    screen: assignedScreen
+
+    readonly property var resolvedScreen: {
+        const pref = assignedScreen;
+        const all = Quickshell.screens;
+        if (!all.length)
+            return null;
+        if (!pref)
+            return all[0];
+        const name = pref.name;
+        for (let i = 0; i < all.length; i++) {
+            if (all[i].name === name)
+                return all[i];
+        }
+        return all[0];
+    }
+
+    screen: resolvedScreen
 
     // ── Tunables ─────────────────────────────────────
     readonly property int barHeight: 18          // shrink the size a bit 
@@ -200,7 +217,7 @@ PanelWindow {
             width: implicitWidth + bar.pillPadH * 2
             fg: bar.barFgStrong
             bg: Qt.rgba(0, 0, 0, 0)
-            onClicked: bar.launch(["qs", "ipc", "call", "spotlight", "command"])
+            onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "spotlight", "command"])
         }
 
         Item {
@@ -407,9 +424,10 @@ PanelWindow {
         // Mpris
         Pill {
             id: mprisPill
-            readonly property var player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
+            readonly property var player: QuickIsland.MprisFocus.activePlayer
             visible: player !== null && (player.playbackState === MprisPlaybackState.Playing || player.playbackState === MprisPlaybackState.Paused)
             label: {
+                const _ = QuickIsland.MprisFocus.revision;
                 if (!player) return "";
                 const icon = player.playbackState === MprisPlaybackState.Playing ? "▶ " : "⏸ ";
                 return icon + (player.trackTitle ?? "").substring(0, 16);
@@ -540,7 +558,7 @@ PanelWindow {
             width: implicitWidth + bar.pillPadH * 2
             fg: bar.barFgStrong
             bg: Qt.rgba(0, 0, 0, 0)
-            onClicked: bar.launch(["qs", "ipc", "call", "powermenu", "open"])
+            onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "powermenu", "open"])
         }
     }
 

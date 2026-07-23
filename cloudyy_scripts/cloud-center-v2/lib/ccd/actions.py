@@ -123,8 +123,8 @@ def run_action(params: dict) -> dict:
             if action_id.startswith("navigate_page:"):
                 return {"navigate": action_id.split(":", 1)[1].strip()}
             if action_id:
-                # Built-in GTK actions (e.g. bezier_editor); frontend decides.
-                return {"builtin": action_id}
+                # Built-in UI actions (e.g. bezier_editor); frontend opens a dialog.
+                return {"open": action_id, "builtin": action_id}
             press = raw.get("on_press") or {}
             if cmd := press.get("command", ""):
                 run_command(cmd, item_id, terminal=bool(press.get("terminal", False)))

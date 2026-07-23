@@ -10,10 +10,12 @@ Item {
     required property var isRunningFunc
     property int keyboardFocusIndex: -1
     signal appActivated(var app)
+    signal appNewInstance(var app)
 
     readonly property int iconCellWidth: 72
     readonly property int cellSpacing: 4
-    height: apps.length > 0 ? 100 : 0
+    readonly property int rowHeight: 88
+    height: apps.length > 0 ? label.height + 6 + rowHeight : 0
     visible: apps.length > 0
 
     Text {
@@ -34,9 +36,9 @@ Item {
             left: parent.left
             right: parent.right
         }
-        height: 84
+        height: root.rowHeight
         contentWidth: row.width
-        clip: true
+        clip: false
         boundsBehavior: Flickable.StopAtBounds
 
         Row {
@@ -56,6 +58,7 @@ Item {
                     cellWidth: root.iconCellWidth
                     selected: root.keyboardFocusIndex === index
                     onActivated: root.appActivated(modelData)
+                    onNewInstanceRequested: root.appNewInstance(modelData)
                 }
             }
         }

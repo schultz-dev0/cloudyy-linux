@@ -39,7 +39,6 @@ trap '_err_handler' ERR
 # --- Configuration ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
 readonly SYSTEMD_SERVICE="${HOME}/.config/systemd/user/apply-system-theme.service"
-readonly HYPR_CONFIG="${HOME}/.config/hypr/hyprland.conf"
 readonly SHELL_THEME_BEGIN="# >>> cloudyy-linux system theme >>>"
 readonly SHELL_THEME_END="# <<< cloudyy-linux system theme <<<"
 
@@ -175,41 +174,6 @@ setup_shell_rc_files() {
   fi
 }
 
-setup_hyprland_integration() {
-  log_section "Hyprland Config (Optional)"
-
-  if [[ ! -f "$HYPR_CONFIG" ]]; then
-    log_skip "Hyprland config not found (might not be installed)"
-    return 0
-  fi
-
-  # Check if theme restore is already in config
-  if grep -q "theme_controller.*restore" "$HYPR_CONFIG" 2>/dev/null; then
-    log_skip "Hyprland theme integration already configured"
-    return 0
-  fi
-
-  log_warn "Optional: Add theme auto-apply to Hyprland config?"
-  log "This will add: exec-once = ~/cloudyy_scripts/theme_controller.sh restore"
-
-  if [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]]; then
-    log "Unattended mode — skipping optional Hyprland config prompt."
-    return 0
-  fi
-
-  read -rp "Add to Hyprland config? [Y/n]: " _confirm
-  if [[ "${_confirm,,}" != "n" ]]; then
-    cat >>"$HYPR_CONFIG" <<'EOF'
-
-# cloudyy-linux: Restore last used theme + wallpaper on startup
-exec-once = ~/cloudyy_scripts/theme_controller.sh restore
-EOF
-    log_ok "Added theme auto-restore to Hyprland config"
-  else
-    log_skip "Hyprland theme integration not added (can be done manually later)"
-  fi
-}
-
 show_next_steps() {
   log_section "Next Steps"
 
@@ -241,7 +205,6 @@ main() {
   setup_theme_env_file
   setup_systemd_service
   setup_shell_rc_files
-  setup_hyprland_integration
 
   printf '\n%s[✓] System theme integration setup complete!%s\n' "$GREEN" "$RESET"
 

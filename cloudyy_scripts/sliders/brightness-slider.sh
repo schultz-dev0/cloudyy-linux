@@ -17,12 +17,12 @@ _brightness() {
 case "${1:-}" in
     up)
         brightnessctl set "${STEP}%+" -q
-        command -v qs >/dev/null 2>&1 && qs ipc call sliders showBrightness >/dev/null 2>&1 || true
+        command -v qs >/dev/null 2>&1 && env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL qs -p "$HOME/.config/quickshell" ipc call sliders showBrightness >/dev/null 2>&1 || true
         ;;
     down)
         (( $(_brightness) <= MIN )) && exit 0
         brightnessctl set "${STEP}%-" -q
-        command -v qs >/dev/null 2>&1 && qs ipc call sliders showBrightness >/dev/null 2>&1 || true
+        command -v qs >/dev/null 2>&1 && env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL qs -p "$HOME/.config/quickshell" ipc call sliders showBrightness >/dev/null 2>&1 || true
         ;;
     *)
         echo "Usage: $(basename "$0") {up|down}"

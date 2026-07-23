@@ -66,8 +66,13 @@ def _find_matching(text: str, open_idx: int, open_ch: str, close_ch: str) -> int
     return -1
 
 
-def _iter_calls(text: str, fn_name: str) -> Iterator[str]:
-    """Yield the inside of each `hl.<fn_name>(...)` call."""
+def iter_call_spans(text: str, fn_name: str) -> Iterator[tuple[int, int]]:
+    """Yield ``(start, end)`` spans for each full ``hl.<fn_name>(...)`` call.
+
+    ``end`` is exclusive.  Exposing the spans lets migrations preserve the
+    user's exact Lua (including expressions and local variables) instead of
+    round-tripping it through this module's deliberately small parser.
+    """
     needle = f'hl.{fn_name}('
     i = 0
     while True:
@@ -82,8 +87,20 @@ def _iter_calls(text: str, fn_name: str) -> Iterator[str]:
         close_paren = _find_matching(text, open_paren, '(', ')')
         if close_paren == -1:
             return
-        yield text[open_paren + 1:close_paren]
+        yield j, close_paren + 1
         i = close_paren + 1
+
+
+def extract_call_blocks(text: str, fn_name: str) -> list[str]:
+    """Return full calls verbatim, including the ``hl.<fn_name>`` prefix."""
+    return [text[start:end] for start, end in iter_call_spans(text, fn_name)]
+
+
+def _iter_calls(text: str, fn_name: str) -> Iterator[str]:
+    """Yield the inside of each `hl.<fn_name>(...)` call."""
+    prefix_len = len(f'hl.{fn_name}(')
+    for start, end in iter_call_spans(text, fn_name):
+        yield text[start + prefix_len:end - 1]
 
 
 # ── Value coercion ─────────────────────────────────────────────────────────────

@@ -1,8 +1,9 @@
 """
 Cloud Center — lib/ccd/model.py
 Builds the page model the QML frontend renders: config.yaml pages plus the
-native (not-yet-ported) pages, with GTK symbolic icon names translated to
-Nerd Font glyphs.
+dedicated native QML editors (Wi-Fi, Audio, …). Icons are literal Nerd Font
+glyphs already — config.yaml's `icon:` fields and NATIVE_PAGES entries hold
+the actual character, no name-to-glyph translation layer.
 
 Everything the frontend needs for first paint is in the model — including
 initial toggle/slider/selection values — so no follow-up round-trips are
@@ -10,6 +11,7 @@ needed before the window can draw.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -18,82 +20,39 @@ import yaml
 import lib.utility as utility
 from lib.ccd import protocol
 
+try:
+    from PIL import Image as _PILImage
+except ImportError:
+    _PILImage = None
+
 log = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = SCRIPT_DIR / "config.yaml"
-GTK_APP = SCRIPT_DIR / "cloud-center.py"
 
-# Keep in sync with ACTIVE_SHELL_TAB in cloud-center.py (updated by installer).
+THUMB_DIR = utility.CACHE_DIR / "thumbs"
+THUMB_SIZE = 256  # long edge; the grid only ever displays these at ~264px
+
+# Keep in sync with installer ACTIVE_SHELL_TAB when that still exists.
 ACTIVE_SHELL_TAB = "quickshell"
 
-# ── Icons ─────────────────────────────────────────────────────────────────────
-# GTK symbolic icon names → Nerd Font glyphs. THE one place icons are defined;
-# edit here to change any icon. Names not listed fall back to DEFAULT_ICON.
-
-DEFAULT_ICON = "\U000f0493"  # 󰒓 cog
-
-ICON_MAP: dict[str, str] = {
-    "application-x-executable-symbolic":      "\U000f0614",  # 󰘔 application
-    "applications-graphics-symbolic":         "\U000f00e3",  # 󰃣 brush
-    "applications-science-symbolic":          "\U000f0668",  # 󰙨 test tube
-    "audio-speakers-symbolic":                "\U000f04c3",  # 󰓃 speaker
-    "battery-good-symbolic":                  "\U000f0079",  # 󰁹 battery
-    "bluetooth-active-symbolic":              "\U000f00af",  # 󰂯 bluetooth
-    "clock-symbolic":                         "\U000f0954",  # 󰥔 clock
-    "computer-symbolic":                      "\U000f01c4",  # 󰇄 desktop
-    "display-brightness-symbolic":            "\U000f00df",  # 󰃟 brightness
-    "drive-harddisk-symbolic":                "\U000f02ca",  # 󰋊 harddisk
-    "edit-clear-symbolic":                    "\U000f00e2",  # 󰃢 broom
-    "face-smile-symbolic":                    "\U000f0c6b",  # 󰱫 smile
-    "focus-windows-symbolic":                 "\U000f05af",  # 󰖯 window
-    "folder-symbolic":                        "\U000f024b",  # 󰉋 folder
-    "go-home-symbolic":                       "\U000f02dc",  # 󰋜 home
-    "go-next-symbolic":                       "\U000f0142",  # 󰅂 chevron right
-    "input-keyboard-symbolic":                "\U000f030c",  # 󰌌 keyboard
-    "input-mouse-symbolic":                   "\U000f037d",  # 󰍽 mouse
-    "input-touchpad-symbolic":                "\U000f07f8",  # 󰟸 touchpad
-    "mark-location-symbolic":                 "\U000f034e",  # 󰍎 map marker
-    "media-playback-pause-symbolic":          "\U000f03e4",  # 󰏤 pause
-    "media-playback-start-symbolic":          "\U000f040a",  # 󰐊 play
-    "media-playlist-repeat-symbolic":         "\U000f0456",  # 󰑖 repeat
-    "network-wireless-signal-good-symbolic":  "\U000f0928",  # 󰤨 wifi
-    "preferences-color-symbolic":             "\U000f03d8",  # 󰏘 palette
-    "preferences-desktop-appearance-symbolic": "\U000f0e0c", # 󰸌 palette swatch
-    "preferences-desktop-keyboard-symbolic":  "\U000f030c",  # 󰌌 keyboard
-    "preferences-desktop-wallpaper-symbolic": "\U000f0e09",  # 󰸉 wallpaper
-    "preferences-system-symbolic":            "\U000f0493",  # 󰒓 cog
-    "preferences-system-time-symbolic":       "\U000f0954",  # 󰥔 clock
-    "software-update-available-symbolic":     "\U000f06b0",  # 󰚰 update
-    "utilities-terminal-symbolic":            "\U000f018d",  # 󰆍 console
-    "video-display-symbolic":                 "\U000f0379",  # 󰍹 monitor
-    "view-grid-symbolic":                     "\U000f0570",  # 󰕰 grid
-    "view-refresh-symbolic":                  "\U000f0450",  # 󰑐 refresh
-    "view-reveal-symbolic":                   "\U000f0208",  # 󰈈 eye
-    "weather-clear-night-symbolic":           "\U000f0594",  # 󰖔 night
-    "weather-fog-symbolic":                   "\U000f0591",  # 󰖑 fog
-    "weather-overcast-symbolic":              "\U000f0590",  # 󰖐 cloudy
-    "window-minimize-symbolic":               "\U000f05b0",  # 󰖰 minimize
-    "zoom-fit-best-symbolic":                 "\U000f0a6d",  # 󰩭 fit
-    "zoom-in-symbolic":                       "\U000f06ed",  # 󰛭 zoom in
-}
-
 WALLPAPER_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+THEME_STATE = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
 
 # ── Native pages ──────────────────────────────────────────────────────────────
 # Pages still implemented by the GTK app. Shown in the sidebar; opening one
 # deep-links into the legacy app until its port lands (spec Phases 2-5).
 
 NATIVE_PAGES: list[dict] = [
-    {"id": "__cursor__",  "title": "Cursor",          "icon": "input-mouse-symbolic",                  "flag": "--page=cursor"},
-    {"id": "__mon__",     "title": "Monitors",        "icon": "video-display-symbolic",                "flag": "--monitors"},
-    {"id": "__bt__",      "title": "Bluetooth",       "icon": "bluetooth-active-symbolic",             "flag": "--bluetooth"},
-    {"id": "__wifi__",    "title": "Wi-Fi",           "icon": "network-wireless-signal-good-symbolic", "flag": "--wifi"},
-    {"id": "__audio__",   "title": "Audio",           "icon": "audio-speakers-symbolic",               "flag": "--audio"},
-    {"id": "__region__",  "title": "Region & Time",   "icon": "mark-location-symbolic",                "flag": "--region"},
-    {"id": "__hkbm__",    "title": "Keybind Manager", "icon": "input-keyboard-symbolic",               "flag": "--keybinds"},
-    {"id": "__rules__",   "title": "Rules & Startup", "icon": "preferences-system-symbolic",           "flag": "--page=__rules__"},
-    {"id": "__battery__", "title": "Battery",         "icon": "battery-good-symbolic",                 "flag": "--page=battery"},
+    {"id": "__cursor__",  "title": "Cursor",          "icon": "\U000f037d", "flag": "--page=cursor"},     # 󰍽 mouse
+    {"id": "__mon__",     "title": "Monitors",        "icon": "\U000f0379", "flag": "--monitors"},        # 󰍹 monitor
+    {"id": "__bt__",      "title": "Bluetooth",       "icon": "\U000f00af", "flag": "--bluetooth"},       # 󰂯 bluetooth
+    {"id": "__wifi__",    "title": "Wi-Fi",           "icon": "\U000f0928", "flag": "--wifi"},            # 󰤨 wifi
+    {"id": "__audio__",   "title": "Audio",           "icon": "\U000f04c3", "flag": "--audio"},           # 󰓃 speaker
+    {"id": "__region__",  "title": "Region & Time",   "icon": "\U000f034e", "flag": "--region"},          # 󰍎 map marker
+    {"id": "__hkbm__",    "title": "Keybind Manager", "icon": "\U000f030c", "flag": "--keybinds"},        # 󰌌 keyboard
+    {"id": "__rules__",   "title": "Rules & Startup", "icon": "\U000f0493", "flag": "--page=__rules__"},  # 󰒓 cog
+    {"id": "__battery__", "title": "Battery",         "icon": "\U000f0079", "flag": "--page=battery"},    # 󰁹 battery
 ]
 
 # Sidebar structure (mirrors the GTK sidebar). Home is pinned separately.
@@ -105,28 +64,6 @@ CATEGORIES: list[tuple[str, list[str]]] = [
 
 # Raw item configs by item id, for actions.py / state.py. Rebuilt on load_model.
 ITEMS: dict[str, dict] = {}
-
-# Symbolic names seen without an ICON_MAP entry during the last load.
-UNMAPPED_ICONS: set[str] = set()
-
-
-def icon_glyph(icon_name: str) -> str:
-    """Translate a GTK symbolic name to a Nerd Font glyph; pass glyphs through."""
-    if not icon_name:
-        return ""
-    if any(ord(ch) > 127 for ch in icon_name):
-        return icon_name
-    glyph = ICON_MAP.get(icon_name)
-    if glyph is None:
-        UNMAPPED_ICONS.add(icon_name)
-        log.warning("No glyph mapped for icon %r, using default", icon_name)
-        return DEFAULT_ICON
-    return glyph
-
-
-def unmapped_icons() -> set[str]:
-    return set(UNMAPPED_ICONS)
-
 
 # ── Initial values (correct first paint, no round-trips) ────────────────────
 
@@ -164,17 +101,72 @@ def multi_selection_values(props: dict) -> list[str]:
     return values
 
 
-def wallpaper_list(directory: str) -> list[str]:
+def theme_mode() -> str:
+    """THEME_MODE from theme state; falls back to the dark_mode setting."""
+    try:
+        for line in THEME_STATE.read_text(encoding="utf-8").splitlines():
+            if line.startswith("THEME_MODE="):
+                val = line[len("THEME_MODE="):].strip().strip("\"'").lower()
+                if val in {"light", "dark"}:
+                    return val
+    except OSError:
+        pass
+    return "dark" if utility.load_setting("theme/dark_mode", False) else "light"
+
+
+def wallpaper_thumb(path: Path) -> str:
+    """Disk-cached, downscaled copy of a wallpaper for the picker grid.
+
+    Some wallpapers are 15+ MB / 6000px+ PNGs; Qt has no scaled PNG decode
+    path (unlike JPEG), so handing those straight to the QML Image element
+    means a full-resolution decode on every single page visit. Falls back to
+    the original path if Pillow is missing or decoding fails — the tile just
+    loads at full cost like before, nothing breaks.
+    """
+    if _PILImage is None:
+        return str(path)
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:
+        return str(path)
+    key = hashlib.sha1(f"{path}:{mtime_ns}".encode()).hexdigest()
+    cached = THUMB_DIR / f"{key}.jpg"
+    if cached.exists():
+        return str(cached)
+    try:
+        THUMB_DIR.mkdir(parents=True, exist_ok=True)
+        with _PILImage.open(path) as img:
+            img.thumbnail((THUMB_SIZE, THUMB_SIZE))
+            img.convert("RGB").save(cached, "JPEG", quality=85)
+        return str(cached)
+    except Exception as e:
+        log.warning("wallpaper_thumb failed for %s: %s", path, e)
+        return str(path)
+
+
+def wallpaper_list(directory: str, max_items: int = 100) -> list[dict]:
     if not directory:
         return []
-    path = Path(directory).expanduser().resolve()
-    if not path.is_dir():
+    base = Path(directory).expanduser().resolve()
+    if not base.is_dir():
         return []
-    files = [
-        p for p in path.iterdir()
-        if p.is_file() and p.suffix.lower() in WALLPAPER_EXTS
-    ]
-    return sorted(str(p) for p in files)
+    # Mirror the GTK picker: prefer <dir>/<Mode> plus user_wallpapers/<Mode>,
+    # scanned recursively; flat scan of the directory itself otherwise.
+    mode = theme_mode().capitalize()
+    roots = [r for r in (base / mode, base / "user_wallpapers" / mode) if r.is_dir()]
+    if roots:
+        files = [
+            p for root in roots for p in root.rglob("*")
+            if p.is_file() and p.suffix.lower() in WALLPAPER_EXTS
+        ]
+    else:
+        files = [
+            p for p in base.iterdir()
+            if p.is_file() and p.suffix.lower() in WALLPAPER_EXTS
+        ]
+    # GTK picker parity: cap the grid (rows.py max_items default 100).
+    paths = sorted({str(p) for p in files})[:max_items]
+    return [{"path": p, "thumb": wallpaper_thumb(Path(p))} for p in paths]
 
 
 def build_item(raw: dict, item_id: str) -> dict:
@@ -183,7 +175,7 @@ def build_item(raw: dict, item_id: str) -> dict:
     props = raw.get("properties", {}) or {}
 
     item = {**props, "id": item_id, "type": item_type}
-    item["icon"] = icon_glyph(props.get("icon", ""))
+    item["icon"] = props.get("icon", "") or ""
 
     match item_type:
         case "toggle":
@@ -199,7 +191,9 @@ def build_item(raw: dict, item_id: str) -> dict:
             static = value_cfg.get("type") == "static"
             item["text"] = str(value_cfg.get("text", "")) if static else "…"
         case "wallpaper_picker":
-            item["wallpapers"] = wallpaper_list(props.get("directory", ""))
+            item["wallpapers"] = wallpaper_list(
+                props.get("directory", ""), int(props.get("max_items", 100))
+            )
             item["current"] = utility.load_setting(props.get("key", ""), "")
 
     return item
@@ -221,25 +215,41 @@ def build_yaml_page(page_cfg: dict) -> dict:
         "id": page_id,
         "kind": "yaml",
         "title": page_cfg.get("title", ""),
-        "icon": icon_glyph(page_cfg.get("icon", "")),
+        "icon": page_cfg.get("icon", "") or "",
         "sections": sections,
     }
 
 
+# Pages with dedicated QML editors get their own `kind` so the frontend
+# Loader can pick a native component instead of YamlPage.
+NATIVE_KIND_OVERRIDES: dict[str, str] = {
+    "__audio__": "audio",
+    "__battery__": "battery",
+    "__bt__": "bluetooth",
+    "__cursor__": "cursor",
+    "__mon__": "monitors",
+    "__hkbm__": "keybinds",
+    "__region__": "region",
+    "__rules__": "rules_startup",
+    "__wifi__": "wifi",
+}
+
+
 def build_native_page(entry: dict) -> dict:
+    kind = NATIVE_KIND_OVERRIDES.get(entry["id"])
+    if kind is None:
+        raise ValueError(f"native page {entry['id']} has no QML kind override")
     return {
         "id": entry["id"],
-        "kind": "native",
+        "kind": kind,
         "title": entry["title"],
-        "icon": icon_glyph(entry["icon"]),
-        "deep_link": ["python3", str(GTK_APP), entry["flag"]],
+        "icon": entry["icon"],
     }
 
 
 def load_model(config_path: Path = CONFIG_PATH) -> dict:
     """Read config.yaml and return the full frontend model."""
     ITEMS.clear()
-    UNMAPPED_ICONS.clear()
 
     config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     pages = [

@@ -55,9 +55,9 @@ Rectangle {
                 if (!pill.pt) return ""
                 if (pill.pt.mode === "countdown") {
                     const rem = Math.max(0, pill.pt.targetSeconds - pill.pt.elapsedSeconds)
-                    return fmtTime(rem)
+                    return TimerService.fmtTime(rem)
                 }
-                return fmtTime(pill.pt.elapsedSeconds)
+                return TimerService.fmtTime(pill.pt.elapsedSeconds)
             }
             color: pill.warning
                 ? (pill.plain ? pill.fgWarn : Theme.error)
@@ -115,15 +115,5 @@ Rectangle {
         anchors.fill: parent
         cursorShape:  Qt.PointingHandCursor
         onClicked:    TimerService.open = !TimerService.open
-    }
-
-    function fmtTime(secs) {
-        secs = Math.floor(secs)
-        const h = Math.floor(secs / 3600)
-        const m = Math.floor((secs % 3600) / 60)
-        const s = secs % 60
-        if (h > 0)
-            return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
-        return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
     }
 }

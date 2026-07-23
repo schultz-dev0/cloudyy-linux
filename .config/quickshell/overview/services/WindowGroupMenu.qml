@@ -36,6 +36,10 @@ Item {
     function updateMeasuredTextWidth() {
         let maxW = 0;
         const list = root.windows;
+        if (!list || list.length === 0) {
+            root.measuredTextWidth = 0;
+            return;
+        }
         for (let i = 0; i < list.length; i++) {
             rowMetrics.text = root.rowLabel(list[i]);
             maxW = Math.max(maxW, rowMetrics.width);

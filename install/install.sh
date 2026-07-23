@@ -309,6 +309,14 @@ phase_services() {
     log_warn "setup-quickshell-service.sh not found — quickshell crash-restart will not be configured."
   fi
 
+  local audio_service_script="${SCRIPT_DIR}/setup_services/setup-audio-autoswitch.sh"
+  if [[ -f "$audio_service_script" ]]; then
+    bash "$audio_service_script" \
+      || log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
+  else
+    log_warn "Audio auto-switch setup script not found."
+  fi
+
   log_ok "Services configured."
 }
 

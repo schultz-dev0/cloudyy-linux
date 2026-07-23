@@ -15,7 +15,7 @@ Singleton {
     id: svc
 
     readonly property string homeDir: Quickshell.env("HOME") || ""
-    readonly property string catalogScript: Qt.resolvedUrl("apps-catalog.sh").toString().replace("file://", "")
+    readonly property string catalogScript: Qt.resolvedUrl("apps-catalog.py").toString().replace("file://", "")
     readonly property string catalogCacheFile: homeDir + "/.config/cloud-center/settings/quickshell/app_catalog.json"
     readonly property string recentsFile: homeDir + "/.config/cloud-center/settings/quickshell/app_recents.json"
     readonly property int debounceMs: 120
@@ -89,7 +89,7 @@ Singleton {
     function isRunning(app) {
         if (!app)
             return false;
-        return HyprlandData.isAppRunning(app.wmclass, app.exec);
+        return HyprlandData.isIdentityRunning(HyprlandData.primaryIdentityForApp(app));
     }
 
     function catalogAppForClass(className) {
@@ -141,9 +141,9 @@ Singleton {
     function launchCatalogApp(app) {
         if (!app)
             return false;
-        HyprDispatch.launchDesktopApp({
-            desktopPath: app.desktopPath,
-            exec: app.exec
+        HyprDispatch.activateIdentity(HyprlandData.primaryIdentityForApp(app), {
+            app: app,
+            newInstance: true
         });
         return true;
     }
@@ -343,7 +343,7 @@ Singleton {
     function runningWindowsForApp(app) {
         if (!app)
             return [];
-        return HyprlandData.runningWindowsForClass(app.wmclass);
+        return HyprlandData.windowsForIdentity(HyprlandData.primaryIdentityForApp(app));
     }
 
     function closeWindowPicker() {
@@ -361,11 +361,23 @@ Singleton {
         close();
     }
 
-    function activateApp(app) {
+    function launchNewInstance(app) {
         if (!app)
             return;
+        launchCatalogApp(app);
+        pushRecent(app.id);
+        close();
+    }
+
+    function activateApp(app, options) {
+        if (!app)
+            return;
+        if (options?.newInstance) {
+            launchNewInstance(app);
+            return;
+        }
         if (!isRunning(app)) {
-            launchCatalogApp(app);
+            HyprDispatch.activateIdentity(HyprlandData.primaryIdentityForApp(app), { app: app });
             pushRecent(app.id);
             close();
             return;
@@ -386,7 +398,7 @@ Singleton {
             return;
         }
 
-        HyprDispatch.focusWindowForApp(app.wmclass, app.exec);
+        HyprDispatch.activateIdentity(HyprlandData.primaryIdentityForApp(app), { app: app });
         pushRecent(app.id);
         close();
     }
@@ -451,31 +463,16 @@ Singleton {
     }
 
     function parseCatalogText(raw) {
-        const rows = [];
         const text = `${raw ?? ""}`.trim();
         if (text.length === 0)
-            return rows;
+            return [];
         try {
             const parsed = JSON.parse(text);
-            if (Array.isArray(parsed)) {
-                for (let i = 0; i < parsed.length; i++)
-                    rows.push(parsed[i]);
-                return rows;
-            }
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
+            console.warn("applibrary: bad catalog json", e);
+            return [];
         }
-        const lines = text.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line)
-                continue;
-            try {
-                rows.push(JSON.parse(line));
-            } catch (err) {
-                console.warn("applibrary: bad catalog json", line);
-            }
-        }
-        return rows;
     }
 
     Process {
@@ -497,7 +494,7 @@ Singleton {
     Process {
         id: catalogProc
         running: false
-        command: ["bash", svc.catalogScript, "list"]
+        command: ["python3", svc.catalogScript, "list"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 console.warn("applibrary: catalog script failed", exitCode, exitStatus);

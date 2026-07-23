@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 
 // Shell animation / compositing profile.
 // Enabled via Cloud Center → Shell → Lightweight animations (sets CLOUDYY_LIGHTWEIGHT at launch).

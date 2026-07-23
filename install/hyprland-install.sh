@@ -70,7 +70,6 @@ write_gpu_launcher() {
   local vendor="$1"
   local launcher_dir="${HOME}/.config/hypr"
   local launcher="${launcher_dir}/cloudyy-launch.sh"
-  local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
   local env_d="${HOME}/.config/environment.d"
 
   mkdir -p "$launcher_dir" "$env_d"
@@ -156,14 +155,6 @@ WAYLAND
 
   chmod +x "$launcher"
   log_ok "GPU launcher written: ${launcher}"
-
-  # Inject env block into hyprland.conf (idempotent)
-  if [[ -f "$hypr_conf" ]] && ! grep -q "# cloudyy-gpu-env" "$hypr_conf"; then
-    printf '\n# cloudyy-gpu-env\nsource = %s\n' "$launcher" >>"$hypr_conf"
-    log_ok "Launcher registered in hyprland.conf."
-  else
-    log_skip "GPU env block already present in hyprland.conf."
-  fi
 }
 
 detect_and_install_gpu() {

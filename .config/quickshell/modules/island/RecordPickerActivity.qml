@@ -9,27 +9,29 @@ Item {
 
     property string activityId: ""
 
-    readonly property int contentWidth: 240
+    readonly property int contentWidth: Theme.islandPreviewContentWidth
+    readonly property int contentPad: 2
+    readonly property int headerHeight: 22
+    readonly property int optionHeight: 34
+    readonly property int layoutSpacing: 5
 
     implicitWidth:  contentWidth
-    implicitHeight: headerHeight + 6 + (optionHeight * 3) + optionSpacing * 2
+    implicitHeight: contentPad * 2
+                    + headerHeight
+                    + layoutSpacing * 3
+                    + optionHeight * 3
 
-    readonly property int headerHeight: 22
-    readonly property int optionHeight: 36
-    readonly property int optionSpacing: 4
+    readonly property color _btnFill: Qt.rgba(1, 1, 1, 0.1)
+    readonly property color _btnFillHover: Qt.rgba(1, 1, 1, 0.18)
 
-    readonly property color _btnFill: Qt.rgba(
-        Theme.surface_container_high.r,
-        Theme.surface_container_high.g,
-        Theme.surface_container_high.b, 0.55)
-    readonly property color _btnFillHover: Qt.rgba(
-        Theme.surface_container_high.r,
-        Theme.surface_container_high.g,
-        Theme.surface_container_high.b, 0.82)
+    anchors.fill: parent
 
     ColumnLayout {
-        anchors.fill: parent
-        spacing: 6
+        anchors {
+            fill:   parent
+            margins: root.contentPad
+        }
+        spacing: root.layoutSpacing
 
         RowLayout {
             Layout.fillWidth: true
@@ -38,14 +40,14 @@ Item {
 
             Text {
                 text:           "󰕧"
-                color:          Theme.on_surface_variant
+                color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
             }
 
             Text {
                 text:               "RECORD"
-                color:              Theme.on_surface_variant
+                color:              Qt.rgba(1, 1, 1, 0.55)
                 font.family:        "JetBrainsMono Nerd Font"
                 font.pixelSize:     9
                 font.letterSpacing: 0.8
@@ -62,7 +64,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text:           "󰅖"
-                    color:          Theme.on_surface_variant
+                    color:          "#ffffff"
                     font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                 }
@@ -78,7 +80,7 @@ Item {
         }
 
         RecordOption {
-            label:      "Area (draw region)"
+            label:      "Area"
             icon:       "󰆞"
             selection:  "region"
             activityId: root.activityId
@@ -120,7 +122,7 @@ Item {
 
             Text {
                 text:           icon
-                color:          Theme.on_surface
+                color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 14
             }
@@ -128,14 +130,14 @@ Item {
             Text {
                 Layout.fillWidth: true
                 text:           label
-                color:          Theme.on_surface
+                color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
             }
 
             Text {
                 text:           "󰅀"
-                color:          Theme.on_surface_variant
+                color:          Qt.rgba(1, 1, 1, 0.7)
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 10
                 opacity:        0.7

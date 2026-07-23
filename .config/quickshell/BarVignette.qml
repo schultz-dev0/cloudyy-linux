@@ -12,7 +12,23 @@ PanelWindow {
     id: vignette
 
     property var assignedScreen: null
-    screen: assignedScreen
+
+    readonly property var resolvedScreen: {
+        const pref = assignedScreen;
+        const all = Quickshell.screens;
+        if (!all.length)
+            return null;
+        if (!pref)
+            return all[0];
+        const name = pref.name;
+        for (let i = 0; i < all.length; i++) {
+            if (all[i].name === name)
+                return all[i];
+        }
+        return all[0];
+    }
+
+    screen: resolvedScreen
 
     // ── Tunables ──────────────────────────────────────────────────────────────
     readonly property int stripHeight: 104

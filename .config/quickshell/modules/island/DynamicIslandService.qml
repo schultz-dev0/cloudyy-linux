@@ -17,6 +17,49 @@ QtObject {
     property var recordingPreviewComponent: null
     property string recordingsDir: ""
     property string playSoundScript: ""
+    property var osdBurstComponent: null
+
+    readonly property int osdBurstDurationMs: 2000
+    property string _osdBurstId: ""
+
+    signal osdBurstUpdated()
+    signal shellLayoutChanged()
+
+    function showOsdBurst(kind, icon, valueLabel, progress) {
+        if (!root.osdBurstComponent)
+            return;
+
+        const prog = progress ?? 0;
+        const act = root.currentActivity;
+
+        if (act?.data?.activityType === "osd" && act.data?.kind === kind) {
+            act.data.icon = icon;
+            act.data.valueLabel = valueLabel;
+            act.data.progress = prog;
+            root._osdBurstId = act.id;
+            root._startTimer(root.osdBurstDurationMs);
+            root.osdBurstUpdated();
+            return;
+        }
+
+        if (act?.data?.activityType === "osd") {
+            root.remove(act.id);
+            root._osdBurstId = "";
+        }
+
+        root._osdBurstId = root.push({
+            contentComponent: root.osdBurstComponent,
+            priority:         90,
+            durationMs:       root.osdBurstDurationMs,
+            data: {
+                activityType: "osd",
+                kind:         kind,
+                icon:         icon,
+                valueLabel:   valueLabel,
+                progress:     prog
+            }
+        });
+    }
 
     property string _recordingOutFile: ""
     property string _recordingPickerId: ""
@@ -28,13 +71,27 @@ QtObject {
     readonly property int notificationIslandMaxMs:     5000
     readonly property int notificationIslandDefaultMs: 5000
     readonly property int screenshotPreviewExtraMs:    2000
+    readonly property int recordPickerDurationMs:      10000
     // Temp PNG lifetime after capture (island may auto-hide sooner).
     readonly property int screenshotTmpRetentionSec:    300
 
     signal exitRequested()
 
+    // True while a screenshot/recording preview drag may own a live QDrag.
+    // Keeps the island on its current screen and blocks auto-dismiss teardown.
+    property bool previewDragActive: false
+
     property var  _queue:  []
     property int  _serial: 0
+
+    function beginPreviewDrag() {
+        root.previewDragActive = true;
+        root._timer.stop();
+    }
+
+    function endPreviewDrag() {
+        root.previewDragActive = false;
+    }
 
     function notificationIslandDurationMs(expireTimeoutSec) {
         if (expireTimeoutSec > 0)
@@ -53,22 +110,44 @@ QtObject {
     }
 
     function _onActivityTimerExpired() {
+        if (root.previewDragActive)
+            return;
         const act = root.currentActivity;
         if (act?.data?.activityType === "screenshot")
             root.dismissScreenshot(act.id);
+        else if (act?.data?.activityType === "recording")
+            root.dismissRecording(act.id);
+        else if (act?.data?.activityType === "recordPicker")
+            root.dismissRecordPicker(act.id);
         else
             root.exitRequested();
     }
 
     function push(activityDef) {
-        const id = "activity-" + root._serial++;
+        const serial = root._serial++;
+        const id = "activity-" + serial;
+        const requestedDuration = activityDef.durationMs ?? root.notificationIslandDefaultMs;
         const activity = {
             id:               id,
+            serial:           serial,
             contentComponent: activityDef.contentComponent ?? null,
             priority:         activityDef.priority  ?? 10,
-            durationMs:       activityDef.durationMs ?? 5000,
+            // The island never holds passive, zero-duration activities.
+            durationMs:       requestedDuration > 0
+                                  ? requestedDuration
+                                  : root.notificationIslandDefaultMs,
             data:             activityDef.data       ?? {}
         };
+
+        const isNotif = activity.data?.activityType === "notification";
+        const curIsNotif = root.currentActivity?.data?.activityType === "notification";
+
+        if (curIsNotif && isNotif) {
+            // FIFO: keep the visible notification until its timer ends.
+            root._insertQueued(activity);
+            root.pendingCount = root._queue.length;
+            return id;
+        }
 
         if (root.currentActivity === null) {
             root.currentActivity = activity;
@@ -90,6 +169,8 @@ QtObject {
     }
 
     function remove(id) {
+        if (root._osdBurstId === id)
+            root._osdBurstId = "";
         if (root.currentActivity && root.currentActivity.id === id) {
             root._timer.stop();
             root.exitRequested();
@@ -113,16 +194,36 @@ QtObject {
         root.pendingCount = root._queue.length;
     }
 
+    function clearAllNotifications() {
+        function isNotif(activity) {
+            return activity?.data?.activityType === "notification";
+        }
+
+        root._queue = root._queue.filter(a => !isNotif(a));
+        root.pendingCount = root._queue.length;
+
+        if (!isNotif(root.currentActivity))
+            return;
+
+        root._timer.stop();
+        root.exitRequested();
+    }
+
     function popCurrent() {
         root._timer.stop();
         if (root._queue.length > 0) {
-            root._queue.sort((a, b) => b.priority - a.priority);
+            root._queue.sort((a, b) => {
+                const dp = b.priority - a.priority;
+                if (dp !== 0)
+                    return dp;
+                return a.serial - b.serial;
+            });
             root.currentActivity = root._queue.shift();
             root.pendingCount    = root._queue.length;
             root._startTimer(root.currentActivity.durationMs);
         } else {
             root.currentActivity = null;
-            root.pendingCount    = 0;
+            root.pendingCount = 0;
         }
     }
 
@@ -141,7 +242,12 @@ QtObject {
     function _insertQueued(activity) {
         const q = root._queue.slice();
         q.push(activity);
-        q.sort((a, b) => b.priority - a.priority);
+        q.sort((a, b) => {
+            const dp = b.priority - a.priority;
+            if (dp !== 0)
+                return dp;
+            return a.serial - b.serial;
+        });
         root._queue = q;
     }
 
@@ -177,6 +283,7 @@ QtObject {
     }
 
     function dismissScreenshot(activityId) {
+        root.endPreviewDrag();
         delete root._screenshotSessions[activityId];
         root.remove(activityId);
     }
@@ -188,6 +295,7 @@ QtObject {
     }
 
     function dismissScreenshotAfterDrag(activityId) {
+        root.endPreviewDrag();
         delete root._screenshotSessions[activityId];
         root.remove(activityId);
     }
@@ -226,7 +334,9 @@ QtObject {
     function toggleRecording() {
         if (root._recordingOutFile)
             root.stopRecording();
-        else if (root._recordingPickerId)
+        else if (root._recordingPickerId
+                 && (root.currentActivity?.id === root._recordingPickerId
+                     || root._queue.some(a => a.id === root._recordingPickerId)))
             root.dismissRecordPicker(root._recordingPickerId);
         else
             root.showRecordPicker();
@@ -241,8 +351,8 @@ QtObject {
 
         root._recordingPickerId = root.push({
             contentComponent: root.recordPickerComponent,
-            priority:         26,
-            durationMs:       0,
+            priority:         95,
+            durationMs:       root.recordPickerDurationMs,
             data: { activityType: "recordPicker" }
         });
     }
@@ -341,7 +451,7 @@ QtObject {
         const activityId = root.push({
             contentComponent: contentComponent,
             priority:         25,
-            durationMs:       0,
+            durationMs:       root.screenshotPreviewDurationMs(),
             data: {
                 activityType: "recording",
                 videoPath:    path
@@ -353,7 +463,9 @@ QtObject {
     }
 
     function dismissRecording(activityId) {
+        root.endPreviewDrag();
         delete root._recordingSessions[activityId];
+        root._runShell("rm -f '/tmp/cloudyy-recording.preview.jpg'");
         root.remove(activityId);
     }
 
@@ -364,7 +476,9 @@ QtObject {
     }
 
     function dismissRecordingAfterDrag(activityId) {
+        root.endPreviewDrag();
         delete root._recordingSessions[activityId];
+        root._runShell("rm -f '/tmp/cloudyy-recording.preview.jpg'");
         root.remove(activityId);
     }
 

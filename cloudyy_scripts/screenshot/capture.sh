@@ -16,7 +16,10 @@ EOF
 }
 
 qs_ipc() {
-    qs ipc call "$@" 2>/dev/null
+    # Pin to the main shell config so we never spawn / talk to the wrong qs.
+    local main="${HOME}/.config/quickshell"
+    unset __QUICKSHELL_CRASH_DUMP_PID __QUICKSHELL_CRASH_INFO_FD __QUICKSHELL_CRASH_SIGNAL || true
+    qs -p "$main" ipc call "$@" 2>/dev/null
 }
 
 # ── Screenshot ────────────────────────────────────────────────────────────────

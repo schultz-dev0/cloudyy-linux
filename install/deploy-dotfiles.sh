@@ -371,19 +371,6 @@ deploy_defaults() {
 
   local defaults_dir="${REPO_DIR}/install/default-theme"
 
-  # hyprland.conf — gitignored; deploy once so Hyprland can start cleanly
-  local hypr_conf="${HOME}/.config/hypr/hyprland.conf"
-  if [[ ! -f "$hypr_conf" ]]; then
-    if [[ -f "${defaults_dir}/hyprland.conf" ]]; then
-      cp "${defaults_dir}/hyprland.conf" "$hypr_conf"
-      log_ok "hyprland.conf deployed (default)."
-    else
-      log_warn "No default hyprland.conf in ${defaults_dir} — Hyprland may not start until configured."
-    fi
-  else
-    log_skip "hyprland.conf"
-  fi
-
   # matugen generated colors — gitignored; deploy so Hyprland + rofi have colors
   local generated_dir="${HOME}/.config/matugen/generated"
   mkdir -p "$generated_dir"
@@ -397,24 +384,9 @@ deploy_defaults() {
     fi
   done
   if (( deployed > 0 )); then
-    log_ok "${deployed} default color file(s) deployed (incl. starship.toml)."
+    log_ok "${deployed} default color file(s) deployed (incl. starship.toml, quickshell-colors.json)."
   else
     log_skip "matugen generated colors"
-  fi
-
-  # quickshell Theme.qml — matugen output; seed once, never tracked in git
-  local qs_theme="${HOME}/.config/quickshell/Theme.qml"
-  local qs_theme_default="${defaults_dir}/quickshell/Theme.qml"
-  if [[ ! -f "$qs_theme" ]]; then
-    if [[ -f "$qs_theme_default" ]]; then
-      mkdir -p "$(dirname "$qs_theme")"
-      cp "$qs_theme_default" "$qs_theme"
-      log_ok "quickshell Theme.qml deployed (default)."
-    else
-      log_warn "No default Theme.qml in ${defaults_dir}/quickshell — quickshell may lack colors until matugen runs."
-    fi
-  else
-    log_skip "quickshell Theme.qml"
   fi
 
   # Cloud Center terminal settings — seed defaults so .zshrc can load plugins
@@ -506,6 +478,7 @@ reapply_skip_worktree() {
     ".config/matugen/generated/kitty-colors.conf"
     ".config/matugen/generated/matugen_colors.lua"
     ".config/matugen/generated/pywalfox-colors.json"
+    ".config/matugen/generated/quickshell-colors.json"
     ".config/matugen/generated/vscode.json"
     ".config/kitty/kitty-colors.conf"
     ".config/btop/themes/matugen.theme"

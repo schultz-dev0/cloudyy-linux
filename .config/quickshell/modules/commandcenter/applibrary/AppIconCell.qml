@@ -13,25 +13,38 @@ Item {
     required property int cellWidth
     property bool selected: false
     signal activated()
+    signal newInstanceRequested()
+
+    readonly property int iconSize: 48
+    readonly property int selectionPad: 3
+    readonly property int cellHeight: 88
 
     width: cellWidth
-    height: 84
+    height: cellHeight
+
+    function wantsNewInstance(mouse) {
+        if (!root.running || !mouse)
+            return false;
+        if (mouse.button === Qt.MiddleButton)
+            return true;
+        return ((mouse.modifiers ?? 0) & Qt.ShiftModifier) !== 0;
+    }
 
     Column {
         id: iconCol
+        z: 1
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
         spacing: 2
 
         Item {
             id: iconSlot
-            width: 48
-            height: 48
+            width: root.iconSize + root.selectionPad * 2
+            height: width
             anchors.horizontalCenter: parent.horizontalCenter
 
             Rectangle {
-                anchors.centerIn: parent
-                width: parent.width + 4
-                height: parent.height + 4
+                anchors.fill: parent
                 radius: 10
                 visible: root.selected
                 color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
@@ -40,9 +53,45 @@ Item {
             }
 
             AppIcon {
-                anchors.fill: parent
-                iconSize: 48
+                anchors.centerIn: parent
+                width: root.iconSize
+                height: root.iconSize
+                iconSize: root.iconSize
                 appData: root.appData
+            }
+
+            Rectangle {
+                id: newInstanceBtn
+                visible: root.running && cellMouse.containsMouse
+                width: 18
+                height: 18
+                radius: 9
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.topMargin: -2
+                anchors.rightMargin: -2
+                color: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.95)
+                border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.55)
+                border.width: 1
+                z: 2
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "+"
+                    color: Theme.on_primary_container
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: mouse => {
+                        mouse.accepted = true;
+                        root.newInstanceRequested();
+                    }
+                }
             }
         }
 
@@ -72,7 +121,16 @@ Item {
     }
 
     MouseArea {
+        id: cellMouse
+        z: 0
         anchors.fill: parent
-        onClicked: root.activated()
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        onClicked: mouse => {
+            if (root.wantsNewInstance(mouse))
+                root.newInstanceRequested();
+            else
+                root.activated();
+        }
     }
 }

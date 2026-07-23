@@ -1,5 +1,6 @@
 singleton HyprlandData 1.0 HyprlandData.qml
 singleton HyprDispatch 1.0 HyprDispatch.qml
+singleton CursorWorkspaceStore 1.0 CursorWorkspaceStore.qml
 singleton GlobalStates 1.0 GlobalStates.qml
 singleton IconResolver 1.0 IconResolver.qml
 AppIcon 1.0 AppIcon.qml

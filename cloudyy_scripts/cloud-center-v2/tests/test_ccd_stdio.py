@@ -4,7 +4,10 @@ import sys
 import threading
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
+
+from lib.ccd import __main__ as ccd_main
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -91,6 +94,18 @@ class TestStdioEndToEnd(unittest.TestCase):
             wait_for(lambda: not any(pid_alive(pid) for pid in children), timeout=2),
             f"orphaned children: {[p for p in children if pid_alive(p)]}",
         )
+
+
+class TestMainShutdown(unittest.TestCase):
+    def test_stdin_close_discards_monitor_session(self):
+        with mock.patch.object(ccd_main.model, "load_model"), \
+             mock.patch.object(ccd_main.sys, "stdin", []), \
+             mock.patch.object(ccd_main.state, "shutdown"), \
+             mock.patch.object(ccd_main.rules_startup, "shutdown") as rules_shutdown, \
+             mock.patch.object(ccd_main.monitors, "shutdown") as monitor_shutdown:
+            ccd_main.main()
+        monitor_shutdown.assert_called_once_with()
+        rules_shutdown.assert_called_once_with()
 
 
 if __name__ == "__main__":

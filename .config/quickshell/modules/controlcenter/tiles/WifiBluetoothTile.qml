@@ -28,8 +28,6 @@ Rectangle {
 
     // ── Layout ────────────────────────────────────────────────────────────
     // Height matches two BaseTiles plus one row gap: 68 + 6 + 68 = 142.
-    // This is set explicitly so ElevatedEffect can cache the shadow at the
-    // correct size, and so no GridLayout rowSpan / z-fighting is needed.
     implicitHeight: 142
     implicitWidth:  170
     Layout.fillWidth: true
@@ -38,8 +36,6 @@ Rectangle {
     color:        Theme.glassSection
     border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
     border.width: 1
-
-    ElevatedEffect { target: root }
 
     // ── Content ───────────────────────────────────────────────────────────
     ColumnLayout {
@@ -212,7 +208,7 @@ Rectangle {
     }
 
     Process { id: wifiLaunchProc; command: ["uwsm-app", "--", "nm-connection-editor"]; running: false }
-    Process { id: btLaunchProc;   command: ["cloud-center", "bluetooth"];               running: false }
+    Process { id: btLaunchProc;   command: [Quickshell.env("HOME") + "/cloudyy_scripts/cloud-center", "bluetooth"]; running: false }
 
     Component.onCompleted: refresh()
 }

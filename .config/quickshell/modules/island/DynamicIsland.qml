@@ -7,62 +7,129 @@ import Quickshell.Wayland
 import "../.."
 import "." as QuickIsland
 
+// Open TO:DOs:
+// - [ ] Fix timer component to call a pop up upon completion/start
+// - [ ] Explore charging pop up for laptops
+
 PanelWindow {
     id: island
 
-    readonly property Component notificationActivityComponent: notificationActivityComp
+    property var assignedScreen: null
+
+    readonly property var resolvedScreen: { 
+        const pref = assignedScreen;
+        const all = Quickshell.screens;
+        if (!all.length)
+            return null;    
+        if (!pref)
+            return all[0];  
+        const name = pref.name;
+        for (let i = 0; i < all.length; i++) {  
+            if (all[i].name === name)
+                return all[i];
+        }   
+        return all[0];  
+    }   
+
+    screen: resolvedScreen ?? (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
+
     Component {
         id: notificationActivityComp
         QuickIsland.NotificationActivity {}
     }
 
-    readonly property int islandPadding: 10
-    readonly property int pillWidth: 120
-    readonly property int pillHeight: 28
-    readonly property int pillRadius: 20
-    readonly property int barHeight: 40
-    readonly property int barTopGap: 6
-    property int belowBarGap: -45
+    readonly property Component notificationActivityComponent: notificationActivityComp
 
-    // Fixed overlay size — avoids resizing the layer surface every animation frame.
-    readonly property int maxIslandWidth: 272
-    readonly property int maxIslandHeight: 196
+    readonly property int islandPadding: 12
+    readonly property int compactShellWidth: 148
+    readonly property int compactShellHeight: 36
+    readonly property int barReservedHeight: 21
+    readonly property int displayTopGap: 1
+    readonly property int shellRadius: Theme.islandShellRadius
+    readonly property int standardShellWidth: Theme.islandShellWidth
+    readonly property int standardShellHeight: Theme.islandShellHeight
+    readonly property int hoverOverflow: 4
+    readonly property int maxPreviewHeight: 280
+    readonly property int previewInset: Theme.islandPreviewInset
+    readonly property color shellFill: Qt.rgba(0.015, 0.015, 0.018, 0.985)
+    readonly property color shellBorder: Qt.rgba(1, 1, 1, 0.085)
+    readonly property color shellBorderHovered: Qt.rgba(1, 1, 1, 0.15)
 
+    readonly property int activationHeight: 1
+    property bool bodyHovered: false
     readonly property int animScaleIn: Perf.msHalf(100)
     readonly property int animScaleOut: Perf.msHalf(90)
     readonly property int animExpand: Perf.msHalf(170)
-    readonly property int animContract: Perf.msHalf(140)
     readonly property int animFade: Perf.msHalf(80)
 
     property string islandState: "idle"
-    property real targetWidth: pillWidth
-    property real targetHeight: pillHeight
+    property real targetWidth: standardShellWidth
+    property real targetHeight: standardShellHeight
 
-    anchors.top: true
+    readonly property bool pillShown: islandState !== "idle"
+    readonly property bool chromeVisible: pillShown
+
+    anchors {
+        top: true
+    }
     margins {
-        top: barHeight + barTopGap + belowBarGap
+        // Counter the bar's 18 px height + 3 px top gap, then leave one
+        // physical pixel between the island and the display edge.
+        top: displayTopGap - barReservedHeight
     }
 
-    implicitWidth: maxIslandWidth
-    implicitHeight: maxIslandHeight
+    implicitWidth: chromeVisible ? targetWidth + hoverOverflow * 2 : 160
+    implicitHeight: chromeVisible ? targetHeight + hoverOverflow : activationHeight
     exclusiveZone: 0
+    exclusionMode: ExclusionMode.Ignore
     color: "transparent"
-    visible: islandState !== "idle"
+    visible: true
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:island"
+
+    Component.onCompleted: Qt.callLater(() => island._restoreFromService())
+
+    function _restoreFromService() {
+        const act = QuickIsland.DynamicIslandService.currentActivity;
+        if (!act)
+            return;
+        if (island.islandState === "idle") {
+            island.islandState = "pill-in";
+            return;
+        }
+        if (island.islandState === "visible" || island.islandState === "pill-in")
+            island._resyncVisibleContent();
+    }
+
+    function _resyncVisibleContent() {
+        island._applyTargetSize();
+        if (!contentLoader.active)
+            contentLoader.active = true;
+        if (!contentLoader.item)
+            return;
+        island._applyActivityToLoader();
+        island._syncPillGeometry(island._isLargePreview());
+        island._revealContent();
+    }
 
     Connections {
         target: QuickIsland.DynamicIslandService
         function onExitRequested() {
             island.islandState = "contracting";
         }
+        function onOsdBurstUpdated() {
+            island._applyActivityToLoader();
+        }
+        function onShellLayoutChanged() {
+            island._syncPillGeometry(true);
+        }
         function onCurrentActivityChanged() {
             const act = QuickIsland.DynamicIslandService.currentActivity;
-            if (island.islandState === "idle" && act !== null) {
+            if (act !== null && island.islandState === "idle") {
                 island.islandState = "pill-in";
             } else if (act !== null
-                       && (island.islandState === "visible" || island.islandState === "expanding")) {
+                       && island.islandState !== "contracting") {
                 island._swapActivityInPlace();
             } else {
                 island._applyActivityToLoader();
@@ -70,14 +137,98 @@ PanelWindow {
         }
     }
 
+    Connections {
+        target: Theme
+        function onIslandPreviewInsetChanged() {
+            if (island.islandState === "visible" || island.islandState === "pill-in")
+                island._resyncVisibleContent();
+        }
+        function onIslandPreviewContentWidthChanged() {
+            if (island.islandState === "visible" || island.islandState === "pill-in")
+                island._resyncVisibleContent();
+        }
+    }
+
+    function _isLargePreview() {
+        const act = QuickIsland.DynamicIslandService.currentActivity;
+        if (!act)
+            return false;
+        const t = act.data?.activityType;
+        return t === "screenshot" || t === "recording" || t === "recordPicker";
+    }
+
+    function _previewOuterPad() {
+        return island.previewInset * 2 + pillShape.strokeWidth * 2;
+    }
+
+    function _resolveTargetSize() {
+        const width = standardShellWidth;
+        if (_isLargePreview() && contentLoader.item) {
+            const pad = _previewOuterPad();
+            const innerH = contentLoader.item.implicitHeight || standardShellHeight;
+            return {
+                width:  width,
+                height: Math.min(maxPreviewHeight,
+                    Math.max(standardShellHeight, innerH + pad))
+            };
+        }
+        return { width: width, height: standardShellHeight };
+    }
+
+    function _applyTargetSize() {
+        const size = _resolveTargetSize();
+        island.targetWidth = size.width;
+        island.targetHeight = size.height;
+    }
+
+    function _syncPillGeometry(animateHeight) {
+        const prevH = pill.height;
+        _applyTargetSize();
+        pill.width = targetWidth;
+        // Snap preview height — animating while thumbnail loads clips the bottom.
+        if (_isLargePreview()) {
+            pill.height = targetHeight;
+            return;
+        }
+        if (animateHeight && Math.abs(prevH - targetHeight) > 1
+                && !pillHeightAnim.running) {
+            pillHeightAnim.from = prevH;
+            pillHeightAnim.to = targetHeight;
+            pillHeightAnim.start();
+        } else {
+            pill.height = targetHeight;
+        }
+    }
+
     function _swapActivityInPlace() {
         _pillInDone = false;
         _loaderReady = false;
+        _layoutHookedActivityId = "";
         contentLoader.opacity = 0;
         contentLoader.active = false;
         contentLoader.active = true;
-        if (islandState === "visible")
-            islandState = "expanding";
+        island.islandState = "pill-in";
+    }
+
+    function _beginContract() {
+        pillShowInAnim.stop();
+        pillScaleInAnim.stop();
+        contentOpacityInAnim.stop();
+        contentOpacityOutAnim.stop();
+        pillShowOutAnim.stop();
+        pillScaleOutAnim.stop();
+        contentLoader.opacity = 0;
+        if (island.animScaleOut <= 0) {
+            pill.showOpacity = 0;
+            pill.showScale = 0.96;
+            island._finishPillOut();
+        } else {
+            pillShowOutAnim.from = pill.showOpacity;
+            pillShowOutAnim.to = 0;
+            pillShowOutAnim.start();
+            pillScaleOutAnim.from = pill.showScale;
+            pillScaleOutAnim.start();
+        }
     }
 
     onIslandStateChanged: {
@@ -86,79 +237,58 @@ PanelWindow {
         case "pill-in":
             _pillInDone = false;
             _loaderReady = false;
+            _layoutHookedActivityId = "";
+            island._applyTargetSize();
             contentLoader.active = false;
-            pill.width = island.pillWidth;
-            pill.height = island.pillHeight;
+            pill.width = island.compactShellWidth;
+            pill.height = island.compactShellHeight;
             contentLoader.opacity = 0;
             contentLoader.active = true;
             if (animScaleIn <= 0) {
-                pill.scale = 1;
+                pill.showOpacity = 1;
+                pill.showScale = 1;
                 _onPillInDone();
             } else {
-                pill.scale = 0;
+                pill.showOpacity = 0;
+                pill.showScale = 0.96;
                 pillScaleInAnim.start();
+                pillShowInAnim.start();
             }
             break;
 
         case "expanding":
-            island.targetWidth = Math.min(
-                contentLoader.item.implicitWidth + island.islandPadding * 2,
-                maxIslandWidth);
-            island.targetHeight = Math.min(
-                contentLoader.item.implicitHeight + island.islandPadding * 2,
-                maxIslandHeight);
-            pill.height = island.targetHeight;
+            island._applyTargetSize();
             if (animExpand <= 0) {
                 pill.width = island.targetWidth;
+                pill.height = island.targetHeight;
                 islandState = "visible";
             } else {
+                pillExpandHeightAnim.start();
                 pillExpandWidthAnim.start();
             }
             break;
 
         case "visible":
-            if (animFade <= 0) {
-                contentLoader.opacity = 1;
-            } else {
-                contentOpacityInAnim.start();
-            }
+            _resyncVisibleContent();
             break;
 
         case "contracting":
-            pill.height = island.pillHeight;
-            if (animFade <= 0) {
-                contentLoader.opacity = 0;
-            } else {
-                contentOpacityOutAnim.start();
-            }
-            if (animContract <= 0) {
-                pill.width = island.pillWidth;
-                islandState = "pill-out";
-            } else {
-                pillContractWidthAnim.start();
-            }
-            break;
-
-        case "pill-out":
-            if (animScaleOut <= 0) {
-                pill.scale = 0;
-                _finishPillOut();
-            } else {
-                pillScaleOutAnim.start();
-            }
+            island._beginContract();
             break;
 
         case "idle":
+            pillScaleOutAnim.stop();
             contentLoader.active = false;
             contentLoader.opacity = 0;
-            pill.width = island.pillWidth;
-            pill.height = island.pillHeight;
-            pill.scale = 0;
+            pill.width = island.compactShellWidth;
+            pill.height = island.compactShellHeight;
+            pill.showOpacity = 0;
+            pill.showScale = 0.96;
             break;
         }
     }
 
-    Rectangle {
+    Item {
         id: pill
 
         anchors {
@@ -166,69 +296,114 @@ PanelWindow {
             horizontalCenter: parent.horizontalCenter
         }
 
-        width: island.pillWidth
-        height: island.pillHeight
-        radius: island.pillRadius
-        scale: 0
+        width: island.targetWidth
+        height: island.targetHeight
+        opacity: showOpacity
+        scale: showScale * hoverScale
+        transformOrigin: Item.Top
 
-        color: {
-            const d = QuickIsland.DynamicIslandService.currentActivity?.data ?? {};
-            return (d.urgency === 2)
-                ? Qt.rgba(Theme.error_container.r, Theme.error_container.g, Theme.error_container.b, 0.95)
-                : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.96)
+        property real showOpacity: 0
+        property real showScale: 0.96
+        property real hoverScale: island.bodyHovered && island.islandState === "visible" ? 1.015 : 1
+
+        Behavior on hoverScale {
+            enabled: Perf.animationsEnabled
+            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
         }
 
-        border.width: 1
-        border.color: {
+        readonly property color pillStrokeColor: {
             const d = QuickIsland.DynamicIslandService.currentActivity?.data ?? {};
             return (d.urgency === 2)
-                ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.7)
-                : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.55)
+                : (island.bodyHovered ? island.shellBorderHovered : island.shellBorder)
         }
 
-        Loader {
-            id: contentLoader
+        QuickIsland.IslandPillShape {
             anchors.fill: parent
-            anchors.margins: island.islandPadding
-            active: false
-            opacity: 0
-            asynchronous: true
+            anchors.topMargin: 2
+            outerRadius: island.shellRadius
+            strokeWidth: 0
+            strokeColor: "transparent"
+            fillColor: Qt.rgba(0, 0, 0, 0.32)
+        }
 
-            sourceComponent: {
-                const act = QuickIsland.DynamicIslandService.currentActivity;
-                return act?.contentComponent ?? island.notificationActivityComponent;
+        QuickIsland.IslandPillShape {
+            id: pillShape
+            anchors.fill: parent
+            outerRadius: island.shellRadius
+            strokeWidth: 1
+            strokeColor: pill.pillStrokeColor
+            fillColor: island.shellFill
+
+            Behavior on strokeColor {
+                enabled: Perf.animationsEnabled
+                ColorAnimation { duration: 120; easing.type: Easing.OutQuad }
+            }
+        }
+
+        Item {
+            id: pillFace
+            anchors.fill: parent
+            anchors.margins: pillShape.strokeWidth
+            clip: true
+
+            HoverHandler {
+                onHoveredChanged: island.bodyHovered = hovered
             }
 
-            onStatusChanged: {
-                if (status === Loader.Ready) {
-                    island._applyActivityToLoader();
-                    island._onLoaderReady();
+            Loader {
+                id: contentLoader
+                anchors.fill: parent
+                anchors.leftMargin: island._isLargePreview() ? island.previewInset : Theme.islandShellHMargin
+                anchors.rightMargin: island._isLargePreview() ? island.previewInset : Theme.islandShellHMargin
+                anchors.topMargin: island._isLargePreview() ? island.previewInset : island.islandPadding
+                anchors.bottomMargin: island._isLargePreview() ? island.previewInset : island.islandPadding
+                active: false
+                opacity: 0
+                asynchronous: false
+
+                sourceComponent: {
+                    const act = QuickIsland.DynamicIslandService.currentActivity;
+                    return act?.contentComponent ?? island.notificationActivityComponent;
+                }
+
+                onStatusChanged: {
+                    if (status === Loader.Ready) {
+                        island._applyActivityToLoader();
+                        island._onLoaderReady();
+                    }
                 }
             }
-        }
-
-        Text {
-            visible: QuickIsland.DynamicIslandService.pendingCount > 0
-                  && island.islandState === "visible"
-            text: "+" + QuickIsland.DynamicIslandService.pendingCount
-            color: Qt.rgba(Theme.on_surface_variant.r,
-                            Theme.on_surface_variant.g,
-                            Theme.on_surface_variant.b, 0.8)
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 9
-            anchors.right: parent.right
-            anchors.rightMargin: island.islandPadding
-            anchors.verticalCenter: parent.verticalCenter
         }
     }
 
     property bool _pillInDone: false
     property bool _loaderReady: false
+    property string _layoutHookedActivityId: ""
+
+    function _revealContent() {
+        contentOpacityInAnim.stop();
+        contentOpacityOutAnim.stop();
+        contentLoader.opacity = 1;
+    }
+
+    function _hookPreviewLayout(actId) {
+        const item = contentLoader.item;
+        if (!item || !actId || item.previewHeight === undefined)
+            return;
+        if (island._layoutHookedActivityId === actId)
+            return;
+        island._layoutHookedActivityId = actId;
+        item.previewHeightChanged.connect(() => {
+            QuickIsland.DynamicIslandService.shellLayoutChanged();
+        });
+    }
 
     function _tryAdvanceToExpanding() {
         if (_pillInDone && _loaderReady) {
             _pillInDone = false;
             _loaderReady = false;
+            _revealContent();
             islandState = "expanding";
         }
     }
@@ -237,20 +412,13 @@ PanelWindow {
         _tryAdvanceToExpanding();
     }
     function _onLoaderReady() {
-        if (islandState !== "pill-in" && islandState !== "expanding")
-            return;
         if (islandState === "pill-in") {
             _loaderReady = true;
             _tryAdvanceToExpanding();
             return;
         }
         if (islandState === "expanding") {
-            island.targetWidth = Math.min(
-                contentLoader.item.implicitWidth + island.islandPadding * 2,
-                maxIslandWidth);
-            island.targetHeight = Math.min(
-                contentLoader.item.implicitHeight + island.islandPadding * 2,
-                maxIslandHeight);
+            island._applyTargetSize();
             pill.height = island.targetHeight;
             if (animExpand <= 0) {
                 pill.width = island.targetWidth;
@@ -258,6 +426,12 @@ PanelWindow {
             } else if (!pillExpandWidthAnim.running) {
                 pillExpandWidthAnim.start();
             }
+            return;
+        }
+        if (islandState === "visible") {
+            island._applyActivityToLoader();
+            island._syncPillGeometry(true);
+            island._revealContent();
         }
     }
 
@@ -271,12 +445,14 @@ PanelWindow {
         if (d.activityType === "screenshot" || item.imagePath !== undefined) {
             item.imagePath = d.imagePath || "";
             item.activityId = act?.id || "";
+            island._hookPreviewLayout(act?.id || "");
             return;
         }
 
         if (d.activityType === "recording" || item.videoPath !== undefined) {
             item.videoPath = d.videoPath || "";
             item.activityId = act?.id || "";
+            island._hookPreviewLayout(act?.id || "");
             return;
         }
 
@@ -285,28 +461,53 @@ PanelWindow {
             return;
         }
 
+        if (d.activityType === "osd") {
+            item.kind = d.kind || "volume";
+            item.icon = d.icon || "󰕾";
+            item.valueLabel = d.valueLabel || "";
+            item.progress = d.progress ?? 0;
+            return;
+        }
+
+        if (d.activityType === "timer")
+            return;
+
         item.appName = d.appName || "";
         const line = (d.summary || d.body || "").trim();
         item.summary = line || "New notification";
     }
 
     function _finishPillOut() {
+        pill.showOpacity = 0;
+        pill.showScale = 0.96;
         QuickIsland.DynamicIslandService.popCurrent();
-        if (QuickIsland.DynamicIslandService.currentActivity === null)
+        const next = QuickIsland.DynamicIslandService.currentActivity;
+        if (next === null) {
             island.islandState = "idle";
-        else
+        } else {
             island.islandState = "pill-in";
+        }
     }
 
     NumberAnimation {
-        id: pillScaleInAnim
+        id: pillShowInAnim
         target: pill
-        property: "scale"
+        property: "showOpacity"
         from: 0
         to: 1
         duration: island.animScaleIn
         easing.type: Easing.OutCubic
         onFinished: island._onPillInDone()
+    }
+
+    NumberAnimation {
+        id: pillScaleInAnim
+        target: pill
+        property: "showScale"
+        from: 0.96
+        to: 1
+        duration: island.animScaleIn
+        easing.type: Easing.OutCubic
     }
 
     NumberAnimation {
@@ -317,6 +518,15 @@ PanelWindow {
         duration: island.animExpand
         easing.type: Easing.OutCubic
         onFinished: island.islandState = "visible"
+    }
+
+    NumberAnimation {
+        id: pillExpandHeightAnim
+        target: pill
+        property: "height"
+        to: island.targetHeight
+        duration: island.animExpand
+        easing.type: Easing.OutCubic
     }
 
     NumberAnimation {
@@ -340,23 +550,28 @@ PanelWindow {
     }
 
     NumberAnimation {
-        id: pillContractWidthAnim
+        id: pillHeightAnim
         target: pill
-        property: "width"
-        to: island.pillWidth
-        duration: island.animContract
+        property: "height"
+        duration: island.animExpand
+        easing.type: Easing.OutCubic
+    }
+
+    NumberAnimation {
+        id: pillShowOutAnim
+        target: pill
+        property: "showOpacity"
+        duration: island.animScaleOut
         easing.type: Easing.InCubic
-        onFinished: island.islandState = "pill-out"
+        onFinished: island._finishPillOut()
     }
 
     NumberAnimation {
         id: pillScaleOutAnim
         target: pill
-        property: "scale"
-        from: 1
-        to: 0
+        property: "showScale"
+        to: 0.96
         duration: island.animScaleOut
         easing.type: Easing.InCubic
-        onFinished: island._finishPillOut()
     }
 }

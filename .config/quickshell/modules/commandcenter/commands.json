@@ -1,5 +1,4 @@
 [
-  // learn menu commands
   {
     "id": "learn",
     "label": "Learn",
@@ -112,8 +111,7 @@
         "https://tmuxcheatsheet.com/"
       ]
     }
-  },
-  // tools menu commands
+  },  
   {
     "id": "tools",
     "label": "Tools",
@@ -158,7 +156,6 @@
       ]
     }
   },
-  // appearance menu commands
   {
     "id": "appearance",
     "label": "Appearance",
@@ -207,7 +204,7 @@
   {
     "id": "appearance.next",
     "label": "Next Wallpaper",
-    "icon": "󰑕",
+    "icon": "",
     "keywords": [
       "wallpaper",
       "next"
@@ -219,24 +216,9 @@
     }
   },
   {
-    "id": "appearance.scheme",
-    "label": "Color Profile",
-    "icon": "󰎨",
-    "keywords": [
-      "color",
-      "profile",
-      "scheme",
-      "matugen"
-    ],
-    "parent": "appearance",
-    "action": {
-      "type": "navigate"
-    }
-  },
-  {
     "id": "appearance.cycle",
     "label": "Theme Cycle",
-    "icon": "󰔄",
+    "icon": "󱫬",
     "keywords": [
       "cycle",
       "automode"
@@ -246,62 +228,6 @@
       "type": "navigate"
     }
   },
-  // color profile menu commands
-  {
-    "id": "appearance.scheme.tonal",
-    "label": "Tonal Spot",
-    "icon": "󰏘",
-    "keywords": [
-      "tonal",
-      "spot"
-    ],
-    "parent": "appearance.scheme",
-    "action": {
-      "type": "scheme",
-      "scheme": "scheme-tonal-spot"
-    }
-  },
-  {
-    "id": "appearance.scheme.vibrant",
-    "label": "Vibrant",
-    "icon": "󰏘",
-    "keywords": [
-      "vibrant"
-    ],
-    "parent": "appearance.scheme",
-    "action": {
-      "type": "scheme",
-      "scheme": "scheme-vibrant"
-    }
-  },
-  {
-    "id": "appearance.scheme.neutral",
-    "label": "Neutral",
-    "icon": "󰏘",
-    "keywords": [
-      "neutral"
-    ],
-    "parent": "appearance.scheme",
-    "action": {
-      "type": "scheme",
-      "scheme": "scheme-neutral"
-    }
-  },
-  {
-    "id": "appearance.scheme.monochrome",
-    "label": "Monochrome",
-    "icon": "󰏘",
-    "keywords": [
-      "monochrome",
-      "grey"
-    ],
-    "parent": "appearance.scheme",
-    "action": {
-      "type": "scheme",
-      "scheme": "scheme-monochrome"
-    }
-  },
-  // theme cycle menu commands
   {
     "id": "cycle.toggle",
     "label": "Toggle Wallpaper Cycling",
@@ -319,7 +245,7 @@
   {
     "id": "cycle.interval",
     "label": "Cycle Interval",
-    "icon": "󱑶",
+    "icon": "󱎫",
     "keywords": [
       "interval",
       "cycle"
@@ -358,11 +284,10 @@
       "type": "navigate"
     }
   },
-  // cycle interval 
   {
     "id": "cycle.interval.300",
     "label": "5 minutes",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -373,7 +298,7 @@
   {
     "id": "cycle.interval.600",
     "label": "10 minutes",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -384,7 +309,7 @@
   {
     "id": "cycle.interval.900",
     "label": "15 minutes",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -395,7 +320,7 @@
   {
     "id": "cycle.interval.1800",
     "label": "30 minutes",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -406,7 +331,7 @@
   {
     "id": "cycle.interval.3600",
     "label": "1 hour",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -417,7 +342,7 @@
   {
     "id": "cycle.interval.7200",
     "label": "2 hours",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -428,7 +353,7 @@
   {
     "id": "cycle.interval.14400",
     "label": "4 hours",
-    "icon": "󱑷",
+    "icon": "󰄉",
     "parent": "cycle.interval",
     "action": {
       "type": "cycle",
@@ -436,7 +361,6 @@
       "value": "14400"
     }
   },
-  // cycle order 
   {
     "id": "cycle.order.random",
     "label": "Random",
@@ -459,7 +383,6 @@
       "value": "sequential"
     }
   },
-  // auto light/dark mode 
   {
     "id": "cycle.automode.toggle",
     "label": "Toggle Auto Switch",
@@ -487,8 +410,7 @@
     "action": {
       "type": "navigate"
     }
-  },
-  // auto light/dark mode  
+  },  
   {
     "id": "cycle.automode.light.5",
     "label": "05:00",
@@ -539,7 +461,6 @@
       "value": "9"
     }
   },
-  // auto light/dark mode dark
   {
     "id": "cycle.automode.dark.17",
     "label": "17:00",
@@ -600,7 +521,6 @@
       "value": "22"
     }
   },
-  // applications menu commands
   {
     "id": "apps",
     "label": "Applications",
@@ -615,7 +535,6 @@
       "type": "applibrary"
     }
   },
-  // system menu commands 
   {
     "id": "system",
     "label": "System",
@@ -660,7 +579,6 @@
       ]
     }
   },
-  // settings menu commands
   {
     "id": "settings",
     "label": "Settings",
@@ -674,14 +592,10 @@
     "action": {
       "type": "external",
       "command": [
-        "uwsm-app",
-        "--",
-        "python3",
         "_cloud_center"
       ]
     }
   },
-  // packages menu commands
   {
     "id": "packages",
     "label": "Packages",
@@ -726,7 +640,6 @@
       "filter": "all"
     }
   },
-  // update 
   {
     "id": "update",
     "label": "Update",
@@ -742,7 +655,6 @@
       "path": "_updater"
     }
   },
-  // ai menu commands
   {
     "id": "ai",
     "label": "AI",
@@ -1014,8 +926,64 @@
     ],
     "parent": "ai",
     "action": {
-      "type": "script",
-      "path": "quickshell/lib/ollama-service.sh"
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "ai.service.start",
+    "label": "Start Service",
+    "icon": "▶",
+    "keywords": [
+      "start",
+      "ollama"
+    ],
+    "parent": "ai.service",
+    "action": {
+      "type": "ollama_service",
+      "op": "start"
+    }
+  },
+  {
+    "id": "ai.service.stop",
+    "label": "Stop Service",
+    "icon": "■",
+    "keywords": [
+      "stop",
+      "kill",
+      "ollama"
+    ],
+    "parent": "ai.service",
+    "action": {
+      "type": "ollama_service",
+      "op": "stop"
+    }
+  },
+  {
+    "id": "ai.service.restart",
+    "label": "Restart Service",
+    "icon": "",
+    "keywords": [
+      "restart",
+      "ollama"
+    ],
+    "parent": "ai.service",
+    "action": {
+      "type": "ollama_service",
+      "op": "restart"
+    }
+  },
+  {
+    "id": "ai.service.status",
+    "label": "Service Status",
+    "icon": "󰋼",
+    "keywords": [
+      "status",
+      "ollama"
+    ],
+    "parent": "ai.service",
+    "action": {
+      "type": "ollama_service",
+      "op": "show-status"
     }
   },
   {
@@ -1032,7 +1000,6 @@
       "type": "navigate"
     }
   },
-  // ai chat app 
   {
     "id": "ai.chat.app",
     "label": "AI Chat App",
@@ -1059,7 +1026,38 @@
       ]
     }
   },
-  // ai learn docs
+  {
+    "id": "ai.chat.webui.stop",
+    "label": "Stop Open WebUI",
+    "icon": "■",
+    "keywords": [
+      "stop",
+      "kill",
+      "webui",
+      "ram",
+      "docker"
+    ],
+    "parent": "ai.chat",
+    "action": {
+      "type": "open_webui_service",
+      "op": "stop"
+    }
+  },
+  {
+    "id": "ai.chat.webui.start",
+    "label": "Start Open WebUI",
+    "icon": "▶",
+    "keywords": [
+      "start",
+      "webui",
+      "docker"
+    ],
+    "parent": "ai.chat",
+    "action": {
+      "type": "open_webui_service",
+      "op": "start"
+    }
+  },
   {
     "id": "ai.learn.docs",
     "label": "Ollama Docs",
@@ -1138,7 +1136,6 @@
       ]
     }
   },
-  // power menu commands
   {
     "id": "power",
     "label": "Power",
