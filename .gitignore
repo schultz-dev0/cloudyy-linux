@@ -48,6 +48,7 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/.cloud-center-state.json
 .config/hypr/theme_state/current_wallpaper
 .config/hypr/theme_state/cycle.conf
+.config/hypr/hyprland.lua
 cloudyy_scripts/gpu-powerd.py
 cloudyy_scripts/launch-matlab.sh
 cloudyy_scripts/pin-ksp.sh
