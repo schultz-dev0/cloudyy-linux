@@ -10,31 +10,14 @@ BACKEND = REPO_ROOT / ".config/quickshell/cloud-center/services/Backend.qml"
 PAGE = REPO_ROOT / ".config/quickshell/cloud-center/pages/AudioEditor.qml"
 PANEL = REPO_ROOT / ".config/quickshell/cloud-center/components/AudioDevicePanel.qml"
 COMPONENTS = REPO_ROOT / ".config/quickshell/cloud-center/components"
-STAGED_PAGE = Path(__file__).resolve().parents[1] / (
-    ".superpowers/sdd/task5-staging/.config/quickshell/cloud-center/pages/AudioEditor.qml"
-)
-STAGED_PANEL = Path(__file__).resolve().parents[1] / (
-    ".superpowers/sdd/task5-staging/.config/quickshell/cloud-center/components/AudioDevicePanel.qml"
-)
-STAGED_BACKEND = Path(__file__).resolve().parents[1] / (
-    ".superpowers/sdd/task5-staging/.config/quickshell/cloud-center/services/Backend.qml"
-)
-TASK6_STAGING = Path(__file__).resolve().parents[1] / ".superpowers/sdd/task6-staging"
-STAGED_TASK6_PAGE = TASK6_STAGING / ".config/quickshell/cloud-center/pages/AudioEditor.qml"
-STAGED_TASK6_COMPONENTS = TASK6_STAGING / ".config/quickshell/cloud-center/components"
-TASK7_STAGING = Path(__file__).resolve().parents[1] / ".superpowers/sdd/task7-staging"
-STAGED_TASK7_PAGE = TASK7_STAGING / ".config/quickshell/cloud-center/pages/AudioEditor.qml"
-STAGED_TASK7_COMPONENTS = TASK7_STAGING / ".config/quickshell/cloud-center/components"
-STAGED_TASK7_BACKEND = TASK7_STAGING / ".config/quickshell/cloud-center/services/Backend.qml"
-TASK8_STAGING = Path(__file__).resolve().parents[1] / ".superpowers/sdd/task8-staging"
-UNIT = TASK8_STAGING / ".config/systemd/user/cloudyy-audio-autoswitch.service"
-SETUP = TASK8_STAGING / "install/setup_services/setup-audio-autoswitch.sh"
-INSTALL = TASK8_STAGING / "install/install.sh"
-INSTALL_TEST = TASK8_STAGING / "install/test-install.sh"
+UNIT = REPO_ROOT / "install/default-theme/systemd/cloudyy-audio-autoswitch.service"
+SETUP = REPO_ROOT / "install/setup_services/setup-audio-autoswitch.sh"
+INSTALL = REPO_ROOT / "install/install.sh"
+INSTALL_TEST = REPO_ROOT / "install/test-install.sh"
 
 
 class AudioPageContractTests(unittest.TestCase):
-    def test_staged_user_service_runs_shared_python_entrypoint(self):
+    def test_user_service_runs_shared_python_entrypoint(self):
         unit = UNIT.read_text(encoding="utf-8")
         for fragment in (
             "Description=Cloudyy automatic audio output switching",
@@ -53,7 +36,7 @@ class AudioPageContractTests(unittest.TestCase):
             "service activation must be owned by systemctl enable/disable",
         )
 
-    def test_staged_audio_setup_is_idempotent_and_preserves_config(self):
+    def test_audio_setup_is_idempotent_and_preserves_config(self):
         setup = SETUP.read_text(encoding="utf-8")
         for fragment in (
             "set -euo pipefail",
@@ -72,7 +55,7 @@ class AudioPageContractTests(unittest.TestCase):
         self.assertNotIn("write_text", setup)
         self.assertNotIn("json.dump", setup)
 
-    def test_staged_installer_runs_audio_setup_nonfatally(self):
+    def test_installer_runs_audio_setup_nonfatally(self):
         install = INSTALL.read_text(encoding="utf-8")
         quickshell = install.index("setup-quickshell-service.sh")
         audio_setup = install.index("setup_services/setup-audio-autoswitch.sh")
@@ -82,7 +65,7 @@ class AudioPageContractTests(unittest.TestCase):
             install,
         )
 
-    def test_staged_installer_preflight_checks_audio_setup(self):
+    def test_installer_preflight_checks_audio_setup(self):
         installer_test = INSTALL_TEST.read_text(encoding="utf-8")
         for fragment in (
             "Audio service setup exists",
@@ -157,9 +140,9 @@ class AudioPageContractTests(unittest.TestCase):
         ):
             self.assertIn(fragment, panel)
 
-    def test_staged_page_correlates_rejections_and_debounced_targets(self):
-        source = STAGED_PAGE.read_text(encoding="utf-8")
-        panel = STAGED_PANEL.read_text(encoding="utf-8")
+    def test_page_correlates_rejections_and_debounced_targets(self):
+        source = PAGE.read_text(encoding="utf-8")
+        panel = PANEL.read_text(encoding="utf-8")
         for fragment in (
             "function allocateGeneration()",
             "function handleActionReply(actionId, result)",
@@ -181,8 +164,8 @@ class AudioPageContractTests(unittest.TestCase):
         ):
             self.assertIn(fragment, panel)
 
-    def test_staged_finish_action_rejects_mismatched_completion_before_cleanup(self):
-        source = STAGED_PAGE.read_text(encoding="utf-8")
+    def test_finish_action_rejects_mismatched_completion_before_cleanup(self):
+        source = PAGE.read_text(encoding="utf-8")
         body = source[source.index("function finishAction("):source.index("function applyServiceStatus(")]
         guard = """if (meta === undefined
             || String(target) !== String(meta.target)
@@ -192,8 +175,8 @@ class AudioPageContractTests(unittest.TestCase):
         self.assertLess(body.index(guard), body.index("clearBusyTarget"))
         self.assertLess(body.index(guard), body.index("delete nextMeta[id]"))
 
-    def test_staged_backend_preserves_success_callbacks_and_routes_errors(self):
-        source = STAGED_BACKEND.read_text(encoding="utf-8")
+    def test_backend_preserves_success_callbacks_and_routes_errors(self):
+        source = BACKEND.read_text(encoding="utf-8")
         for fragment in (
             "function request(method, params, callback, errorCallback)",
             "function normalizeError(error)",
@@ -204,7 +187,7 @@ class AudioPageContractTests(unittest.TestCase):
             "typeof entry.error === \"function\"",
         ):
             self.assertIn(fragment, source)
-        page = STAGED_PAGE.read_text(encoding="utf-8")
+        page = PAGE.read_text(encoding="utf-8")
         self.assertIn("function handleActionError(actionId, error)", page)
         self.assertIn("function(error) { audioPage.handleActionError(actionId, error); }", page)
 
@@ -235,10 +218,10 @@ class AudioPageContractTests(unittest.TestCase):
             self.assertIn(action, apps)
         self.assertIn("set_card_profile", hardware)
 
-    def test_staged_task_six_rows_preserve_pending_values_and_stable_targets(self):
-        apps = (STAGED_TASK6_COMPONENTS / "AudioApplicationRow.qml").read_text(encoding="utf-8")
-        hardware = (STAGED_TASK6_COMPONENTS / "AudioHardwareRow.qml").read_text(encoding="utf-8")
-        page = STAGED_TASK6_PAGE.read_text(encoding="utf-8")
+    def test_task_six_rows_preserve_pending_values_and_stable_targets(self):
+        apps = (COMPONENTS / "AudioApplicationRow.qml").read_text(encoding="utf-8")
+        hardware = (COMPONENTS / "AudioHardwareRow.qml").read_text(encoding="utf-8")
+        page = PAGE.read_text(encoding="utf-8")
         for fragment in (
             "String(root.stream.index)",
             '"stream:" + volumeRow.editedTargetId + ":volume"',
@@ -258,8 +241,8 @@ class AudioPageContractTests(unittest.TestCase):
         self.assertIn('action !== "set_stream_volume"', page)
         self.assertIn('action !== "set_stream_mute"', page)
 
-    def test_staged_automation_ui_owns_service_migration(self):
-        source = STAGED_TASK7_PAGE.read_text(encoding="utf-8")
+    def test_automation_ui_owns_service_migration(self):
+        source = PAGE.read_text(encoding="utf-8")
         for fragment in (
             "AudioPriorityEditor",
             "CloudDialog",
@@ -270,8 +253,8 @@ class AudioPageContractTests(unittest.TestCase):
         ):
             self.assertIn(fragment, source)
 
-    def test_staged_priority_editor_uses_fixed_backend_configuration_methods(self):
-        source = (STAGED_TASK7_COMPONENTS / "AudioPriorityEditor.qml").read_text(
+    def test_priority_editor_uses_fixed_backend_configuration_methods(self):
+        source = (COMPONENTS / "AudioPriorityEditor.qml").read_text(
             encoding="utf-8"
         )
         for fragment in (
@@ -298,8 +281,8 @@ class AudioPageContractTests(unittest.TestCase):
         self.assertIn('"Not in use"', panel)
         self.assertIn('"In use"', panel)
 
-    def test_staged_priority_editor_restores_toggle_bindings_after_requests(self):
-        source = (STAGED_TASK7_COMPONENTS / "AudioPriorityEditor.qml").read_text(
+    def test_priority_editor_restores_toggle_bindings_after_requests(self):
+        source = (COMPONENTS / "AudioPriorityEditor.qml").read_text(
             encoding="utf-8"
         )
         for fragment in (
@@ -328,8 +311,8 @@ class AudioPageContractTests(unittest.TestCase):
         )
         self.assertIn("const desired = checked;", source)
 
-    def test_staged_backend_exit_detaches_pending_before_notifying_opt_in_errors(self):
-        source = STAGED_TASK7_BACKEND.read_text(encoding="utf-8")
+    def test_backend_exit_detaches_pending_before_notifying_opt_in_errors(self):
+        source = BACKEND.read_text(encoding="utf-8")
         exit_body = source[source.index("onExited: (code, status) => {"):]
         for fragment in (
             "const detachedPending = backend.pending;",
