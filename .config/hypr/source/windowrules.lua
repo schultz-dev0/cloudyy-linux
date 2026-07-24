@@ -22,7 +22,7 @@ hl.window_rule({
 	name = "terminal",
 	match = { class = "^(.*kitty)$" },
 	size = "1080 900",
-	float = true,
+	float = false,
 })
 
 hl.window_rule({
@@ -46,14 +46,6 @@ hl.window_rule({
 	float = true,
 })
 
-hl.window_rule({
-	name = "rustykeys",
-	match = { class = "^(org.cloudyy.rustykeys)$" },
-	float = true,
-	size = "550 420",
-	center = true,
-})
-
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
 hl.window_rule({
@@ -65,16 +57,8 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "thunar-rename",
-	match = { class = "^(thunar)$", title = ".*Rename*." },
-	float = true,
-	size = "530 400",
-	center = true,
-})
-
-hl.window_rule({
-	name = "thunar",
-	match = { class = "^(thunar)$" },
+	name = "file-manager",
+	match = { class = "^(nautilus)$" },
 	float = true,
 	size = "1080 920",
 	center = true,

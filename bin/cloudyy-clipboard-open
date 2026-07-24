@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cloudyy:summary=Copy or paste clipboard contents
+# cloudyy:args=[copy|paste]
 
 set -euo pipefail
 

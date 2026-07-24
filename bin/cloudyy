@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# cloudyy — dispatcher for cloudyy-* commands. Bare `cloudyy` lists groups;
+# `cloudyy <group> <action...>` execs cloudyy-<group>-<action...>.
+set -euo pipefail
+
+declare -A GROUP_DESCRIPTIONS=(
+  [screenshot]="Screenshots and screen capture"
+)
+
+bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+list_commands() {
+  local f name summary hidden
+  declare -A by_group=()
+  for f in "$bin_dir"/cloudyy-*; do
+    [[ -f "$f" && -x "$f" ]] || continue
+    name="$(basename "$f")"
+    summary=""
+    hidden=""
+    while IFS= read -r line; do
+      [[ $line == \#\ cloudyy:summary=* ]] && summary="${line#\# cloudyy:summary=}"
+      [[ $line == \#\ cloudyy:hidden=true ]] && hidden=1
+    done < <(head -n 80 "$f")
+    [[ -n "$hidden" ]] && continue
+    local group="${name#cloudyy-}"
+    group="${group%%-*}"
+    by_group["$group"]+="  ${name}  —  ${summary}"$'\n'
+  done
+  printf 'Usage: cloudyy <group> <action...>\n\n'
+  local g
+  for g in "${!by_group[@]}"; do
+    printf '%s (%s)\n%s\n' "$g" "${GROUP_DESCRIPTIONS[$g]:-}" "${by_group[$g]}"
+  done
+}
+
+if [[ $# -eq 0 ]]; then
+  list_commands
+  exit 0
+fi
+
+group="$1"
+shift
+if [[ $# -eq 0 ]]; then
+  list_commands
+  exit 0
+fi
+action="$1"
+shift
+target="${bin_dir}/cloudyy-${group}-${action}"
+if [[ ! -x "$target" ]]; then
+  printf 'cloudyy: unknown command "%s %s" (no %s)\n' "$group" "$action" "$(basename "$target")" >&2
+  exit 1
+fi
+exec "$target" "$@"

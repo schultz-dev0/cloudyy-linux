@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cloudyy:summary=OSD slider overlay daemon
 """
 cloudyy_sliders.py — System slider panel
 Single-file GTK4/Libadwaita daemon. D-Bus single-instance — re-running raises the window.
