@@ -90,7 +90,13 @@ cloudyy_scripts/source/hcm/
 cloudyy_scripts/source/*
 
 # Local AI tooling
-.claude*
+/.claude/*
+!/.claude/skills/
+!/.claude/skills/**
+cloudyy_scripts/cloud-center-v2/.claude/
+.config/zsh/.claude/
+.config/quickshell/.claude/
+cloudyy_scripts/terminal/.claude/
 .worktrees/
 **/.docs/
 .codex**
