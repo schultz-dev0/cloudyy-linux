@@ -19,4 +19,7 @@ hl.on("hyprland.start", function()
 	-- Quickshell: launch env (QS_NO_RELOAD_POPUP, CLOUDYY_LIGHTWEIGHT) comes from
 	-- Cloud Center via qs_start.sh. Swaync is stopped by the autostart handler above.
 	hl.exec_cmd(scripts .. "/quickshell/qs_start.sh")
+
+	-- First-run welcome popup — skips itself once ~/.config/OOBE/.dont_show exists.
+	hl.exec_cmd("test -f " .. home .. "/.config/OOBE/.dont_show || qs -n -d -p " .. home .. "/.config/OOBE")
 end)
