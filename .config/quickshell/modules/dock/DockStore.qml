@@ -77,6 +77,11 @@ Singleton {
             exec: "kitty",
             icon: "kitty"
         },
+        {
+            class: "org.gnome.Nautilus",
+            exec: "nautilus --new-window",
+            icon: "org.gnome.Nautilus"
+        },
     ]
 
     function stripDesktopExecField(s) {

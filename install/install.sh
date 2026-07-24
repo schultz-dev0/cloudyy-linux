@@ -161,11 +161,6 @@ phase_keyring() {
   bash "${SCRIPT_DIR}/setup-keyring.sh"
 }
 
-# --- Phase: SSH Setup --------------------------------------------------------
-phase_ssh_setup() {
-  bash "${SCRIPT_DIR}/setup-ssh.sh"
-}
-
 # --- Phase: Dotfiles ---------------------------------------------------------
 phase_dotfiles() {
   local _flags=()
@@ -394,7 +389,6 @@ declare -a PHASE_IDS=(
   "shell"
   "laptop"
   "keyring"
-  "ssh_setup"
   "theme_init"
   "services"
   "boot_setup"
@@ -411,7 +405,6 @@ declare -A PHASE_LABELS=(
   [shell]="Shell Configuration"
   [laptop]="Laptop Hardware Support"
   [keyring]="Keyring Configuration"
-  [ssh_setup]="SSH Key Setup"
   [theme_init]="Initial Theme Bootstrap"
   [services]="Service Configuration"
   [boot_setup]="Boot Optimisation"

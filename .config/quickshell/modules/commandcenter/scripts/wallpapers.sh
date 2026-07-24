@@ -17,7 +17,7 @@ THUMB_SIZE="$thumb_size"
 HOME="$home"
 # shellcheck source=../../../../cloudyy_scripts/quickshell/lib/thumb_cache.sh
 source "${home}/cloudyy_scripts/quickshell/lib/thumb_cache.sh"
-export -f gen_thumb
+export -f gen_thumb canonical_real find_cached_thumb promote_thumb thumb_file_for_path path_aliases path_hash
 export CACHE_DIR THUMB_SIZE HOME
 
 mode="dark"
@@ -97,8 +97,8 @@ if [[ -f "$catalog_cache" && -f "$sig_cache" && "$(cat "$sig_cache")" == "$new_s
   exit 0
 fi
 
-json_items=()
-while IFS= read -r -d '' entry; do
+build_item() {
+  local entry="$1" label real thumb esc_label esc_path esc_thumb
   label="${entry%%|*}"
   real="${entry#*|}"
   thumb=$(gen_thumb "$real")
@@ -106,8 +106,14 @@ while IFS= read -r -d '' entry; do
   esc_label=$(printf '%s' "$label" | jq -Rs .)
   esc_path=$(printf '%s' "$real" | jq -Rs .)
   esc_thumb=$(printf '%s' "$thumb" | jq -Rs .)
-  json_items+=("$(printf '{"label":%s,"path":%s,"thumb":%s}' "$esc_label" "$esc_path" "$esc_thumb")")
-done <"$tmp_list"
+  printf '{"label":%s,"path":%s,"thumb":%s}\n' "$esc_label" "$esc_path" "$esc_thumb"
+}
+export -f build_item
+
+json_items=()
+while IFS= read -r line; do
+  json_items+=("$line")
+done < <(xargs -0 -P "$max_jobs" -I {} bash -c 'build_item "$@"' _ {} <"$tmp_list")
 
 if [[ ${#json_items[@]} -eq 0 ]]; then
   out=$(jq -cn \

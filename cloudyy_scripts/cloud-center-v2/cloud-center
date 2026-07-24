@@ -93,7 +93,14 @@ fi
 
 # -n: refuse a duplicate if one raced us. -d: detach (no bash job control).
 # Target page via env avoids a post-spawn IPC race on first paint (see Nav.qml).
-if ! CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -d -p "$CONFIG" >/dev/null 2>&1; then
-  CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -p "$CONFIG" >/dev/null 2>&1 &
+LAUNCH_LOG="/tmp/cloud-center-launch.log"
+if ! CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -d -p "$CONFIG" >"$LAUNCH_LOG" 2>&1; then
+  CLOUD_CENTER_TARGET_PAGE="${target:-home}" qs -n -p "$CONFIG" >>"$LAUNCH_LOG" 2>&1 &
   disown 2>/dev/null || true
+  sleep 0.3
+  # Both attempts failed silently before this point — this is the one thing
+  # that made "Cloud Center doesn't open" undiagnosable (everything was
+  # redirected to /dev/null). Surface it instead of failing dark.
+  [[ -n "$(cloud_center_pids)" ]] || \
+    notify-send "Cloud Center" "Failed to launch — see $LAUNCH_LOG" -u critical -t 5000 2>/dev/null || true
 fi
