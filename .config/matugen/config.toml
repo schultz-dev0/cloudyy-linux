@@ -52,7 +52,7 @@ post_hook = '~/.config/kitty/matugen-reload.sh'
 [templates.nvim]
 input_path = '~/.config/matugen/templates/nvimmode.lua'
 output_path = '~/.config/matugen/generated/matugen_colors.lua'
-post_hook = '~/cloudyy_scripts/nvim/reload_theme.sh'
+post_hook = 'cloudyy-nvim-reload-theme'
 
 [templates.rofi]
 input_path = '~/.config/matugen/templates/colors.rasi'
@@ -67,7 +67,7 @@ output_path = '~/.config/matugen/generated/colors-glass.rasi'
 # [templates.swayosd]
 # input_path = '~/.config/matugen/templates/colors-swayosd.css'
 # output_path = '~/.config/matugen/generated/colors-swayosd.css'
-# post_hook = '~/cloudyy_scripts/swayosd/restart_swayosd.sh'
+# post_hook = 'cloudyy-swayosd-restart'
 
 [templates.wlogout]
 input_path = '~/.config/matugen/templates/colors.css'
@@ -90,7 +90,7 @@ output_path = '~/MyLife/.obsidian/snippets/matugen-theme.css'
 [templates.vscodium]
 input_path = '~/.config/matugen/templates/vscode-theme.json'
 output_path = '~/.config/matugen/generated/vscode.json'
-post_hook = "python3 ~/cloudyy_scripts/code/update_vscodium.py"
+post_hook = "cloudyy-code-update-vscodium"
 
 #[templates.vesktop]
 #input_path = "~/.config/matugen/templates/vesktop_theme.css"

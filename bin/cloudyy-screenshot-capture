@@ -42,7 +42,7 @@ cmd_screenshot() {
     printf '%s' "$temp_file" >"$SCREENSHOT_PATH_FILE"
 
     if ! qs_ipc screenshot showLatest; then
-        echo "screenshot: island IPC failed — reload quickshell: ~/cloudyy_scripts/quickshell_reload.sh" >&2
+        echo "screenshot: island IPC failed — reload quickshell: cloudyy-quickshell-reload" >&2
         echo "  then verify: qs ipc show | rg screenshot" >&2
         exit 1
     fi
@@ -52,7 +52,7 @@ cmd_screenshot() {
 
 cmd_record() {
     if ! qs_ipc record toggle; then
-        echo "record: island IPC failed — reload quickshell: ~/cloudyy_scripts/quickshell_reload.sh" >&2
+        echo "record: island IPC failed — reload quickshell: cloudyy-quickshell-reload" >&2
         echo "  then verify: qs ipc show | rg record" >&2
         exit 1
     fi

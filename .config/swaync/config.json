@@ -44,7 +44,7 @@
         },
         {
           "label": "󱐋",
-          "command": "uwsm-app -- python3 $HOME/cloudyy_scripts/sliders/cloudyy_sliders.py"
+          "command": "uwsm-app -- cloudyy-slider-osd"
         },
         {
           "label": "󰸉",
@@ -56,11 +56,11 @@
         },
         {
           "label": "󱩌",
-          "command": "$HOME/cloudyy_scripts/theme_controller.sh toggle"
+          "command": "cloudyy-theme toggle"
         },
         {
           "label": "󰘴",
-          "command": "uwsm-app -- $HOME/cloudyy_scripts/cloud-center"
+          "command": "uwsm-app -- cloudyy-center"
         },
         {
           "label": "󰐥",

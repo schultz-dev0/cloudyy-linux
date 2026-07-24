@@ -124,20 +124,14 @@ Scope {
     function nightLightScriptPath() {
         const h = (HyprlandData.homeDir || "").trim();
         if (h.length > 0)
-            return h + "/cloudyy_scripts/sliders/nightlight.sh";
+            return "cloudyy-slider-nightlight";
         return "";
     }
 
     function nightLightExecArgv(mode, arg2) {
-        const path = nightLightScriptPath();
-        if (path.length > 0) {
-            if (mode === "toggle")
-                return ["bash", path, "toggle"];
-            return ["bash", path, "set", String(arg2)];
-        }
         if (mode === "toggle")
-            return ["bash", "-lc", "exec \"$HOME/cloudyy_scripts/sliders/nightlight.sh\" toggle"];
-        return ["bash", "-lc", "exec \"$HOME/cloudyy_scripts/sliders/nightlight.sh\" set " + String(arg2)];
+            return ["bash", "-lc", "exec cloudyy-slider-nightlight toggle"];
+        return ["bash", "-lc", "exec cloudyy-slider-nightlight set " + String(arg2)];
     }
 
     function refreshAll() {

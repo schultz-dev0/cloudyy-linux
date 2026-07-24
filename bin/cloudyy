@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
-# cloudyy — dispatcher for cloudyy-* commands. Bare `cloudyy` lists groups;
+# Dispatcher for cloudyy-* commands. Bare `cloudyy` lists groups;
 # `cloudyy <group> <action...>` execs cloudyy-<group>-<action...>.
 set -euo pipefail
 
 declare -A GROUP_DESCRIPTIONS=(
+  [boot]="Boot-time system optimizations"
+  [center]="Cloud Center system settings app"
+  [clipboard]="Clipboard copy/paste and OCR"
+  [code]="Editor theme sync"
+  [config]="Post-install configuration"
+  [debug]="System diagnostics"
+  [hyprlock]="Lock screen"
+  [kitty]="Kitty terminal helpers"
+  [nvim]="Neovim theme integration"
+  [quickshell]="Quickshell shell control"
   [screenshot]="Screenshots and screen capture"
+  [slider]="Volume, brightness, and nightlight sliders"
+  [swayosd]="On-screen display control"
+  [terminal]="Terminal and file-manager helpers"
+  [theme]="Theme, wallpaper, and light/dark mode"
+  [update]="System and repo updates"
+  [wlogout]="Logout/power menu"
 )
 
 bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,8 +63,18 @@ fi
 action="$1"
 shift
 target="${bin_dir}/cloudyy-${group}-${action}"
-if [[ ! -x "$target" ]]; then
-  printf 'cloudyy: unknown command "%s %s" (no %s)\n' "$group" "$action" "$(basename "$target")" >&2
-  exit 1
+if [[ -x "$target" ]]; then
+  exec "$target" "$@"
 fi
-exec "$target" "$@"
+
+# Fall back to a single-token command (e.g. `cloudyy theme toggle` ->
+# cloudyy-theme toggle) for commands that aren't split by group-action,
+# such as cloudyy-theme's own internal subcommand dispatch.
+single_target="${bin_dir}/cloudyy-${group}"
+if [[ -x "$single_target" ]]; then
+  exec "$single_target" "$action" "$@"
+fi
+
+printf 'cloudyy: unknown command "%s %s" (no %s or %s)\n' \
+  "$group" "$action" "$(basename "$target")" "$(basename "$single_target")" >&2
+exit 1

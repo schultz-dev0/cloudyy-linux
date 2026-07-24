@@ -5,8 +5,8 @@ set -euo pipefail
 HOME="${HOME:-$(printf '%s' ~)}"
 CYCLE_CONF="${HOME}/.config/hypr/theme_state/cycle.conf"
 SVC_DIR="${HOME}/.config/systemd/user"
-THEME_CTL="${HOME}/cloudyy_scripts/theme_controller.sh"
-AUTOMODE_HELPER="${HOME}/cloudyy_scripts/quickshell/lib/automode_switch.sh"
+THEME_CTL="${HOME}/cloudyy-linux/bin/cloudyy-theme"
+AUTOMODE_HELPER="${HOME}/cloudyy-linux/bin/cloudyy-quickshell-automode-switch"
 
 CYCLE_ENABLED="false"
 CYCLE_INTERVAL="1800"

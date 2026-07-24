@@ -14,7 +14,7 @@ Singleton {
     readonly property string homeDir: Quickshell.env("HOME") || ""
     readonly property string listScript: Qt.resolvedUrl("../scripts/wallpapers.sh").toString().replace("file://", "")
     readonly property string cacheScript: Qt.resolvedUrl("../scripts/wallpapers-cache.sh").toString().replace("file://", "")
-    readonly property string themeCtl: homeDir + "/cloudyy_scripts/theme_controller.sh"
+    readonly property string themeCtl: "cloudyy-theme"
     readonly property int gridColumns: 3
     readonly property int debounceMs: 120
 

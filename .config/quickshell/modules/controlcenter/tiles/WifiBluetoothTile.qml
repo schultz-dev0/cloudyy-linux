@@ -208,7 +208,7 @@ Rectangle {
     }
 
     Process { id: wifiLaunchProc; command: ["uwsm-app", "--", "nm-connection-editor"]; running: false }
-    Process { id: btLaunchProc;   command: [Quickshell.env("HOME") + "/cloudyy_scripts/cloud-center", "bluetooth"]; running: false }
+    Process { id: btLaunchProc;   command: ["cloudyy-center", "bluetooth"]; running: false }
 
     Component.onCompleted: refresh()
 }

@@ -7,7 +7,7 @@ base="${home}/Wallpapers"
 user_base="${base}/user_wallpapers"
 state_file="${home}/.config/hypr/theme_state/state.conf"
 cache_dir="${home}/.cache/rofi_thumbs"
-thumb_size=150
+thumb_size=256  # shared with Cloud Center's Python picker cache; must match its THUMB_SIZE
 max_jobs=$(nproc 2>/dev/null || echo 4)
 
 mkdir -p "$cache_dir"
@@ -15,8 +15,8 @@ mkdir -p "$cache_dir"
 CACHE_DIR="$cache_dir"
 THUMB_SIZE="$thumb_size"
 HOME="$home"
-# shellcheck source=../../../../cloudyy_scripts/quickshell/lib/thumb_cache.sh
-source "${home}/cloudyy_scripts/quickshell/lib/thumb_cache.sh"
+# shellcheck source=../../../../lib/thumb_cache.sh
+source "${home}/cloudyy-linux/lib/thumb_cache.sh"
 export -f gen_thumb canonical_real find_cached_thumb promote_thumb thumb_file_for_path path_aliases path_hash
 export CACHE_DIR THUMB_SIZE HOME
 
@@ -44,6 +44,19 @@ user_mode="${user_base}/${mode^}"
 catalog_cache="${cache_dir}/picker_catalog_${mode}.json"
 sig_cache="${cache_dir}/picker_catalog_${mode}.sig"
 
+# A catalog can look fresh (no source file newer, unchanged signature) yet
+# still reference thumbnails that no longer exist on disk (e.g. cache dir
+# partially cleared) — neither staleness check below may catch that, so both
+# gate on this too, or the picker shows a blank grid forever since nothing
+# else would ever invalidate it.
+catalog_thumbs_exist() {
+  local thumb
+  while IFS= read -r thumb; do
+    [[ -f "$thumb" ]] || return 1
+  done < <(jq -r '.wallpapers[].thumb' "$1")
+  return 0
+}
+
 # Fast pre-check: skip expensive scan if no wallpaper file/dir is newer than the catalog.
 # Each realpath call is a subprocess (~4ms × 258 files = 1s+), so this saves most of that.
 if [[ -f "$catalog_cache" && -f "$sig_cache" ]]; then
@@ -55,6 +68,9 @@ if [[ -f "$catalog_cache" && -f "$sig_cache" ]]; then
       break
     fi
   done
+  if (( stale == 0 )) && ! catalog_thumbs_exist "$catalog_cache"; then
+    stale=1
+  fi
   if (( stale == 0 )); then
     jq -c --arg current "$current_real" '.current = $current' "$catalog_cache"
     exit 0
@@ -92,7 +108,7 @@ done
 
 new_sig="$(compute_signature "$tmp_list")"
 
-if [[ -f "$catalog_cache" && -f "$sig_cache" && "$(cat "$sig_cache")" == "$new_sig" ]]; then
+if [[ -f "$catalog_cache" && -f "$sig_cache" && "$(cat "$sig_cache")" == "$new_sig" ]] && catalog_thumbs_exist "$catalog_cache"; then
   jq -c --arg current "$current_real" '.current = $current' "$catalog_cache"
   exit 0
 fi

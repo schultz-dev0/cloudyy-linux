@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Toggle or set the blue-light filter
 # cloudyy:args=[toggle|set <value>]
-# ~/cloudyy_scripts/sliders/nightlight.sh
 # Expects a normal user session (systemctl --user, hyprctl) — do not run via hyprctl dispatch exec.
 #
 # Toggle OFF uses `hyprctl hyprsunset identity` — do not stop/kill hyprsunset.

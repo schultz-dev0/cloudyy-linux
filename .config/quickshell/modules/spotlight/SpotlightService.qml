@@ -15,9 +15,8 @@ Singleton {
     id: svc
 
     readonly property string homeDir: Quickshell.env("HOME") || ""
-    readonly property string scriptsDir: homeDir ? homeDir + "/cloudyy_scripts" : ""
-    readonly property string themeCtl: scriptsDir + "/theme_controller.sh"
-    readonly property string cloudCenter: scriptsDir + "/cloud-center"
+    readonly property string themeCtl: "cloudyy-theme"
+    readonly property string cloudCenter: "cloudyy-center"
     readonly property string searchScript: Qt.resolvedUrl("search.sh").toString().replace("file://", "")
     // Command Center data + helper scripts live in modules/commandcenter/
     readonly property string commandsJson: Qt.resolvedUrl("../commandcenter/commands.json").toString().replace("file://", "")
@@ -25,7 +24,7 @@ Singleton {
     readonly property string cycleCtlScript: Qt.resolvedUrl("../commandcenter/scripts/cycle-ctl.sh").toString().replace("file://", "")
     readonly property string ollamaModelsScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-models.sh").toString().replace("file://", "")
     readonly property string ollamaMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-mgmt.sh").toString().replace("file://", "")
-    readonly property string ollamaServiceScript: scriptsDir + "/quickshell/lib/ollama-service.sh"
+    readonly property string ollamaServiceScript: "cloudyy-quickshell-ollama-service"
     readonly property string openWebuiMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/open-webui-mgmt.sh").toString().replace("file://", "")
     readonly property string packagesCtlScript: Qt.resolvedUrl("../commandcenter/scripts/packages-ctl.sh").toString().replace("file://", "")
 
@@ -109,12 +108,12 @@ Singleton {
         if (path === "_theme_next")
             return ["bash", themeCtl, "next"];
         if (path === "_updater")
-            return ["kitty", "--hold", scriptsDir + "/cloudyy-updater.sh"];
+            return ["kitty", "--hold", "cloudyy-update"];
         if (path === "_system_info")
             return ["kitty", "-e", "sh", "-c", "fastfetch 2>/dev/null || neofetch 2>/dev/null || echo 'No system info tool'; read -p 'Press Enter...'"];
         if (path === "_ollama_pull_custom")
             return ["bash", ollamaMgmtScript, "pull-custom"];
-        return ["bash", scriptsDir + "/" + path];
+        return ["bash", "-lc", path];
     }
 
     function entryById(id) {

@@ -33,7 +33,7 @@ BaseTile {
 
     Process {
         id: toggleProc
-        command: ["bash", "-lc", "~/cloudyy_scripts/theme_controller.sh toggle"]
+        command: ["bash", "-lc", "cloudyy-theme toggle"]
         running: false
         onRunningChanged: if (!running) root.refresh()
     }
