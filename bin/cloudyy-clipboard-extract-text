@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# cloudyy:summary=Extract text from a screen region via OCR
 
 if ! command -v tesseract &> /dev/null; then
     notify-send "Live Text Extraction" "tesseract is not installed. Please install it (e.g. pacman -S tesseract tesseract-data-eng)."

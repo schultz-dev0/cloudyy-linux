@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Play the screenshot capture sound
+# cloudyy:hidden=true
+exec "${HOME}/.config/quickshell/play_sound.sh" "$@"

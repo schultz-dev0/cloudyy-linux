@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# cloudyy:summary=Adjust or query system volume
+# cloudyy:args=[up|down|mute|set <0-100>]
 # volume-slider.sh — volume control via wpctl + Quickshell OSD
 #
 # Binds:

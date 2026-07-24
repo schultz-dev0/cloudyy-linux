@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# cloudyy:summary=Take a screenshot or screen recording
+# cloudyy:args=[--screenshot|--record]
+# cloudyy:examples=cloudyy screenshot capture --screenshot
 # Screenshot + screen recording for the Dynamic Island preview flow.
 #   --screenshot  frozen region capture → island drag/upload (temp PNG in /tmp)
 #   --record      island picker → record → Alt+Print again → island drag/upload (Videos/Captures)
