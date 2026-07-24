@@ -285,8 +285,8 @@ PanelWindow {
             label: "󰏔 " + n
             width: implicitWidth + bar.pillPadH * 2
             onClicked: bar.launchAndFocusByTitle(
-                ["bash", "-c", "kitty --title cloudyy-updater ~/cloudyy_scripts/cloudyy-updater.sh"],
-                "cloudyy-updater")
+                ["bash", "-c", "kitty --title cloudyy-update cloudyy-update"],
+                "cloudyy-update")
             Timer {
                 interval: 3600000
                 running: true
@@ -474,7 +474,7 @@ PanelWindow {
                     }
                 }
             }
-            onClicked: bar.launch(["bash", "-c", "uwsm-app -- ~/cloudyy_scripts/cloud-center --wifi"])
+            onClicked: bar.launch(["bash", "-c", "uwsm-app -- cloudyy-center --wifi"])
         }
 
         // Volume
@@ -506,8 +506,8 @@ PanelWindow {
                 }
             }
             onClicked: bar.notifToggle()
-            onScrollUp: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh up"])
-            onScrollDown: bar.launch(["bash", "-lc", "$HOME/cloudyy_scripts/sliders/volume-slider.sh down"])
+            onScrollUp: bar.launch(["bash", "-lc", "cloudyy-slider-volume up"])
+            onScrollDown: bar.launch(["bash", "-lc", "cloudyy-slider-volume down"])
         }
 
         // CPU

@@ -14,6 +14,12 @@ set -euo pipefail -E
 
 # --- Paths & Constants -------------------------------------------------------
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# deploy-dotfiles.sh (run as a subprocess by phase_dotfiles) writes
+# /etc/profile.d/cloudyy.sh, which only affects future login shells — it
+# cannot retroactively add bin/ to THIS already-running process's PATH. Later
+# phases (theme_init, boot_setup, finalize) call cloudyy-* commands directly,
+# so this process needs bin/ on its own PATH regardless of profile.d.
+export PATH="$(dirname "${SCRIPT_DIR}")/bin:${PATH}"
 readonly STATE_DIR="${HOME}/.local/share/cloudyy"
 readonly LOG_DIR="${STATE_DIR}/logs"
 readonly LOG_FILE="${LOG_DIR}/install_$(date +%Y%m%d_%H%M%S).log"
@@ -318,12 +324,11 @@ phase_services() {
 # --- Phase: Theme Bootstrap --------------------------------------------------
 # Runs after packages so matugen is available to generate hyprcolors.conf.
 phase_theme_init() {
-  local controller="${HOME}/cloudyy_scripts/theme_controller.sh"
   local state_conf="${HOME}/.config/hypr/theme_state/state.conf"
   local default_wall="${HOME}/Wallpapers/Dark/cloudyy.jpg"
 
-  if [[ ! -x "$controller" ]]; then
-    log_warn "theme_controller.sh not found — skipping theme bootstrap."
+  if ! command -v cloudyy-theme >/dev/null 2>&1; then
+    log_warn "cloudyy-theme not found on PATH — skipping theme bootstrap."
     return 0
   fi
 
@@ -337,10 +342,10 @@ phase_theme_init() {
     log "Default wallpaper seeded into theme state."
   fi
 
-  if "$controller" restore >/dev/null 2>&1; then
+  if cloudyy-theme restore >/dev/null 2>&1; then
     log_ok "Theme colours generated."
   else
-    log_warn "Theme bootstrap failed (non-fatal — run 'theme_controller.sh restore' later)."
+    log_warn "Theme bootstrap failed (non-fatal — run 'cloudyy-theme restore' later)."
   fi
 }
 
@@ -349,13 +354,11 @@ phase_theme_init() {
 # autostart, and rebuilds initramfs. Requires sudo; runs after packages so
 # uwsm is available.
 phase_boot_setup() {
-  local boot_script
-  boot_script="$(dirname "${SCRIPT_DIR}")/cloudyy_scripts/boot/opt.sh"
-  if [[ ! -f "$boot_script" ]]; then
-    log_warn "cloudyy_scripts/boot/opt.sh not found — skipping boot optimisation."
+  if ! command -v cloudyy-boot-opt >/dev/null 2>&1; then
+    log_warn "cloudyy-boot-opt not found on PATH — skipping boot optimisation."
     return 0
   fi
-  sudo bash "$boot_script" "$USER"
+  sudo cloudyy-boot-opt "$USER"
 }
 
 # --- Phase: Finalize ---------------------------------------------------------
@@ -365,9 +368,8 @@ phase_finalize() {
   printf '%s%s════════════════════════════════════════════%s\n\n' "$BOLD" "$GREEN" "$RESET"
   printf 'Log saved to:\n  %s%s%s\n\n' "$CYAN" "$LOG_FILE" "$RESET"
 
-  local config_script="${HOME}/cloudyy_scripts/cloudyy-config"
-  if [[ "${UNATTENDED}" != "1" ]] && [[ -x "$config_script" ]]; then
-    "$config_script" --first-run
+  if [[ "${UNATTENDED}" != "1" ]] && command -v cloudyy-config >/dev/null 2>&1; then
+    cloudyy-config --first-run
   fi
 
   printf '%sNext steps:%s\n' "$YELLOW" "$RESET"

@@ -12,7 +12,6 @@ FloatingWindow {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string oobeDir: root.home + "/.config/OOBE"
-    readonly property string scriptsDir: root.home + "/cloudyy_scripts"
 
     property string cTitle: "Welcome to Cloudyy"
     property string cSubtitle: ""
@@ -104,14 +103,14 @@ FloatingWindow {
                     cardTitle: root.keybindsTitle
                     cardSubtitle: root.keybindsSub
                     buttonLabel: "Open →"
-                    onClicked: root.launch(root.scriptsDir + "/cloud-center-v2/cloud-center keybinds")
+                    onClicked: root.launch("cloudyy-center keybinds")
                 }
                 WelcomeCard {
                     width: parent.width
                     cardTitle: root.cloudCenterTitle
                     cardSubtitle: root.cloudCenterSub
                     buttonLabel: "Open →"
-                    onClicked: root.launch(root.scriptsDir + "/cloud-center-v2/cloud-center")
+                    onClicked: root.launch("cloudyy-center")
                 }
                 WelcomeCard {
                     width: parent.width

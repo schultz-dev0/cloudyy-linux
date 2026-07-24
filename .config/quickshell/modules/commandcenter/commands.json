@@ -77,7 +77,7 @@
     "parent": "learn",
     "action": {
       "type": "script",
-      "path": "quickshell/lib/welcome-messages.sh"
+      "path": "cloudyy-quickshell-welcome-messages"
     }
   },
   {
@@ -92,7 +92,7 @@
     "parent": "learn",
     "action": {
       "type": "script",
-      "path": "quickshell/lib/zen-binds.sh"
+      "path": "cloudyy-quickshell-zen-binds"
     }
   },
   {
@@ -136,7 +136,7 @@
     "parent": "tools",
     "action": {
       "type": "script",
-      "path": "clipboard/text_extract.sh"
+      "path": "cloudyy-clipboard-extract-text"
     }
   },
   {

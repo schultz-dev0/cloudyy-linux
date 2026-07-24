@@ -25,13 +25,11 @@ if [[ ! -f "$STARSHIP_CACHE" ]]; then
 fi
 source "$STARSHIP_CACHE"
 
-source $HOME/cloudyy_scripts/ssh-auth.sh
-
 
 # Path management
 
 typeset -U path
-path=("$HOME/.local/bin" "$HOME/cloudyy_scripts/cloudyy-other/" "$HOME/cloudyy_scripts/" $path)
+path=("$HOME/.local/bin" $path)
 
 # personlisation
 
@@ -48,7 +46,6 @@ alias ic='sudo pacman -S'
 alias icu='sudo pacman -Syu'
 alias zshconfig='nvim ~/.config/zsh/.zshrc'
 alias gparted='sudo -E gparted'
-alias cloudyy_update="~/cloudyy_scripts/cloudyy-updater.sh"
 
 # Utility
 
@@ -63,11 +60,7 @@ alias seeya='hyprctl dispatch exit'
 
 # Debug aliases
 
-alias qs_reload='./cloudyy_scripts/quickshell_reload.sh'
-
 # utility aliases
-
-alias wlogout="$HOME/cloudyy_scripts/wlogout.sh"
 
 # Personal
 
@@ -94,7 +87,7 @@ if [[ "$TERM" == "xterm-kitty" && -z "$INTELLISENSE" && "$SHOW_PIC" != "false" ]
 fi
 
 # ── Multiplexer Autostart (Cloud Center) ────────────────────────────────────
-~/cloudyy_scripts/terminal/multiplexer_autostart.sh 2>/dev/null
+cloudyy-terminal-multiplexer-autostart 2>/dev/null
 
 if [ -z "$TMUX" ] && uwsm check may-start && uwsm select; then
     exec uwsm start default
@@ -107,4 +100,4 @@ export PATH="$PATH:$HOME/.spicetify"
 
 
 # Apply terminal settings from Cloud Center
-~/cloudyy_scripts/terminal/kitty_sync.sh 2>/dev/null
+cloudyy-terminal-kitty-sync 2>/dev/null

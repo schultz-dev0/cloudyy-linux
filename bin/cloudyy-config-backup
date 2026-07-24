@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Snapshot runtime theme/wallpaper state not already tracked by git
+set -euo pipefail
+
+STATE_DIR="${HOME}/.config/hypr/theme_state"
+BACKUP_ROOT="${HOME}/.local/share/cloudyy/backups"
+timestamp="$(date +%Y%m%d_%H%M%S)"
+dest="${BACKUP_ROOT}/${timestamp}"
+
+mkdir -p "$dest"
+
+copied=0
+for f in "${STATE_DIR}/state.conf" "${STATE_DIR}/system_theme.env"; do
+  if [[ -f "$f" ]]; then
+    cp "$f" "$dest/"
+    ((++copied))
+  fi
+done
+
+if [[ -f "${STATE_DIR}/state.conf" ]]; then
+  wall="$(grep -oP '(?<=CURRENT_WALL=")[^"]*' "${STATE_DIR}/state.conf" 2>/dev/null || true)"
+  if [[ -n "$wall" && -f "$wall" ]]; then
+    cp "$wall" "$dest/"
+    ((++copied))
+  fi
+fi
+
+if ((copied == 0)); then
+  echo "Nothing to back up — no theme state found." >&2
+  rmdir "$dest"
+  exit 1
+fi
+
+echo "Backed up ${copied} file(s) to ${dest}"

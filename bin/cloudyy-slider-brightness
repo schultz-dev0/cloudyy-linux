@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Adjust or query display brightness
-# cloudyy:args=[up|down|set <0-100>]
+# cloudyy:args=[up|down]
 # brightness.sh — brightness control via brightnessctl + Quickshell OSD
 #
 # Binds:

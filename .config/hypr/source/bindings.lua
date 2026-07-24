@@ -26,12 +26,12 @@ hl.bind(
 
 hl.bind(
 	mainMod .. " + Return",
-	hl.dsp.exec_cmd(scripts .. "/terminal/cwd_walk.sh"),
+	hl.dsp.exec_cmd("cloudyy-terminal-cwd-walk"),
 	{ desc = "Open terminal in focused dir" }
 )
 hl.bind(
 	mainMod .. " + SHIFT + F",
-	hl.dsp.exec_cmd(scripts .. "/terminal/fm_walk.sh"),
+	hl.dsp.exec_cmd("cloudyy-terminal-fm-walk"),
 	{ desc = "Open filemanager" }
 )
 hl.bind(
@@ -59,22 +59,22 @@ hl.bind(
 )
 hl.bind(
 	"ALT + 1",
-	hl.dsp.exec_cmd("uwsm-app -- " .. scripts .. "/cloud-center --wifi"),
+	hl.dsp.exec_cmd("uwsm-app -- cloudyy-center --wifi"),
 	{ desc = "Wi-Fi Manager" }
 )
 hl.bind(
 	"ALT + 2",
-	hl.dsp.exec_cmd("uwsm-app -- " .. scripts .. "/cloud-center --bluetooth"),
+	hl.dsp.exec_cmd("uwsm-app -- cloudyy-center --bluetooth"),
 	{ desc = "Bluetooth Manager" }
 )
 hl.bind(
 	"ALT + 3",
-	hl.dsp.exec_cmd("uwsm-app -- " .. scripts .. "/cloud-center --audio"),
+	hl.dsp.exec_cmd("uwsm-app -- cloudyy-center --audio"),
 	{ desc = "Audio Mixer" }
 )
 hl.bind(
 	"ALT + 4",
-	hl.dsp.exec_cmd("uwsm-app -- " .. scripts .. "/cloud-center"),
+	hl.dsp.exec_cmd("uwsm-app -- cloudyy-center"),
 	{ desc = "Cloud Center" }
 )
 hl.bind(
@@ -140,12 +140,12 @@ hl.bind(
 )
 hl.bind(
 	"Print",
-	hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh --screenshot"),
+	hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"),
 	{ desc = "Screenshot popup (island)" }
 )
 hl.bind(
 	"ALT + Print",
-	hl.dsp.exec_cmd(scripts .. "/screenshot/capture.sh --record"),
+	hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"),
 	{ desc = "Screen record (island)" }
 )
 hl.bind(
@@ -155,7 +155,7 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + SHIFT + W",
-	hl.dsp.exec_cmd(scripts .. "/theme_controller.sh random"),
+	hl.dsp.exec_cmd("cloudyy-theme random"),
 	{ desc = "Random wallpaper" }
 )
 
@@ -163,7 +163,7 @@ hl.bind(
 
 hl.bind(
 	mainMod .. " + L",
-	hl.dsp.exec_cmd(scripts .. "/theme_controller.sh toggle"),
+	hl.dsp.exec_cmd("cloudyy-theme toggle"),
 	{ desc = "Toggle light/dark theme" }
 )
 
@@ -171,33 +171,33 @@ hl.bind(
 
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh up"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume up"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh down"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume down"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioMute",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh mute"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume mute"),
 	{ locked = true }
 )
 
 hl.bind(
 	mainMod .. " + up",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh up"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume up"),
 	{ repeating = true, desc = "Volume up" }
 )
 hl.bind(
 	mainMod .. " + down",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh down"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume down"),
 	{ repeating = true, desc = "Volume down" }
 )
 hl.bind(
 	mainMod .. " + m",
-	hl.dsp.exec_cmd(scripts .. "/sliders/volume-slider.sh mute"),
+	hl.dsp.exec_cmd("cloudyy-slider-volume mute"),
 	{ locked = true, desc = "Mute" }
 )
 
@@ -244,12 +244,12 @@ hl.bind(
 
 hl.bind(
 	"XF86MonBrightnessUp",
-	hl.dsp.exec_cmd(scripts .. "/sliders/brightness-slider.sh up"),
+	hl.dsp.exec_cmd("cloudyy-slider-brightness up"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86MonBrightnessDown",
-	hl.dsp.exec_cmd(scripts .. "/sliders/brightness-slider.sh down"),
+	hl.dsp.exec_cmd("cloudyy-slider-brightness down"),
 	{ locked = true, repeating = true, desc = "Brightness down" }
 )
 
@@ -272,7 +272,7 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + ALT + N",
-	hl.dsp.exec_cmd(scripts .. "/sliders/nightlight.sh toggle"),
+	hl.dsp.exec_cmd("cloudyy-slider-nightlight toggle"),
 	{ desc = "Toggle night light" }
 )
 
@@ -356,12 +356,12 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + C",
-	hl.dsp.exec_cmd(os.getenv("HOME") .. "/cloudyy_scripts/clipboard/clipboard.sh copy"),
+	hl.dsp.exec_cmd("cloudyy-clipboard-open copy"),
 	{ desc = "Universal copy" }
 )
 hl.bind(
 	mainMod .. " + V",
-	hl.dsp.exec_cmd(os.getenv("HOME") .. "/cloudyy_scripts/clipboard/clipboard.sh paste"),
+	hl.dsp.exec_cmd("cloudyy-clipboard-open paste"),
 	{ desc = "Universal paste" }
 )
 
@@ -434,6 +434,6 @@ hl.bind(
 )
 hl.bind(
 	mainMod .. " + SHIFT + E",
-	hl.dsp.exec_cmd("~/cloudyy_scripts/clipboard/text_extract.sh"),
+	hl.dsp.exec_cmd("cloudyy-clipboard-extract-text"),
 	{ desc = "Live Text Extraction" }
 )

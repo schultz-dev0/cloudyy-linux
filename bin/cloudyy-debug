@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Dump system diagnostics for bug reports
+set -euo pipefail
+
+echo "=== cloudyy-debug ==="
+echo "Date: $(date -Iseconds)"
+echo
+
+echo "--- Versions ---"
+command -v Hyprland >/dev/null 2>&1 && Hyprland --version 2>/dev/null | head -1 || echo "Hyprland: not found"
+command -v qs >/dev/null 2>&1 && qs --version 2>/dev/null | head -1 || echo "quickshell (qs): not found"
+echo
+
+echo "--- Theme state ---"
+state_conf="${HOME}/.config/hypr/theme_state/state.conf"
+theme_env="${HOME}/.config/hypr/theme_state/system_theme.env"
+if [[ -f "$state_conf" ]]; then
+  cat "$state_conf"
+else
+  echo "(no state.conf found at $state_conf)"
+fi
+if [[ -f "$theme_env" ]]; then
+  cat "$theme_env"
+else
+  echo "(no system_theme.env found at $theme_env)"
+fi
+echo
+
+echo "--- Recent Hyprland log tail ---"
+hypr_log=$(find "${XDG_RUNTIME_DIR:-/tmp}" -maxdepth 2 -iname "hyprland.log" 2>/dev/null | head -1) || true
+if [[ -n "$hypr_log" ]]; then
+  tail -50 "$hypr_log"
+else
+  echo "(no hyprland.log found under \$XDG_RUNTIME_DIR)"
+fi

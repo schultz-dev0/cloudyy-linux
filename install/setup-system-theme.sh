@@ -6,7 +6,6 @@
 # apply system-wide. Called by deploy-dotfiles.sh during main setup.
 #
 # This script:
-# - Enables the systemd service for theme auto-apply on login
 # - Updates shell RC files to source theme environment variables
 # - Creates necessary directories and config files
 # =============================================================================
@@ -38,16 +37,10 @@ trap '_err_handler' ERR
 
 # --- Configuration ---
 readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
-readonly SYSTEMD_SERVICE="${HOME}/.config/systemd/user/apply-system-theme.service"
 readonly SHELL_THEME_BEGIN="# >>> cloudyy-linux system theme >>>"
 readonly SHELL_THEME_END="# <<< cloudyy-linux system theme <<<"
 
 # --- Helpers ---
-
-systemctl_available() {
-  command -v systemctl >/dev/null 2>&1 &&
-    systemctl --user show-environment >/dev/null 2>&1
-}
 
 # Check if a line exists in a file
 line_exists() {
@@ -114,48 +107,6 @@ EOF
   fi
 }
 
-setup_systemd_service() {
-  log_section "Systemd Service"
-
-  if ! systemctl_available; then
-    log_warn "systemctl --user not available (might be running in a container or special environment)"
-    log_warn "Skipping systemd service setup — theme will apply on next shell launch instead"
-    return 0
-  fi
-
-  local service_dir
-  service_dir="$(dirname "$SYSTEMD_SERVICE")"
-  mkdir -p "$service_dir"
-
-  if [[ -f "$SYSTEMD_SERVICE" ]]; then
-    log_skip "Systemd service already exists"
-  else
-    log_ok "Systemd service path prepared: $service_dir"
-  fi
-
-  # Try to enable the service
-  if systemctl --user list-unit-files 2>/dev/null | grep -q "apply-system-theme"; then
-    log "Systemd service found, is it enabled?"
-    if systemctl --user is-enabled apply-system-theme.service >/dev/null 2>&1; then
-      log_ok "Systemd service already enabled"
-    else
-      log "Attempting to enable apply-system-theme.service..."
-      if systemctl --user enable apply-system-theme.service 2>/dev/null; then
-        log_ok "Systemd service enabled"
-        if systemctl --user start apply-system-theme.service 2>/dev/null; then
-          log_ok "Systemd service started"
-        fi
-      else
-        log_warn "Could not enable via systemctl (might need manual setup later)"
-      fi
-    fi
-  else
-    log_warn "Systemd service not yet created — it will be available after files are in place"
-    log "You can enable it manually with:"
-    printf "  %ssystemctl --user enable apply-system-theme.service%s\n" "$BOLD" "$RESET"
-  fi
-}
-
 setup_shell_rc_files() {
   log_section "Shell RC Files"
 
@@ -178,18 +129,11 @@ show_next_steps() {
   log_section "Next Steps"
 
   printf '\n%sTo activate system theme integration immediately, run:%s\n\n' "$BOLD" "$RESET"
-  printf '  1. Reload shell RC:\n'
+  printf '  Reload shell RC:\n'
   printf '     %ssource ~/.zshrc%s  (or %ssource ~/.bashrc%s if using bash)\n\n' "$BOLD" "$RESET" "$BOLD" "$RESET"
 
-  if ! systemctl_available; then
-    printf '  2. Enable systemd service (when systemctl is available):\n'
-    printf '     %ssystemctl --user enable apply-system-theme.service%s\n' "$BOLD" "$RESET"
-  else
-    printf '  2. (Systemd service should already be handling auto-apply)\n'
-  fi
-
-  printf '\n%sThen test the integration:%s\n' "$BOLD" "$RESET"
-  printf '  %s~/cloudyy_scripts/theme_controller.sh toggle%s\n\n' "$BOLD" "$RESET"
+  printf '%sThen test the integration:%s\n' "$YELLOW" "$RESET"
+  printf '  %scloudyy-theme toggle%s\n\n' "$BOLD" "$RESET"
 
   printf 'For more information, see:\n'
   printf '  %s~/.config/hypr/THEME_QUICKSTART.md%s\n' "$BOLD" "$RESET"
@@ -203,7 +147,6 @@ main() {
   printf '\n%s%s── System Theme Integration Setup ──%s\n\n' "$BOLD" "$CYAN" "$RESET"
 
   setup_theme_env_file
-  setup_systemd_service
   setup_shell_rc_files
 
   printf '\n%s[✓] System theme integration setup complete!%s\n' "$GREEN" "$RESET"

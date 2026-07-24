@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Restore a previous cloudyy-config-backup snapshot
+# cloudyy:args=[<timestamp>]
+set -euo pipefail
+
+BACKUP_ROOT="${HOME}/.local/share/cloudyy/backups"
+STATE_DIR="${HOME}/.config/hypr/theme_state"
+
+if [[ -n "${1:-}" ]]; then
+  src="${BACKUP_ROOT}/${1}"
+else
+  src="$(find "$BACKUP_ROOT" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort | tail -1)" || true
+fi
+
+if [[ -z "$src" || ! -d "$src" ]]; then
+  echo "No backup found${1:+ for timestamp $1}." >&2
+  exit 1
+fi
+
+mkdir -p "$STATE_DIR"
+for f in "${src}"/state.conf "${src}"/system_theme.env; do
+  [[ -f "$f" ]] && cp "$f" "$STATE_DIR/"
+done
+
+echo "Restored from ${src}"
