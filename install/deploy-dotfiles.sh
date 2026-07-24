@@ -404,7 +404,7 @@ deploy_defaults() {
 
   local mascot_file="${cc_terminal_dir}/show_mascot"
   if [[ ! -f "$mascot_file" ]]; then
-    printf 'true\n' > "$mascot_file"
+    printf 'false\n' > "$mascot_file"
     log_ok "show_mascot default seeded."
   else
     log_skip "show_mascot"
@@ -721,9 +721,15 @@ main() {
     fi
   fi
 
-  if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
-    "${HOME}/cloudyy_scripts/theme_controller.sh" restore >/dev/null 2>&1 || \
-      log_warn "theme_controller restore failed (non-fatal)"
+  # Skip when orchestrated by install.sh: its dedicated theme_init phase runs
+  # later (after packages/matugen are installed) and seeds the default
+  # wallpaper properly. Running restore here too, before packages exist,
+  # only produces a guaranteed-failed no-op.
+  if [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]]; then
+    if [[ -x "${HOME}/cloudyy_scripts/theme_controller.sh" ]]; then
+      "${HOME}/cloudyy_scripts/theme_controller.sh" restore >/dev/null 2>&1 || \
+        log_warn "theme_controller restore failed (non-fatal)"
+    fi
   fi
 
   printf '\n%s[✓] Dotfiles deployed successfully!%s\n\n' "$GREEN" "$RESET"

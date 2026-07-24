@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -166,7 +167,9 @@ def wallpaper_list(directory: str, max_items: int = 100) -> list[dict]:
         ]
     # GTK picker parity: cap the grid (rows.py max_items default 100).
     paths = sorted({str(p) for p in files})[:max_items]
-    return [{"path": p, "thumb": wallpaper_thumb(Path(p))} for p in paths]
+    with ThreadPoolExecutor() as pool:
+        thumbs = pool.map(lambda p: wallpaper_thumb(Path(p)), paths)
+    return [{"path": p, "thumb": t} for p, t in zip(paths, thumbs)]
 
 
 def build_item(raw: dict, item_id: str) -> dict:
