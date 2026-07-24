@@ -122,6 +122,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "oobe-welcome",
+	match = { class = "^(org.quickshell)$", title = "^(Welcome to Cloudyy)$" },
+	float = true,
+	size = "560 460",
+	center = true,
+})
+
+hl.window_rule({
 	name = "openrgb",
 	match = { class = "org.openrgb.OpenRGB" },
 	float = true,
