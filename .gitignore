@@ -90,17 +90,23 @@ cloudyy_scripts/source/hcm/
 cloudyy_scripts/source/*
 
 # Local AI tooling
+# Each tool dir is otherwise ignored (sessions, cache, auth, logs) except
+# the "cloudyy" skill specifically — .codex/skills/ also holds other
+# pre-existing bundled system skills that must stay untracked.
 /.claude/*
 !/.claude/skills/
-!/.claude/skills/**
+/.claude/skills/*
+!/.claude/skills/cloudyy
 cloudyy_scripts/cloud-center-v2/.claude/
 .config/zsh/.claude/
 .config/quickshell/.claude/
 cloudyy_scripts/terminal/.claude/
+/.codex/*
+!/.codex/skills/
+/.codex/skills/*
+!/.codex/skills/cloudyy
 .worktrees/
 **/.docs/
-.codex**
-**/.cursor/
 
 # User-specific and generated configs
 .config/btop/btop.conf
