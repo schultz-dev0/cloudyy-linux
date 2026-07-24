@@ -57,3 +57,24 @@ hl.window_rule({
 	match = { class = "^(game_class)$" },
 	immediate = true,
 })
+
+hl.config({
+	general = {
+		border_size = 0,
+		gaps_out = 14,
+		gaps_in = 8,
+		layout = "dwindle",
+	},
+	decoration = {
+		rounding = 0,
+		shadow = {
+			enabled = true,
+			range = 1,
+		},
+		blur = {
+			enabled = true,
+			passes = 3,
+			size = 3,
+		},
+	},
+})

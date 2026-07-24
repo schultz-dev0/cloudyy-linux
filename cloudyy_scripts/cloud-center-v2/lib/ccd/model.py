@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = SCRIPT_DIR / "config.yaml"
 
-THUMB_DIR = utility.CACHE_DIR / "thumbs"
+THUMB_DIR = utility.XDG_CACHE / "rofi_thumbs"  # shared with Command Center's bash picker
 THUMB_SIZE = 256  # long edge; the grid only ever displays these at ~264px
 
 # Keep in sync with installer ACTIVE_SHELL_TAB when that still exists.
@@ -123,22 +123,28 @@ def wallpaper_thumb(path: Path) -> str:
     means a full-resolution decode on every single page visit. Falls back to
     the original path if Pillow is missing or decoding fails — the tile just
     loads at full cost like before, nothing breaks.
+
+    Cache key is path-only (md5, matching Command Center's bash picker) so
+    both pickers share one generated thumbnail per wallpaper instead of each
+    maintaining its own copy; staleness is a live mtime compare rather than
+    baked into the filename.
     """
     if _PILImage is None:
         return str(path)
     try:
-        mtime_ns = path.stat().st_mtime_ns
+        real = path.resolve()
+        src_mtime = real.stat().st_mtime
     except OSError:
         return str(path)
-    key = hashlib.sha1(f"{path}:{mtime_ns}".encode()).hexdigest()
-    cached = THUMB_DIR / f"{key}.jpg"
-    if cached.exists():
+    key = hashlib.md5(str(real).encode()).hexdigest()
+    cached = THUMB_DIR / f"{key}.png"
+    if cached.exists() and cached.stat().st_mtime >= src_mtime:
         return str(cached)
     try:
         THUMB_DIR.mkdir(parents=True, exist_ok=True)
-        with _PILImage.open(path) as img:
+        with _PILImage.open(real) as img:
             img.thumbnail((THUMB_SIZE, THUMB_SIZE))
-            img.convert("RGB").save(cached, "JPEG", quality=85)
+            img.save(cached, "PNG")
         return str(cached)
     except Exception as e:
         log.warning("wallpaper_thumb failed for %s: %s", path, e)
