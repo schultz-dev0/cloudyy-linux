@@ -48,7 +48,9 @@ class MonitorSession:
         config_path: Path,
         fetch_layout: Callable[[], list[dict]],
         apply_layout: Callable[[list[dict]], tuple[bool, str]],
-        activate_config: Callable[[], tuple[bool, str]],
+        # ponytail: hcm binary is retired, nothing to activate post single-file
+        # consolidation; kept as an overridable hook since keep() still calls it.
+        activate_config: Callable[[], tuple[bool, str]] = lambda: (True, "ok"),
         timer_factory=threading.Timer,
         token_factory=lambda: uuid.uuid4().hex,
         event_sender=protocol.send_event,
@@ -259,24 +261,10 @@ def _apply_layout(drafts: list[dict]) -> tuple[bool, str]:
     return _run_result(result)
 
 
-def _activate_config() -> tuple[bool, str]:
-    try:
-        result = subprocess.run(
-            ["hcm", "activate", "monitors"],
-            capture_output=True,
-            text=True,
-            timeout=8,
-        )
-    except Exception as exc:
-        return False, str(exc)
-    return _run_result(result)
-
-
 SESSION = MonitorSession(
     config_path=me.MONITORS_CONF,
     fetch_layout=_fetch_layout,
     apply_layout=_apply_layout,
-    activate_config=_activate_config,
 )
 
 

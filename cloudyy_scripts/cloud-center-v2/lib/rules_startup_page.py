@@ -17,43 +17,29 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 from gi.repository import Gtk as _Gtk
-# lib.hyprlua_runtime was replaced by the `hcm` Rust binary; we now shell out
-# via subprocess (already imported above) for the activate-line transform.
-from lib import hyprlua_reader
+from lib import hcm_lua, hyprlua_reader
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 HYPR_DIR = Path.home() / '.config' / 'hypr'
 MAIN_LUA = HYPR_DIR / 'hyprland.lua'
-USER_DIR = HYPR_DIR / 'user-configs'
 
-LEGACY_CONF_PATH = USER_DIR / 'user_rules_startup.lua'
-# Kept as a compatibility alias for callers from before the three-file split.
-CONF_PATH = LEGACY_CONF_PATH
+WINDOWRULES_CONF_PATH = HYPR_DIR / 'windowrules.lua'
+AUTOSTART_CONF_PATH = HYPR_DIR / 'autostart.lua'
+VARIABLES_CONF_PATH = HYPR_DIR / 'variables.lua'
 
-WINDOWRULES_CONF_PATH = USER_DIR / 'user_windowrules.lua'
-AUTOSTART_CONF_PATH = USER_DIR / 'user_autostart.lua'
-VARIABLES_CONF_PATH = USER_DIR / 'user_variables.lua'
-
-SOURCE_WINDOWRULES = HYPR_DIR / 'source' / 'windowrules.lua'
-SOURCE_AUTOSTART = HYPR_DIR / 'source' / 'autostart.lua'
-SOURCE_VARIABLES = HYPR_DIR / 'source' / 'variables.lua'
-
-SURFACE_PATHS: dict[str, tuple[Path, Path]] = {
-    'windowrules': (SOURCE_WINDOWRULES, WINDOWRULES_CONF_PATH),
-    'autostart': (SOURCE_AUTOSTART, AUTOSTART_CONF_PATH),
-    'variables': (SOURCE_VARIABLES, VARIABLES_CONF_PATH),
+SURFACE_PATHS: dict[str, Path] = {
+    'windowrules': WINDOWRULES_CONF_PATH,
+    'autostart': AUTOSTART_CONF_PATH,
+    'variables': VARIABLES_CONF_PATH,
 }
 
-# HCM reserves `-- @cloud-center-state = ` for its table-managed surfaces.
-# Rules/startup/variables are free-form Lua, so use a distinct marker: HCM
-# treats the files as manual overrides and never regenerates their bodies.
-LEGACY_MANAGED_STATE_PREFIX = '-- @cloud-center-state = '
+# Rules/startup/variables are free-form Lua, so use a distinct marker: Cloud
+# Center treats the files as manual overrides and never regenerates their bodies.
 MANAGED_STATE_PREFIX = '-- @cloud-center-rules-startup-state = '
 MANAGED_BEGIN = '-- --- Cloud Center managed additions ---'
 MANAGED_END = '-- --- End Cloud Center managed additions ---'
 
-_LEGACY_USER_REQUIRE = 'require("user-configs.user_rules_startup")'
 _IO_LOCK = threading.RLock()
 
 _DIALOG_WIDTH = 560
@@ -383,13 +369,12 @@ def _state_sections(data: object) -> dict[str, list[str]]:
 
 def _parse_conf(text: str) -> dict[str, list[str]]:
     for line in text.splitlines()[:10]:
-        for prefix in (MANAGED_STATE_PREFIX, LEGACY_MANAGED_STATE_PREFIX):
-            if not line.startswith(prefix):
-                continue
-            try:
-                return _state_sections(json.loads(line[len(prefix):]))
-            except json.JSONDecodeError:
-                log.warning('Invalid Rules & Startup state sentinel')
+        if not line.startswith(MANAGED_STATE_PREFIX):
+            continue
+        try:
+            return _state_sections(json.loads(line[len(MANAGED_STATE_PREFIX):]))
+        except json.JSONDecodeError:
+            log.warning('Invalid Rules & Startup state sentinel')
 
     result: dict[str, list[str]] = {k: [] for k in _M}
     current: Optional[str] = None
@@ -466,24 +451,11 @@ def _render_layer_rules_lua(rules: list[LayerRule]) -> list[str]:
     return lines
 
 
-def _parse_require_target(line: str) -> tuple[bool, str] | None:
-    """Return (commented, require_code) for a hyprland.lua require line."""
-    raw = line.strip()
-    if not raw:
-        return None
-    commented = raw.startswith('--')
-    body = raw[2:].strip() if commented else raw
-    code = body.split('--', 1)[0].strip()
-    if code.startswith('require("'):
-        return commented, code
-    return None
-
-
 def _atomic_write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f'{path.name}.tmp')
-    tmp.write_text(text, encoding='utf-8')
-    tmp.replace(path)
+    # windowrules.lua/autostart.lua/variables.lua have no distro fallback to
+    # recover from a torn write, so this delegates to hcm_lua's fsync'd
+    # mkstemp+replace pattern instead of a plain write_text+replace.
+    hcm_lua.atomic_write(path, text)
 
 
 def _snapshot(path: Path) -> bytes | None:
@@ -498,33 +470,6 @@ def _restore_snapshot(path: Path, content: bytes | None) -> None:
     tmp = path.with_name(f'{path.name}.rollback')
     tmp.write_bytes(content)
     tmp.replace(path)
-
-
-def _run_hcm(command: str, surface: str) -> None:
-    from lib import utility
-
-    run = subprocess.run(
-        [utility.hcm_bin(), command, surface],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
-    if run.returncode != 0:
-        detail = (run.stderr or run.stdout or f'hcm {command} failed').strip()
-        raise RuntimeError(detail)
-
-
-def _activate_surface(surface: str) -> None:
-    _run_hcm('activate', surface)
-
-
-def _revert_surface(surface: str) -> None:
-    _run_hcm('revert', surface)
-
-
-def _surface_header(surface: str) -> str:
-    return f'-- Cloud Center user override file for {surface} configuration.'
 
 
 def _surface_state(
@@ -590,7 +535,7 @@ def _render_surface_text(
         line = lines[i]
         if line == MANAGED_BEGIN:
             if found_managed:
-                raise ValueError(f'Duplicate managed section in user_{surface}.lua')
+                raise ValueError(f'Duplicate managed section in {surface}.lua')
             found_managed = True
             body.append(MANAGED_BEGIN)
             body.extend(managed_lines)
@@ -601,14 +546,13 @@ def _render_surface_text(
             while i < len(lines) and lines[i] != MANAGED_END:
                 i += 1
             if i == len(lines):
-                raise ValueError(f'Unterminated managed section in user_{surface}.lua')
+                raise ValueError(f'Unterminated managed section in {surface}.lua')
             i += 1
             continue
         if line == MANAGED_END:
-            raise ValueError(f'Unexpected managed section end in user_{surface}.lua')
+            raise ValueError(f'Unexpected managed section end in {surface}.lua')
         if (
             line.startswith(MANAGED_STATE_PREFIX)
-            or line.startswith(LEGACY_MANAGED_STATE_PREFIX)
             or line.startswith('-- Cloud Center user override file for ')
         ):
             i += 1
@@ -631,7 +575,6 @@ def _render_surface_text(
         body.append(MANAGED_END)
 
     out = [
-        _surface_header(surface),
         f'{MANAGED_STATE_PREFIX}{json.dumps(state, sort_keys=True)}',
         '',
         *body,
@@ -654,7 +597,6 @@ def _unmanaged_body(text: str) -> str:
             continue
         if (
             line.startswith(MANAGED_STATE_PREFIX)
-            or line.startswith(LEGACY_MANAGED_STATE_PREFIX)
             or line.startswith('-- Cloud Center user override file for ')
         ):
             continue
@@ -676,54 +618,19 @@ def _write_surface(
     env_vars: list[EnvVar],
     *,
     path_override: Path | None = None,
-    activate: bool = True,
 ) -> None:
-    source_path, default_path = SURFACE_PATHS[surface]
-    path = path_override or default_path
-    source_text = source_path.read_text(encoding='utf-8') if source_path.exists() else ''
-    old_user = _snapshot(path)
-    old_main = _snapshot(MAIN_LUA)
-    existing = old_user.decode('utf-8') if old_user is not None else source_text
+    path = path_override or SURFACE_PATHS[surface]
+    old = _snapshot(path)
+    existing = old.decode('utf-8') if old is not None else ''
     state = _surface_state(surface, window_rules, layer_rules, autostart, env_vars)
     managed_lines = _surface_managed_lines(
         surface, window_rules, layer_rules, autostart, env_vars
     )
-
-    # Removing the final managed addition should return to the distro module,
-    # but only when no hand-written Lua remains in the user copy.
-    if not any(state.values()) and old_user is not None:
-        if _unmanaged_body(existing) == source_text.strip() and activate:
-            try:
-                _revert_surface(surface)
-                active_surfaces = _active_split_surfaces()
-                active_surfaces.discard(surface)
-                _normalise_surface_require_order(active_surfaces)
-                return
-            except Exception:
-                _restore_snapshot(path, old_user)
-                _restore_snapshot(MAIN_LUA, old_main)
-                raise
-
-    if not any(state.values()) and old_user is None:
-        return
-
     try:
-        if activate:
-            # Let HCM perform its native first-edit transition: copy the
-            # distro source into user-configs and flip the require pair.  We
-            # then add/replace only Cloud Center's managed block.
-            _activate_surface(surface)
-            if old_user is None and path.exists():
-                existing = path.read_text(encoding='utf-8')
         rendered = _render_surface_text(existing, surface, state, managed_lines)
         _atomic_write(path, rendered)
-        if activate:
-            active_surfaces = _active_split_surfaces()
-            active_surfaces.add(surface)
-            _normalise_surface_require_order(active_surfaces)
     except Exception:
-        _restore_snapshot(path, old_user)
-        _restore_snapshot(MAIN_LUA, old_main)
+        _restore_snapshot(path, old)
         raise
 
 
@@ -736,18 +643,18 @@ def _write_conf(
     *,
     surfaces: set[str] | None = None,
 ) -> None:
-    """Write only the touched HCM surfaces, never the old combined file."""
+    """Write only the touched surfaces, never the old combined file."""
     with _IO_LOCK:
         if path is not None:
             _write_surface(
                 'variables', window_rules, layer_rules, autostart, env_vars,
-                path_override=path, activate=False,
+                path_override=path,
             )
             return
 
         if surfaces is None:
             selected = {
-                surface for surface, (_, user_path) in SURFACE_PATHS.items()
+                surface for surface, user_path in SURFACE_PATHS.items()
                 if user_path.exists()
             }
             if window_rules or layer_rules:
@@ -782,224 +689,6 @@ def _dataclass_env_vars(text: str) -> list[EnvVar]:
     return [EnvVar(**item) for item in hyprlua_reader.parse_env_vars(text)]
 
 
-def _manual_call_blocks(
-    text: str,
-    source_text: str,
-    managed: list[object],
-    fn_name: str,
-    parser,
-) -> list[str]:
-    baseline = parser(source_text)
-    blocks: list[str] = []
-    for block in hyprlua_reader.extract_call_blocks(text, fn_name):
-        items = parser(block)
-        if not items:
-            continue
-        if all(item in baseline or item in managed for item in items):
-            continue
-        if block not in blocks:
-            blocks.append(block)
-    return blocks
-
-
-def _manual_autostart_blocks(
-    text: str,
-    source_text: str,
-    managed: list[AutostartEntry],
-) -> list[str]:
-    baseline = _dataclass_autostart(source_text)
-    blocks: list[str] = []
-    on_spans = list(hyprlua_reader.iter_call_spans(text, 'on'))
-
-    for start, end in on_spans:
-        block = text[start:end]
-        items = _dataclass_autostart(block)
-        if items and not all(item in baseline or item in managed for item in items):
-            if block not in blocks:
-                blocks.append(block)
-
-    for fn_name in ('exec_once', 'exec_cmd'):
-        for start, end in hyprlua_reader.iter_call_spans(text, fn_name):
-            if any(on_start <= start and end <= on_end for on_start, on_end in on_spans):
-                continue
-            block = text[start:end]
-            items = _dataclass_autostart(block)
-            if items and not all(item in baseline or item in managed for item in items):
-                if block not in blocks:
-                    blocks.append(block)
-    return blocks
-
-
-def _append_manual_blocks(base: str, blocks: list[str]) -> str:
-    out = base.rstrip()
-    for block in blocks:
-        if block in out:
-            continue
-        if out:
-            out += '\n\n'
-        out += block.strip()
-    return out + ('\n' if out else '')
-
-
-def _active_split_surfaces() -> set[str]:
-    if not MAIN_LUA.exists():
-        return set()
-    active: set[str] = set()
-    for line in MAIN_LUA.read_text(encoding='utf-8').splitlines():
-        parsed = _parse_require_target(line)
-        if parsed is None:
-            continue
-        commented, code = parsed
-        if commented:
-            continue
-        for surface in SURFACE_PATHS:
-            if code == f'require("user-configs.user_{surface}")':
-                active.add(surface)
-    return active
-
-
-def _normalise_surface_require_order(
-    active_surfaces: set[str],
-    *,
-    retire_legacy: bool = False,
-) -> None:
-    """Keep every source/user pair in the source module's original slot.
-
-    Variables define globals consumed by bindings, so appending user_variables
-    to the end of hyprland.lua (HCM's generic fallback) is observably wrong.
-    Pairing every split surface also gives HCM a stable line to toggle later.
-    """
-    if not MAIN_LUA.exists():
-        return
-
-    out: list[str] = []
-    seen_source: set[str] = set()
-    for line in MAIN_LUA.read_text(encoding='utf-8').splitlines():
-        parsed = _parse_require_target(line)
-        if parsed is None:
-            out.append(line)
-            continue
-        _, code = parsed
-        if code == _LEGACY_USER_REQUIRE:
-            if retire_legacy:
-                continue
-            out.append(line)
-            continue
-
-        matched = False
-        for surface in SURFACE_PATHS:
-            source_code = f'require("source.{surface}")'
-            user_code = f'require("user-configs.user_{surface}")'
-            if code == source_code:
-                if surface not in seen_source:
-                    out.append(f'-- {source_code}' if surface in active_surfaces else source_code)
-                    marker = f'{user_code} -- managed by Cloud Center'
-                    out.append(marker if surface in active_surfaces else f'-- {marker}')
-                    seen_source.add(surface)
-                matched = True
-                break
-            if code == user_code:
-                # Reinsert it next to the matching source line instead.
-                matched = True
-                break
-        if not matched:
-            out.append(line)
-
-    for surface in SURFACE_PATHS:
-        source_code = f'require("source.{surface}")'
-        user_code = f'require("user-configs.user_{surface}")'
-        if surface not in seen_source:
-            out.append(f'-- {source_code}' if surface in active_surfaces else source_code)
-            marker = f'{user_code} -- managed by Cloud Center'
-            out.append(marker if surface in active_surfaces else f'-- {marker}')
-
-    _atomic_write(MAIN_LUA, '\n'.join(out).rstrip() + '\n')
-
-
-def migrate_legacy_conf() -> bool:
-    """Split user_rules_startup.lua without losing manual Lua expressions."""
-    with _IO_LOCK:
-        if not LEGACY_CONF_PATH.exists():
-            return False
-
-        legacy_text = LEGACY_CONF_PATH.read_text(encoding='utf-8')
-        sections = _parse_conf(legacy_text)
-        window_rules = _parse_window_rules(sections['window_rules'])
-        layer_rules = _parse_layer_rules(sections['layer_rules'])
-        autostart = _parse_autostart(sections['autostart'])
-        env_vars = _parse_env_vars(sections['env_vars'])
-
-        source_texts = {
-            surface: source.read_text(encoding='utf-8') if source.exists() else ''
-            for surface, (source, _) in SURFACE_PATHS.items()
-        }
-        manual = {
-            'windowrules': (
-                _manual_call_blocks(
-                    legacy_text, source_texts['windowrules'], window_rules,
-                    'window_rule', _dataclass_window_rules,
-                )
-                + _manual_call_blocks(
-                    legacy_text, source_texts['windowrules'], layer_rules,
-                    'layer_rule', _dataclass_layer_rules,
-                )
-            ),
-            'autostart': _manual_autostart_blocks(
-                legacy_text, source_texts['autostart'], autostart
-            ),
-            'variables': _manual_call_blocks(
-                legacy_text, source_texts['variables'], env_vars,
-                'env', _dataclass_env_vars,
-            ),
-        }
-        has_managed = {
-            'windowrules': bool(window_rules or layer_rules),
-            'autostart': bool(autostart),
-            'variables': bool(env_vars),
-        }
-        active_surfaces = {
-            surface for surface in SURFACE_PATHS
-            if has_managed[surface] or manual[surface] or SURFACE_PATHS[surface][1].exists()
-        }
-
-        tracked_paths = [path for _, path in SURFACE_PATHS.values()]
-        snapshots = {path: _snapshot(path) for path in [*tracked_paths, MAIN_LUA]}
-        try:
-            for surface in ('windowrules', 'autostart', 'variables'):
-                if surface not in active_surfaces:
-                    continue
-                _, path = SURFACE_PATHS[surface]
-                _activate_surface(surface)
-                existing = (
-                    path.read_text(encoding='utf-8')
-                    if path.exists() else source_texts[surface]
-                )
-                existing = _append_manual_blocks(existing, manual[surface])
-                state = _surface_state(
-                    surface, window_rules, layer_rules, autostart, env_vars
-                )
-                managed_lines = _surface_managed_lines(
-                    surface, window_rules, layer_rules, autostart, env_vars
-                )
-                _atomic_write(
-                    path,
-                    _render_surface_text(existing, surface, state, managed_lines),
-                )
-
-            _normalise_surface_require_order(active_surfaces, retire_legacy=True)
-
-            # The split files are now the sole user-config sources. Consume the
-            # combined file only after every destination and require line has
-            # been written successfully, so rollback never needs an archive.
-            LEGACY_CONF_PATH.unlink()
-            log.info('Migrated %s to three HCM surfaces', LEGACY_CONF_PATH)
-            return True
-        except Exception:
-            for path, content in snapshots.items():
-                _restore_snapshot(path, content)
-            raise
-
-
 def _configure_dialog(dialog, *, width: int = _DIALOG_WIDTH, height: int = _DIALOG_HEIGHT) -> None:
     dialog.set_content_width(width)
     dialog.set_content_height(height)
@@ -1007,8 +696,6 @@ def _configure_dialog(dialog, *, width: int = _DIALOG_WIDTH, height: int = _DIAL
 
 def upsert_env_vars(updates: dict[str, str], path: Path | None = None) -> None:
     with _IO_LOCK:
-        if path is None:
-            migrate_legacy_conf()
         target = path or VARIABLES_CONF_PATH
         sections = _read_surface_sections(target)
         env_vars = _parse_env_vars(sections['env_vars'])
@@ -2369,7 +2056,7 @@ class RulesStartupPage(_Gtk.Box):
         box.set_margin_start(6)
         box.set_margin_end(6)
 
-        path_lbl = Gtk.Label(label='~/.config/hypr/user-configs/user_{windowrules,autostart,variables}.lua')
+        path_lbl = Gtk.Label(label='~/.config/hypr/{windowrules,autostart,variables}.lua')
         path_lbl.add_css_class('dim-label')
         path_lbl.add_css_class('caption')
         path_lbl.set_hexpand(True)
@@ -2392,16 +2079,9 @@ class RulesStartupPage(_Gtk.Box):
         return box
 
     def _load_from_files(self) -> None:
-        try:
-            migrate_legacy_conf()
-        except Exception as e:
-            # Keep the page usable and leave the legacy file active/intact.  A
-            # later edit will surface the same HCM error instead of losing data.
-            log.warning('Failed to migrate legacy Rules & Startup config: %s', e)
-
         user_texts = {
             surface: path.read_text(encoding='utf-8') if path.exists() else ''
-            for surface, (_, path) in SURFACE_PATHS.items()
+            for surface, path in SURFACE_PATHS.items()
         }
         try:
             window_sections = _parse_conf(user_texts['windowrules'])
@@ -2416,11 +2096,18 @@ class RulesStartupPage(_Gtk.Box):
 
         # Distro baselines and hand-written additions are visible but locked.
         # Managed blocks are replaced in place, so those manual additions are
-        # preserved byte-for-byte on every subsequent Cloud Center edit.
+        # preserved byte-for-byte on every subsequent Cloud Center edit.  The
+        # "distro" reference is the shipped seed each surface was created
+        # from (install/default-theme/hypr/<surface>.lua) — there's no
+        # separate runtime source file anymore; every module is one live,
+        # edited-in-place file.
         try:
-            distro_window_text = SOURCE_WINDOWRULES.read_text(encoding='utf-8') if SOURCE_WINDOWRULES.exists() else ''
-            distro_autostart_text = SOURCE_AUTOSTART.read_text(encoding='utf-8') if SOURCE_AUTOSTART.exists() else ''
-            distro_variable_text = SOURCE_VARIABLES.read_text(encoding='utf-8') if SOURCE_VARIABLES.exists() else ''
+            distro_window_path = hcm_lua.DEFAULTS_DIR / 'windowrules.lua'
+            distro_autostart_path = hcm_lua.DEFAULTS_DIR / 'autostart.lua'
+            distro_variable_path = hcm_lua.DEFAULTS_DIR / 'variables.lua'
+            distro_window_text = distro_window_path.read_text(encoding='utf-8') if distro_window_path.exists() else ''
+            distro_autostart_text = distro_autostart_path.read_text(encoding='utf-8') if distro_autostart_path.exists() else ''
+            distro_variable_text = distro_variable_path.read_text(encoding='utf-8') if distro_variable_path.exists() else ''
 
             distro_windows = _dataclass_window_rules(distro_window_text)
             distro_layers = _dataclass_layer_rules(distro_window_text)
@@ -2483,7 +2170,7 @@ class RulesStartupPage(_Gtk.Box):
         return surfaces
 
     def apply_live(self, surfaces: set[str] | None = None) -> None:
-        """Write only dirty HCM surfaces + reload after a tab mutation."""
+        """Write only dirty surfaces + reload after a tab mutation."""
         self._update_dirty_buttons()
         selected = self._dirty_surfaces() if surfaces is None else set(surfaces)
         if not selected:

@@ -1,6 +1,6 @@
-"""Merge Hyprland animation leaf specs for Cloud Center → `hcm apply`.
+"""Merge Hyprland animation leaf specs for Cloud Center → `hypr_animations_persist.apply_animation_key`.
 
-HCM stores `animations:animation` as one or more comma-specs joined by `;`:
+`animations:animation` is stored as one or more comma-specs joined by `;`:
 `windows,1,4,snap;workspaces,1,4,snap,slidevert`.
 """
 
@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,8 +32,15 @@ DEFAULT_UI_SPEED = 7  # → Hyprland speed 4 (previous default feel)
 
 
 def user_animations_path(hypr_dir: Path | None = None) -> Path:
-    root = hypr_dir or (Path.home() / ".config" / "hypr")
-    return root / "user-configs" / "user_animations.lua"
+    # ponytail: same file the writer (hypr_animations_persist._animations_lua_path)
+    # targets — resolved per-call, not frozen, so hcm_lua.HYPR_DIR patches in
+    # tests still take effect. Was pointed at the old pre-migration
+    # user-configs/user_animations.lua path; that file nothing writes to
+    # anymore, so reads here went stale the moment apply_animation_key ran once.
+    from lib import hcm_lua
+
+    root = hypr_dir or hcm_lua.HYPR_DIR
+    return root / "animations.lua"
 
 
 def load_hcm_animation_state(hypr_dir: Path | None = None) -> dict[str, str]:
@@ -155,16 +161,15 @@ def upsert_leaf(
 
 
 def hcm_apply_animation(value: str, *, hypr_dir: Path | None = None) -> dict[str, Any]:
-    cmd = ["hcm", "apply", "animations:animation", value]
-    if hypr_dir is not None:
-        cmd = ["hcm", "--hypr-dir", str(hypr_dir), "apply", "animations:animation", value]
+    # ponytail: hypr_dir is only ever passed by tests/the --hypr-dir CLI flag;
+    # production callers (config.yaml) never pass it, so apply_animation_key
+    # (which always targets hcm_lua.HYPR_DIR) is equivalent for real usage.
+    from lib import hypr_animations_persist
+
     try:
-        run = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        hypr_animations_persist.apply_animation_key("animations:animation", value)
     except Exception as exc:
         return {"ok": False, "message": f"Apply failed: {exc}"}
-    if run.returncode != 0:
-        err = (run.stderr or run.stdout or "hcm apply failed").strip()
-        return {"ok": False, "message": f"Apply failed: {err}"}
     return {"ok": True, "message": f"persisted animations:animation = {value}", "value": value}
 
 

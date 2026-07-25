@@ -1,7 +1,6 @@
--- Look and feel: general, decoration, dwindle, misc
--- Source: source/lookandfeel.conf
+-- @cloud-center-state = {"decoration:blur:enabled": "true", "decoration:blur:passes": "3", "decoration:blur:size": "3", "decoration:rounding": "0", "decoration:shadow:enabled": "true", "decoration:shadow:range": "1", "general:border_size": "1", "general:gaps_in": "8", "general:gaps_out": "14", "general:layout": "dwindle"}
 
-local colors = require("source.colors")
+local colors = require("colors")
 
 hl.config({
 	general = {
@@ -78,3 +77,26 @@ hl.config({
 		},
 	},
 })
+
+-- --- Cloud Center managed lookandfeel settings ---
+hl.config({
+    general = {
+        border_size = 1,
+        gaps_out = 14,
+        gaps_in = 8,
+        layout = "dwindle",
+    },
+    decoration = {
+        rounding = 0,
+        shadow = {
+            enabled = true,
+            range = 1,
+        },
+        blur = {
+            enabled = true,
+            passes = 3,
+            size = 3,
+        },
+    },
+})
+-- --- End Cloud Center managed lookandfeel settings ---

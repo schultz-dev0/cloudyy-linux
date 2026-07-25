@@ -31,29 +31,34 @@ class FakeRulesModule:
 
 class RulesSessionTest(unittest.TestCase):
     def setUp(self):
+        from lib import hcm_lua
         from lib.ccd import rules_startup
 
         self.backend = rules_startup
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
-        source = root / "source"
-        user = root / "user-configs"
-        source.mkdir()
-        user.mkdir()
+        defaults = root / "defaults"
+        defaults.mkdir()
 
+        # Post-refactor there's one live file per surface (no source/ vs
+        # user-configs/ split); "distro" content instead lives at the
+        # tracked seed path, hcm_lua.DEFAULTS_DIR/<surface>.lua.
         self.paths = {
-            "windowrules": (source / "windowrules.lua", user / "user_windowrules.lua"),
-            "autostart": (source / "autostart.lua", user / "user_autostart.lua"),
-            "variables": (source / "variables.lua", user / "user_variables.lua"),
+            "windowrules": root / "windowrules.lua",
+            "autostart": root / "autostart.lua",
+            "variables": root / "variables.lua",
         }
-        self.main = root / "hyprland.lua"
-        self.main.write_text('-- opening main\nrequire("source.windowrules")\n')
-        self.paths["windowrules"][0].write_text(
+        (defaults / "windowrules.lua").write_text(
             'hl.window_rule({ name = "distro", match = { class = "^(base)$" }, float = true })\n'
         )
-        self.paths["autostart"][0].write_text('hl.exec_once("distro-daemon")\n')
-        self.paths["variables"][0].write_text('hl.env("TERMINAL", "kitty")\n')
+        (defaults / "autostart.lua").write_text('hl.exec_once("distro-daemon")\n')
+        (defaults / "variables.lua").write_text('hl.env("TERMINAL", "kitty")\n')
+
+        distro_defaults_patch = mock.patch.object(hcm_lua, "DEFAULTS_DIR", defaults)
+        distro_defaults_patch.start()
+        self.addCleanup(distro_defaults_patch.stop)
+
         state = {
             "window_rules": [{
                 "name": "managed",
@@ -62,20 +67,18 @@ class RulesSessionTest(unittest.TestCase):
             }],
             "layer_rules": [],
         }
-        self.paths["windowrules"][1].write_text(
+        self.paths["windowrules"].write_text(
             legacy.MANAGED_STATE_PREFIX + json.dumps(state) + "\n"
             'hl.window_rule({ name = "manual", match = { title = "manual" }, pin = true })\n'
         )
 
         FakeRulesModule.SURFACE_PATHS = self.paths
-        FakeRulesModule.MAIN_LUA = self.main
-        FakeRulesModule.migrate_legacy_conf = staticmethod(lambda: False)
         self.writes = []
 
         def writer(window, layer, autostart, env, *, surfaces):
             self.writes.append((window, layer, autostart, env, set(surfaces)))
             for surface in surfaces:
-                self.paths[surface][1].write_text(f"written:{surface}\n")
+                self.paths[surface].write_text(f"written:{surface}\n")
 
         FakeRulesModule._write_conf = staticmethod(writer)
         self.reload = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout="ok", stderr=""))
@@ -133,7 +136,7 @@ class RulesSessionTest(unittest.TestCase):
 
     def test_external_change_blocks_save_without_overwriting(self):
         self.session.open()
-        self.paths["windowrules"][1].write_text("changed outside Cloud Center\n")
+        self.paths["windowrules"].write_text("changed outside Cloud Center\n")
 
         result = self.session.save({
             "dirty_surfaces": ["windowrules"],
@@ -142,18 +145,34 @@ class RulesSessionTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["reason"], "external_change")
-        self.assertEqual(self.paths["windowrules"][1].read_text(), "changed outside Cloud Center\n")
+        self.assertEqual(self.paths["windowrules"].read_text(), "changed outside Cloud Center\n")
         self.assertEqual(self.writes, [])
 
-    def test_failure_restores_all_four_opening_files(self):
+    def test_hand_editing_hyprland_lua_does_not_block_save(self):
+        # hyprland.lua is no longer watched for external changes (its only
+        # writer/reader dependency was removed elsewhere in this refactor) —
+        # hand-editing it while this page is open must not falsely trip
+        # external_change.
+        main_lua = Path(self.tmp.name) / "hyprland.lua"
+        main_lua.write_text("-- static hyprland.lua\n")
+        self.session.open()
+        main_lua.write_text("-- hand-edited while page was open\n")
+
+        result = self.session.save({
+            "dirty_surfaces": ["windowrules"],
+            "window_rules": [], "layer_rules": [], "autostart": [], "env_vars": [],
+        })
+
+        self.assertTrue(result["ok"])
+
+    def test_failure_restores_all_three_opening_files(self):
         self.session.open()
         original = {path: path.read_bytes() if path.exists() else None
-                    for path in [*(pair[1] for pair in self.paths.values()), self.main]}
+                    for path in self.paths.values()}
 
         def broken_writer(window, layer, autostart, env, *, surfaces):
-            self.paths["windowrules"][1].write_text("partial write\n")
-            self.paths["autostart"][1].write_text("new file\n")
-            self.main.write_text("partially activated\n")
+            self.paths["windowrules"].write_text("partial write\n")
+            self.paths["autostart"].write_text("new file\n")
             raise RuntimeError("HCM failed")
 
         FakeRulesModule._write_conf = staticmethod(broken_writer)
@@ -170,7 +189,7 @@ class RulesSessionTest(unittest.TestCase):
 
     def test_reload_failure_restores_files_and_reloads_restored_rules(self):
         self.session.open()
-        before = self.paths["windowrules"][1].read_bytes()
+        before = self.paths["windowrules"].read_bytes()
         self.reload.side_effect = [
             SimpleNamespace(returncode=1, stdout="", stderr="invalid rule"),
             SimpleNamespace(returncode=0, stdout="ok", stderr=""),
@@ -183,15 +202,15 @@ class RulesSessionTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertIn("invalid rule", result["message"])
-        self.assertEqual(self.paths["windowrules"][1].read_bytes(), before)
+        self.assertEqual(self.paths["windowrules"].read_bytes(), before)
         self.assertEqual(self.reload.call_count, 2)
 
     def test_close_discards_session_without_touching_files(self):
         self.session.open()
-        before = self.paths["windowrules"][1].read_bytes()
+        before = self.paths["windowrules"].read_bytes()
         result = self.session.close()
         self.assertTrue(result["ok"])
-        self.assertEqual(self.paths["windowrules"][1].read_bytes(), before)
+        self.assertEqual(self.paths["windowrules"].read_bytes(), before)
         self.assertFalse(self.session.is_open)
 
 

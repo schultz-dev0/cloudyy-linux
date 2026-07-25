@@ -1,15 +1,15 @@
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-import lib.hcm_lua as hcm_lua
 import lib.keybind_manager_lua as kbm
 from lib.ccd import keybinds
 
-# A distro bindings.lua written in this project's real multi-line hl.bind()
-# style — the format that scan_keybinds() used to silently fail to parse.
+# A bindings.lua written in this project's real multi-line hl.bind() style —
+# the format that scan_keybinds() used to silently fail to parse. These are
+# "locked" (pre-CC-section) lines; the CC-managed section is appended by
+# _ensure_user_bindings_lua() as tests add/update/remove keybinds.
 DISTRO_BINDINGS = """local mainMod = "SUPER"
 
 hl.bind(
@@ -30,39 +30,13 @@ class KeybindsTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         hypr_dir = Path(self.tmp.name)
-        (hypr_dir / "source").mkdir()
-        (hypr_dir / "user-configs").mkdir()
 
-        source_bindings = hypr_dir / "source" / "bindings.lua"
-        source_bindings.write_text(DISTRO_BINDINGS)
-        user_bindings = hypr_dir / "user-configs" / "user_bindings.lua"
-        main_lua = hypr_dir / "hyprland.lua"  # deliberately absent -> hcm scan skipped
+        bindings_lua = hypr_dir / "bindings.lua"
+        bindings_lua.write_text(DISTRO_BINDINGS)
 
-        for name, value in [
-            ("SOURCE_BINDINGS_LUA", source_bindings),
-            ("BINDINGS_LUA", user_bindings),
-            ("MAIN_LUA", main_lua),
-        ]:
-            p = mock.patch.object(kbm, name, value)
-            p.start()
-            self.addCleanup(p.stop)
-
-        # _ensure_user_bindings_lua() shells out to the real `hcm` binary via
-        # hcm_lua.switch_to_user_override() to "activate" a user override —
-        # that binary/its expectations of ~/.config/hypr are out of scope for
-        # a unit test, so replace it with the same copy-then-mark-active
-        # behavior in pure Python.
-        def fake_switch_to_user_override(cf):
-            shutil.copy(source_bindings, user_bindings)
-            return hcm_lua.UserOverrideResult(
-                edit_path=user_bindings, activated=True, message="ok"
-            )
-
-        switch_patch = mock.patch.object(
-            hcm_lua, "switch_to_user_override", side_effect=fake_switch_to_user_override
-        )
-        switch_patch.start()
-        self.addCleanup(switch_patch.stop)
+        p = mock.patch.object(kbm, "BINDINGS_LUA", bindings_lua)
+        p.start()
+        self.addCleanup(p.stop)
 
         # keybinds.save_keybind/delete_keybind call `hyprctl reload` after a
         # successful write — patch just that name, not the whole subprocess

@@ -269,11 +269,9 @@ class CursorSessionTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.cursor_path = self.root / "user-configs" / "user_cursor.lua"
         self.variables_path = self.root / "user-configs" / "user_variables.lua"
-        self.main_path = self.root / "hyprland.lua"
         self.cursor_path.parent.mkdir(parents=True)
         self.cursor_path.write_text("cursor-original\n", encoding="utf-8")
         self.variables_path.write_text("variables-original\n", encoding="utf-8")
-        self.main_path.write_text("main-original\n", encoding="utf-8")
         self.values = {
             item["key"]: item["default"] for item in self.cursor.CURSOR_SCHEMA
         }
@@ -321,7 +319,6 @@ class CursorSessionTests(unittest.TestCase):
         kwargs = dict(
             cursor_path=self.cursor_path,
             variables_path=self.variables_path,
-            main_path=self.main_path,
             fetch_values=lambda: dict(self.live),
             fetch_appearance=lambda: (self.theme, self.size),
             fetch_themes=lambda: [{"id": "Sweet-cursors", "name": "Sweet-cursors", "description": ""}],
@@ -494,10 +491,24 @@ class CursorSessionTests(unittest.TestCase):
         self.assertEqual(result["reason"], "external_change")
         persist_cursor.assert_not_called()
 
+    def test_hand_editing_hyprland_lua_does_not_block_apply(self):
+        # hyprland.lua is no longer part of transaction_paths (its only
+        # writer/reader dependency was removed elsewhere in this refactor) —
+        # hand-editing it while the Cursor page is open must not falsely
+        # trip external_change.
+        main_lua = self.root / "hyprland.lua"
+        main_lua.write_text("main-original\n", encoding="utf-8")
+        session = self.make_session()
+        session.open()
+        main_lua.write_text("hand-edited while page was open\n", encoding="utf-8")
+
+        result = session.apply()
+
+        self.assertTrue(result["ok"])
+
     def test_persistence_failure_restores_every_file_and_live_state(self):
         def fail_environment(_theme, _size):
             self.variables_path.write_text("partial\n", encoding="utf-8")
-            self.main_path.write_text("changed\n", encoding="utf-8")
             raise OSError("disk full")
 
         session = self.make_session(persist_environment=fail_environment)
@@ -513,7 +524,6 @@ class CursorSessionTests(unittest.TestCase):
         self.assertEqual(result["size"], 24)
         self.assertEqual(self.cursor_path.read_text(encoding="utf-8"), "cursor-original\n")
         self.assertEqual(self.variables_path.read_text(encoding="utf-8"), "variables-original\n")
-        self.assertEqual(self.main_path.read_text(encoding="utf-8"), "main-original\n")
         self.assertEqual(self.option_calls, [("zoom_factor", 1.0)])
 
     def test_apply_retains_draft_when_live_rollback_fails_so_close_can_retry(self):

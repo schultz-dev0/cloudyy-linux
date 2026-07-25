@@ -49,6 +49,20 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/theme_state/current_wallpaper
 .config/hypr/theme_state/cycle.conf
 .config/hypr/hyprland.lua
+.config/hypr/bindings.lua
+.config/hypr/lookandfeel.lua
+.config/hypr/animations.lua
+.config/hypr/input.lua
+.config/hypr/cursor.lua
+.config/hypr/monitors.lua
+.config/hypr/autostart.lua
+.config/hypr/windowrules.lua
+.config/hypr/variables.lua
+.config/hypr/colors.lua
+# Old pre-consolidation source/override split — superseded by the single-file
+# modules above; kept on disk until Task 10's live cutover, never re-tracked.
+.config/hypr/source/
+.config/hypr/user-configs/
 cloudyy_scripts/gpu-powerd.py
 cloudyy_scripts/launch-matlab.sh
 cloudyy_scripts/pin-ksp.sh

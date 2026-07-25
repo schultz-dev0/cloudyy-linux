@@ -1,5 +1,6 @@
+-- @cloud-center-state = {"animations:animation": "windows,1,1,myBezier3;workspaces,1,1,myBezier2,slide", "animations:bezier": "myBezier3,0.084,1.119,0.829,0.723", "animations:enabled": "true"}
+
 -- Animations: bezier curves and animation tree
--- Source: source/animations.conf
 
 hl.config({ animations = { enabled = true } })
 
@@ -15,3 +16,10 @@ hl.animation({ leaf = "layersOut", enabled = false, speed = 0 })
 hl.animation({ leaf = "border", enabled = true, speed = 3, bezier = "pro" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "pro", style = "slidevert" })
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 3, bezier = "pro", style = "slide" })
+
+-- --- Cloud Center managed animation settings ---
+hl.config({ animations = { enabled = true } })
+hl.curve("myBezier3", { type = "bezier", points = { { 0.084, 1.119 }, { 0.829, 0.723 } } })
+hl.animation({ leaf = "windows", enabled = true, speed = 1, bezier = "myBezier3" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 1, bezier = "myBezier2", style = "slide" })
+-- --- End Cloud Center managed animation settings ---

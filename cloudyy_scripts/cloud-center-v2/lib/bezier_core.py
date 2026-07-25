@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -200,7 +199,7 @@ def apply_curve(
         store.save(cleaned, pts)  # type: ignore[arg-type]
 
     bezier_str = f"{cleaned},{pts[0]},{pts[1]},{pts[2]},{pts[3]}"
-    from lib import hypr_anim
+    from lib import hypr_anim, hypr_animations_persist
 
     speed = hypr_anim.hypr_speed_from_setting()
     anim_value = hypr_anim.upsert_windows_leaf(speed=speed, bezier=cleaned)
@@ -210,15 +209,9 @@ def apply_curve(
         ("animations:animation", anim_value),
     ):
         try:
-            run = subprocess.run(
-                ["hcm", "apply", key, value],
-                capture_output=True, text=True, timeout=5,
-            )
+            hypr_animations_persist.apply_animation_key(key, value)
         except Exception as exc:
             return {"ok": False, "message": f"Apply failed: {exc}"}
-        if run.returncode != 0:
-            err = (run.stderr or run.stdout or "hcm apply failed").strip()
-            return {"ok": False, "message": f"Apply failed: {err}"}
 
     return {
         "ok": True,

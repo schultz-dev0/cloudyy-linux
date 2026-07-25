@@ -38,16 +38,15 @@ class BezierCoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "built-in"):
                 bezier_core.save_curve("linear", [0.1, 0.2, 0.3, 0.4], store=store)
 
-    @mock.patch("lib.bezier_core.subprocess.run")
+    @mock.patch("lib.hypr_animations_persist.apply_animation_key")
     @mock.patch("lib.bezier_core.utility.load_setting", return_value=4)
-    def test_apply_calls_hcm(self, _setting, run):
-        run.return_value = mock.Mock(returncode=0, stderr="", stdout="")
+    def test_apply_calls_hcm(self, _setting, apply_key):
         with tempfile.TemporaryDirectory() as tmp:
             store = bezier_core.CurveStore(Path(tmp) / "curves.json")
             result = bezier_core.apply_curve("mine", [0.2, 0.3, 0.8, 1.0], store=store)
             self.assertTrue(result["ok"])
-            self.assertEqual(run.call_count, 2)
-            self.assertIn("animations:bezier", run.call_args_list[0].args[0])
+            self.assertEqual(apply_key.call_count, 2)
+            self.assertIn("animations:bezier", apply_key.call_args_list[0].args[0])
 
 
 if __name__ == "__main__":

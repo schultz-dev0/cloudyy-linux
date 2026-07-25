@@ -1,7 +1,6 @@
 """
 Cloud Center — lib/keybind_manager_lua.py
-Lua keybind manager for ~/.config/hypr/source/bindings.lua and
-~/.config/hypr/user-configs/user_bindings.lua.
+Lua keybind manager for ~/.config/hypr/bindings.lua.
 
 Writes/reads a Cloud Center-managed section delimited by:
   -- --- Cloud Center Additions (managed by Cloud Center) ---
@@ -22,16 +21,12 @@ from typing import Optional
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
 import lib.hcm_lua as hcm_lua
-# lib.hyprlua_runtime was replaced by the `hcm` Rust binary; we shell out
-# via subprocess (already imported above) when we need to flip activation.
 
 log = logging.getLogger(__name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-SOURCE_BINDINGS_LUA = hcm_lua.SOURCE_DIR / "bindings.lua"
-BINDINGS_LUA        = hcm_lua.USER_DIR / "user_bindings.lua"
-MAIN_LUA            = hcm_lua.MAIN_LUA
+BINDINGS_LUA = hcm_lua.HYPR_DIR / "bindings.lua"
 
 _CC_BEGIN = '-- --- Cloud Center Additions (managed by Cloud Center) ---'
 _CC_END   = '-- --- End Cloud Center Additions ---'
@@ -321,37 +316,10 @@ def _ensure_cc_markers(path: Path) -> None:
         f.write(f"{suffix}\n{_CC_BEGIN}\n{_CC_END}\n")
 
 
-def _bindings_config_file() -> hcm_lua.LuaConfigFile | None:
-    if not SOURCE_BINDINGS_LUA.exists():
-        return None
-    return hcm_lua.LuaConfigFile(
-        filename=SOURCE_BINDINGS_LUA.name,
-        path=SOURCE_BINDINGS_LUA,
-        description=hcm_lua._read_lua_description(SOURCE_BINDINGS_LUA),
-        status=hcm_lua.LuaFileStatus.USER_OVERRIDE if BINDINGS_LUA.exists() else hcm_lua.LuaFileStatus.DISTRO,
-    )
-
-
 def _ensure_user_bindings_lua() -> None:
-    if BINDINGS_LUA.exists():
-        _ensure_cc_markers(BINDINGS_LUA)
-        return
-
-    config = _bindings_config_file()
-    if config is not None:
-        result = hcm_lua.switch_to_user_override(config)
-        if not result.activated:
-            raise FileNotFoundError(result.message)
-    else:
-        # No source/bindings.lua to copy from — write a minimal stub by hand
-        # and ask hcm to flip the activation line.
-        hcm_lua.USER_DIR.mkdir(parents=True, exist_ok=True)
-        BINDINGS_LUA.write_text(
-            f"{_CC_BEGIN}\n{_CC_END}\n",
-            encoding="utf-8",
-        )
-        if MAIN_LUA.exists():
-            subprocess.run(["hcm", "activate", "bindings"], check=False)
+    if not BINDINGS_LUA.exists():
+        BINDINGS_LUA.parent.mkdir(parents=True, exist_ok=True)
+        BINDINGS_LUA.write_text(f"{_CC_BEGIN}\n{_CC_END}\n", encoding="utf-8")
     _ensure_cc_markers(BINDINGS_LUA)
 
 
@@ -394,22 +362,6 @@ def _write_cc_section(lines: list[str]) -> None:
     Path(tmp_path).replace(BINDINGS_LUA)
 
 
-def _active_bindings_path() -> Path | None:
-    if MAIN_LUA.exists():
-        try:
-            files = {cf.filename: cf for cf in hcm_lua.scan_lua_files()}
-            bindings = files.get("bindings.lua")
-            if bindings is not None:
-                return hcm_lua._preview_path_for(bindings)
-        except Exception as exc:
-            log.warning("hcm scan unavailable, falling back to file presence: %s", exc)
-    if BINDINGS_LUA.exists():
-        return BINDINGS_LUA
-    if SOURCE_BINDINGS_LUA.exists():
-        return SOURCE_BINDINGS_LUA
-    return None
-
-
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def scan_keybinds() -> list[LuaKeybindEntry]:
@@ -419,11 +371,10 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
     Entries inside the CC section are marked owned=True.
     Entries before the CC section marker are locked (owned=False).
     """
-    active_path = _active_bindings_path()
-    if active_path is None:
+    if not BINDINGS_LUA.exists():
         return []
 
-    full_text  = active_path.read_text(encoding="utf-8", errors="replace")
+    full_text  = BINDINGS_LUA.read_text(encoding="utf-8", errors="replace")
     cc_section = _read_cc_section(full_text)
     before     = full_text.split(_CC_BEGIN)[0] if _CC_BEGIN in full_text else full_text
     variables = _read_string_variables(before)
@@ -435,7 +386,7 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
         e = _parse_bind_line(raw, variables)
         if e:
             e.owned       = True
-            e.source_name = active_path.name
+            e.source_name = BINDINGS_LUA.name
             e.line_no     = idx
             owned.append(e)
 
@@ -443,7 +394,7 @@ def scan_keybinds() -> list[LuaKeybindEntry]:
         e = _parse_bind_line(raw, variables)
         if e:
             e.owned       = False
-            e.source_name = active_path.name
+            e.source_name = BINDINGS_LUA.name
             e.line_no     = idx
             locked.append(e)
 

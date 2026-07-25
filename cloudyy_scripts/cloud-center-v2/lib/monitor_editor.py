@@ -4,7 +4,7 @@ Two-panel layout mirroring the keybind/wifi pages:
   Left:  list of connected monitors (from hyprctl monitors -j)
   Right: per-monitor settings editor
 
-Writes to ~/.config/hypr/user-configs/user_monitors.lua
+Writes to ~/.config/hypr/monitors.lua
 and reloads Hyprland on apply.
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ from gi.repository import Adw, GLib, Gtk, Pango
 log = logging.getLogger(__name__)
 
 HYPR_DIR       = Path.home() / ".config" / "hypr"
-MONITORS_CONF  = HYPR_DIR / "user-configs" / "user_monitors.lua"
+MONITORS_CONF  = HYPR_DIR / "monitors.lua"
 
 TRANSFORM_LABELS = [
     (0, "Normal"),
@@ -592,7 +592,7 @@ class DisplayLayoutPreview(Gtk.Box):
 # ── Config I/O ────────────────────────────────────────────────────────────────
 
 def _parse_conf() -> tuple[dict[str, str], dict[str, list[str]]]:
-    """Return ({monitor_name: raw_line}, {monitor_name: [workspace_ids]}) from user_monitors.lua."""
+    """Return ({monitor_name: raw_line}, {monitor_name: [workspace_ids]}) from monitors.lua."""
     monitors: dict[str, str] = {}
     workspaces: dict[str, list[str]] = {}
     if not MONITORS_CONF.exists():
@@ -658,11 +658,13 @@ def _build_monitor_line(
 
 
 def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
-    """Insert or replace the monitor and workspace rules for `name` in user_monitors.lua."""
+    """Insert or replace the monitor and workspace rules for `name` in monitors.lua."""
     MONITORS_CONF.parent.mkdir(parents=True, exist_ok=True)
 
+    # ponytail: monitors.lua is seeded by deploy-dotfiles.sh so this branch
+    # shouldn't fire in practice; kept defensive for a hand-deleted file.
     header = (
-        "-- Cloud Center user override file for monitor layout.\n"
+        "-- Monitor layout.\n"
         "\n"
     )
 
@@ -740,11 +742,6 @@ def _write_monitor_line(name: str, line: str, workspaces: list[str]) -> None:
         f.flush()
         os.fsync(f.fileno())
     Path(tmp_path).replace(MONITORS_CONF)
-
-    # Make user_monitors.lua the active require in hyprland.lua. hcm sees the
-    # user file already exists (we just wrote it above) and only updates the
-    # activation line in hyprland.lua.
-    subprocess.run(["hcm", "activate", "monitors"], check=False)
 
     log.info("Wrote monitor config for %s: %s (workspaces: %s)", name, line, workspaces)
 

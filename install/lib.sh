@@ -126,14 +126,3 @@ deploy_system_monitor() {
 verify_system_monitor() {
   verify_local_binary "cloudyy-system-monitor" cloudyy-system-monitor --once
 }
-
-readonly HCM_AUR_PKG="cloudyy-hcm-git"
-readonly HCM_BIN="${HOME}/.local/bin/hcm"
-
-deploy_hcm() {
-  link_aur_binary_to_local_bin "hcm" "$HCM_AUR_PKG"
-}
-
-verify_hcm() {
-  verify_local_binary "hcm" hcm --version
-}

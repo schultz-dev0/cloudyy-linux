@@ -14,7 +14,7 @@ class HyprlandPageContract(unittest.TestCase):
 
     def test_layout_selection(self) -> None:
         self.assertIn("key: hypr/layout", self.text)
-        self.assertIn("hcm apply general:layout {value}", self.text)
+        self.assertIn("python3 -m lib.hypr_layout_persist apply general:layout {value}", self.text)
         self.assertIn("- dwindle", self.text)
         self.assertIn("- master", self.text)
 

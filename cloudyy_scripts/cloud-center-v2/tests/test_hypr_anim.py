@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from lib import hypr_anim, utility
+from lib import hcm_lua, hypr_anim, hypr_animations_persist, utility
 
 
 class HyprAnimTest(unittest.TestCase):
@@ -17,7 +17,7 @@ class HyprAnimTest(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
         self.hypr = root / "hypr"
-        (self.hypr / "user-configs").mkdir(parents=True)
+        self.hypr.mkdir(parents=True)
         self.settings = root / "settings"
         self.settings.mkdir()
         patch = mock.patch.object(utility, "SETTINGS_DIR", self.settings)
@@ -25,7 +25,7 @@ class HyprAnimTest(unittest.TestCase):
         self.addCleanup(patch.stop)
 
     def _write_sentinel(self, state: dict[str, str]) -> None:
-        path = self.hypr / "user-configs" / "user_animations.lua"
+        path = self.hypr / "animations.lua"
         path.write_text(
             "-- hdr\n"
             f"-- @cloud-center-state = {json.dumps(state)}\n"
@@ -88,6 +88,25 @@ class HyprAnimTest(unittest.TestCase):
             value = apply.call_args.args[0]
             self.assertIn("workspaces,0,", value)
             self.assertIn("windows,1,4,snap", value)
+
+
+class ReaderWriterRoundTripTest(unittest.TestCase):
+    """hypr_anim's reader and hypr_animations_persist's writer must target
+    the same ~/.config/hypr/animations.lua — otherwise apply_animation_key
+    silently orphans the file the reader still looks at."""
+
+    def test_reader_sees_writer_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hypr_dir = Path(tmp) / "hypr"
+            hypr_dir.mkdir()
+            with mock.patch.object(hcm_lua, "HYPR_DIR", hypr_dir):
+                with mock.patch.object(hypr_animations_persist, "_hyprctl_eval_ok", return_value=True), \
+                     mock.patch.object(hypr_animations_persist, "_reload_hyprland"):
+                    hypr_animations_persist.apply_animation_key(
+                        "animations:animation", "windows,1,4,snap"
+                    )
+                self.assertEqual(hypr_anim.current_specs(), [["windows", "1", "4", "snap"]])
+                self.assertEqual(hypr_anim.bezier_name(), "snap")
 
 
 if __name__ == "__main__":

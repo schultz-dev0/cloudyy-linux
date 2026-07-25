@@ -243,8 +243,6 @@ main() {
   deploy_system_monitor
   verify_system_monitor
   aur_install    "Cloudyy"    "${MANDATORY_AUR_CLOUDYY[@]}"
-  deploy_hcm
-  verify_hcm
 
   log_section "Installing — Standard Packages"
   pacman_install "Standard" "${STANDARD_INSTALL_OFFICIAL[@]}"
