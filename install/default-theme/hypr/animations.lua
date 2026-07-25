@@ -21,5 +21,4 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 3, bezier = "p
 hl.config({ animations = { enabled = true } })
 hl.curve("myBezier3", { type = "bezier", points = { { 0.084, 1.119 }, { 0.829, 0.723 } } })
 hl.animation({ leaf = "windows", enabled = true, speed = 1, bezier = "myBezier3" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 1, bezier = "myBezier2", style = "slide" })
 -- --- End Cloud Center managed animation settings ---
