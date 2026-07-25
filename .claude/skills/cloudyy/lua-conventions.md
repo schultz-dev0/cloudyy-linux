@@ -1,25 +1,24 @@
 # Lua Conventions (`.config/hypr/`)
 
-## Structure & generic-vs-personal split
+## Structure: one file per module, seeded once
 
-`install/default-theme/hyprland.lua` (what a fresh install gets) requires generic modules directly:
-```lua
-require("source.variables")
-require("source.monitors")
-...
-require("source.bindings")
-```
-The live `.config/hypr/hyprland.lua` instead requires `user-configs.user_*` variants for most modules (`user_variables`, `user_autostart`, `user_windowrules`, `user_lookandfeel`, `user_animations`, `user_input`, `user_cursor`, `user_monitors`), each annotated `-- managed by Cloud Center`, with the corresponding `source.*` lines commented out (not deleted) rather than removed. **`require("source.bindings")` is the one module still sourced directly/generically** — there's no `user_bindings` override switch in the live file the way there is for the others.
+Every module is a single live file, `~/.config/hypr/<name>.lua` (`bindings`, `lookandfeel`, `animations`, `input`, `cursor`, `monitors`, `autostart`, `windowrules`, `variables`, `colors`) — gitignored, never tracked. `install/default-theme/hypr/<name>.lua` is the tracked seed; `deploy-dotfiles.sh` copies it to the live path once, only if the live file doesn't exist yet, then never touches it again. There's no distro-vs-override split and no toggle to check — the live file just *is* the config, edited in place from then on.
 
-`user_windowrules.lua` and `user_bindings.lua` carry Cloud Center marker comments delimiting machine-managed regions it rewrites via regex:
-```lua
--- @cloud-center-rules-startup-state = {...}
--- --- Cloud Center Additions (managed by Cloud Center) ---
--- --- End Cloud Center Additions ---
-```
-Don't hand-edit inside these markers expecting it to persist — Cloud Center treats that region as its own.
+`hyprland.lua` is static: a flat, unconditional `require("<name>")` per module. It's seeded the same way and nothing ever rewrites its require lines.
 
-**When adding a generic feature:** check which layer (`source/*.lua` vs the live `hyprland.lua`'s actual `require()`s) is actually active before assuming an edit takes effect — an already-customized machine may have switched a module over to its `user_*` override, silently making the generic `source/*.lua` edit inert on that machine (confirmed this exact gap during OOBE's autostart/windowrules work). Fresh installs always source `source/*.lua` directly per `install/default-theme/hyprland.lua`.
+**Marker/sentinel conventions vary by module** — pick the pattern matching what you're editing, not the closest-looking one:
+
+| Module(s) | Sentinel | Markers | Owner |
+|---|---|---|---|
+| `lookandfeel`, `animations`, `input` | `-- @cloud-center-state = {json}` | `-- --- Cloud Center managed <surface> settings ---` | `hypr_layout_persist.py` / `hypr_animations_persist.py` |
+| `cursor` | same sentinel format | `-- --- Cloud Center managed cursor settings ---` | `ccd/cursor.py` (its own schema, a superset of the other three) |
+| `windowrules`, `autostart`, `variables` | `-- @cloud-center-rules-startup-state = {json}` | `-- --- Cloud Center managed additions ---` (generic, shared) | `rules_startup_page.py` |
+| `bindings` | none (parsed straight from the Lua) | `-- --- Cloud Center Additions (managed by Cloud Center) ---` | `keybind_manager_lua.py` |
+| `monitors`, `colors` | none | none — hand-parsed raw `hl.monitor(...)` lines / a pure matugen reader | `monitor_editor.py` / `ccd/monitors.py` |
+
+Don't hand-edit inside a managed-markers region expecting it to persist — Cloud Center owns that span and rewrites it wholesale on the next apply.
+
+**Two different "reset" operations, don't confuse them:** `hcm_lua.reset_to_default(module)` whole-file-replaces from the shipped seed (coarse — for `lookandfeel`/`input`/`animations` specifically, the seed ships *populated* personal defaults, not empty ones). `hypr_layout_persist.reset_page()` / `hypr_animations_persist.clear_key()` surgically clear specific keys, leaving the managed block empty and falling back to the static body. Same module, genuinely different results — see the docstrings on both for the full rationale.
 
 ## `hl.*` API
 
@@ -37,7 +36,7 @@ Don't hand-edit inside these markers expecting it to persist — Cloud Center tr
 
 ## The `desc` field is load-bearing, not decorative
 
-Every `hl.bind()` call in `source/bindings.lua` includes `desc = "..."` — 100% coverage, no exceptions. Cloud Center's Keybind Manager parses this via regex (`keybind_manager_lua.py`) to populate its UI. **Any new keybind must include a clear `desc`** — this is a machine-readable field a real UI depends on, not just documentation.
+Every `hl.bind()` call in `bindings.lua` includes `desc = "..."` — 100% coverage, no exceptions. Cloud Center's Keybind Manager parses this via regex (`keybind_manager_lua.py`) to populate its UI. **Any new keybind must include a clear `desc`** — this is a machine-readable field a real UI depends on, not just documentation.
 
 ## Naming
 
