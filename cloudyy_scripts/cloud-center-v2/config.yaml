@@ -4,13 +4,16 @@
 # Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
 #
 # ── Hyprland persistence ──────────────────────────────────────────────────────
-# Every Hyprland setting chains:  hcm apply keyword value  (persist + hyprctl eval)
+# Every Hyprland setting chains:
+#   python3 -m lib.hypr_layout_persist apply keyword value       (general/decoration/input)
+#   python3 -m lib.hypr_animations_persist apply keyword value   (animations:enabled)
+#   python3 -m lib.hypr_anim <speed|workspace-enabled|workspace-style> value  (animations, semantic)
+# (persist + hyprctl eval, reload fallback). cursor:* settings go through ccd/cursor.py instead.
 #
-# hcm writes Lua overrides under ~/.config/hypr/user-configs/
-# (user_lookandfeel.lua, user_animations.lua, user_input.lua, user_cursor.lua).
-# It updates hyprland.lua with the shared Lua activation helpers so Cloud Center
-# toggles exact require("source.*") and require("user-configs.user_*") lines.
-# Source modules stay distro-owned; user modules carry Cloud Center-managed overrides.
+# Each module writes straight into the single ~/.config/hypr/<module>.lua file
+# (lookandfeel.lua, animations.lua, input.lua) between its own
+# `-- --- Cloud Center managed ... settings ---` markers — no more separate
+# source/user-configs split or hyprland.lua activation lines to keep in sync.
 
 pages:
   - id: home
@@ -360,7 +363,8 @@ pages:
                 - cn
             on_change:
               command: >-
-                hcm apply input:kb_layout {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:kb_layout {value}
 
           - type: selection
             properties:
@@ -382,8 +386,9 @@ pages:
                 colemak: colemak
             on_change:
               command: >-
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
                 V="{value}"; [ "$V" = "basic" ] && V="";
-                hcm apply input:kb_variant "$V"
+                python3 -m lib.hypr_layout_persist apply input:kb_variant "$V"
 
           - type: slider
             properties:
@@ -397,7 +402,8 @@ pages:
               default: 300
             on_change:
               command: >-
-                hcm apply input:repeat_delay {value_i}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:repeat_delay {value_i}
 
           - type: slider
             properties:
@@ -411,7 +417,8 @@ pages:
               default: 30
             on_change:
               command: >-
-                hcm apply input:repeat_rate {value_i}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:repeat_rate {value_i}
 
           - type: toggle
             properties:
@@ -422,10 +429,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply input:numlock_by_default true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:numlock_by_default true
               disabled:
                 command: >-
-                  hcm apply input:numlock_by_default false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:numlock_by_default false
 
       - type: section
         properties:
@@ -444,8 +453,9 @@ pages:
               default: 0
             on_change:
               command: >-
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
                 V=$(awk 'BEGIN { printf "%.2f", ({value}) / 100 }') &&
-                hcm apply input:sensitivity $V
+                python3 -m lib.hypr_layout_persist apply input:sensitivity $V
 
           - type: selection
             properties:
@@ -458,7 +468,8 @@ pages:
                 - flat
             on_change:
               command: >-
-                hcm apply input:accel_profile {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:accel_profile {value}
 
           - type: selection
             properties:
@@ -474,7 +485,8 @@ pages:
                 enabled: 1
             on_change:
               command: >-
-                hcm apply input:follow_mouse {value} &&
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:follow_mouse {value} &&
                 hyprctl eval 'hl.config({ input = { mouse_refocus = false, float_switch_override_focus = 0 } })'
 
       - type: section
@@ -492,10 +504,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply input:touchpad:natural_scroll true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:natural_scroll true
               disabled:
                 command: >-
-                  hcm apply input:touchpad:natural_scroll false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:natural_scroll false
 
           - type: toggle
             properties:
@@ -506,10 +520,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply input:touchpad:disable_while_typing true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:disable_while_typing true
               disabled:
                 command: >-
-                  hcm apply input:touchpad:disable_while_typing false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:disable_while_typing false
 
           - type: selection
             properties:
@@ -525,7 +541,8 @@ pages:
                 enabled: true
             on_change:
               command: >-
-                hcm apply input:touchpad:clickfinger_behavior {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply input:touchpad:clickfinger_behavior {value}
 
           - type: toggle
             properties:
@@ -536,10 +553,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply input:touchpad:middle_button_emulation true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:middle_button_emulation true
               disabled:
                 command: >-
-                  hcm apply input:touchpad:middle_button_emulation false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:middle_button_emulation false
 
           - type: slider
             properties:
@@ -553,8 +572,9 @@ pages:
               default: 100
             on_change:
               command: >-
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
                 V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
-                hcm apply input:touchpad:scroll_factor $V
+                python3 -m lib.hypr_layout_persist apply input:touchpad:scroll_factor $V
 
       - type: section
         properties:
@@ -568,7 +588,7 @@ pages:
               icon: 󰃢
               button_text: Reset
             on_press:
-              command: hcm reset-page input
+              command: cd ~/cloudyy_scripts/cloud-center-v2 && python3 -m lib.hypr_layout_persist reset-page input
 
   - id: hyprland
     title: Hyprland
@@ -590,7 +610,8 @@ pages:
               default: 2
             on_change:
               command: >-
-                hcm apply general:border_size {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply general:border_size {value}
 
           - type: slider
             properties:
@@ -604,7 +625,8 @@ pages:
               default: 8
             on_change:
               command: >-
-                hcm apply decoration:rounding {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply decoration:rounding {value}
 
           - type: toggle
             properties:
@@ -615,10 +637,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply decoration:shadow:enabled true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply decoration:shadow:enabled true
               disabled:
                 command: >-
-                  hcm apply decoration:shadow:enabled false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply decoration:shadow:enabled false
 
           - type: slider
             properties:
@@ -632,7 +656,8 @@ pages:
               default: 25
             on_change:
               command: >-
-                hcm apply decoration:shadow:range {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply decoration:shadow:range {value}
 
           - type: slider
             properties:
@@ -646,7 +671,8 @@ pages:
               default: 1
             on_change:
               command: >-
-                hcm apply decoration:shadow:render_power {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply decoration:shadow:render_power {value}
 
           - type: toggle
             properties:
@@ -657,10 +683,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply decoration:blur:enabled true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply decoration:blur:enabled true
               disabled:
                 command: >-
-                  hcm apply decoration:blur:enabled false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_layout_persist apply decoration:blur:enabled false
 
           - type: slider
             properties:
@@ -674,7 +702,8 @@ pages:
               default: 3
             on_change:
               command: >-
-                hcm apply decoration:blur:passes {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply decoration:blur:passes {value}
 
           - type: slider
             properties:
@@ -688,7 +717,8 @@ pages:
               default: 8
             on_change:
               command: >-
-                hcm apply decoration:blur:size {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply decoration:blur:size {value}
 
           - type: slider
             properties:
@@ -703,8 +733,9 @@ pages:
             on_change:
               # Compute decimal once, reuse for both hyprctl and persist
               command: >-
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
                 V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
-                hcm apply decoration:active_opacity $V
+                python3 -m lib.hypr_layout_persist apply decoration:active_opacity $V
 
           - type: slider
             properties:
@@ -718,8 +749,9 @@ pages:
               default: 95
             on_change:
               command: >-
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
                 V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
-                hcm apply decoration:inactive_opacity $V
+                python3 -m lib.hypr_layout_persist apply decoration:inactive_opacity $V
 
       - type: section
         properties:
@@ -737,7 +769,8 @@ pages:
               default: dwindle
             on_change:
               command: >-
-                hcm apply general:layout {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply general:layout {value}
 
           - type: slider
             properties:
@@ -751,7 +784,8 @@ pages:
               default: 8
             on_change:
               command: >-
-                hcm apply general:gaps_out {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply general:gaps_out {value}
 
           - type: slider
             properties:
@@ -765,7 +799,8 @@ pages:
               default: 4
             on_change:
               command: >-
-                hcm apply general:gaps_in {value}
+                cd ~/cloudyy_scripts/cloud-center-v2 &&
+                python3 -m lib.hypr_layout_persist apply general:gaps_in {value}
 
       - type: section
         properties:
@@ -780,10 +815,12 @@ pages:
             on_toggle:
               enabled:
                 command: >-
-                  hcm apply animations:enabled true
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_animations_persist apply animations:enabled true
               disabled:
                 command: >-
-                  hcm apply animations:enabled false
+                  cd ~/cloudyy_scripts/cloud-center-v2 &&
+                  python3 -m lib.hypr_animations_persist apply animations:enabled false
 
           - type: slider
             properties:
@@ -854,7 +891,7 @@ pages:
               icon: 󰃢
               button_text: Reset
             on_press:
-              command: hcm reset-page hyprland
+              command: cd ~/cloudyy_scripts/cloud-center-v2 && python3 -m lib.hypr_layout_persist reset-page hyprland
 
   - id: terminal
     title: Terminal

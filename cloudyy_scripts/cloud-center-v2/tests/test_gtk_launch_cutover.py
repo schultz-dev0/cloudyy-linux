@@ -4,7 +4,7 @@ import unittest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LAUNCH_PATHS = [
-    REPO_ROOT / ".config/hypr/source/bindings.lua",
+    REPO_ROOT / ".config/hypr/bindings.lua",
     REPO_ROOT / ".config/swaync/config.json",
     REPO_ROOT / "install/seed-required-applications.sh",
     REPO_ROOT / "cloudyy_scripts/cloud-center-v2/cc-restart.sh",

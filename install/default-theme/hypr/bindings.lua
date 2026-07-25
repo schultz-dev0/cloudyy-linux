@@ -2,7 +2,6 @@
 -- Source: active Lua bindings
 
 local mainMod = "SUPER"
-local scripts = os.getenv("HOME") .. "/cloudyy_scripts"
 
 -- ── Tiling ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ hl.bind(
 hl.bind(
 	mainMod .. " + SHIFT + K",
 	hl.dsp.exec_cmd("uwsm-app keypunch"),
-	{ desc = "Launch keypunch" }
+	{ desc = "Open typing practice (Keypunch)" }
 )
 hl.bind(
 	"ALT + 1",
@@ -78,11 +77,6 @@ hl.bind(
 	{ desc = "Cloud Center" }
 )
 hl.bind(
-	"ALT + 6",
-	hl.dsp.exec_cmd("pkill -x visinput || " .. scripts .. "/cloudyy-other/visinput"),
-	{ desc = "Visual input toggle" }
-)
-hl.bind(
 	mainMod .. " + K",
 	hl.dsp.exec_cmd("quickshell ipc call spotlight toggle"),
 	{ desc = "Open spotlight search" }
@@ -95,7 +89,7 @@ hl.bind(
 hl.bind(
 	mainMod .. " + Tab",
 	hl.dsp.exec_cmd("quickshell ipc call overview open"),
-	{ desc = "Open workspace overview / cycle while held" }
+	{ desc = "Show all workspaces (hold Super, keep pressing Tab to cycle)" }
 )
 hl.bind(
 	mainMod .. " + SHIFT + Tab",
@@ -105,12 +99,12 @@ hl.bind(
 hl.bind(
 	"Super_L",
 	hl.dsp.exec_cmd("quickshell ipc call overview release"),
-	{ desc = "Confirm workspace on Super release", release = true, transparent = true, ignore_mods = true }
+	{ desc = "Confirm workspace pick (release Super after Tab)", release = true, transparent = true, ignore_mods = true }
 )
 hl.bind(
 	"Super_R",
 	hl.dsp.exec_cmd("quickshell ipc call overview release"),
-	{ desc = "Confirm workspace on Super release", release = true, transparent = true, ignore_mods = true }
+	{ desc = "Confirm workspace pick (release Super after Tab)", release = true, transparent = true, ignore_mods = true }
 )
 
 -- ── Spotlight / Command Center (Quickshell) ───────────────────────────────────
@@ -172,17 +166,17 @@ hl.bind(
 hl.bind(
 	"XF86AudioRaiseVolume",
 	hl.dsp.exec_cmd("cloudyy-slider-volume up"),
-	{ locked = true, repeating = true }
+	{ locked = true, repeating = true, desc = "Volume up (media key)" }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
 	hl.dsp.exec_cmd("cloudyy-slider-volume down"),
-	{ locked = true, repeating = true }
+	{ locked = true, repeating = true, desc = "Volume down (media key)" }
 )
 hl.bind(
 	"XF86AudioMute",
 	hl.dsp.exec_cmd("cloudyy-slider-volume mute"),
-	{ locked = true }
+	{ locked = true, desc = "Mute (media key)" }
 )
 
 hl.bind(
@@ -222,22 +216,22 @@ hl.bind(
 hl.bind(
 	"XF86AudioNext",
 	hl.dsp.exec_cmd("playerctl next"),
-	{ locked = true }
+	{ locked = true, desc = "Next track (media key)" }
 )
 hl.bind(
 	"XF86AudioPause",
 	hl.dsp.exec_cmd("playerctl play-pause"),
-	{ locked = true }
+	{ locked = true, desc = "Pause playback (media key)" }
 )
 hl.bind(
 	"XF86AudioPlay",
 	hl.dsp.exec_cmd("playerctl play-pause"),
-	{ locked = true }
+	{ locked = true, desc = "Play/resume playback (media key)" }
 )
 hl.bind(
 	"XF86AudioPrev",
 	hl.dsp.exec_cmd("playerctl previous"),
-	{ locked = true }
+	{ locked = true, desc = "Previous track (media key)" }
 )
 
 -- ── Brightness ────────────────────────────────────────────────────────────────
@@ -245,7 +239,7 @@ hl.bind(
 hl.bind(
 	"XF86MonBrightnessUp",
 	hl.dsp.exec_cmd("cloudyy-slider-brightness up"),
-	{ locked = true, repeating = true }
+	{ locked = true, repeating = true, desc = "Brightness up (media key)" }
 )
 hl.bind(
 	"XF86MonBrightnessDown",
@@ -281,7 +275,7 @@ hl.bind(
 hl.bind(
 	mainMod .. " + CTRL + M",
 	hl.dsp.exec_cmd("qs ipc call system toggle"),
-	{ desc = "System overview" }
+	{ desc = "Toggle system stats overlay" }
 )
 hl.bind(
 	mainMod .. " + SHIFT + T",
@@ -304,7 +298,7 @@ hl.bind(
 hl.bind(
 	mainMod .. " + I",
 	hl.dsp.window.set_prop({ prop = "opaque", value = "toggle" }),
-	{ desc = "Toggle opacity" }
+	{ desc = "Toggle window transparency" }
 )
 hl.bind(
 	mainMod .. " + SHIFT + left",
@@ -357,12 +351,12 @@ hl.bind(
 hl.bind(
 	mainMod .. " + C",
 	hl.dsp.exec_cmd("cloudyy-clipboard-open copy"),
-	{ desc = "Universal copy" }
+	{ desc = "Copy (works in both terminal and GUI apps)" }
 )
 hl.bind(
 	mainMod .. " + V",
 	hl.dsp.exec_cmd("cloudyy-clipboard-open paste"),
-	{ desc = "Universal paste" }
+	{ desc = "Paste (works in both terminal and GUI apps)" }
 )
 
 -- ── Workspaces ────────────────────────────────────────────────────────────────
@@ -384,12 +378,12 @@ end
 hl.bind(
 	mainMod .. " + S",
 	hl.dsp.workspace.toggle_special("magic"),
-	{ desc = "Toggle scratchpad" }
+	{ desc = "Toggle scratchpad (a hidden floating workspace for quick apps)" }
 )
 hl.bind(
 	mainMod .. " + SHIFT + S",
 	hl.dsp.window.move({ workspace = "special:magic" }),
-	{ desc = "Move to scratchpad" }
+	{ desc = "Send window to scratchpad" }
 )
 
 hl.bind(
@@ -406,12 +400,12 @@ hl.bind(
 hl.bind(
 	mainMod .. " + mouse:272",
 	hl.dsp.window.drag(),
-	{ desc = "Mouse drag" }
+	{ desc = "Move window (hold Super, drag with mouse)" }
 )
 hl.bind(
 	mainMod .. " + mouse:273",
 	hl.dsp.window.resize(),
-	{ desc = "Mouse resize" }
+	{ desc = "Resize window (hold Super, drag with right mouse button)" }
 )
 
 -- ── Misc ──────────────────────────────────────────────────────────────────────
@@ -437,3 +431,6 @@ hl.bind(
 	hl.dsp.exec_cmd("cloudyy-clipboard-extract-text"),
 	{ desc = "Live Text Extraction" }
 )
+
+-- --- Cloud Center Additions (managed by Cloud Center) ---
+-- --- End Cloud Center Additions ---

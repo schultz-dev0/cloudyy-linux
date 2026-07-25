@@ -218,7 +218,7 @@ class TestMonitorSessionTransactions(unittest.TestCase):
         FakeTimer.instances.clear()
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
-        self.config = Path(self.tempdir.name) / "user_monitors.lua"
+        self.config = Path(self.tempdir.name) / "monitors.lua"
         self.original = (
             "-- exact opening config\n\n"
             'hl.monitor({ output = "DP-1", mode = "1920x1080@60", position = "0x0", scale = 1 })\n'

@@ -28,13 +28,10 @@ XCURSOR_THEME_OVERRIDES = {
 }
 
 HYPR_DIR = Path.home() / ".config" / "hypr"
-SOURCE_CURSOR_PATH = HYPR_DIR / "source" / "cursor.lua"
-USER_CURSOR_PATH = HYPR_DIR / "user-configs" / "user_cursor.lua"
-USER_VARIABLES_PATH = HYPR_DIR / "user-configs" / "user_variables.lua"
-USER_WINDOWRULES_PATH = HYPR_DIR / "user-configs" / "user_windowrules.lua"
-USER_AUTOSTART_PATH = HYPR_DIR / "user-configs" / "user_autostart.lua"
-LEGACY_RULES_STARTUP_PATH = HYPR_DIR / "user-configs" / "user_rules_startup.lua"
-MAIN_LUA_PATH = HYPR_DIR / "hyprland.lua"
+CURSOR_PATH = HYPR_DIR / "cursor.lua"
+VARIABLES_PATH = HYPR_DIR / "variables.lua"
+WINDOWRULES_PATH = HYPR_DIR / "windowrules.lua"
+AUTOSTART_PATH = HYPR_DIR / "autostart.lua"
 THEME_ROOTS = (
     Path("/usr/share/icons"),
     Path("/usr/local/share/icons"),
@@ -305,14 +302,15 @@ class CursorSession:
         *,
         cursor_path: Path,
         variables_path: Path,
-        main_path: Path,
         fetch_values: Callable[[], dict[str, object]],
         fetch_appearance: Callable[[], tuple[str, int]],
         fetch_themes: Callable[[], list[dict]],
         fetch_monitors: Callable[[], list[str]],
         apply_option: Callable[[str, object], tuple[bool, str]],
         apply_theme: Callable[[str, int], tuple[bool, str]],
-        activate_cursor: Callable[[], tuple[bool, str]],
+        # ponytail: hcm binary is retired, nothing to activate post single-file
+        # consolidation; kept as an overridable hook since apply() still calls it.
+        activate_cursor: Callable[[], tuple[bool, str]] = lambda: (True, "ok"),
         persist_cursor: Callable[[dict[str, object]], None],
         persist_environment: Callable[[str, int], None],
         additional_paths: Iterable[Path] = (),
@@ -323,7 +321,6 @@ class CursorSession:
     ) -> None:
         self.cursor_path = Path(cursor_path)
         self.variables_path = Path(variables_path)
-        self.main_path = Path(main_path)
         self.fetch_values = fetch_values
         self.fetch_appearance = fetch_appearance
         self.fetch_themes = fetch_themes
@@ -336,7 +333,6 @@ class CursorSession:
         self.transaction_paths = tuple(dict.fromkeys((
             self.cursor_path,
             self.variables_path,
-            self.main_path,
             *(Path(path) for path in additional_paths),
         )))
         self.timer_factory = timer_factory
@@ -620,7 +616,7 @@ def _fetch_values() -> dict[str, object]:
 def _managed_environment() -> list[dict]:
     from lib import rules_startup_page as rules
 
-    sections = rules._read_surface_sections(USER_VARIABLES_PATH)
+    sections = rules._read_surface_sections(VARIABLES_PATH)
     return [
         {"name": variable.name, "value": variable.value}
         for variable in rules._parse_env_vars(sections["env_vars"])
@@ -701,28 +697,14 @@ def _apply_theme(theme: str, size: int) -> tuple[bool, str]:
     return _run_result(result)
 
 
-def _activate_cursor() -> tuple[bool, str]:
-    try:
-        result = subprocess.run(
-            ["hcm", "activate", "cursor"],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            check=False,
-        )
-    except Exception as exc:
-        return False, str(exc)
-    return _run_result(result)
-
-
 def _persist_cursor(values: dict[str, object]) -> None:
-    existing_path = USER_CURSOR_PATH if USER_CURSOR_PATH.exists() else SOURCE_CURSOR_PATH
+    existing_path = CURSOR_PATH
     existing = (
         existing_path.read_text(encoding="utf-8")
         if existing_path.exists() else ""
     )
     _atomic_write(
-        USER_CURSOR_PATH,
+        CURSOR_PATH,
         render_cursor_config(existing, values).encode("utf-8"),
     )
 
@@ -730,7 +712,6 @@ def _persist_cursor(values: dict[str, object]) -> None:
 def _persist_environment(theme: str, size: int) -> None:
     from lib import rules_startup_page as rules
 
-    rules.migrate_legacy_conf()
     existing = _managed_environment()
     merged = merge_cursor_environment(existing, theme, size)
     variables = [
@@ -741,22 +722,19 @@ def _persist_environment(theme: str, size: int) -> None:
 
 
 SESSION = CursorSession(
-    cursor_path=USER_CURSOR_PATH,
-    variables_path=USER_VARIABLES_PATH,
-    main_path=MAIN_LUA_PATH,
+    cursor_path=CURSOR_PATH,
+    variables_path=VARIABLES_PATH,
     fetch_values=_fetch_values,
     fetch_appearance=_fetch_appearance,
     fetch_themes=_fetch_themes,
     fetch_monitors=_fetch_monitors,
     apply_option=_apply_option,
     apply_theme=_apply_theme,
-    activate_cursor=_activate_cursor,
     persist_cursor=_persist_cursor,
     persist_environment=_persist_environment,
     additional_paths=(
-        USER_WINDOWRULES_PATH,
-        USER_AUTOSTART_PATH,
-        LEGACY_RULES_STARTUP_PATH,
+        WINDOWRULES_PATH,
+        AUTOSTART_PATH,
     ),
     event_sender=protocol.send_event,
 )

@@ -1,8 +1,8 @@
 """Transactional QML backend for the Rules & Startup page.
 
-The legacy GTK page still owns the mature Lua parser/renderer and HCM
-activation helpers.  This module adapts that data layer to plain JSON and
-adds the page-session semantics required by the QML frontend: drafts do not
+The legacy GTK page (`rules_startup_page.py`) still owns the mature Lua
+parser/renderer. This module adapts that data layer to plain JSON and adds
+the page-session semantics required by the QML frontend: drafts do not
 touch disk, Apply is atomic across every participating file, and external
 edits are never overwritten silently.
 """
@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from lib import hyprlua_reader
+from lib import hcm_lua, hyprlua_reader
 from lib import rules_startup_page as rules
 from lib.ccd import protocol
 
@@ -302,18 +302,15 @@ class RulesStartupSession:
         return self._snapshots is not None
 
     def _paths(self) -> list[Path]:
-        return [
-            *(Path(pair[1]) for pair in self.rules.SURFACE_PATHS.values()),
-            Path(self.rules.MAIN_LUA),
-        ]
+        return [Path(path) for path in self.rules.SURFACE_PATHS.values()]
 
     def _take_snapshots(self) -> dict[Path, bytes | None]:
         return {path: _snapshot(path) for path in self._paths()}
 
     def _load(self) -> dict:
         user_texts = {
-            surface: _snapshot(Path(path_pair[1]))
-            for surface, path_pair in self.rules.SURFACE_PATHS.items()
+            surface: _snapshot(Path(path))
+            for surface, path in self.rules.SURFACE_PATHS.items()
         }
         decoded_user = {
             surface: (content or b"").decode("utf-8", errors="replace")
@@ -328,9 +325,17 @@ class RulesStartupSession:
         managed_autostart = self.rules._parse_autostart(sections["autostart"]["autostart"])
         managed_env = self.rules._parse_env_vars(sections["variables"]["env_vars"])
 
+        # "Distro" now means the shipped seed each surface was created from
+        # (install/default-theme/hypr/<surface>.lua) rather than a parallel
+        # runtime source/ file — every module is one live, edited-in-place
+        # file post-refactor, same reference point hcm_lua.reset_to_default()
+        # already uses.
         source_texts = {
-            surface: (Path(pair[0]).read_text(encoding="utf-8") if Path(pair[0]).exists() else "")
-            for surface, pair in self.rules.SURFACE_PATHS.items()
+            surface: (
+                (hcm_lua.DEFAULTS_DIR / f"{surface}.lua").read_text(encoding="utf-8")
+                if (hcm_lua.DEFAULTS_DIR / f"{surface}.lua").exists() else ""
+            )
+            for surface in self.rules.SURFACE_PATHS
         }
         distro_windows = self.rules._dataclass_window_rules(source_texts["windowrules"])
         distro_layers = self.rules._dataclass_layer_rules(source_texts["windowrules"])
@@ -381,7 +386,6 @@ class RulesStartupSession:
     def open(self) -> dict:
         with self.lock:
             try:
-                self.rules.migrate_legacy_conf()
                 loaded = self._load()
                 self._snapshots = self._take_snapshots()
                 return {"ok": True, **loaded, "schema": copy.deepcopy(SCHEMA)}

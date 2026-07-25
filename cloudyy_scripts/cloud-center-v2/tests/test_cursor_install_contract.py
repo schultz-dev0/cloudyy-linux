@@ -6,9 +6,8 @@ from lib.ccd import cursor
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SOURCE_CURSOR = REPO_ROOT / ".config/hypr/source/cursor.lua"
-SOURCE_VARIABLES = REPO_ROOT / ".config/hypr/source/variables.lua"
-MAIN_LUA = REPO_ROOT / ".config/hypr/hyprland.lua"
+SOURCE_CURSOR = REPO_ROOT / "install/default-theme/hypr/cursor.lua"
+SOURCE_VARIABLES = REPO_ROOT / "install/default-theme/hypr/variables.lua"
 DEPENDENCIES = REPO_ROOT / "install/dependencies.conf"
 
 
@@ -22,12 +21,6 @@ class CursorInstallContractTests(unittest.TestCase):
                 rf"(?m)^\s*{re.escape(setting['key'])}\s*=",
                 setting["key"],
             )
-
-    def test_hyprland_switchboard_contains_source_and_user_cursor_pair(self):
-        source = MAIN_LUA.read_text(encoding="utf-8")
-
-        self.assertIn('require("source.cursor")', source)
-        self.assertIn('require("user-configs.user_cursor")', source)
 
     def test_bibata_and_apple_cursor_families_are_mandatory_aur_dependencies(self):
         source = DEPENDENCIES.read_text(encoding="utf-8")

@@ -397,11 +397,11 @@ deploy_defaults() {
     log_skip "USER_WELCOME_MESSAGE.txt"
   fi
 
-  # Hyprland Lua entry point — never tracked in git; Cloud Center rewrites its
-  # require lines at runtime as surfaces get customized. Seed once from the
-  # generic preset, then leave it alone forever.
+  # Hyprland Lua entry point — never tracked in git; its require lines are
+  # static and never rewritten at runtime. Seed once from the generic
+  # preset, then leave it alone forever.
   local hyprland_lua="${HOME}/.config/hypr/hyprland.lua"
-  local hyprland_lua_default="${defaults_dir}/hyprland.lua"
+  local hyprland_lua_default="${defaults_dir}/hypr/hyprland.lua"
   if [[ ! -f "$hyprland_lua" ]]; then
     if [[ -f "$hyprland_lua_default" ]]; then
       mkdir -p "$(dirname "$hyprland_lua")"
@@ -412,6 +412,32 @@ deploy_defaults() {
     fi
   else
     log_skip "hyprland.lua"
+  fi
+
+  # Hyprland config modules — one file per module, never tracked in git;
+  # Cloud Center edits each one in place. Seed once, then leave alone.
+  local hypr_modules=(
+    bindings lookandfeel animations input cursor
+    monitors autostart windowrules variables colors
+  )
+  local module_deployed=0
+  for module in "${hypr_modules[@]}"; do
+    local module_file="${HOME}/.config/hypr/${module}.lua"
+    local module_default="${defaults_dir}/hypr/${module}.lua"
+    if [[ ! -f "$module_file" ]]; then
+      if [[ -f "$module_default" ]]; then
+        mkdir -p "$(dirname "$module_file")"
+        cp "$module_default" "$module_file"
+        (( ++module_deployed )) || true
+      else
+        log_warn "No default ${module}.lua in ${defaults_dir}/hypr."
+      fi
+    fi
+  done
+  if (( module_deployed > 0 )); then
+    log_ok "${module_deployed} Hyprland config module(s) deployed (incl. bindings, lookandfeel, animations)."
+  else
+    log_skip "Hyprland config modules"
   fi
 
   # Audio auto-switch systemd unit — gitignored; setup-audio-autoswitch.sh

@@ -1,6 +1,16 @@
 -- Window rules and layer rules
 -- Source: active Lua windowrules
 
+-- OOBE --
+
+hl.window_rule({
+	name = "OOBE",
+	match = { class = "^(org.quickshell)$", title = "^(Welcome to Cloudyy)$" },
+	float = true,
+	size = "560 460",
+	center = true,
+})
+
 -- ── Application-specific rules ───────────────────────────────────────────────
 
 hl.window_rule({
@@ -46,6 +56,14 @@ hl.window_rule({
 	float = true,
 })
 
+hl.window_rule({
+	name = "rustykeys",
+	match = { class = "^(org.cloudyy.rustykeys)$" },
+	float = true,
+	size = "550 420",
+	center = true,
+})
+
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
 hl.window_rule({
@@ -57,8 +75,8 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "file-manager",
-	match = { class = "^(nautilus)$" },
+	name = "nautilus",
+	match = { class = "^(.*Nautilus*.)$" },
 	float = true,
 	size = "1080 920",
 	center = true,
@@ -103,14 +121,6 @@ hl.window_rule({
 	size = "1100 760",
 	center = true,
 	opacity = "1.0 override 1.0 override",
-})
-
-hl.window_rule({
-	name = "oobe-welcome",
-	match = { class = "^(org.quickshell)$", title = "^(Welcome to Cloudyy)$" },
-	float = true,
-	size = "560 460",
-	center = true,
 })
 
 hl.window_rule({
@@ -283,3 +293,8 @@ hl.layer_rule({
 	match = { namespace = "^(hyprpicker)$" },
 	blur = false,
 })
+
+-- @cloud-center-rules-startup-state = {"layer_rules": [], "window_rules": []}
+
+-- --- Cloud Center managed additions ---
+-- --- End Cloud Center managed additions ---
