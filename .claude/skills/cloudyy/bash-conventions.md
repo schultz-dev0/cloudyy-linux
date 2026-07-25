@@ -4,12 +4,12 @@
 
 - Shebang: always `#!/usr/bin/env bash`.
 - `install/*.sh` scripts use `set -euo pipefail -E` (the `-E` makes ERR traps propagate into functions). Simpler scripts (`theme_controller.sh`, `cloud-center-v2/cloud-center`, some `install/*.sh`) use plain `set -euo pipefail`.
-- Deliberate exception: `install/test-install.sh` uses `set -uo pipefail` (no `-e`) with a comment explaining why — a test runner shouldn't abort on the first failing test. That same file's regression suite greps other scripts for `set -euo pipefail` — this is an enforced, tested convention, not incidental style.
+- Deliberate exception: `install/test-install.sh` uses `set -uo pipefail` (no `-e`) with a comment explaining why, a test runner shouldn't abort on the first failing test. That same file's regression suite greps other scripts for `set -euo pipefail`, this is an enforced and tested convention.
 - Standard root guard: `[[ $EUID -eq 0 ]] && { log_error "Do not run as root."; exit 1; }`.
 
 ## Logging helpers
 
-Every `install/*.sh` script (re-)defines its own copy of the same shape — TTY-aware colors, a `_ts()` timestamp helper, and `log()`/`log_ok()`/`log_warn()`/`log_error()`:
+Every `install/*.sh` script (re-)defines its own copy of the same shape, TTY-aware colors, a `_ts()` timestamp helper, and `log()`/`log_ok()`/`log_warn()`/`log_error()`:
 
 ```bash
 if [[ -t 1 ]]; then
@@ -26,7 +26,7 @@ log_error(){ printf '%s[✗]%s  [%s] %s\n'  "$RED"   "$RESET" "$(_ts)" "$1" >&2;
 
 `install/lib.sh` has the canonical version (plus `log_skip`, `log_section`, `divider`), but most `install/*.sh` scripts duplicate their own copy rather than sourcing it — only `hyprland-install.sh` actually sources `lib.sh`. Single-purpose scripts use a lighter one-liner variant instead, e.g. `theme_controller.sh`: `log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }`.
 
-**When adding a new install script:** copy the standard block rather than sourcing `lib.sh` unless you're already touching `hyprland-install.sh` — matches existing precedent even though it's duplication.
+**When adding a new install script:** copy the standard block rather than sourcing `lib.sh` unless you're already touching `hyprland-install.sh`, matches existing precedent even though it's duplication.
 
 ## Parallelism
 
@@ -49,7 +49,7 @@ Always non-fatal (`|| true` or `2>/dev/null`), title = component name, message =
 
 ## Naming
 
-- Scripts: kebab-case (`deploy-dotfiles.sh`, `setup-quickshell-service.sh`). A leading underscore on a directory marks deprecated/legacy (`_legacy-rofi/`).
+- Scripts: kebab-case (`deploy-dotfiles.sh`, `setup-quickshell-service.sh`). A leading underscore on a directory marks deprecated/legacy (`_legacy-rofi/`). When deprecating scripts or directories, give the user a clear warning and a resolution path.
 - Functions: snake_case (`pacman_install`, `has_window`, `read_state`).
 - Leading-underscore prefix IS the convention for internal/private helpers in bash (opposite of the Python rule) — `_ts()`, `_err_handler()`, `_is_our_link()` are standard and expected.
 

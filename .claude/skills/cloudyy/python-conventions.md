@@ -23,7 +23,9 @@ Every ccd file opens with a docstring: `"""Cloud Center — lib/ccd/<name>.py\n<
 
 ## Naming
 
-**Leading underscores on function names are used throughout current code** (`_stale_from_error`, `_thread_main`, `_fetch_layout`, `_entry_dict`) — despite an original plan document stating "no leading underscore on function names" as a rule. That rule held only at the initial commit; it was abandoned in every file added afterward. **Don't enforce the "no underscore" rule** — it doesn't reflect the actual codebase; match what's already there (leading underscore = private/internal helper, same as normal Python convention).
+**Leading underscores on function names are used throughout current code** (`_stale_from_error`, `_thread_main`, `_fetch_layout`, `_entry_dict`). **Don't enforce the "no underscore" rule** — it doesn't reflect the actual codebase; match what's already there (leading underscore = private/internal helper, same as normal Python convention). 
+
+**Leading underscores on function names** are the convention for all python code in thise repository.** (`_stale_from_error`, `_thread_main`, `_fetch_layout`, `_entry_dict`). Underscores exists for faster function name search in large codebases
 
 ## Type hints
 
