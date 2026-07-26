@@ -53,7 +53,7 @@ def render_animation(value: str) -> str | None:
     Rust's render_animation requires >=4 parts (leaf,enabled,speed,bezier).
     Real seeded state also has disabled leaves with no bezier at all, e.g.
     `layersOut,0,0` -> `hl.animation({ leaf = "layersOut", enabled = false,
-    speed = 0 })` (see install/default-theme/hypr/animations.lua) — so the
+    speed = 0 })` (see install/defaults/hypr/animations.lua) — so the
     bezier/style fields are conditional on their parts being present, and the
     hard minimum is leaf,enabled,speed (3 parts).
     """

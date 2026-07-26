@@ -397,18 +397,35 @@ deploy_defaults() {
     log_skip "USER_WELCOME_MESSAGE.txt"
   fi
 
+  # .zshrc — never tracked in git (it's personal, edited live); seed once
+  # from the generic default, then leave it alone forever.
+  local zshrc="${HOME}/.config/zsh/.zshrc"
+  local zshrc_default="${REPO_DIR}/install/defaults/.zshrc"
+  if [[ ! -f "$zshrc" ]]; then
+    if [[ -f "$zshrc_default" ]]; then
+      mkdir -p "$(dirname "$zshrc")"
+      cp "$zshrc_default" "$zshrc"
+      log_ok ".zshrc deployed (default)."
+    else
+      log_warn "No default .zshrc in install/defaults/."
+    fi
+  else
+    log_skip ".zshrc"
+  fi
+
   # Hyprland Lua entry point — never tracked in git; its require lines are
   # static and never rewritten at runtime. Seed once from the generic
   # preset, then leave it alone forever.
+  local hypr_defaults_dir="${REPO_DIR}/install/defaults/hypr"
   local hyprland_lua="${HOME}/.config/hypr/hyprland.lua"
-  local hyprland_lua_default="${defaults_dir}/hypr/hyprland.lua"
+  local hyprland_lua_default="${hypr_defaults_dir}/hyprland.lua"
   if [[ ! -f "$hyprland_lua" ]]; then
     if [[ -f "$hyprland_lua_default" ]]; then
       mkdir -p "$(dirname "$hyprland_lua")"
       cp "$hyprland_lua_default" "$hyprland_lua"
       log_ok "hyprland.lua deployed (default)."
     else
-      log_warn "No default hyprland.lua in ${defaults_dir} — Hyprland will not start until configured."
+      log_warn "No default hyprland.lua in ${hypr_defaults_dir} — Hyprland will not start until configured."
     fi
   else
     log_skip "hyprland.lua"
@@ -423,14 +440,14 @@ deploy_defaults() {
   local module_deployed=0
   for module in "${hypr_modules[@]}"; do
     local module_file="${HOME}/.config/hypr/${module}.lua"
-    local module_default="${defaults_dir}/hypr/${module}.lua"
+    local module_default="${hypr_defaults_dir}/${module}.lua"
     if [[ ! -f "$module_file" ]]; then
       if [[ -f "$module_default" ]]; then
         mkdir -p "$(dirname "$module_file")"
         cp "$module_default" "$module_file"
         (( ++module_deployed )) || true
       else
-        log_warn "No default ${module}.lua in ${defaults_dir}/hypr."
+        log_warn "No default ${module}.lua in ${hypr_defaults_dir}."
       fi
     fi
   done
@@ -523,7 +540,6 @@ reapply_skip_worktree() {
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
     ".config/hypr/USER_WELCOME_MESSAGE.txt"
-    ".config/zsh/.zshrc"
     ".config/quickshell/.current_preset"
     ".config/ncspot/userstate.cbor"
     ".config/waypaper/config.ini"

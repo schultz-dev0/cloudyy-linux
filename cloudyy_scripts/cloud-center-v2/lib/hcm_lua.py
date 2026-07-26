@@ -3,7 +3,7 @@ Cloud Center — lib/hcm_lua.py
 Manages the single ~/.config/hypr/<name>.lua file per Hyprland module.
 
 There is no more distro-vs-user-override split: every module is one file,
-seeded once from install/default-theme/hypr/ and edited in place forever
+seeded once from install/defaults/hypr/ and edited in place forever
 after. "Reset to shipped defaults" copies the seed file back over the live
 one; there is nothing else to activate or revert.
 """
@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 HYPR_DIR = Path.home() / ".config" / "hypr"
 MAIN_LUA = HYPR_DIR / "hyprland.lua"
-DEFAULTS_DIR = Path.home() / "cloudyy-linux" / "install" / "default-theme" / "hypr"
+DEFAULTS_DIR = Path.home() / "cloudyy-linux" / "install" / "defaults" / "hypr"
 
 MODULE_NAMES = [
     "bindings", "lookandfeel", "animations", "input", "cursor",

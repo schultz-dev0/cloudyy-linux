@@ -2098,7 +2098,7 @@ class RulesStartupPage(_Gtk.Box):
         # Managed blocks are replaced in place, so those manual additions are
         # preserved byte-for-byte on every subsequent Cloud Center edit.  The
         # "distro" reference is the shipped seed each surface was created
-        # from (install/default-theme/hypr/<surface>.lua) — there's no
+        # from (install/defaults/hypr/<surface>.lua) — there's no
         # separate runtime source file anymore; every module is one live,
         # edited-in-place file.
         try:

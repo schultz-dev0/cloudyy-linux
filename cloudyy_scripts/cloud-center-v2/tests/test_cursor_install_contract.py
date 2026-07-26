@@ -6,8 +6,8 @@ from lib.ccd import cursor
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SOURCE_CURSOR = REPO_ROOT / "install/default-theme/hypr/cursor.lua"
-SOURCE_VARIABLES = REPO_ROOT / "install/default-theme/hypr/variables.lua"
+SOURCE_CURSOR = REPO_ROOT / "install/defaults/hypr/cursor.lua"
+SOURCE_VARIABLES = REPO_ROOT / "install/defaults/hypr/variables.lua"
 DEPENDENCIES = REPO_ROOT / "install/dependencies.conf"
 
 

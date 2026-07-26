@@ -1,4 +1,5 @@
 # Runtime state — generated per-machine, never committed
+.zshrc
 .zsh_history
 .zcompdump*
 .bash_history
