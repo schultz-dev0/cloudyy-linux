@@ -326,7 +326,7 @@ class RulesStartupSession:
         managed_env = self.rules._parse_env_vars(sections["variables"]["env_vars"])
 
         # "Distro" now means the shipped seed each surface was created from
-        # (install/default-theme/hypr/<surface>.lua) rather than a parallel
+        # (install/defaults/hypr/<surface>.lua) rather than a parallel
         # runtime source/ file — every module is one live, edited-in-place
         # file post-refactor, same reference point hcm_lua.reset_to_default()
         # already uses.

@@ -117,10 +117,7 @@ FloatingWindow {
                     cardTitle: root.updateTitle
                     cardSubtitle: root.updateSub
                     buttonLabel: "Update →"
-                    onClicked: root.launch(
-                        "command -v cloudyy-update >/dev/null 2>&1 && cloudyy-update || " +
-                        "kitty --hold --title 'System Update' -e sh -c " +
-                        "'(command -v yay >/dev/null 2>&1 && yay -Syu) || paru -Syu'")
+                    onClicked: root.launch("kitty --title cloudyy-update cloudyy-update")
                 }
             }
 
