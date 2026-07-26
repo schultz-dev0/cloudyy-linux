@@ -7,7 +7,7 @@ local path = os.getenv("HOME") .. "/.config/matugen/generated/hyprcolors.conf"
 local f = io.open(path, "r")
 if f then
 	for line in f:lines() do
-		local name, value = line:match("^%$(%w+)%s*=%s*(.-)%s*$")
+		local name, value = line:match("^%$([%w_]+)%s*=%s*(.-)%s*$")
 		if name and value and value ~= "" then
 			M[name] = value
 		end

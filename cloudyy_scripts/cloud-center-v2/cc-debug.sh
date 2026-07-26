@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-LAUNCHER="$HOME/cloudyy_scripts/cloud-center"
+LAUNCHER="$HOME/cloudyy_scripts/cloud-center-v2/cloud-center"
 CONFIG="$HOME/.config/quickshell/cloud-center"
 LOG_FILE="/tmp/cloud-center-debug.log"
 

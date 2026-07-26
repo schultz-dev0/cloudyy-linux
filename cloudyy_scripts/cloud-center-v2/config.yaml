@@ -32,9 +32,9 @@ pages:
               key: theme/dark_mode
             on_toggle:
               enabled:
-                command: ~/cloudyy_scripts/theme_controller.sh set --mode dark
+                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode dark
               disabled:
-                command: ~/cloudyy_scripts/theme_controller.sh set --mode light
+                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode light
 
           - type: toggle
             properties:
@@ -75,7 +75,7 @@ pages:
               icon: 󰚰
               button_text: Update
             on_press:
-              command: ~/cloudyy_scripts/system_update.sh
+              command: ~/cloudyy-linux/bin/cloudyy-update
               terminal: true
 
           - type: button
@@ -176,7 +176,7 @@ pages:
                 fidelity: scheme-fidelity
                 content: scheme-content
             on_change:
-              command: ~/cloudyy_scripts/theme_controller.sh refresh {value} $(cat ~/.config/cloud-center/settings/theme/contrast 2>/dev/null || echo 0)
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh {value} $(cat ~/.config/cloud-center/settings/theme/contrast 2>/dev/null || echo 0)
 
           - type: slider
             properties:
@@ -189,7 +189,7 @@ pages:
               step: 1
               default: 0
             on_change:
-              command: ~/cloudyy_scripts/theme_controller.sh refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(awk 'BEGIN { printf "%.1f", {value}/10 }')
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(awk 'BEGIN { printf "%.1f", {value}/10 }')
 
           - type: button
             properties:
@@ -198,7 +198,7 @@ pages:
               icon: 󰑐
               button_text: Apply
             on_press:
-              command: ~/cloudyy_scripts/theme_controller.sh refresh
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh
 
       - type: section
         properties:
@@ -219,7 +219,7 @@ pages:
               # (keybind, waybar) shows up here quickly.
               interval: 1
             on_select:
-              command: ~/cloudyy_scripts/theme_controller.sh set-image {path}
+              command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path}
 
       - type: section
         properties:
@@ -251,7 +251,7 @@ pages:
               dark_directory: ~/Wallpapers/user_wallpapers/Dark
               per_page: 60
               height: 700
-              apply_command: ~/cloudyy_scripts/theme_controller.sh set-image {path} --mode {mode}
+              apply_command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path} --mode {mode}
 
   - id: quickshell
     title: Shell

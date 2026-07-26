@@ -28,7 +28,7 @@ class GtkLaunchCutoverTests(unittest.TestCase):
 
     def test_debug_script_launches_qml_wrapper(self):
         source = DEBUG_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('LAUNCHER="$HOME/cloudyy_scripts/cloud-center"', source)
+        self.assertIn('LAUNCHER="$HOME/cloudyy_scripts/cloud-center-v2/cloud-center"', source)
         self.assertNotRegex(source, r'nohup\s+python3\s+"\$SCRIPT"')
         self.assertIn('nohup "$LAUNCHER"', source)
 
