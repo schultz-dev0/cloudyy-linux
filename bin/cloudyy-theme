@@ -46,6 +46,8 @@ die() {
 read_state() {
   THEME_MODE="dark"
   CURRENT_WALL=""
+  VARIANT=""
+  CONTRAST=""
   [[ -f "$STATE_FILE" ]] || return 0
   while IFS='=' read -r key value || [[ -n "$key" ]]; do
     [[ $key =~ ^# ]] && continue
@@ -54,6 +56,8 @@ read_state() {
     case "$key" in
     THEME_MODE) THEME_MODE="$value" ;;
     CURRENT_WALL) CURRENT_WALL="$value" ;;
+    VARIANT) VARIANT="$value" ;;
+    CONTRAST) CONTRAST="$value" ;;
     esac
   done <"$STATE_FILE"
 }
@@ -63,6 +67,8 @@ save_state() {
   cat >"$STATE_FILE" <<EOF
 THEME_MODE="$THEME_MODE"
 CURRENT_WALL="$CURRENT_WALL"
+VARIANT="${VARIANT:-}"
+CONTRAST="${CONTRAST:-}"
 EOF
   echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
   [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
@@ -122,6 +128,10 @@ set_system_theme() {
 
   # Firefox: keep profile prefs aligned with system mode for "Automatic".
   set_firefox_theme "$mode"
+
+  # Zen: chrome UI only (tabs/sidebar/toolbar), never the underlying Firefox
+  # content engine. No-op whenever Zen isn't installed.
+  set_zen_chrome_theme "$mode"
 }
 
 set_gtk_theme() {
@@ -153,14 +163,15 @@ set_firefox_theme() {
     content_override=2 # Dark
   fi
 
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" "$dark_value" "$content_override"
-  _apply_firefox_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" "$dark_value" "$content_override"
+  _walk_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" _write_firefox_userjs "$dark_value" "$content_override"
+  _walk_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" _write_firefox_userjs "$dark_value" "$content_override"
 }
 
-_apply_firefox_profiles_ini() {
-  local ini_file="$1"
-  local dark_value="$2"
-  local content_override="$3"
+# Walks a profiles.ini, calling: <callback> <profiles_root> <raw_path> <is_relative> [extra args...]
+# once per [ProfileN] block. Shared by Firefox (native/flatpak) and Zen.
+_walk_profiles_ini() {
+  local ini_file="$1" callback="$2"
+  shift 2
   [[ -f "$ini_file" ]] || return 0
 
   local profiles_root
@@ -173,7 +184,7 @@ _apply_firefox_profiles_ini() {
     case "$line" in
     "[Profile"*"]")
       if [[ -n "$current_path" ]]; then
-        _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
+        "$callback" "$profiles_root" "$current_path" "$current_relative" "$@"
       fi
       current_path=""
       current_relative=1
@@ -188,7 +199,7 @@ _apply_firefox_profiles_ini() {
   done <"$ini_file"
 
   if [[ -n "$current_path" ]]; then
-    _write_firefox_userjs "$profiles_root" "$current_path" "$current_relative" "$dark_value" "$content_override"
+    "$callback" "$profiles_root" "$current_path" "$current_relative" "$@"
   fi
 }
 
@@ -226,6 +237,85 @@ _write_firefox_userjs() {
     echo "user_pref(\"browser.theme.toolbar-theme\", ${dark_value});"
   } >"$user_js"
 
+  rm -f "$tmp"
+}
+
+# --- ZEN BROWSER CHROME (not underlying Firefox content) ---
+# Only ever touches a Zen profile if $ZEN_PROFILES_INI exists — i.e. Zen is
+# actually installed and has been run once. Nothing happens if the user
+# doesn't use Zen, or later switches away from it.
+
+set_zen_chrome_theme() {
+  local mode="$1"
+  [[ -f "$ZEN_PROFILES_INI" ]] || return 0
+  _walk_profiles_ini "$ZEN_PROFILES_INI" _sync_zen_profile_chrome "$mode"
+}
+
+_sync_zen_profile_chrome() {
+  local profiles_root="$1"
+  local raw_path="$2"
+  local is_relative="$3"
+  local mode="$4"
+  local profile_dir="$raw_path"
+
+  [[ "$is_relative" == "1" ]] && profile_dir="${profiles_root}/${raw_path}"
+  [[ -d "$profile_dir" ]] || return 0
+
+  local generated="${HOME}/.config/matugen/generated/zen-userchrome.css"
+  [[ -f "$generated" ]] || return 0 # nothing generated yet — first run, skip
+
+  local chrome_dir="${profile_dir}/chrome"
+  mkdir -p "$chrome_dir"
+  ln -nfs "$generated" "${chrome_dir}/cloudyy-zen-colors.css"
+
+  # Own file only, never overwrite a hand-authored userChrome.css: create it
+  # with just our @import if missing, or prepend the import if it's absent.
+  # Prepending (not appending) means any of the user's own !important rules
+  # further down the file still win the cascade over ours.
+  local user_chrome="${chrome_dir}/userChrome.css"
+  local import_line='@import "cloudyy-zen-colors.css";'
+  if [[ ! -f "$user_chrome" ]]; then
+    printf '%s\n' "$import_line" >"$user_chrome"
+  elif ! grep -qF "$import_line" "$user_chrome"; then
+    { printf '%s\n' "$import_line"
+      cat "$user_chrome"
+    } >"${user_chrome}.tmp" && mv "${user_chrome}.tmp" "$user_chrome"
+  fi
+
+  _ensure_zen_prefs "$profile_dir" "$mode"
+}
+
+# Required for userChrome.css to load at all, and to keep Zen's own native
+# color-scheme in sync with matugen's mode. Uses user.js (not prefs.js) so
+# it survives the browser overwriting prefs.js on exit — same mechanism
+# _write_firefox_userjs already relies on.
+#
+# zen.view.window.scheme (0=dark, 1=light) matters because Zen sets the CSS
+# color-scheme property directly on menupopup/panel elements (zen-theme.css),
+# not just :root — that's an inherited-property direct-declaration, which
+# always wins over anything our userChrome.css sets at :root regardless of
+# !important, since inheritance is never consulted once an element has its
+# own direct value. Fighting it in CSS doesn't work; syncing the pref does.
+_ensure_zen_prefs() {
+  local profile_dir="$1"
+  local mode="$2"
+  local scheme_value=0
+  [[ "$mode" == "light" ]] && scheme_value=1
+  local user_js="${profile_dir}/user.js"
+  local stylesheets_line='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
+  local scheme_line="user_pref(\"zen.view.window.scheme\", ${scheme_value});"
+
+  local tmp
+  tmp="$(mktemp)"
+  if [[ -f "$user_js" ]]; then
+    grep -v -e 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets"' \
+      -e 'user_pref("zen.view.window.scheme"' \
+      "$user_js" >"$tmp" || true
+  fi
+  { cat "$tmp" 2>/dev/null || true
+    echo "$stylesheets_line"
+    echo "$scheme_line"
+  } >"$user_js"
   rm -f "$tmp"
 }
 
@@ -394,7 +484,7 @@ cmd_apply() {
   local swww_pid=$!
 
   # Generate colors + post_hooks in parallel with the transition
-  run_matugen "$img" "$mode" || log "WARNING: Matugen failed, but continuing to wallpaper..."
+  run_matugen "$img" "$mode" "$VARIANT" "$CONTRAST" || log "WARNING: Matugen failed, but continuing to wallpaper..."
 
   # Save state
   CURRENT_WALL="$img"
@@ -412,7 +502,7 @@ cmd_restore() {
   [[ -n "$img" && -f "$img" ]] || img="$CURRENT_WALLPAPER_FILE"
 
   if [[ -f "$img" ]]; then
-    run_matugen "$img" "$THEME_MODE" || log "WARNING: Matugen failed during restore"
+    run_matugen "$img" "$THEME_MODE" "$VARIANT" "$CONTRAST" || log "WARNING: Matugen failed during restore"
     sync_current_wallpaper "$img"
     if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
       save_state
@@ -480,7 +570,7 @@ cmd_toggle() {
       cmd_random "$new_mode"
     elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
       # Absolute fallback: keep current wall but change theme mode.
-      run_matugen "$CURRENT_WALL" "$new_mode"
+      run_matugen "$CURRENT_WALL" "$new_mode" "$VARIANT" "$CONTRAST"
       sync_current_wallpaper "$CURRENT_WALL"
       THEME_MODE="$new_mode"
       save_state
@@ -531,10 +621,13 @@ cmd_set_image() {
 }
 
 cmd_refresh() {
-  local variant="${1:-}" contrast="${2:-}"
   read_state
+  # Args override the persisted scheme/contrast; omit either to keep the
+  # last-saved value (e.g. a plain `refresh` after picking a new wallpaper).
+  [[ -n "${1:-}" ]] && VARIANT="$1"
+  [[ -n "${2:-}" ]] && CONTRAST="$2"
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$THEME_MODE" "$variant" "$contrast"
+    run_matugen "$CURRENT_WALL" "$THEME_MODE" "$VARIANT" "$CONTRAST"
     sync_current_wallpaper "$CURRENT_WALL"
     save_state
     notify "Theme refreshed" low
@@ -587,7 +680,7 @@ cmd_set() {
   log "Setting mode → $target_mode"
 
   if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$target_mode"
+    run_matugen "$CURRENT_WALL" "$target_mode" "$VARIANT" "$CONTRAST"
     sync_current_wallpaper "$CURRENT_WALL"
     THEME_MODE="$target_mode"
     save_state

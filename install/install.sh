@@ -47,10 +47,10 @@ setup_logging() {
 }
 
 _ts() { date '+%H:%M:%S'; }
-log()       { printf '%s[>>]%s [%s] %s\n' "$BOLD"   "$RESET" "$(_ts)" "$1"; }
-log_ok()    { printf '%s[✓]%s  [%s] %s\n' "$GREEN"  "$RESET" "$(_ts)" "$1"; }
-log_warn()  { printf '%s[!]%s  [%s] %s\n' "$YELLOW" "$RESET" "$(_ts)" "$1"; }
-log_error() { printf '%s[✗]%s  [%s] %s\n' "$RED"    "$RESET" "$(_ts)" "$1" >&2; }
+log() { printf '%s[>>]%s [%s] %s\n' "$BOLD" "$RESET" "$(_ts)" "$1"; }
+log_ok() { printf '%s[✓]%s  [%s] %s\n' "$GREEN" "$RESET" "$(_ts)" "$1"; }
+log_warn() { printf '%s[!]%s  [%s] %s\n' "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error() { printf '%s[✗]%s  [%s] %s\n' "$RED" "$RESET" "$(_ts)" "$1" >&2; }
 log_phase() {
   printf '\n%s%s┌──────────────────────────────────────┐%s\n' "$BOLD" "$CYAN" "$RESET"
   printf '%s%s│  %-37s│%s\n' "$BOLD" "$CYAN" "$1" "$RESET"
@@ -209,10 +209,10 @@ phase_shell() {
     local omz_installer
     omz_installer="$(mktemp)"
     if curl -fsSL --connect-timeout 10 --max-time 30 \
-         https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
-         -o "$omz_installer"; then
+      https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
+      -o "$omz_installer"; then
       if ZSH="$omz_dir" RUNZSH=no CHSH=no \
-           sh "$omz_installer" "" --unattended 2>/dev/null; then
+        sh "$omz_installer" "" --unattended 2>/dev/null; then
         log_ok "oh-my-zsh installed."
       else
         log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
@@ -312,8 +312,8 @@ phase_services() {
 
   local audio_service_script="${SCRIPT_DIR}/setup_services/setup-audio-autoswitch.sh"
   if [[ -f "$audio_service_script" ]]; then
-    bash "$audio_service_script" \
-      || log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
+    bash "$audio_service_script" ||
+      log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
   else
     log_warn "Audio auto-switch setup script not found."
   fi
@@ -563,7 +563,7 @@ BANNER
     local phase_rc=0
     local _phase_start=$SECONDS
     "phase_${id}" || phase_rc=$?
-    local _phase_elapsed=$(( SECONDS - _phase_start ))
+    local _phase_elapsed=$((SECONDS - _phase_start))
 
     if ((phase_rc == 0)); then
       mark_done "$id"

@@ -79,9 +79,10 @@ output_path = '~/.config/matugen/generated/btop.theme'
 post_hook = 'pkill -USR2 btop || true'
 
 [templates.quickshell]
-input_path = '~/.config/matugen/templates/quickshell-theme.qml'
-output_path = '~/.config/quickshell/Theme.qml'
-# quickshell auto-reloads QML on file change; no post_hook needed
+input_path = '~/.config/matugen/templates/quickshell-colors.json'
+output_path = '~/.config/matugen/generated/quickshell-colors.json'
+# Theme.qml is a stable FileView-based singleton (not matugen-generated) that
+# watches this file and hot-reloads on change; no post_hook needed
 
 [templates.Obsidian]
 input_path = '~/.config/matugen/templates/obsidian-theme.css'
@@ -109,4 +110,12 @@ fi
 [templates.cloud-center]
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/matugen/generated/colors.css'
-post_hook = '~/cloudyy_scripts/cloud-center-v2/cc-restart.sh'
+# quickshell now restarts/hot-reloads the whole shell on theme change; no post_hook needed
+
+# Zen Browser chrome UI (tabs/sidebar/toolbar), not the underlying Firefox
+# content engine. Always generated here regardless of whether Zen is
+# installed; bin/cloudyy-theme only symlinks it into a Zen profile if one
+# actually exists, so this is a no-op file when Zen isn't in use.
+[templates.zen-chrome]
+input_path = '~/.config/matugen/templates/zen-userchrome.css'
+output_path = '~/.config/matugen/generated/zen-userchrome.css'

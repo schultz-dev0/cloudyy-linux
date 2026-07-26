@@ -8,7 +8,7 @@ if [[ "${CC_DISABLE_RESTART:-0}" == "1" ]]; then
     exit 0
 fi
 
-LAUNCHER="$HOME/cloudyy_scripts/cloud-center"
+LAUNCHER="$HOME/cloudyy_scripts/cloud-center-v2/cloud-center"
 CONFIG="$HOME/.config/quickshell/cloud-center"
 LOG_FILE="/tmp/cloud-center.log"
 
