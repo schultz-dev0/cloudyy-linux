@@ -16,7 +16,7 @@ hl.on("hyprland.start", function()
 
 	hl.exec_cmd("cloudyy-quickshell-start")
 
-	-- First-run welcome popup — skips itself once ~/.config/OOBE/.dont_show exists.
+	-- First-run welcome popup skips itself once ~/.config/OOBE/.dont_show exists.
 	hl.exec_cmd("test -f " .. home .. "/.config/OOBE/.dont_show || qs -n -d -p " .. home .. "/.config/OOBE")
 end)
 

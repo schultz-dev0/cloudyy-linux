@@ -145,18 +145,6 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
-
-                    Text {
-                        anchors {
-                            right: parent.right
-                            rightMargin: 16
-                            verticalCenter: parent.verticalCenter
-                        }
-                        text: mon.stale ? "stats stale" : "live"
-                        color: mon.stale ? Theme.error : Theme.on_surface_variant
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 9
-                    }
                 }
 
                 Rectangle {

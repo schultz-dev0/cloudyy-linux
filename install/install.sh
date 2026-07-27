@@ -347,6 +347,24 @@ phase_theme_init() {
   else
     log_warn "Theme bootstrap failed (non-fatal — run 'cloudyy-theme restore' later)."
   fi
+
+  # Generate thumbs during install time instead of on first request on first boot. Reuse thumb_cache.sh
+  local repo_root="$(dirname "${SCRIPT_DIR}")"
+  local thumb_lib="${repo_root}/lib/thumb_cache.sh"
+  if [[ -f "$thumb_lib" ]] && { command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; }; then
+    local CACHE_DIR="${HOME}/.cache/rofi_thumbs" THUMB_SIZE=256
+    mkdir -p "$CACHE_DIR"
+    # shellcheck source=../lib/thumb_cache.sh
+    source "$thumb_lib"
+    export -f gen_thumb canonical_real find_cached_thumb promote_thumb thumb_file_for_path path_aliases path_hash
+    export CACHE_DIR THUMB_SIZE HOME
+    find -L "${HOME}/Wallpapers/Dark" "${HOME}/Wallpapers/Light" -maxdepth 1 -type f \
+      \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+      -print0 2>/dev/null | xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} bash -c 'gen_thumb "$1" >/dev/null' _ {}
+    log_ok "Wallpaper thumbnails pre-generated."
+  else
+    log_warn "imagemagick not found — skipping thumbnail pre-generation (picker will generate on first use)."
+  fi
 }
 
 # --- Phase: Boot Setup -------------------------------------------------------
