@@ -9,13 +9,15 @@
 # =============================================================================
 set -euo pipefail
 
-readonly DEPS_FILE="${HOME}/cloudyy-linux/install/dependencies.conf"
-readonly LIB_FILE="${HOME}/cloudyy-linux/install/lib.sh"
+readonly SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+readonly REPO_DIR="$(cd "$(dirname "${SCRIPT_PATH}")/.." && pwd)"
+readonly DEPS_FILE="${REPO_DIR}/install/packages/manifest.sh"
+readonly LIB_FILE="${REPO_DIR}/install/other/lib.sh"
 readonly FIRST_RUN_FLAG="${HOME}/.config/cloudyy/config-done"
 
 if [[ ! -f "$LIB_FILE" ]]; then
   echo "[✗] lib.sh not found at ${LIB_FILE}" >&2
-  echo "    Is cloudyy-linux cloned to ~/cloudyy-linux?" >&2
+  echo "    The command must resolve to a cloudyy-linux checkout." >&2
   exit 1
 fi
 if [[ ! -f "$DEPS_FILE" ]]; then

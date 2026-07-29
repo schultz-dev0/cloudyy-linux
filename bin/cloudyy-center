@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Open Cloud Center (system settings app)
 set -euo pipefail
-exec "${HOME}/cloudyy_scripts/cloud-center-v2/cloud-center" "$@"
+exec "${HOME}/cloudyy-linux/cloud-center/cloud-center" "$@"

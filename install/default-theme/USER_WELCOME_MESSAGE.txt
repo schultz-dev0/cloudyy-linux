@@ -1,8 +1,0 @@
-# Add your custom messages here, one per line. These will be randomly displayed on hyprlock.
-# Format: prefix each line with > and wrap the text in quotes.
-
->"Did you know you can add custom messages here? Command Center → Learn → Lock Screen Messages"
->"Did you know you can add custom messages here? Command Center → Learn → Lock Screen Messages"
->"Did you know you can add custom messages here? Command Center → Learn → Lock Screen Messages"
->"Did you know you can add custom messages here? Command Center → Learn → Lock Screen Messages"
->"Did you know you can add custom messages here? Command Center → Learn → Lock Screen Messages"

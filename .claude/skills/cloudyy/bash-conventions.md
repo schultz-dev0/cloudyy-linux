@@ -3,7 +3,7 @@
 ## Header / safety
 
 - Shebang: always `#!/usr/bin/env bash`.
-- `install/*.sh` scripts use `set -euo pipefail -E` (the `-E` makes ERR traps propagate into functions). Simpler scripts (`theme_controller.sh`, `cloud-center-v2/cloud-center`, some `install/*.sh`) use plain `set -euo pipefail`.
+- `install/*.sh` scripts use `set -euo pipefail -E` (the `-E` makes ERR traps propagate into functions). Simpler scripts (`theme_controller.sh`, `cloud-center/cloud-center`, some `install/*.sh`) use plain `set -euo pipefail`.
 - Deliberate exception: `install/test-install.sh` uses `set -uo pipefail` (no `-e`) with a comment explaining why, a test runner shouldn't abort on the first failing test. That same file's regression suite greps other scripts for `set -euo pipefail`, this is an enforced and tested convention.
 - Standard root guard: `[[ $EUID -eq 0 ]] && { log_error "Do not run as root."; exit 1; }`.
 
@@ -31,13 +31,13 @@ log_error(){ printf '%s[✗]%s  [%s] %s\n'  "$RED"   "$RESET" "$(_ts)" "$1" >&2;
 ## Parallelism
 
 - Shell-level fan-out: `xargs -0 -P "$MAX_JOBS" -I {} bash -c 'fn "$@"' _ {}` (`_legacy-rofi/appearance.sh:56`, and the OOBE thumbnail-generation fix this session).
-- Python-side equivalent: `ThreadPoolExecutor` (`cloud-center-v2/lib/ccd/model.py`, `bluetooth_core.py`).
+- Python-side equivalent: `ThreadPoolExecutor` (`cloud-center/lib/ccd/model.py`, `bluetooth_core.py`).
 
 ## Singleton / instance detection
 
 Two tiers, pick the one matching what you're detecting:
 - Simple daemon check: `pgrep -x <name>` (fine for a single well-named daemon).
-- Quickshell app instances: **do not** raw `pgrep -f qs` (it self-matches its own grep). Query `qs list --all -j` and parse with an inline `python3 -c` instead — explicitly documented in `cc-validate.sh` as "never raw pgrep". Reference implementation: `cloud-center-v2/cloud-center`'s `cloud_center_pids()` + `has_window()` functions.
+- Quickshell app instances: **do not** raw `pgrep -f qs` (it self-matches its own grep). Query `qs list --all -j` and parse with an inline `python3 -c` instead — explicitly documented in `cc-validate.sh` as "never raw pgrep". Reference implementation: `cloud-center/cloud-center`'s `cloud_center_pids()` + `has_window()` functions.
 
 ## Notifications
 

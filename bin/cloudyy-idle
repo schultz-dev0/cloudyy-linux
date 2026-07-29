@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Control the Cloudyy idle scene and lockscreen
+
+set -euo pipefail
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/cloudyy-idle"
+CURSOR_STATE="${STATE_DIR}/cursor-invisible"
+
+usage() {
+  printf 'Usage: cloudyy-idle <show|dismiss|lock>\n' >&2
+  exit 64
+}
+
+set_cursor_invisible() {
+  hyprctl eval "hl.config({ cursor = { invisible = $1 } })" >/dev/null
+}
+
+hide_cursor() {
+  mkdir -p "$STATE_DIR"
+  if [[ ! -f "$CURSOR_STATE" ]]; then
+    hyprctl getoption cursor:invisible -j | jq -r '.bool' > "$CURSOR_STATE"
+  fi
+  set_cursor_invisible true
+}
+
+restore_cursor() {
+  if [[ -f "$CURSOR_STATE" ]]; then
+    set_cursor_invisible "$(<"$CURSOR_STATE")"
+    rm -f "$CURSOR_STATE"
+  fi
+}
+
+case "${1:-}" in
+  show)
+    hide_cursor
+    hyprctl dispatch 'hl.dsp.submap("cloudyy-idle")' >/dev/null
+    if ! quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle activate; then
+      restore_cursor
+      hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
+      exit 1
+    fi
+    ;;
+  dismiss)
+    restore_cursor
+    hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
+    exec quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle dismiss
+    ;;
+  lock)
+    restore_cursor
+    hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
+    exec cloudyy-lock
+  ;;
+*)
+  usage
+  ;;
+esac

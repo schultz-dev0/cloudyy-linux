@@ -23,7 +23,13 @@ Item {
 
     // Selection highlight
     Rectangle {
-        anchors { fill: parent; margins: 3 }
+        anchors {
+            fill: parent
+            topMargin: 3
+            bottomMargin: 3
+            leftMargin: 10
+            rightMargin: 10
+        }
         radius: 8
         color: root.isSelected
             ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18)
@@ -128,8 +134,8 @@ Item {
                         return root.resultData.subtitle ?? "";
                     return root.resultData.path ?? "";
                 }
-                color:   Theme.textMuted
-                font.pixelSize: 11
+                color: root.resultData.type === "keybind" ? Theme.on_surface_variant : Theme.textMuted
+                font.pixelSize: root.resultData.type === "keybind" ? 12 : 11
                 font.family:    "JetBrainsMono Nerd Font"
                 elide: Text.ElideMiddle
             }

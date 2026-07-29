@@ -1,0 +1,996 @@
+# Cloud Center — config.yaml
+# Add pages, sections, and items here. No Python needed.
+# Supported row types: button, toggle, slider, selection, label
+# Icons: use GTK symbolic icon names (e.g. "starred-symbolic") or leave blank
+#
+# ── Hyprland persistence ──────────────────────────────────────────────────────
+# Every Hyprland setting chains:
+#   python3 -m lib.hypr_layout_persist apply keyword value       (general/decoration/input)
+#   python3 -m lib.hypr_animations_persist apply keyword value   (animations:enabled)
+#   python3 -m lib.hypr_anim <speed|workspace-enabled|workspace-style> value  (animations, semantic)
+# (persist + hyprctl eval, reload fallback). cursor:* settings go through ccd/cursor.py instead.
+#
+# Each module writes straight into the single ~/.config/hypr/<module>.lua file
+# (lookandfeel.lua, animations.lua, input.lua) between its own
+# `-- --- Cloud Center managed ... settings ---` markers — no more separate
+# source/user-configs split or hyprland.lua activation lines to keep in sync.
+
+pages:
+  - id: home
+    title: Home
+    icon: 󰋜
+    layout:
+      - type: section
+        properties:
+          title: Quick Actions
+        items:
+          - type: toggle
+            properties:
+              title: Dark Mode
+              description: Switch between dark and light Matugen theme
+              icon: 󰖔
+              key: theme/dark_mode
+            on_toggle:
+              enabled:
+                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode dark
+              disabled:
+                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode light
+
+          - type: toggle
+            properties:
+              title: Bluetooth
+              description: Bluetooth adapter power
+              icon: 󰂯
+              key: hypr/bluetooth
+              state_command: "bluetoothctl show 2>/dev/null | grep -c 'Powered: yes' || echo 0"
+              interval: 5
+            on_toggle:
+              enabled:
+                command: "rfkill unblock bluetooth; sleep 0.5; bluetoothctl power on"
+              disabled:
+                command: "bluetoothctl power off"
+
+          - type: toggle
+            properties:
+              title: Wi-Fi
+              description: Wireless radio
+              icon: 󰤨
+              key: hypr/wifi
+              state_command: "nmcli radio wifi 2>/dev/null | grep -c '^enabled' || echo 0"
+              interval: 5
+            on_toggle:
+              enabled:
+                command: nmcli radio wifi on
+              disabled:
+                command: nmcli radio wifi off
+
+      - type: section
+        properties:
+          title: Maintenance
+        items:
+          - type: button
+            properties:
+              title: System Update
+              description: Run Arch Linux system updater
+              icon: 󰚰
+              button_text: Update
+            on_press:
+              command: ~/cloudyy-linux/bin/cloudyy-update
+              terminal: true
+
+          - type: button
+            properties:
+              title: Reload Hyprland
+              description: Reload Hyprland configuration
+              icon: 󰑐
+              button_text: Reload
+            on_press:
+              command: hyprctl reload
+
+      - type: section
+        properties:
+          title: System
+        items:
+          - type: label
+            properties:
+              title: CPU
+              icon: 󰇄
+            value:
+              type: system
+              key: cpu
+
+          - type: label
+            properties:
+              title: GPU
+              icon: 󰍹
+            value:
+              type: system
+              key: gpu
+
+          - type: label
+            properties:
+              title: Memory Used
+              icon: 󰋊
+              interval: 5
+            value:
+              type: system
+              key: memory_used
+
+          - type: label
+            properties:
+              title: Kernel
+              icon:
+            value:
+              type: system
+              key: kernel
+
+          - type: label
+            properties:
+              title: Timezone
+              icon: 󰥔
+            value:
+              type: system
+              key: timezone
+
+          - type: label
+            properties:
+              title: Local Time
+              icon: 󰥔
+              interval: 5
+            value:
+              type: system
+              key: local_time
+
+  - id: appearance
+    title: Appearance
+    icon: 
+    layout:
+      - type: section
+        properties:
+          title: Theme
+        items:
+          - type: selection
+            properties:
+              title: Color Scheme
+              description: Matugen color variant
+              icon: 󰏘
+              key: theme/scheme
+              options:
+                - neutral
+                - vibrant
+                - monochrome
+                - rainbow
+                - expressive
+                - fruit-salad
+                - tonal-spot
+                - fidelity
+                - content
+              options_map:
+                neutral: scheme-neutral
+                vibrant: scheme-vibrant
+                monochrome: scheme-monochrome
+                rainbow: scheme-rainbow
+                expressive: scheme-expressive
+                fruit-salad: scheme-fruit-salad
+                tonal-spot: scheme-tonal-spot
+                fidelity: scheme-fidelity
+                content: scheme-content
+            on_change:
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh {value} $(cat ~/.config/cloud-center/settings/theme/contrast 2>/dev/null || echo 0)
+
+          - type: slider
+            properties:
+              title: Contrast
+              description: "Matugen contrast adjustment (-1.0 to +1.0)"
+              icon: 󰆗
+              key: theme/contrast
+              min: -10
+              max: 10
+              step: 1
+              default: 0
+            on_change:
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(awk 'BEGIN { printf "%.1f", {value}/10 }')
+
+          - type: button
+            properties:
+              title: Apply Theme
+              description: Re-run Matugen with current settings
+              icon: 󰑐
+              button_text: Apply
+            on_press:
+              command: ~/cloudyy-linux/bin/cloudyy-theme refresh
+
+      - type: section
+        properties:
+          title: Wallpaper
+        items:
+          - type: wallpaper_picker
+            properties:
+              title: Wallpaper
+              description: Click a wallpaper to apply it
+              icon: 󰸉
+              key: wallpaper/current
+              directory: ~/Wallpapers
+              thumbnail_size: 120
+              columns: 4
+              # theme_mode() is a tiny local file read, not a subprocess like
+              # most other watched items — cheap enough to poll much faster
+              # than the generic 5s default, so a light/dark flip elsewhere
+              # (keybind, waybar) shows up here quickly.
+              interval: 1
+            on_select:
+              command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path}
+
+      - type: section
+        properties:
+          title: Online Wallpapers
+          description: Open the dedicated wallpaper browser page
+        items:
+          - type: button
+            properties:
+              title: Wallpaper Browser
+              description: Open full-page browser with apply controls
+              icon: 󰸉
+              button_text: Open
+              action: navigate_page:wallpapers
+
+  - id: wallpapers
+    title: Wallpapers
+    icon: 󰸉
+    layout:
+      - type: section
+        properties:
+          title: Wallpaper Browser
+          description: Browse, download, and apply wallpapers from Wallhaven
+        items:
+          - type: online_wallpaper_browser
+            properties:
+              title: Wallpaper Browser
+              description: Infinite browsing — downloads go to your private user_wallpapers pool
+              light_directory: ~/Wallpapers/user_wallpapers/Light
+              dark_directory: ~/Wallpapers/user_wallpapers/Dark
+              per_page: 60
+              height: 700
+              apply_command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path} --mode {mode}
+
+  - id: quickshell
+    title: Shell
+    icon: 󰃎
+    layout:
+      - type: section
+        properties:
+          title: Displays
+          description: Show the bar and dock on every connected monitor
+        items:
+          - type: toggle
+            properties:
+              title: Display bar on all screens
+              icon: 󰍹 󰍹
+              key: monitors/quickshell/bar_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+          - type: toggle
+            properties:
+              title: Display dock on all screens
+              icon: 󰍹 󰍹
+              key: monitors/quickshell/dock_on_all_screens
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+      - type: section
+        properties:
+          title: Performance
+          description: Lighter animations for weaker GPUs — restarts the shell when changed
+        items:
+          - type: toggle
+            properties:
+              title: Lightweight animations
+              icon: 
+              description: Faster island, panels, and dock; disables heavy transitions
+              key: quickshell/lightweight
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.quickshell_display_settings --restart
+
+  - id: idle
+    title: Idle & Lock
+    icon: 󰥔
+    layout:
+      - type: section
+        properties:
+          title: Idle Timing
+          description: Defaults are 15 minutes to the rain scene and 45 minutes to secure lock.
+        items:
+          - type: toggle
+            properties:
+              title: Rain scene
+              description: Show the animated idle screensaver before locking
+              icon: 󰥔
+              key: idle/scene_enabled
+              default: true
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist scene on
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist scene off
+
+          - type: slider
+            properties:
+              title: Rain scene starts after
+              description: Minutes of inactivity before the animated idle scene
+              icon: 󰥔
+              key: idle/scene_minutes
+              min: 1
+              max: 120
+              step: 1
+              default: 15
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypridle_persist apply scene {value_i}
+
+          - type: slider
+            properties:
+              title: Secure lock after
+              description: Total minutes of inactivity before the session locks
+              icon: 󰥔
+              key: idle/lock_minutes
+              min: 5
+              max: 240
+              step: 1
+              default: 45
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypridle_persist apply lock {value_i}
+
+  - id: input
+    title: Input
+    icon: 󰌌
+    layout:
+      - type: section
+        properties:
+          title: Keyboard
+          description: Layout and repeat behavior
+        items:
+          - type: multi_selection
+            properties:
+              title: Keyboard Layout
+              description: XKB layouts (select one or more)
+              icon: 󰌌
+              key: input/kb_layout
+              options:
+                - us
+                - gb
+                - de
+                - fr
+                - es
+                - it
+                - ru
+                - ua
+                - pl
+                - cz
+                - sk
+                - tr
+                - se
+                - no
+                - fi
+                - dk
+                - nl
+                - be
+                - pt
+                - br
+                - ro
+                - hu
+                - hr
+                - rs
+                - bg
+                - gr
+                - il
+                - ara
+                - in
+                - jp
+                - kr
+                - cn
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:kb_layout {value}
+
+          - type: selection
+            properties:
+              title: Keyboard Variant
+              description: XKB variant
+              icon: 󰌌
+              key: input/kb_variant
+              options:
+                - basic
+                - intl
+                - altgr-intl
+                - dvorak
+                - colemak
+              options_map:
+                basic: ""
+                intl: intl
+                altgr-intl: altgr-intl
+                dvorak: dvorak
+                colemak: colemak
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                V="{value}"; [ "$V" = "basic" ] && V="";
+                python3 -m lib.hypr_layout_persist apply input:kb_variant "$V"
+
+          - type: slider
+            properties:
+              title: Repeat Delay
+              description: Delay before key repeat starts (ms)
+              icon: 󰏤
+              key: input/repeat_delay
+              min: 150
+              max: 1000
+              step: 10
+              default: 300
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:repeat_delay {value_i}
+
+          - type: slider
+            properties:
+              title: Repeat Rate
+              description: Key repeats per second
+              icon: 󰐊
+              key: input/repeat_rate
+              min: 10
+              max: 80
+              step: 1
+              default: 30
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:repeat_rate {value_i}
+
+          - type: toggle
+            properties:
+              title: NumLock by Default
+              description: Enable NumLock on session start
+              icon: 󰌌
+              key: input/numlock_by_default
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:numlock_by_default true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:numlock_by_default false
+
+      - type: section
+        properties:
+          title: Mouse
+          description: Pointer behavior and acceleration
+        items:
+          - type: slider
+            properties:
+              title: Sensitivity
+              description: Pointer sensitivity (-1.00 to 1.00)
+              icon: 󰍽
+              key: input/sensitivity
+              min: -100
+              max: 100
+              step: 1
+              default: 0
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                V=$(awk 'BEGIN { printf "%.2f", ({value}) / 100 }') &&
+                python3 -m lib.hypr_layout_persist apply input:sensitivity $V
+
+          - type: selection
+            properties:
+              title: Acceleration Profile
+              description: Mouse acceleration profile
+              icon: 󰍽
+              key: input/accel_profile
+              options:
+                - adaptive
+                - flat
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:accel_profile {value}
+
+          - type: selection
+            properties:
+              title: Follow Mouse
+              description: Focus behavior
+              icon: 󰖯
+              key: input/follow_mouse
+              options:
+                - disabled
+                - enabled
+              options_map:
+                disabled: 0
+                enabled: 1
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:follow_mouse {value} &&
+                hyprctl eval 'hl.config({ input = { mouse_refocus = false, float_switch_override_focus = 0 } })'
+
+      - type: section
+        properties:
+          title: Touchpad
+          description: Touchpad scrolling and click behavior
+          requires_touchpad: true
+        items:
+          - type: toggle
+            properties:
+              title: Natural Scroll
+              description: Reverse scroll direction
+              icon: 󰟸
+              key: input/touchpad_natural_scroll
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:natural_scroll true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:natural_scroll false
+
+          - type: toggle
+            properties:
+              title: Disable While Typing
+              description: Prevent accidental palm movement while typing
+              icon: 󰟸
+              key: input/touchpad_disable_while_typing
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:disable_while_typing true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:disable_while_typing false
+
+          - type: selection
+            properties:
+              title: Clickfinger Behavior
+              description: Multi-finger click mapping
+              icon: 󰟸
+              key: input/touchpad_clickfinger_behavior
+              options:
+                - disabled
+                - enabled
+              options_map:
+                disabled: false
+                enabled: true
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply input:touchpad:clickfinger_behavior {value}
+
+          - type: toggle
+            properties:
+              title: Middle Button Emulation
+              description: Emulate middle click with combined tap
+              icon: 󰟸
+              key: input/touchpad_middle_button_emulation
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:middle_button_emulation true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply input:touchpad:middle_button_emulation false
+
+          - type: slider
+            properties:
+              title: Scroll Factor
+              description: Touchpad scroll multiplier (0.50 to 2.00)
+              icon: 󰟸
+              key: input/touchpad_scroll_factor
+              min: 50
+              max: 200
+              step: 1
+              default: 100
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                python3 -m lib.hypr_layout_persist apply input:touchpad:scroll_factor $V
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Input page to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Remove Cloud Center input overrides from Hyprland
+              icon: 󰃢
+              button_text: Reset
+            on_press:
+              command: cd ~/cloudyy-linux/cloud-center && python3 -m lib.hypr_layout_persist reset-page input
+
+  - id: hyprland
+    title: Hyprland
+    icon: 
+    layout:
+      - type: section
+        properties:
+          title: Window Decoration
+        items:
+          - type: slider
+            properties:
+              title: Border Size
+              description: Window border width in pixels
+              icon: 󰕰
+              key: hypr/border_size
+              min: 0
+              max: 10
+              step: 1
+              default: 2
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply general:border_size {value}
+
+          - type: slider
+            properties:
+              title: Corner Rounding
+              description: Window corner radius
+              icon: 󰘇
+              key: hypr/rounding
+              min: 0
+              max: 20
+              step: 1
+              default: 8
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply decoration:rounding {value}
+
+          - type: toggle
+            properties:
+              title: Shadows
+              description: Drop shadows behind windows
+              icon: 󰘷
+              key: hypr/shadow
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply decoration:shadow:enabled true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply decoration:shadow:enabled false
+
+          - type: slider
+            properties:
+              title: Shadow Range
+              description: Shadow size and spread (larger = softer, wider shadow)
+              icon: 
+              key: hypr/shadow_range
+              min: 1
+              max: 60
+              step: 1
+              default: 25
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply decoration:shadow:range {value}
+
+          - type: slider
+            properties:
+              title: Shadow Render Power
+              description: Shadow quality (higher = stronger, more GPU cost; max 4)
+              icon: 󰣺
+              key: hypr/shadow_render_power
+              min: 1
+              max: 4
+              step: 1
+              default: 1
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply decoration:shadow:render_power {value}
+
+          - type: toggle
+            properties:
+              title: Blur
+              description: Background blur on transparent windows
+              icon: 󰂵
+              key: hypr/blur
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply decoration:blur:enabled true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_layout_persist apply decoration:blur:enabled false
+
+          - type: slider
+            properties:
+              title: Blur Passes
+              description: More passes = stronger blur, more GPU cost
+              icon: 󰂷
+              key: hypr/blur_passes
+              min: 1
+              max: 6
+              step: 1
+              default: 3
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply decoration:blur:passes {value}
+
+          - type: slider
+            properties:
+              title: Blur Size
+              description: Blur kernel size
+              icon: 󰛭
+              key: hypr/blur_size
+              min: 1
+              max: 20
+              step: 1
+              default: 8
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply decoration:blur:size {value}
+
+          - type: slider
+            properties:
+              title: Window Opacity (Active)
+              description: Active window opacity (100 = fully opaque)
+              icon: 󱡓
+              key: hypr/active_opacity
+              min: 50
+              max: 100
+              step: 1
+              default: 100
+            on_change:
+              # Compute decimal once, reuse for both hyprctl and persist
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                python3 -m lib.hypr_layout_persist apply decoration:active_opacity $V
+
+          - type: slider
+            properties:
+              title: Window Opacity (Inactive)
+              description: Inactive window opacity
+              icon: 󱡔
+              key: hypr/inactive_opacity
+              min: 50
+              max: 100
+              step: 1
+              default: 95
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                V=$(awk 'BEGIN { printf "%.2f", {value}/100 }') &&
+                python3 -m lib.hypr_layout_persist apply decoration:inactive_opacity $V
+
+      - type: section
+        properties:
+          title: Layout &amp; Gaps
+        items:
+          - type: selection
+            properties:
+              title: Layout
+              description: Tiling layout algorithm
+              icon: 󰕰
+              key: hypr/layout
+              options:
+                - dwindle
+                - master
+              default: dwindle
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply general:layout {value}
+
+          - type: slider
+            properties:
+              title: Outer Gaps
+              description: Gaps between windows and screen edge
+              icon: 󰕰
+              key: hypr/gaps_out
+              min: 0
+              max: 60
+              step: 2
+              default: 8
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply general:gaps_out {value}
+
+          - type: slider
+            properties:
+              title: Inner Gaps
+              description: Gaps between windows
+              icon: 󰕰
+              key: hypr/gaps_in
+              min: 0
+              max: 30
+              step: 2
+              default: 4
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_layout_persist apply general:gaps_in {value}
+
+      - type: section
+        properties:
+          title: Animations
+        items:
+          - type: toggle
+            properties:
+              title: Animations
+              description: Enable Hyprland window animations
+              icon: 󰐊
+              key: hypr/animations
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_animations_persist apply animations:enabled true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_animations_persist apply animations:enabled false
+
+          - type: slider
+            properties:
+              title: Animation Speed
+              description: Higher = faster animations
+              icon: 󱎫
+              key: hypr/anim_speed
+              min: 1
+              max: 10
+              step: 1
+              default: 7
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_anim speed {value}
+
+          - type: toggle
+            properties:
+              title: Workspace Animations
+              description: Animate switching between workspaces
+              icon: 󰐊
+              key: hypr/workspace_anim
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_anim workspace-enabled true
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypr_anim workspace-enabled false
+
+          - type: selection
+            properties:
+              title: Workspace Animation Style
+              description: How workspaces transition when switching
+              icon: 󰐊
+              key: hypr/workspace_anim_style
+              options:
+                - slidevert
+                - slide
+                - fade
+                - slidefade
+                - slidefadevert
+              default: slidevert
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypr_anim workspace-style {value}
+
+          - type: button
+            properties:
+              title: Bezier Curve Editor
+              description: Visually design and apply custom easing curves to Hyprland animations
+              icon: 󰐊
+              button_text: Open
+              action: bezier_editor
+
+      - type: section
+        properties:
+          title: Distro Defaults
+          description: Reset Hyprland page overrides to distro defaults
+        items:
+          - type: button
+            properties:
+              title: Use Distro Defaults
+              description: Remove all Cloud Center Hyprland visual overrides
+              icon: 󰃢
+              button_text: Reset
+            on_press:
+              command: cd ~/cloudyy-linux/cloud-center && python3 -m lib.hypr_layout_persist reset-page hyprland
+
+  - id: terminal
+    title: Terminal
+    icon: 󰆍
+    layout:
+      - type: section
+        properties:
+          title: Terminal Mascot
+          description: Manage startup images in Kitty
+        items:
+          - type: toggle
+            properties:
+              title: Show Mascot
+              description: Show Hyprchan mascot on terminal startup
+              icon: 󰱫
+              key: terminal/show_mascot
+
+      - type: section
+        properties:
+          title: Terminal Launch
+          description: SUPER+Return behavior
+        items:
+          - type: toggle
+            properties:
+              title: Open in Focused Directory
+              description: Open a terminal in Thunar's current folder or the focused terminal's working directory
+              icon: 󰉋
+              key: terminal/cwd_walk
+              default: true
+
+      - type: section
+        properties:
+          title: Shell & Multiplexer
+          description: Workflow and plugin management
+        items:
+          - type: toggle
+            properties:
+              title: Multiplexer Autostart
+              description: Attach to default session (zellij or tmux, whichever is installed)
+              icon: 󰘔
+              key: terminal/multiplexer_autostart
+
+          - type: extension_browser
+            properties:
+              title: Zsh Extension Browser
+              description: Search, enable, and manage all Oh My Zsh plugins natively

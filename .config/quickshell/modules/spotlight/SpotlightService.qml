@@ -39,6 +39,7 @@ Singleton {
     property var browseStack: []
     property var registry: []
     property var keybindRows: []
+    property bool showingKeybinds: false
     property bool registryLoaded: false
     property string pendingScheme: ""
     property string powerProfile: "balanced"
@@ -158,6 +159,17 @@ Singleton {
         if (mode === "command")
             return childrenOf(parentId).map(e => commandResult(e));
         return [];
+    }
+
+    function keybindResults() {
+        return keybindRows.map(k => ({
+                type: "keybind",
+                label: k.combo,
+                subtitle: k.description || (k.dispatcher + " " + k.arg).trim(),
+                dispatcher: k.dispatcher,
+                arg: k.arg,
+                icon: "󱊨"
+            }));
     }
 
     function profileForEntryId(id) {
@@ -292,8 +304,6 @@ Singleton {
                 return "System update";
             if (path === "_system_info")
                 return "System info";
-            if (path.includes("welcome-messages"))
-                return "Edit in nvim";
             return "Run script";
         }
         return "Command";
@@ -532,6 +542,7 @@ Singleton {
         results = [];
         selectedIndex = -1;
         keybindRows = [];
+        showingKeybinds = false;
         svc.showPanel();
         if (m === "command")
             loadCommandsRegistry();
@@ -548,6 +559,7 @@ Singleton {
         query = "";
         results = [];
         selectedIndex = -1;
+        showingKeybinds = false;
         svc.showPanel();
         refreshDynamicState();
         refreshDisplay();
@@ -570,6 +582,7 @@ Singleton {
         selectedIndex = 0;
         browseStack = [];
         keybindRows = [];
+        showingKeybinds = false;
         packagesListMode = "";
         packagesListFilter = "";
         packageRows = [];
@@ -616,6 +629,14 @@ Singleton {
     }
 
     function browseBack() {
+        if (showingKeybinds) {
+            showingKeybinds = false;
+            keybindRows = [];
+            selectedIndex = -1;
+            refreshDisplay();
+            requestFocus();
+            return true;
+        }
         if (ollamaListMode === "confirm") {
             ollamaListMode = ollamaListOp;
             pendingOllamaModel = "";
@@ -668,6 +689,11 @@ Singleton {
     }
 
     function refreshDisplay() {
+        if (showingKeybinds) {
+            results = keybindResults();
+            selectedIndex = results.length > 0 ? Math.max(0, selectedIndex) : -1;
+            return;
+        }
         if (ollamaListMode && ollamaListMode !== "confirm") {
             filterOllamaModelRows();
             return;
@@ -909,16 +935,11 @@ Singleton {
             return;
         }
         if (action.type === "keybinds") {
+            showingKeybinds = true;
+            keybindRows = [];
+            results = [];
+            selectedIndex = -1;
             loadKeybinds();
-            results = keybindRows.map(k => ({
-                    type: "keybind",
-                    label: k.combo,
-                    subtitle: k.description || (k.dispatcher + " " + k.arg).trim(),
-                    dispatcher: k.dispatcher,
-                    arg: k.arg,
-                    icon: "󱊨"
-                }));
-            selectedIndex = 0;
             return;
         }
         if (action.type === "ollama_models") {
@@ -1432,6 +1453,8 @@ Singleton {
                     return;
                 try {
                     svc.keybindRows = svc.keybindRows.concat([JSON.parse(text)]);
+                    if (svc.showingKeybinds)
+                        svc.refreshDisplay();
                 } catch (e) {
                     console.warn("spotlight: bad keybind json", text);
                 }
@@ -1464,6 +1487,8 @@ Singleton {
     onQueryChanged: {
         if (!visible)
             return;
+        if (query.trim().length > 0)
+            showingKeybinds = false;
         if (ollamaListMode) {
             if (ollamaListMode !== "confirm")
                 filterOllamaModelRows();

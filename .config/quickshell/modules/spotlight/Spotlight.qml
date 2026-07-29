@@ -32,6 +32,7 @@ PanelWindow {
 
     readonly property string currencyFetchScript: Qt.resolvedUrl("../currency/backend/fetch_rate.sh").toString().replace("file://", "")
     readonly property string webSearchUrl: "https://duckduckgo.com/?q="
+    readonly property int screenHeight: screen?.height ?? 0
 
     anchors {
         top: svc.anchor === "top" || svc.anchor === "left" || svc.anchor === "right"
@@ -380,12 +381,11 @@ PanelWindow {
             readonly property int rowHeight: 46
             readonly property int breadcrumbHeight: 36
             readonly property int listCapHeight: {
-                const screens = Quickshell.screens;
-                if (screens.length > 0)
-                    return Math.round(screens[0].height * 0.58);
+                if (root.screenHeight > 0)
+                    return Math.max(0, Math.round(root.screenHeight * 0.75) - searchBar.height);
                 return 560;
             }
-            readonly property bool isBrowseMode: svc.mode === "command" && svc.query.length === 0
+            readonly property bool isBrowseMode: svc.mode === "command" && svc.query.length === 0 && !svc.showingKeybinds
             readonly property bool resultsListVisible: !isBrowseMode && (svc.results.length > 0 || svc.query.length > 0)
             readonly property int listBodyHeight: isBrowseMode
                 ? (browseFlick.height)

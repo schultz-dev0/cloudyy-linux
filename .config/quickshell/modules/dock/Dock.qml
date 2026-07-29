@@ -14,6 +14,7 @@ import "DockVisibilityPolicy.js" as DockVisibilityPolicy
 import "fit" as DockFit
 import "../commandcenter/applibrary" as AppLibrary
 import "../spotlight"
+import "../idle" as QuickIdle
 
 PanelWindow {
     id: dock
@@ -37,6 +38,7 @@ PanelWindow {
     }
 
     screen: resolvedScreen
+    visible: QuickIdle.IdleService.state !== "scene"
 
     DockFit.DockFitMetrics {
         id: fitMetrics

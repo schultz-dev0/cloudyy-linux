@@ -1,0 +1,6 @@
+auth      substack  system-auth
+auth      optional  pam_gnome_keyring.so auto_start
+
+account   include   system-auth
+session   include   system-auth
+session   optional  pam_gnome_keyring.so auto_start

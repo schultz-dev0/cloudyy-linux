@@ -1,0 +1,17 @@
+[Unit]
+Description=Quickshell shell
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+ExecStart=/usr/bin/qs -n
+Environment=QS_NO_RELOAD_POPUP=1
+EnvironmentFile=-%h/.config/quickshell/qs.env
+Slice=session.slice
+TimeoutStopSec=5sec
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

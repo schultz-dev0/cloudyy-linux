@@ -63,24 +63,6 @@
     }
   },
   {
-    "id": "learn.welcome",
-    "label": "Lock Screen Messages",
-    "icon": "󰌾",
-    "keywords": [
-      "welcome",
-      "message",
-      "hyprlock",
-      "lock",
-      "screen",
-      "quote"
-    ],
-    "parent": "learn",
-    "action": {
-      "type": "script",
-      "path": "cloudyy-quickshell-welcome-messages"
-    }
-  },
-  {
     "id": "learn.zen",
     "label": "Zen Binds",
     "icon": "󰈹",
@@ -1156,15 +1138,13 @@
     "icon": "󰷛",
     "keywords": [
       "lock",
-      "hyprlock"
+      "screen"
     ],
     "parent": "power",
     "action": {
       "type": "exec",
       "command": [
-        "bash",
-        "-c",
-        "pidof hyprlock || hyprlock"
+        "cloudyy-lock"
       ]
     }
   },
@@ -1182,7 +1162,7 @@
       "command": [
         "bash",
         "-c",
-        "pidof hyprlock >/dev/null 2>&1 || hyprlock & sleep 0.2; systemctl suspend || loginctl suspend"
+        "cloudyy-lock && (systemctl suspend || loginctl suspend)"
       ]
     }
   },

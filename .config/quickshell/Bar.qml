@@ -15,6 +15,7 @@ import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/battery" as QuickBattery
 import "modules/island" as QuickIsland
+import "modules/idle" as QuickIdle
 
 PanelWindow {
     id: bar
@@ -38,17 +39,18 @@ PanelWindow {
     }
 
     screen: resolvedScreen
+    visible: QuickIdle.IdleService.state !== "scene"
 
     // ── Tunables ─────────────────────────────────────
-    readonly property int barHeight: 18          // shrink the size a bit 
-    readonly property int topGap: 3              // create a larger gap to accomodate for the shrink ^ 
+    readonly property int barHeight: 18          // shrink the size a bit
+    readonly property int topGap: 3              // create a larger gap to accomodate for the shrink ^
     readonly property int sideGap: 0
-    readonly property int radius: 0              
+    readonly property int radius: 0
     readonly property int pillRadius: 6
     readonly property int pillPadH: 6
     readonly property int pillPadV: 3
     readonly property int pillGap: 6
-    readonly property real bgOpacity: 0.0        
+    readonly property real bgOpacity: 0.0
 
     // ── Bar colors (macOS floating style) ─────────────────────────────────────
     // Basic colors for the bar
@@ -331,7 +333,7 @@ PanelWindow {
         height: bar.barHeight
         spacing: bar.pillGap
 
-        // Workspaces 
+        // Workspaces
         Row {
             id: wsRow
             anchors.verticalCenter: parent.verticalCenter
@@ -386,17 +388,6 @@ PanelWindow {
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: focused ? 11 : 10
                         font.weight: Font.DemiBold
-                    }
-
-                    Rectangle {
-                        visible: focused
-                        width: 2
-                        height: 2
-                        radius: 1
-                        color: bar.barFgStrong
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 4
-                        anchors.horizontalCenter: parent.horizontalCenter
                     }
 
                     MouseArea {

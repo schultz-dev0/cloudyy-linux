@@ -17,7 +17,7 @@ Detailed, file:line-cited conventions per language live in separate reference fi
 
 - **QML / Quickshell** (`.config/quickshell/**`, `.config/OOBE/**`) → [qml-conventions.md](qml-conventions.md)
 - **Bash** (`install/*.sh`, `cloudyy_scripts/**/*.sh`) → [bash-conventions.md](bash-conventions.md)
-- **Python** (`cloudyy_scripts/cloud-center-v2/**`) → [python-conventions.md](python-conventions.md)
+- **Python** (`cloud-center/**`) → [python-conventions.md](python-conventions.md)
 - **Lua** (`.config/hypr/**`) → [lua-conventions.md](lua-conventions.md)
 
 Cross-language constants worth knowing regardless of which file you're touching:

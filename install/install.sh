@@ -14,20 +14,17 @@ set -euo pipefail -E
 
 # --- Paths & Constants -------------------------------------------------------
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# deploy-dotfiles.sh (run as a subprocess by phase_dotfiles) writes
-# /etc/profile.d/cloudyy.sh, which only affects future login shells — it
-# cannot retroactively add bin/ to THIS already-running process's PATH. Later
-# phases (theme_init, boot_setup, finalize) call cloudyy-* commands directly,
-# so this process needs bin/ on its own PATH regardless of profile.d.
-export PATH="$(dirname "${SCRIPT_DIR}")/bin:${PATH}"
 readonly STATE_DIR="${HOME}/.local/share/cloudyy"
 readonly LOG_DIR="${STATE_DIR}/logs"
 readonly LOG_FILE="${LOG_DIR}/install_$(date +%Y%m%d_%H%M%S).log"
 readonly STATE_FILE="${STATE_DIR}/.install_state"
+readonly STATE_VERSION_FILE="${STATE_DIR}/.install_state_version"
+readonly INSTALL_STATE_VERSION="2"
 readonly LOCK_FILE="/tmp/cloudyy_install_${UID}.lock"
 
 # --- Script-Level Variables -------------------------------------------------
 UNATTENDED=0
+STATE_VERSION_MISMATCH=0
 
 # --- Colors (TTY-aware) ------------------------------------------------------
 if [[ -t 1 ]]; then
@@ -63,6 +60,15 @@ declare -gA COMPLETED_PHASES=()
 load_state() {
   unset COMPLETED_PHASES
   declare -gA COMPLETED_PHASES=()
+  STATE_VERSION_MISMATCH=0
+
+  local state_version=""
+  [[ -f "$STATE_VERSION_FILE" ]] && state_version="$(<"$STATE_VERSION_FILE")"
+  if [[ -s "$STATE_FILE" ]] && [[ "$state_version" != "$INSTALL_STATE_VERSION" ]]; then
+    STATE_VERSION_MISMATCH=1
+    log_warn "Installer layout changed — saved progress will reset when installation starts."
+    return 0
+  fi
   [[ -s "$STATE_FILE" ]] || return 0
   local line
   while IFS= read -r line; do
@@ -71,6 +77,7 @@ load_state() {
 }
 
 mark_done() {
+  printf '%s\n' "$INSTALL_STATE_VERSION" >"$STATE_VERSION_FILE"
   echo "$1" >>"$STATE_FILE"
   COMPLETED_PHASES["$1"]=1
 }
@@ -121,18 +128,18 @@ phase_preflight() {
     return 1
   fi
 
-  if [[ ! -f "${SCRIPT_DIR}/dependencies.conf" ]]; then
-    log_error "dependencies.conf not found in ${SCRIPT_DIR}"
+  if [[ ! -f "${SCRIPT_DIR}/packages/manifest.sh" ]]; then
+    log_error "packages/manifest.sh not found in ${SCRIPT_DIR}"
     return 1
   fi
 
-  if [[ ! -f "${SCRIPT_DIR}/hyprland-install.sh" ]]; then
-    log_error "hyprland-install.sh not found in ${SCRIPT_DIR}"
+  if [[ ! -f "${SCRIPT_DIR}/packages/all.sh" ]]; then
+    log_error "packages/all.sh not found in ${SCRIPT_DIR}"
     return 1
   fi
 
-  if [[ ! -f "${SCRIPT_DIR}/deploy-dotfiles.sh" ]]; then
-    log_error "deploy-dotfiles.sh not found in ${SCRIPT_DIR}"
+  if [[ ! -f "${SCRIPT_DIR}/config/all.sh" ]]; then
+    log_error "config/all.sh not found in ${SCRIPT_DIR}"
     return 1
   fi
 
@@ -154,101 +161,46 @@ phase_preflight() {
 
 # --- Phase: Packages ---------------------------------------------------------
 phase_packages() {
-  bash "${SCRIPT_DIR}/hyprland-install.sh"
+  bash "${SCRIPT_DIR}/packages/all.sh"
 }
 
-# --- Phase: Neovim Bootstrap -------------------------------------------------
-phase_nvim_setup() {
-  bash "${SCRIPT_DIR}/setup-nvim.sh"
+phase_other() {
+  bash "${SCRIPT_DIR}/other/all.sh"
 }
 
-# --- Phase: Keyring ---------------------------------------------------------
-phase_keyring() {
-  bash "${SCRIPT_DIR}/setup-keyring.sh"
+phase_hardware() {
+  bash "${SCRIPT_DIR}/hardware/all.sh"
 }
 
-# --- Phase: Dotfiles ---------------------------------------------------------
-phase_dotfiles() {
-  local _flags=()
-  [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]] && _flags+=("--unattended")
-  bash "${SCRIPT_DIR}/deploy-dotfiles.sh" "${_flags[@]}"
+phase_config() {
+  local flags=()
+  [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]] && flags+=(--unattended)
+  bash "${SCRIPT_DIR}/config/all.sh" "${flags[@]}"
 }
 
-# --- Phase: Binary Seeder ----------------------------------------------------
-# Symlinks shipped binaries (cloudyy_scripts/cloudyy-other/) into ~/.local/bin/.
-# AUR binaries (hcm, cloudyy-system-monitor) are installed in the packages phase.
-phase_bin_seed() {
-  bash "${SCRIPT_DIR}/bin_check.sh" seed "$(dirname "${SCRIPT_DIR}")"
+phase_login_user() {
+  bash "${SCRIPT_DIR}/login-user/all.sh"
 }
 
-# --- Phase: Shell Setup -------------------------------------------------------
-# Runs after packages so zsh is guaranteed to be installed.
-phase_shell() {
-  log "Configuring zsh shell..."
+phase_user() {
+  bash "${SCRIPT_DIR}/user/all.sh"
+}
 
-  local zsh_path
-  zsh_path="$(command -v zsh 2>/dev/null || true)"
-  if [[ -z "$zsh_path" ]]; then
-    log_warn "zsh not found — skipping (zsh should have been installed in packages phase)."
-    return 0
-  fi
-
-  if [[ "$SHELL" != "$zsh_path" ]]; then
-    if sudo chsh -s "$zsh_path" "$USER" >/dev/null 2>/dev/null; then
-      log_ok "Default shell set to zsh (takes effect on next login)."
-    else
-      log_warn "chsh failed — run: chsh -s ${zsh_path}"
-    fi
-  else
-    log_ok "zsh already default shell."
-  fi
-
-  local omz_dir="${HOME}/.config/zsh/oh-my-zsh"
-  if [[ ! -d "$omz_dir" ]]; then
-    log "Installing oh-my-zsh..."
-    local omz_installer
-    omz_installer="$(mktemp)"
-    if curl -fsSL --connect-timeout 10 --max-time 30 \
-      https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
-      -o "$omz_installer"; then
-      if ZSH="$omz_dir" RUNZSH=no CHSH=no \
-        sh "$omz_installer" "" --unattended 2>/dev/null; then
-        log_ok "oh-my-zsh installed."
-      else
-        log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-      fi
-    else
-      log_warn "oh-my-zsh install failed — run manually: ZSH=${omz_dir} sh <(curl -s https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-    fi
-    rm -f "$omz_installer"
-  else
-    log_ok "oh-my-zsh already installed."
-  fi
-
-  # Symlink system-installed plugins into oh-my-zsh custom plugins dir
-  local custom_plugins="${omz_dir}/custom/plugins"
-  mkdir -p "$custom_plugins"
-  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
-    local sys_path="/usr/share/zsh/plugins/${plugin}"
-    if [[ -d "$sys_path" && ! -e "${custom_plugins}/${plugin}" ]]; then
-      ln -snf "$sys_path" "${custom_plugins}/${plugin}"
-      log_ok "Plugin linked: ${plugin}"
-    fi
-  done
-
-  xdg-user-dirs-update 2>/dev/null || log_warn "xdg-user-dirs-update failed — run manually to create ~/Desktop, ~/Downloads etc."
-  log_ok "Shell configured."
+phase_post_install() {
+  local flags=()
+  [[ "${CLOUDYY_UNATTENDED:-0}" == "1" ]] && flags+=(--unattended)
+  bash "${SCRIPT_DIR}/post-install/all.sh" "${flags[@]}"
 }
 
 # --- Phase: Schema Settings --------------------------------------------------
 phase_schema() {
-  local schema_script="${SCRIPT_DIR}/schema_settings.sh"
+  local schema_script="${SCRIPT_DIR}/config/schema.sh"
   if [[ ! -f "$schema_script" ]]; then
     log_warn "schema_settings.sh not found — skipping XDG portal + pywalfox setup."
     return 0
   fi
   bash "$schema_script"
-  local region_time="${SCRIPT_DIR}/setup-region-time.sh"
+  local region_time="${SCRIPT_DIR}/config/region-time.sh"
   if [[ -f "$region_time" ]]; then
     bash "$region_time"
   fi
@@ -303,14 +255,14 @@ phase_services() {
     log_warn "Could not enable hyprpolkitagent.service — polkit password dialogs may not appear."
   fi
 
-  local qs_service_script="${SCRIPT_DIR}/setup-quickshell-service.sh"
+  local qs_service_script="${SCRIPT_DIR}/user/quickshell-service.sh"
   if [[ -f "$qs_service_script" ]]; then
     bash "$qs_service_script" || log_warn "Quickshell service setup encountered issues (non-fatal)."
   else
     log_warn "setup-quickshell-service.sh not found — quickshell crash-restart will not be configured."
   fi
 
-  local audio_service_script="${SCRIPT_DIR}/setup_services/setup-audio-autoswitch.sh"
+  local audio_service_script="${SCRIPT_DIR}/user/audio-autoswitch.sh"
   if [[ -f "$audio_service_script" ]]; then
     bash "$audio_service_script" ||
       log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
@@ -326,6 +278,7 @@ phase_services() {
 phase_theme_init() {
   local state_conf="${HOME}/.config/hypr/theme_state/state.conf"
   local default_wall="${HOME}/Wallpapers/Dark/cloudyy.jpg"
+  local current_wall="${HOME}/.config/hypr/theme_state/current_wallpaper/current.jpg"
 
   if ! command -v cloudyy-theme >/dev/null 2>&1; then
     log_warn "cloudyy-theme not found on PATH — skipping theme bootstrap."
@@ -340,6 +293,14 @@ phase_theme_init() {
     mkdir -p "$(dirname "$state_conf")"
     printf 'THEME_MODE="dark"\nCURRENT_WALL="%s"\n' "$default_wall" >"$state_conf"
     log "Default wallpaper seeded into theme state."
+  fi
+
+  # The lockscreen reads this snapshot directly, including before the wallpaper
+  # daemon or theme controller has had a chance to run on first login.
+  if [[ ! -f "$current_wall" && -f "$default_wall" ]]; then
+    mkdir -p "$(dirname "$current_wall")"
+    cp "$default_wall" "$current_wall"
+    log "Default wallpaper seeded into lockscreen snapshot."
   fi
 
   if cloudyy-theme restore >/dev/null 2>&1; then
@@ -401,33 +362,25 @@ phase_finalize() {
 # =============================================================================
 declare -a PHASE_IDS=(
   "preflight"
-  "dotfiles"
-  "bin_seed"
   "packages"
-  "nvim_setup"
-  "schema"
-  "shell"
-  "laptop"
-  "keyring"
-  "theme_init"
-  "services"
-  "boot_setup"
+  "hardware"
+  "config"
+  "login_user"
+  "user"
+  "other"
+  "post_install"
   "finalize"
 )
 
 declare -A PHASE_LABELS=(
   [preflight]="System Preflight Checks"
-  [dotfiles]="Dotfiles Deployment"
-  [bin_seed]="Binary Seeder"
-  [packages]="Hardware & Package Installation"
-  [nvim_setup]="Neovim Plugin Bootstrap"
-  [schema]="XDG Portal & Schema Settings"
-  [shell]="Shell Configuration"
-  [laptop]="Laptop Hardware Support"
-  [keyring]="Keyring Configuration"
-  [theme_init]="Initial Theme Bootstrap"
-  [services]="Service Configuration"
-  [boot_setup]="Boot Optimisation"
+  [packages]="Package Installation"
+  [hardware]="Hardware Configuration"
+  [config]="Configuration Deployment"
+  [login_user]="Login & User Setup"
+  [user]="User Commands & Services"
+  [other]="Other Setup"
+  [post_install]="Post-install Configuration"
   [finalize]="Finalization"
 )
 
@@ -445,7 +398,7 @@ main() {
     exit 0
     ;;
   --reset)
-    rm -f "$STATE_FILE"
+    rm -f "$STATE_FILE" "$STATE_VERSION_FILE"
     printf '%sState cleared.%s Re-run without --reset to start fresh.\n' "$GREEN" "$RESET"
     exit 0
     ;;
@@ -563,6 +516,10 @@ BANNER
   fi
 
   # --- Acquire Sudo ---
+  if ((STATE_VERSION_MISMATCH)); then
+    rm -f "$STATE_FILE" "$STATE_VERSION_FILE"
+    log_warn "Previous installer progress reset for the new layout."
+  fi
   touch "$STATE_FILE"
   export CLOUDYY_INSTALL_ORCHESTRATED=1
   start_sudo_heartbeat

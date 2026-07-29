@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# cloudyy:summary=End the current graphical login session
+
+set -euo pipefail
+
+session_id="${XDG_SESSION_ID:-}"
+if [[ -z "$session_id" ]]; then
+  printf 'cloudyy-logout: XDG_SESSION_ID is not set\n' >&2
+  exit 1
+fi
+
+session_type="$(loginctl show-session "$session_id" -p Type --value 2>/dev/null || true)"
+if [[ "$session_type" != "wayland" && "$session_type" != "x11" ]]; then
+  printf 'cloudyy-logout: session %s is not graphical\n' "$session_id" >&2
+  exit 1
+fi
+
+exec loginctl terminate-session "$session_id"
