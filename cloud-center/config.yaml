@@ -369,6 +369,45 @@ pages:
                 cd ~/cloudyy-linux/cloud-center &&
                 python3 -m lib.hypridle_persist apply lock {value_i}
 
+          - type: toggle
+            properties:
+              title: Lock when idle
+              description: Turn off to disable idle locking completely
+              icon: 󰌾
+              key: idle/lock_enabled
+              default: true
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist lock on
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist lock off
+
+      - type: section
+        properties:
+          title: Laptops
+          description: Lid behavior on battery-powered devices
+        items:
+          - type: toggle
+            properties:
+              title: Sleep when lid is closed
+              description: Turn off to keep the session running with the lid shut
+              icon: 󰒲
+              key: idle/lid_sleep
+              default: true
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.lid_sleep_persist on
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.lid_sleep_persist off
+
   - id: input
     title: Input
     icon: 󰌌

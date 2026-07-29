@@ -1,0 +1,10 @@
+[Unit]
+Description=Block logind lid-switch suspend (Cloud Center)
+
+[Service]
+ExecStart=/usr/bin/systemd-inhibit --what=handle-lid-switch --who=cloudyy --why="Lid suspend disabled in Cloud Center" --mode=block /usr/bin/sleep infinity
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
