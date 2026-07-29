@@ -77,6 +77,31 @@ class HypridlePersistTest(unittest.TestCase):
         self.assertIn("timeout = 1200\n    on-timeout = true", source)
         self.assertIn("timeout = 2700\n    on-timeout = cloudyy-lock", source)
 
+    def test_lock_can_be_disabled_without_touching_the_scene_listener(self):
+        enabled = hypridle_persist.set_lock_enabled(False, restart=False)
+
+        self.assertIs(enabled, False)
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 900\n    on-timeout = cloudyy-idle show", source)
+        self.assertIn("timeout = 2700\n    on-timeout = true # cloudyy-lock", source)
+
+    def test_lock_can_be_reenabled_after_being_disabled(self):
+        hypridle_persist.set_lock_enabled(False, restart=False)
+        enabled = hypridle_persist.set_lock_enabled(True, restart=False)
+
+        self.assertIs(enabled, True)
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 900\n    on-timeout = cloudyy-idle show", source)
+        self.assertIn("timeout = 2700\n    on-timeout = cloudyy-lock\n", source)
+
+    def test_lock_timeout_can_still_change_while_the_lock_is_disabled(self):
+        hypridle_persist.set_lock_enabled(False, restart=False)
+        hypridle_persist.apply("lock", "60", restart=False)
+
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 900\n    on-timeout = cloudyy-idle show", source)
+        self.assertIn("timeout = 3600\n    on-timeout = true # cloudyy-lock", source)
+
     def test_apply_restarts_hypridle_by_default(self):
         completed = subprocess.CompletedProcess(["systemctl"], 0, "", "")
         with mock.patch.object(hypridle_persist.subprocess, "run", return_value=completed) as run:

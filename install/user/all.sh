@@ -26,6 +26,9 @@ done
 unit_dir="${HOME}/.config/systemd/user"
 mkdir -p "$unit_dir"
 install -m 0644 "${INSTALL_DIR}/assets/systemd/quickshell.service" "${unit_dir}/quickshell.service"
+# Lid-suspend inhibitor unit — installed but not enabled; Cloud Center's
+# "Sleep when lid is closed" toggle (lib/lid_sleep_persist.py) enables it.
+install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-lid-inhibit.service" "${unit_dir}/cloudyy-lid-inhibit.service"
 
 bash "${SCRIPT_DIR}/desktop-entries.sh" "$REPO_DIR"
 bash "${SCRIPT_DIR}/quickshell-service.sh" ||
