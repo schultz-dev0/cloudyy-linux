@@ -31,21 +31,19 @@ Singleton {
             id: "lock",
             label: "Lock",
             icon: "󰷛",
-            run: "pidof hyprlock >/dev/null 2>&1 || hyprlock"
+            command: ["cloudyy-lock"]
         },
         {
             id: "suspend",
             label: "Suspend",
             icon: "󰒲",
-            run: "systemctl suspend"
-            // TO-DO: Make suspend also send a command to lock the system, so upon awakining
-            // The user is prompted with a password
+            run: "cloudyy-lock && systemctl suspend"
         },
         {
             id: "logout",
             label: "Logout",
             icon: "󰍃",
-            command: ["hyprctl", "dispatch", "exit"]
+            command: ["cloudyy-logout"]
         },
         {
             id: "reboot",

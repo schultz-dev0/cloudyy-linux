@@ -44,10 +44,13 @@ Item {
             width: root.imageSize
             height: root.imageSize
             source: root.imagePath.length > 0 ? "file://" + root.imagePath : ""
+            // Never decode a full-resolution wallpaper for a 148px thumbnail.
+            sourceSize.width: Math.ceil(root.imageSize * 1.25)
+            sourceSize.height: Math.ceil(root.imageSize * 1.25)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             smooth: true
-            cache: true
+            cache: false
         }
 
         Rectangle {

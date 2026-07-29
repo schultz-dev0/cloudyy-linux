@@ -19,6 +19,7 @@ import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/island" as QuickIsland
 import "modules/notifpanel" as QuickNotifPanel
+import "modules/idle" as QuickIdle
 import "overview/modules/overview" as QuickOverview
 
 ShellRoot {
@@ -391,6 +392,12 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "idle"
+        function activate() { QuickIdle.IdleService.show(); }
+        function dismiss() { QuickIdle.IdleService.dismiss(); }
+    }
+
+    IpcHandler {
         target: "system"
         function toggle() { QuickSystemMonitor.SystemMonitorService.toggleOpen() }
         function show()   { QuickSystemMonitor.SystemMonitorService.open = true }
@@ -448,6 +455,7 @@ ShellRoot {
         Bar {
             required property var modelData
             assignedScreen: modelData
+            visible: QuickIdle.IdleService.state !== "scene"
             ipcEnabled: root.barIpcEnabled(modelData)
             notifOpen: root.notifOpen
             dnd: root.dnd
@@ -483,6 +491,7 @@ ShellRoot {
         QuickDock.Dock {
             required property var modelData
             assignedScreen: modelData
+            visible: QuickIdle.IdleService.state !== "scene"
             ipcEnabled: root.dockIpcEnabled(modelData)
         }
     }
@@ -501,6 +510,15 @@ ShellRoot {
     }
 
     QuickSpotlight.Spotlight {}
+
+    Variants {
+        model: Quickshell.screens
+
+        QuickIdle.IdleScene {
+            required property var modelData
+            assignedScreen: modelData
+        }
+    }
 
     QuickAppLibrary.AppLibrary {}
 

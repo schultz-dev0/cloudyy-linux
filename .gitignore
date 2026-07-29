@@ -30,7 +30,7 @@
 .vscode-oss/
 .vscode-oss/extensions/*
 !.vscode-oss/extensions/matugen-theme
-cloudyy_scripts/cloud-center-v2/vscode-gtk-icons/
+cloud-center/vscode-gtk-icons/
 
 # Private user wallpapers — never commit images
 Wallpapers/user_wallpapers/**/*
@@ -111,7 +111,7 @@ cloudyy_scripts/source/*
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/cloudyy
-cloudyy_scripts/cloud-center-v2/.claude/
+cloud-center/.claude/
 .config/zsh/.claude/
 .config/quickshell/.claude/
 cloudyy_scripts/terminal/.claude/

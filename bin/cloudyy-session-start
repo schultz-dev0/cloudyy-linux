@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Start the desktop only after the boot lockscreen unlocks
+
+set -euo pipefail
+
+scripts_dir="${HOME}/cloudyy_scripts"
+
+personal_services=false
+case "${1:-}" in
+  "") ;;
+  --personal) personal_services=true ;;
+  *)
+    printf 'Usage: cloudyy-session-start [--personal]\n' >&2
+    exit 64
+    ;;
+esac
+
+# TTY autologin creates the Wayland session, but no desktop services begin
+# until the Quickshell lock has authenticated the user.
+cloudyy-lock --wait
+
+systemctl --user start hypridle.service
+if ! systemctl --user start hyprpolkitagent.service 2>/dev/null; then
+  /usr/lib/hyprpolkitagent/hyprpolkitagent &
+fi
+systemctl start geoclue.service 2>/dev/null || true
+wl-paste --type text --watch cliphist store &
+wl-paste --type image --watch cliphist store &
+cloudyy-theme restore
+cloudyy-system-monitor &
+
+if [[ -x "${scripts_dir}/quickshell/qs_start.sh" ]]; then
+  "${scripts_dir}/quickshell/qs_start.sh"
+else
+  cloudyy-quickshell-start
+fi
+
+if [[ ! -f "${HOME}/.config/OOBE/.dont_show" ]]; then
+  qs -n -d -p "${HOME}/.config/OOBE"
+fi
+
+if "$personal_services"; then
+  syncthing &
+  python3 "${scripts_dir}/trcc-headless.py" &
+  mxactions &
+fi

@@ -31,7 +31,10 @@ else
   echo "Warning: Limine config not found at $LIMINE_CFG"
 fi
 
-# 3. Setup Getty Autologin Override (Bypass TTY Password)
+# 3. Setup Getty Autologin Override
+# Hyprland starts directly, then its first autostart action opens Cloudyy Lock.
+# Authentication therefore happens through the Quickshell lockscreen instead of
+# a TTY password prompt.
 echo "Configuring TTY1 Autologin..."
 GETTY_DIR="/etc/systemd/system/getty@tty1.service.d"
 mkdir -p "$GETTY_DIR"

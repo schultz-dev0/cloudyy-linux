@@ -1,0 +1,348 @@
+#!/usr/bin/env bash
+# =============================================================================
+# dependencies.conf — cloudyy-linux Package Manifest
+# =============================================================================
+# TIERS
+#   MANDATORY_*   → Hyprland or your dotfiles will not function without these.
+#                   Always installed, no prompts.
+#
+#   CHOICE_*      → Pick exactly one per category.
+#                   Format: "package|Label|official_or_aur"
+#                   CHOICE_*_DEFAULT = 1-based index of the pre-selected option.
+#
+#   OPTIONAL_*    → Additive groups. User picks y/n per block.
+#
+#   GPU_*         → Hardware drivers, selected at runtime by lspci detection.
+# =============================================================================
+
+# =============================================================================
+# MANDATORY — always installed
+# =============================================================================
+
+# --- Compositor Core ----------------------------------------------------------
+MANDATORY_OFFICIAL_COMPOSITOR=(
+  "hyprland"
+  "uwsm"                        # Session manager — proper Hyprland startup
+  "xdg-desktop-portal-hyprland" # Screen sharing, file picker
+  "xdg-desktop-portal-gtk"      # Settings portal (color-scheme for Firefox)
+  "qt5-wayland"
+  "qt6-wayland"
+  "hyprpolkitagent" # Authentication dialogs
+  "hyprcursor"      # Cursor theme management
+  "xorg-xwayland"   # Xwayland compatibility layer
+)
+
+# --- Hyprland Daemons ---------------------------------------------------------
+MANDATORY_OFFICIAL_DAEMONS=(
+  "hypridle"   # Idle → lock/suspend trigger
+  "hyprsunset" # Blue light filter (keybind in dotfiles)
+  "hyprpicker" # Colour picker
+)
+MANDATORY_AUR_DAEMONS=(
+  "hyprcap"    # Screen capture daemon
+  "rusty_keys" # Keyboard sounds
+)
+
+# --- Audio Stack --------------------------------------------------------------
+MANDATORY_OFFICIAL_AUDIO=(
+  "pipewire"            # Audio server
+  "wireplumber"         # PipeWire session manager
+  "pipewire-alsa"       # ALSA compatibility
+  "pipewire-pulse"      # PulseAudio compatibility
+  "pipewire-jack"       # JACK compatibility
+  "gst-plugin-pipewire" # GStreamer → PipeWire bridge
+  "pamixer"             # CLI volume control (keybinds)
+  "playerctl"           # MPRIS media control (media keybinds)
+  "pavucontrol"         # GUI audio mixer
+)
+
+# --- Desktop Interface --------------------------------------------------------
+MANDATORY_OFFICIAL_INTERFACE=(
+  "swww"       # Wallpaper daemon
+  "swayosd"    # On-screen display for volume/brightness keybinds
+  "quickshell" # Bar / notifications / shell UI
+)
+MANDATORY_AUR_INTERFACE=(
+  "wlogout"  # Power/session menu (keybind in dotfiles)
+  "waypaper" # GUI wallpaper picker (wraps swww)
+)
+
+# --- Screenshot & Clipboard ---------------------------------------------------
+MANDATORY_OFFICIAL_SCREENSHOT=(
+  "grim"             # Screenshot capture
+  "slurp"            # Region/window selection
+  "swappy"           # Screenshot annotation
+  "wl-clipboard"     # Wayland clipboard (wl-copy / wl-paste)
+  "cliphist"         # Clipboard history daemon
+  "wtype"            # Synthetic key injection for native Wayland windows
+  "xdotool"          # Synthetic key injection for XWayland windows
+  "gtk4-layer-shell" # GTK4 layer shell — required by screenshot popup overlay
+)
+
+# --- Shell & Prompt -----------------------------------------------------------
+MANDATORY_OFFICIAL_SHELL=(
+  "zsh"
+  "zsh-autosuggestions"
+  "zsh-syntax-highlighting"
+  "starship" # Prompt
+)
+
+# --- System Utilities ---------------------------------------------------------
+MANDATORY_OFFICIAL_SYSTEM=(
+  "jq"            # JSON — used by Hyprland/shell scripts
+  "curl"          # HTTP requests, used by qs
+  "socat"         # Sockets — used by Hyprland IPC scripts
+  "inotify-tools" # File watching — live-reload scripts
+  "brightnessctl" # Backlight control keybinds
+  "networkmanager"
+  "network-manager-applet" # NM system tray
+  "nm-connection-editor"   # NM GUI editor
+  "bluez"
+  "bluez-utils"    # bluetoothctl
+  "pacman-contrib" # checkupdates, pacdiff, rankmirrors
+  "man-db"         # Manual pages
+  "git"            # Required for AUR builds + dotfiles
+  "base-devel"     # Required for AUR (makepkg)
+  "rsync"
+  "wget"
+  "nano" # Fallback editor
+  "openssh"
+  "sof-firmware" # Audio firmware (Intel HDA, DMIC)
+  "unzip" "zip"
+  "cpio"                      # Archive tool (used during AUR builds)
+  "gnome-keyring"             # Secret storage (SSH keys, passwords)
+  "fprintd"                   # Fingerprint service + pam_fprintd for supported readers
+  "zram-generator"            # Compressed swap in RAM
+  "gsettings-desktop-schemas" # GSettings schemas (color-scheme portal, GTK integration)
+  "tesseract"                 # OCR engine (used by clipboard scripts)
+  "tesseract-data-eng"        # English OCR data
+  "power-profiles-daemon"     # CPU power profile control (command center power menu)
+  "xdg-utils"                 # xdg-open — used by command center / learn menus to open URLs/files
+  "mesa-utils"                # glxinfo — GPU info fallback
+  "libnotify"                 # notify-send — theme controller + system notifications
+  "python-gobject"            # PyGObject / gi — screenshot popup, region/time helpers, hybrid CC modules
+  "gtk4"                      # Gtk-4.0/Gdk-4.0/Pango typelibs — gi.repository import target for Cloud Center (fatal if missing)
+  "libadwaita"                # Adw-1 typelib — gi.repository import target for Cloud Center (fatal if missing)
+  "python-yaml"               # YAML parser — required by Cloud Center (fatal if missing)
+  "python-requests"           # HTTP client — online wallpaper browser, unguarded import (fatal if missing)
+  "python-psutil"             # CPU/process stats — used by quickshell CPU pill (has /proc/loadavg fallback)
+  "geoclue"                   # System geolocation — Cloud Center Region & Time page
+)
+
+# --- Theming ------------------------------------------------------------------
+MANDATORY_OFFICIAL_THEMING=(
+  "nwg-look"                # GTK theme/font/icon switcher
+  "adw-gtk-theme"           # GTK3 → libadwaita style match
+  "qt5ct"                   # Qt5 theme configurator
+  "qt6ct"                   # Qt6 theme configurator
+  "kvantum"                 # Qt SVG theme engine
+  "ttf-jetbrains-mono-nerd" # Primary font (icons, kitty, quickshell)
+  "noto-fonts"              # Base Unicode font coverage
+  "noto-fonts-emoji"        # Emoji rendering
+  "matugen"                 # Material You colour generator (core to dotfiles)
+  "sassc"                   # SCSS → CSS compiler (theme build scripts)
+  "webp-pixbuf-loader"      # WebP image support in GTK apps
+  "libcanberra"             # GTK sound events
+  "webkitgtk-6.0"           # WebKit engine (required by polkit agent, some GNOME apps)
+)
+MANDATORY_AUR_THEMING=(
+  "fluent-icon-theme-git"             # Icon theme referenced in dotfiles
+  "python-pywalfox"                   # Firefox colour theming via pywal
+  "bibata-cursor-git"                 # Default Hyprcursor and XCursor theme family
+  "apple_hyprcursor"                  # Optional macOS-style Hyprcursor themes
+  "apple_cursor"                      # Matching macOS-style XCursor themes
+  "ttf-material-symbols-variable-git" # Icon font for quickshell
+)
+
+# --- System Monitoring --------------------------------------------------------
+MANDATORY_OFFICIAL_MONITORING=(
+  "btop"      # Resource monitor
+  "fastfetch" # System info (called on shell startup)
+  "nvtop"     # GPU monitor (Intel/AMD/NVIDIA)
+)
+MANDATORY_AUR_MONITORING=(
+  "cloudyy-system-monitor-git" # Quickshell system overview stats (built on AUR, no rust on system)
+)
+
+# --- Cloudyy Tools (AUR) ------------------------------------------------------
+MANDATORY_AUR_CLOUDYY=(
+)
+
+# =============================================================================
+# STANDARD INSTALL — installed on every machine beyond MANDATORY
+# =============================================================================
+
+STANDARD_INSTALL_OFFICIAL=(
+  # Terminal & multiplexer
+  "kitty"
+  "tmux"
+
+  # File manager
+  "nautilus" "tumbler"
+  "gvfs" "gvfs-mtp" "gvfs-nfs" "gvfs-smb" "file-roller"
+
+  # CLI toolkit
+  "neovim" "tree-sitter" "bat" "eza" "fzf" "ripgrep" "fd" "yazi" "tealdeer"
+  "imagemagick" "reflector" "tree" "gdu" "swayimg" "inxi" "expac"
+
+  # GUI extras
+  "blueman" "gnome-calculator" "gnome-clocks" "loupe" "seahorse"
+  "gparted" "udiskie" "yad" "xdg-user-dirs"
+
+  # Phone integration
+  "kdeconnect"
+
+  # Notes
+  "obsidian"
+
+  # Editor (pinned in dock by default)
+  "zed"
+
+  # System tools
+  "btrfs-progs" "snapper" "ntfs-3g" "efibootmgr" "usbutils"
+  "arch-wiki-docs"
+)
+
+STANDARD_INSTALL_AUR=(
+  "zen-browser-bin"
+  "vesktop"
+  "spotify"
+  "localsend"
+)
+
+# =============================================================================
+# SWAPPABLE — cloudyy-config reads these to know current default + alternatives
+# =============================================================================
+
+SWAPPABLE_BROWSER_DEFAULT="zen-browser-bin"
+SWAPPABLE_BROWSER_DEFAULT_TYPE="aur"
+SWAPPABLE_BROWSER=(
+  "zen-browser-bin|Zen Browser|aur"
+  "firefox|Firefox|official"
+  "brave-bin|Brave|aur"
+  "chromium|Chromium|official"
+)
+
+SWAPPABLE_TERMINAL_DEFAULT="kitty"
+SWAPPABLE_TERMINAL_DEFAULT_TYPE="official"
+SWAPPABLE_TERMINAL=(
+  "kitty|Kitty|official"
+  "foot|Foot|official"
+  "alacritty|Alacritty|official"
+  "wezterm|WezTerm|official"
+)
+
+SWAPPABLE_MULTIPLEXER_DEFAULT="zellij"
+SWAPPABLE_MULTIPLEXER_DEFAULT_TYPE="official"
+SWAPPABLE_MULTIPLEXER=(
+  "zellij|Zellij|official"
+  "tmux|tmux|official"
+  "none|None (remove current)|none"
+)
+
+# =============================================================================
+# ADDONS — optional installs managed by cloudyy-config
+# =============================================================================
+
+ADDON_OFFICIAL_OBS=("obs-studio" "gpu-screen-recorder")
+ADDON_AUR_OBS=()
+
+ADDON_OFFICIAL_GAMING=(
+  "steam" "gamemode" "lib32-gamemode"
+  "mangohud" "lib32-mangohud" "lutris"
+)
+ADDON_AUR_GAMING=("protonup-qt" "heroic-games-launcher-bin")
+
+ADDON_OFFICIAL_OFFICE=("libreoffice-still")
+ADDON_AUR_OFFICE=()
+
+ADDON_OFFICIAL_DEV=(
+  "cmake" "meson" "ninja" "mold" "clang"
+  "shellcheck" "shfmt" "stylua" "uv"
+  "linux-headers" "dkms" "github-cli" "wev"
+  "rust-analyzer"
+)
+ADDON_AUR_DEV=("vscodium" "visual-studio-code-bin")
+
+# =============================================================================
+# GPU DRIVERS — selected at runtime by lspci detection
+# =============================================================================
+
+OFFICIAL_GPU_NVIDIA=(
+  "nvidia-open-dkms" "nvidia-utils" "lib32-nvidia-utils"
+  "nvidia-settings" "egl-wayland"
+  "nvidia-prime" # PRIME offload support for Optimus hybrid laptops
+)
+AUR_GPU_NVIDIA=()
+
+OFFICIAL_GPU_INTEL=(
+  "mesa" "lib32-mesa" "vulkan-intel" "lib32-vulkan-intel"
+  "intel-media-driver"
+)
+AUR_GPU_INTEL=()
+
+OFFICIAL_GPU_AMD=(
+  "mesa" "lib32-mesa" "vulkan-radeon" "lib32-vulkan-radeon"
+  "libva-mesa-driver" "mesa-vdpau" "lib32-mesa-vdpau"
+)
+AUR_GPU_AMD=()
+
+# =============================================================================
+# ALIASES — for test-install.sh compatibility
+# =============================================================================
+
+MINIMAL_GROUP=(
+  "${MANDATORY_OFFICIAL_COMPOSITOR[@]}"
+  "${MANDATORY_OFFICIAL_DAEMONS[@]}" "${MANDATORY_AUR_DAEMONS[@]}"
+  "${MANDATORY_OFFICIAL_AUDIO[@]}"
+  "${MANDATORY_OFFICIAL_INTERFACE[@]}" "${MANDATORY_AUR_INTERFACE[@]}"
+  "${MANDATORY_OFFICIAL_SCREENSHOT[@]}"
+  "${MANDATORY_OFFICIAL_SHELL[@]}"
+  "${MANDATORY_OFFICIAL_SYSTEM[@]}"
+  "${MANDATORY_OFFICIAL_THEMING[@]}" "${MANDATORY_AUR_THEMING[@]}"
+  "${MANDATORY_OFFICIAL_MONITORING[@]}" "${MANDATORY_AUR_MONITORING[@]}"
+  "${MANDATORY_AUR_CLOUDYY[@]}"
+)
+
+STANDARD_GROUP=(
+  "${MINIMAL_GROUP[@]}"
+  "${STANDARD_INSTALL_OFFICIAL[@]}"
+  "${STANDARD_INSTALL_AUR[@]}"
+)
+
+# Named-group aliases used by test-install.sh
+CORE_PACKAGES=(
+  "${MANDATORY_OFFICIAL_COMPOSITOR[@]}"
+  "${MANDATORY_OFFICIAL_DAEMONS[@]}" "${MANDATORY_AUR_DAEMONS[@]}"
+  "${MANDATORY_OFFICIAL_SHELL[@]}"
+  "${MANDATORY_OFFICIAL_SYSTEM[@]}"
+)
+INTERFACE_PACKAGES=(
+  "${MANDATORY_OFFICIAL_INTERFACE[@]}" "${MANDATORY_AUR_INTERFACE[@]}"
+)
+UTILITY_PACKAGES=(
+  "${MANDATORY_OFFICIAL_SCREENSHOT[@]}"
+  "${MANDATORY_OFFICIAL_MONITORING[@]}" "${MANDATORY_AUR_MONITORING[@]}"
+  "${MANDATORY_AUR_CLOUDYY[@]}"
+)
+AUR_PACKAGES=(
+  "${MANDATORY_AUR_DAEMONS[@]}"
+  "${MANDATORY_AUR_INTERFACE[@]}"
+  "${MANDATORY_AUR_THEMING[@]}"
+  "${MANDATORY_AUR_MONITORING[@]}"
+  "${MANDATORY_AUR_CLOUDYY[@]}"
+  "${STANDARD_INSTALL_AUR[@]}"
+)
+AUDIO_PACKAGES=("${MANDATORY_OFFICIAL_AUDIO[@]}")
+
+FULL_GROUP=(
+  "${STANDARD_GROUP[@]}"
+  "${ADDON_OFFICIAL_OBS[@]}"
+  "${ADDON_OFFICIAL_GAMING[@]}" "${ADDON_AUR_GAMING[@]}"
+  "${ADDON_OFFICIAL_OFFICE[@]}"
+  "${ADDON_OFFICIAL_DEV[@]}" "${ADDON_AUR_DEV[@]}"
+)
+
+# Gaming alias names expected by test-install.sh line 173
+OPTIONAL_AUR_GAMING=("${ADDON_AUR_GAMING[@]}")
+OPTIONAL_OFFICIAL_GAMING=("${ADDON_OFFICIAL_GAMING[@]}")

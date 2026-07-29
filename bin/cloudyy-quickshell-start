@@ -3,6 +3,6 @@
 # Canonical Quickshell start — reads Cloud Center settings (e.g. lightweight mode).
 set -euo pipefail
 
-CC_DIR="${HOME}/cloudyy_scripts/cloud-center-v2"
+CC_DIR="${HOME}/cloudyy-linux/cloud-center"
 export PYTHONPATH="${CC_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m lib.quickshell_display_settings --daemon

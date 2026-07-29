@@ -6,7 +6,7 @@ import Quickshell.Io
 Singleton {
     id: backend
 
-    readonly property string ccRoot: Quickshell.env("HOME") + "/cloudyy_scripts/cloud-center-v2"
+    readonly property string ccRoot: Quickshell.env("HOME") + "/cloudyy-linux/cloud-center"
     readonly property string backendOverride: Quickshell.env("CC_BACKEND_CMD") ?? ""
 
     property bool ready: false

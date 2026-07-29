@@ -1,4 +1,4 @@
-# Python Conventions (Cloud Center backend, `cloudyy_scripts/cloud-center-v2/`)
+# Python Conventions (Cloud Center backend, `cloud-center/`)
 
 ## Stated philosophy (project CLAUDE.md, quote directly)
 
