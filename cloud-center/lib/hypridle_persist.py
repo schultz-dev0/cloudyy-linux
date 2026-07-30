@@ -104,6 +104,16 @@ def _set_on_timeout_command(lines: list[str], target: str, command: str) -> list
 
 def _restart_hypridle() -> None:
     result = subprocess.run(
+        ["systemctl", "--user", "reset-failed", "hypridle.service"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "unknown error").strip()
+        raise RuntimeError(f"could not reset failed hypridle state: {detail}")
+
+    result = subprocess.run(
         ["systemctl", "--user", "restart", "hypridle.service"],
         capture_output=True,
         text=True,

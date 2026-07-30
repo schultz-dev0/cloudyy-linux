@@ -2,6 +2,8 @@ from pathlib import Path
 import re
 import unittest
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HYPRIDLE_CONFIG = REPO_ROOT / "install/assets/defaults/hypr/hypridle.conf"
@@ -115,6 +117,41 @@ class IdleLockContractTests(unittest.TestCase):
         self.assertIn("python3 -m lib.lid_sleep_persist on", source)
         self.assertIn("python3 -m lib.lid_sleep_persist off", source)
         self.assertIn('"idle"', model)
+
+    def test_idle_timing_controls_use_editable_dropdown_presets(self):
+        config = yaml.safe_load(CLOUD_CENTER_CONFIG.read_text(encoding="utf-8"))
+        idle_page = next(page for page in config["pages"] if page["id"] == "idle")
+        items = idle_page["layout"][0]["items"]
+        controls = {
+            item["properties"]["key"]: item
+            for item in items
+            if item["properties"].get("key")
+            in {"idle/scene_minutes", "idle/lock_minutes"}
+        }
+
+        expected_controls = {
+            "idle/scene_minutes": (15, "scene"),
+            "idle/lock_minutes": (45, "lock"),
+        }
+        self.assertEqual(set(controls), set(expected_controls))
+
+        for key, (default, action) in expected_controls.items():
+            control = controls[key]
+            properties = control["properties"]
+
+            self.assertEqual(control["type"], "slider")
+            self.assertEqual(properties.get("presentation"), "editable_dropdown")
+            self.assertEqual(properties["preset_min"], 15)
+            self.assertEqual(properties["preset_max"], 120)
+            self.assertEqual(properties["preset_step"], 15)
+            self.assertEqual(properties["default"], default)
+            self.assertNotIn("min", properties)
+            self.assertNotIn("max", properties)
+            self.assertNotIn("step", properties)
+            self.assertIn(
+                f"python3 -m lib.hypridle_persist apply {action} {{value_i}}",
+                control["on_change"]["command"],
+            )
 
     def test_hyprland_starts_hypridle_not_removed_hyprlock(self):
         source = HYPR_AUTOSTART.read_text(encoding="utf-8")
