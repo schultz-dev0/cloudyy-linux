@@ -59,6 +59,9 @@ cloudyy_scripts/IMPROVEMENTS.md
 .config/hypr/windowrules.lua
 .config/hypr/variables.lua
 .config/hypr/colors.lua
+# Per-machine idle timeouts (Cloud Center managed; seeded from
+# install/assets/defaults/hypr/hypridle.conf by deploy.sh)
+.config/hypr/hypridle.conf
 # Old pre-consolidation source/override split — superseded by the single-file
 # modules above; kept on disk until Task 10's live cutover, never re-tracked.
 .config/hypr/source/
