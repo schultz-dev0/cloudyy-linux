@@ -16,7 +16,12 @@ Item {
     property color mutedColor: "#6e817b"
     property color accentColor: "#087b68"
     property string filterQuery: ""
+    property bool editorDirty: false
     readonly property var visibleOptions: filteredOptions(filterQuery)
+
+    signal optionSelected(var value)
+    signal textAccepted(string text)
+    signal editorBlurred(string text)
 
     implicitWidth: 210
     implicitHeight: 28
@@ -57,11 +62,21 @@ Item {
             clip: true
             font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 }
             onTextEdited: {
+                combo.editorDirty = true;
                 combo.value = text;
                 combo.filterQuery = text;
                 if (!popup.opened) popup.open();
             }
-            onAccepted: popup.close()
+            onAccepted: {
+                popup.close();
+                if (combo.editorDirty)
+                    combo.textAccepted(text);
+                combo.editorDirty = false;
+            }
+            onActiveFocusChanged: {
+                if (!activeFocus)
+                    blurTimer.restart();
+            }
             Keys.onDownPressed: popup.open()
 
             Text {
@@ -89,6 +104,17 @@ Item {
 
         HoverHandler { id: hover }
         TapHandler { onTapped: combo.open() }
+    }
+
+    Timer {
+        id: blurTimer
+        interval: 0
+        onTriggered: {
+            if (!input.activeFocus && combo.editorDirty) {
+                combo.editorBlurred(input.text);
+                combo.editorDirty = false;
+            }
+        }
     }
 
     Popup {
@@ -126,7 +152,9 @@ Item {
                         combo.value = String(optionDelegate.modelData);
                         input.text = combo.value;
                         combo.filterQuery = "";
+                        combo.editorDirty = false;
                         popup.close();
+                        combo.optionSelected(optionDelegate.modelData);
                     }
                 }
             }

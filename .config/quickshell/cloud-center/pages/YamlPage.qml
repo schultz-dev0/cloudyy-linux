@@ -55,7 +55,8 @@ Flickable {
                             case "label":            return labelComp;
                             case "button":           return buttonComp;
                             case "toggle":           return toggleComp;
-                            case "slider":           return sliderComp;
+                            case "slider":           return modelData.presentation === "editable_dropdown"
+                                                          ? editableNumberSelectComp : sliderComp;
                             case "selection":        return selectComp;
                             case "multi_selection":  return multiComp;
                             case "wallpaper_picker": return wallpaperComp;
@@ -68,6 +69,12 @@ Flickable {
                         property Component buttonComp: Component { RowButton { item: modelData } }
                         property Component toggleComp: Component { RowToggle { item: modelData } }
                         property Component sliderComp: Component { RowSlider { item: modelData } }
+                        property Component editableNumberSelectComp: Component {
+                            RowEditableNumberSelect {
+                                item: modelData
+                                request: (method, params) => S.Backend.request(method, params, null)
+                            }
+                        }
                         property Component selectComp: Component { RowSelect { item: modelData } }
                         property Component multiComp: Component { RowMultiSelect { item: modelData } }
                         property Component wallpaperComp: Component { WallpaperGrid { item: modelData } }

@@ -102,21 +102,43 @@ class HypridlePersistTest(unittest.TestCase):
         self.assertIn("timeout = 900\n    on-timeout = cloudyy-idle show", source)
         self.assertIn("timeout = 3600\n    on-timeout = true # cloudyy-lock", source)
 
-    def test_apply_restarts_hypridle_by_default(self):
+    def test_apply_resets_failed_hypridle_before_restarting(self):
         completed = subprocess.CompletedProcess(["systemctl"], 0, "", "")
         with mock.patch.object(hypridle_persist.subprocess, "run", return_value=completed) as run:
             hypridle_persist.apply("scene", "15")
 
-        run.assert_called_once_with(
-            ["systemctl", "--user", "restart", "hypridle.service"],
-            capture_output=True,
-            text=True,
-            timeout=5,
+        self.assertEqual(
+            run.call_args_list,
+            [
+                mock.call(
+                    ["systemctl", "--user", "reset-failed", "hypridle.service"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ),
+                mock.call(
+                    ["systemctl", "--user", "restart", "hypridle.service"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ),
+            ],
         )
 
+    def test_failed_reset_raises_a_specific_error_without_restarting(self):
+        failed_reset = subprocess.CompletedProcess(["systemctl"], 1, "", "reset boom")
+        with mock.patch.object(hypridle_persist.subprocess, "run", return_value=failed_reset) as run:
+            with self.assertRaisesRegex(RuntimeError, "could not reset failed hypridle state"):
+                hypridle_persist.apply("scene", "15")
+
+        self.assertEqual(run.call_count, 1)
+
     def test_restart_failure_raises(self):
-        completed = subprocess.CompletedProcess(["systemctl"], 1, "", "boom")
-        with mock.patch.object(hypridle_persist.subprocess, "run", return_value=completed):
+        completed = [
+            subprocess.CompletedProcess(["systemctl"], 0, "", ""),
+            subprocess.CompletedProcess(["systemctl"], 1, "", "boom"),
+        ]
+        with mock.patch.object(hypridle_persist.subprocess, "run", side_effect=completed):
             with self.assertRaisesRegex(RuntimeError, "could not restart hypridle"):
                 hypridle_persist.apply("scene", "15")
 

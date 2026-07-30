@@ -345,9 +345,10 @@ pages:
               description: Minutes of inactivity before the animated idle scene
               icon: 󰥔
               key: idle/scene_minutes
-              min: 1
-              max: 120
-              step: 1
+              presentation: editable_dropdown
+              preset_min: 15
+              preset_max: 120
+              preset_step: 15
               default: 15
             on_change:
               command: >-
@@ -360,9 +361,10 @@ pages:
               description: Total minutes of inactivity before the session locks
               icon: 󰥔
               key: idle/lock_minutes
-              min: 5
-              max: 240
-              step: 1
+              presentation: editable_dropdown
+              preset_min: 15
+              preset_max: 120
+              preset_step: 15
               default: 45
             on_change:
               command: >-
