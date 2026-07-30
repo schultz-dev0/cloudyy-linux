@@ -6,6 +6,8 @@ import "../.."
 Rectangle {
     id: pill
 
+    visible: TimerService.hasRunningTimers
+
     // Plain mode: no pill background (macOS floating bar)
     property bool plain: false
     property color fg: Theme.on_surface_variant

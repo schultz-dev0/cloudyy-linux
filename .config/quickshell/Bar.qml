@@ -500,28 +500,30 @@ PanelWindow {
             onScrollUp: bar.launch(["bash", "-lc", "cloudyy-slider-volume up"])
             onScrollDown: bar.launch(["bash", "-lc", "cloudyy-slider-volume down"])
         }
+        
+        // commenting out to clean up the bar, leaving optional for later when I implement bar customisation
 
         // CPU
-        Pill {
-            id: cpuPill
-            readonly property var sys: QuickSystemMonitor.SystemMonitorService
-            label: "󰍛 " + sys.cpuPercent + "%"
-            width: implicitWidth + bar.pillPadH * 2
-            fg: sys.open ? bar.barFgStrong : bar.barFgMuted
-            bg: Qt.rgba(0,0,0,0)
-            onClicked: sys.toggleOpen()
-        }
+        //Pill {
+        //    id: cpuPill
+        //    readonly property var sys: QuickSystemMonitor.SystemMonitorService
+        //    label: "󰍛 " + sys.cpuPercent + "%"
+        //    width: implicitWidth + bar.pillPadH * 2
+        //    fg: sys.open ? bar.barFgStrong : bar.barFgMuted
+        //    bg: Qt.rgba(0,0,0,0)
+        //    onClicked: sys.toggleOpen()
+        //}
 
         // Memory
-        Pill {
-            id: memPill
-            readonly property var sys: QuickSystemMonitor.SystemMonitorService
-            label: "󰘚 " + sys.ramPercent + "%"
-            width: implicitWidth + bar.pillPadH * 2
-            fg: sys.open ? bar.barFgStrong : bar.barFgMuted
-            bg: Qt.rgba(0,0,0,0)
-            onClicked: sys.toggleOpen()
-        }
+        //Pill {
+        //    id: memPill
+        //    readonly property var sys: QuickSystemMonitor.SystemMonitorService
+        //    label: "󰘚 " + sys.ramPercent + "%"
+        //    width: implicitWidth + bar.pillPadH * 2
+        //    fg: sys.open ? bar.barFgStrong : bar.barFgMuted
+        //    bg: Qt.rgba(0,0,0,0)
+        //    onClicked: sys.toggleOpen()
+        //}
 
         // Battery
         Pill {
