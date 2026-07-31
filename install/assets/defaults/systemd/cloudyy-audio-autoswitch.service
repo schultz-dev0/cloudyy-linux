@@ -1,0 +1,15 @@
+[Unit]
+Description=Cloudyy automatic audio output switching
+After=pipewire.service pipewire-pulse.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/cloudyy-linux/cloud-center
+ExecStart=/usr/bin/python3 -m lib.audio_autoswitch_service
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=5
+
+[Install]
+WantedBy=cloudyy-unlocked.target

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Restore the saved wallpaper without regenerating the theme
+
+set -euo pipefail
+
+state_dir="${HOME}/.config/hypr/theme_state"
+state_file="${state_dir}/state.conf"
+wallpaper=""
+
+if [[ -f "$state_file" ]]; then
+  while IFS='=' read -r key value || [[ -n "$key" ]]; do
+    if [[ "$key" == "CURRENT_WALL" ]]; then
+      value="${value%\"}"
+      wallpaper="${value#\"}"
+      break
+    fi
+  done < "$state_file"
+fi
+
+[[ -n "$wallpaper" && -f "$wallpaper" ]] || wallpaper="${state_dir}/current_wallpaper/current.jpg"
+[[ -f "$wallpaper" ]] || exit 0
+
+if command -v awww >/dev/null 2>&1 && command -v awww-daemon >/dev/null 2>&1; then
+  client=(awww)
+  daemon=(awww-daemon)
+elif command -v swww >/dev/null 2>&1 && command -v swww-daemon >/dev/null 2>&1; then
+  client=(swww)
+  daemon=(swww-daemon)
+else
+  exit 0
+fi
+
+if ! pgrep -x "${daemon[0]}" >/dev/null; then
+  "${daemon[@]}" >/dev/null 2>&1 &
+  for _ in $(seq 1 50); do
+    pgrep -x "${daemon[0]}" >/dev/null && break
+    sleep 0.1
+  done
+fi
+
+pgrep -x "${daemon[0]}" >/dev/null || exit 0
+"${client[@]}" img "$wallpaper" --transition-type simple --transition-duration 0

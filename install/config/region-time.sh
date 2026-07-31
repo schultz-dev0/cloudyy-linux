@@ -33,8 +33,10 @@ install_geonames_data() {
 install_geoclue_allow() {
   local user="${USER:-}"
   [[ -n "$user" ]] || return 0
+  local uid
+  uid="$(id -u "$user")"
 
-  if [[ -f "$GEOCLUE_DROPIN" ]] && grep -q "cloud-center" "$GEOCLUE_DROPIN" 2>/dev/null; then
+  if [[ -f "$GEOCLUE_DROPIN" ]] && grep -qx "users=${uid}" "$GEOCLUE_DROPIN" 2>/dev/null; then
     log "GeoClue allow drop-in already present"
     return 0
   fi
@@ -45,9 +47,8 @@ install_geoclue_allow() {
 [cloud-center]
 allowed=true
 system=false
-users=${user}
+users=${uid}
 EOF
-  sudo systemctl restart geoclue.service 2>/dev/null || true
   log "GeoClue configured for user ${user}"
 }
 
