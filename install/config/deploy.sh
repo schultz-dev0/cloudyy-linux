@@ -99,6 +99,67 @@ safe_symlink() {
   log_ok "Linked: $(basename "$dst")"
 }
 
+# Replace the last Cloudyy-owned hyprlock baseline without touching Cloud
+# Center's state or managed additions. Any hand-edited baseline is left alone.
+migrate_legacy_autostart() {
+  local autostart_file="$1"
+  local autostart_default="$2"
+
+  [[ -f "$autostart_file" && -f "$autostart_default" ]] || return 0
+
+  local source
+  source="$(<"$autostart_file")"
+  [[ "$source" != *'hl.exec_cmd("cloudyy-session-start")'* ]] || return 0
+  [[ "$source" == *'hl.exec_cmd("hyprlock")'* ]] || return 0
+
+  local state_marker='-- @cloud-center-rules-startup-state = '
+  if [[ "$source" != *"${state_marker}"* ]]; then
+    log_warn "Legacy autostart.lua needs a manual lockscreen migration (Cloud Center state marker missing)."
+    return 0
+  fi
+
+  local legacy_prefix
+  read -r -d '' legacy_prefix <<'EOF' || true
+-- Autostart — equivalent of exec-once entries
+
+hl.on("hyprland.start", function()
+	local home = os.getenv("HOME")
+
+	hl.exec_cmd("hyprlock")
+	hl.exec_cmd(
+		"systemctl --user start hyprpolkitagent.service 2>/dev/null || /usr/lib/hyprpolkitagent/hyprpolkitagent"
+	)
+	hl.exec_cmd("systemctl start geoclue.service 2>/dev/null || true")
+	hl.exec_cmd("wl-paste --type text --watch cliphist store")
+	hl.exec_cmd("wl-paste --type image --watch cliphist store")
+	hl.exec_cmd("cloudyy-theme restore")
+
+	hl.exec_cmd("cloudyy-system-monitor")
+
+	hl.exec_cmd("cloudyy-quickshell-start")
+
+	-- First-run welcome popup — skips itself once ~/.config/OOBE/.dont_show exists.
+	hl.exec_cmd("test -f " .. home .. "/.config/OOBE/.dont_show || qs -n -d -p " .. home .. "/.config/OOBE")
+end)
+EOF
+
+  local current_prefix="${source%%$'\n'"${state_marker}"*}"
+  if [[ "$current_prefix" != "$legacy_prefix" ]]; then
+    log_warn "Legacy autostart.lua has manual changes; leaving it unchanged for a manual lockscreen migration."
+    return 0
+  fi
+
+  local default_source default_prefix managed_tail tmp_file
+  default_source="$(<"$autostart_default")"
+  default_prefix="${default_source%%$'\n'"${state_marker}"*}"
+  managed_tail="${source#*"${state_marker}"}"
+  tmp_file="$(mktemp "${autostart_file}.tmp.XXXXXX")"
+  printf '%s\n\n%s%s\n' "$default_prefix" "$state_marker" "$managed_tail" > "$tmp_file"
+  chmod --reference="$autostart_file" "$tmp_file"
+  mv "$tmp_file" "$autostart_file"
+  log_ok "autostart.lua migrated to the Cloudyy boot lock."
+}
+
 # =============================================================================
 # STEP 1: Clone or Update Repository
 # =============================================================================
@@ -407,6 +468,10 @@ deploy_defaults() {
     bindings lookandfeel animations input cursor
     monitors autostart windowrules variables colors
   )
+  migrate_legacy_autostart \
+    "${HOME}/.config/hypr/autostart.lua" \
+    "${hypr_defaults_dir}/autostart.lua"
+
   local module_deployed=0
   for module in "${hypr_modules[@]}"; do
     local module_file="${HOME}/.config/hypr/${module}.lua"
@@ -431,16 +496,16 @@ deploy_defaults() {
   # expects it already deployed and only enables/disables it.
   local audio_unit="${HOME}/.config/systemd/user/cloudyy-audio-autoswitch.service"
   local audio_unit_default="${defaults_dir}/systemd/cloudyy-audio-autoswitch.service"
-  if [[ ! -f "$audio_unit" ]]; then
-    if [[ -f "$audio_unit_default" ]]; then
-      mkdir -p "$(dirname "$audio_unit")"
+  if [[ -f "$audio_unit_default" ]]; then
+    mkdir -p "$(dirname "$audio_unit")"
+    if [[ ! -f "$audio_unit" ]] || ! cmp -s "$audio_unit_default" "$audio_unit"; then
       cp "$audio_unit_default" "$audio_unit"
-      log_ok "cloudyy-audio-autoswitch.service deployed (default)."
+      log_ok "cloudyy-audio-autoswitch.service deployed."
     else
-      log_warn "No default cloudyy-audio-autoswitch.service in ${defaults_dir}/systemd."
+      log_skip "cloudyy-audio-autoswitch.service"
     fi
   else
-    log_skip "cloudyy-audio-autoswitch.service"
+    log_warn "No default cloudyy-audio-autoswitch.service in ${defaults_dir}/systemd."
   fi
 
   local cwd_walk_file="${cc_terminal_dir}/cwd_walk"

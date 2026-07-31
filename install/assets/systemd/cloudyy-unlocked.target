@@ -1,0 +1,4 @@
+[Unit]
+Description=Cloudyy authenticated desktop session
+After=graphical-session.target
+PartOf=graphical-session.target

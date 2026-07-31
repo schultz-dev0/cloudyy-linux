@@ -45,9 +45,12 @@ PY
 )"
 
 if [[ "$desired" == "1" ]]; then
-  systemctl --user enable --now "$UNIT_NAME" 2>/dev/null \
-    && log_ok "Audio auto-switch service enabled" \
-    || log_warn "Could not enable ${UNIT_NAME}; Cloud Center will offer to retry."
+  if systemctl --user reenable "$UNIT_NAME" 2>/dev/null; then
+    systemctl --user start "$UNIT_NAME" 2>/dev/null || true
+    log_ok "Audio auto-switch service enabled"
+  else
+    log_warn "Could not enable ${UNIT_NAME}; Cloud Center will offer to retry."
+  fi
 else
   systemctl --user disable --now "$UNIT_NAME" 2>/dev/null || true
   log_ok "Audio auto-switch service disabled by saved preference"

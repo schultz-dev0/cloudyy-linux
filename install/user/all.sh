@@ -26,6 +26,7 @@ done
 unit_dir="${HOME}/.config/systemd/user"
 mkdir -p "$unit_dir"
 install -m 0644 "${INSTALL_DIR}/assets/systemd/quickshell.service" "${unit_dir}/quickshell.service"
+install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-unlocked.target" "${unit_dir}/cloudyy-unlocked.target"
 # Lid-suspend inhibitor unit — installed but not enabled; Cloud Center's
 # "Sleep when lid is closed" toggle (lib/lid_sleep_persist.py) enables it.
 install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-lid-inhibit.service" "${unit_dir}/cloudyy-lid-inhibit.service"
@@ -37,9 +38,10 @@ audio_service_script="${SCRIPT_DIR}/audio-autoswitch.sh"
 bash "$audio_service_script" \
       || log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
 
-for service in bluetooth.service NetworkManager.service power-profiles-daemon.service geoclue.service; do
+for service in bluetooth.service NetworkManager.service power-profiles-daemon.service; do
   sudo systemctl enable --now "$service" 2>/dev/null ||
     printf '[!] Could not enable %s (non-fatal).\n' "$service" >&2
 done
-systemctl --user enable --now hyprpolkitagent.service 2>/dev/null ||
-  printf '[!] Could not enable hyprpolkitagent.service (non-fatal).\n' >&2
+systemctl --user disable hyprpolkitagent.service 2>/dev/null || true
+systemctl --user start hyprpolkitagent.service 2>/dev/null ||
+  printf '[!] Could not start hyprpolkitagent.service (non-fatal).\n' >&2

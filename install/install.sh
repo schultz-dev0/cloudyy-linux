@@ -238,7 +238,6 @@ phase_services() {
     "bluetooth.service"
     "NetworkManager.service"
     "power-profiles-daemon.service"
-    "geoclue.service"
   )
 
   for svc in "${services[@]}"; do
@@ -249,10 +248,11 @@ phase_services() {
     fi
   done
 
-  if systemctl --user enable --now hyprpolkitagent.service 2>/dev/null; then
-    log_ok "Enabled: hyprpolkitagent.service (user)"
+  systemctl --user disable hyprpolkitagent.service 2>/dev/null || true
+  if systemctl --user start hyprpolkitagent.service 2>/dev/null; then
+    log_ok "Started: hyprpolkitagent.service (user)"
   else
-    log_warn "Could not enable hyprpolkitagent.service — polkit password dialogs may not appear."
+    log_warn "Could not start hyprpolkitagent.service — polkit password dialogs may not appear."
   fi
 
   local qs_service_script="${SCRIPT_DIR}/user/quickshell-service.sh"

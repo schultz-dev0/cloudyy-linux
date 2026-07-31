@@ -15,25 +15,23 @@ case "${1:-}" in
     ;;
 esac
 
-# TTY autologin creates the Wayland session, but no desktop services begin
-# until the Quickshell lock has authenticated the user.
+# Restore the saved wallpaper behind the lock without rerunning Matugen or
+# reloading Hyprland during login.
+cloudyy-wallpaper-restore &
+wallpaper_pid=$!
+
 cloudyy-lock --wait
+wait "$wallpaper_pid" 2>/dev/null || true
 
 systemctl --user start hypridle.service
 if ! systemctl --user start hyprpolkitagent.service 2>/dev/null; then
   /usr/lib/hyprpolkitagent/hyprpolkitagent &
 fi
-systemctl start geoclue.service 2>/dev/null || true
 wl-paste --type text --watch cliphist store &
 wl-paste --type image --watch cliphist store &
-cloudyy-theme restore
-cloudyy-system-monitor &
 
-if [[ -x "${scripts_dir}/quickshell/qs_start.sh" ]]; then
-  "${scripts_dir}/quickshell/qs_start.sh"
-else
-  cloudyy-quickshell-start
-fi
+cloudyy-quickshell-start
+systemctl --user start cloudyy-unlocked.target
 
 if [[ ! -f "${HOME}/.config/OOBE/.dont_show" ]]; then
   qs -n -d -p "${HOME}/.config/OOBE"

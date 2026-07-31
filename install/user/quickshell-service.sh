@@ -73,6 +73,7 @@ reload_daemon() {
   fi
 
   if systemctl --user daemon-reload 2>/dev/null; then
+    systemctl --user disable quickshell.service 2>/dev/null || true
     log_ok "systemd user daemon reloaded"
   else
     log_warn "daemon-reload failed — systemd may not be running yet (OK during install)."
@@ -130,7 +131,7 @@ start_service() {
   fi
 
   if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
-    log_skip "No display server detected — quickshell.service will start automatically on next login"
+    log_skip "No display server detected — Cloudyy will start Quickshell after unlock"
     return 0
   fi
 
@@ -142,7 +143,7 @@ start_service() {
   if systemctl --user start quickshell.service 2>/dev/null; then
     log_ok "quickshell.service started"
   else
-    log_warn "Could not start quickshell.service now — it will start automatically on next login."
+    log_warn "Could not start quickshell.service now — Cloudyy will retry after unlock."
   fi
 }
 
