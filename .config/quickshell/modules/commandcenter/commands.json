@@ -49,6 +49,25 @@
     }
   },
   {
+    "id": "learn.stochos",
+    "label": "Stochos GitHub",
+    "icon": "󰊤",
+    "keywords": [
+      "stochos",
+      "mouse",
+      "keyboard",
+      "github"
+    ],
+    "parent": "learn",
+    "action": {
+      "type": "external",
+      "command": [
+        "xdg-open",
+        "https://github.com/museslabs/stochos"
+      ]
+    }
+  },
+  {
     "id": "learn.keybinds",
     "label": "Keybinds",
     "icon": "󱊨",
