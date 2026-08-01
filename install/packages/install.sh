@@ -194,6 +194,27 @@ detect_and_install_gpu() {
 }
 
 # =============================================================================
+# EXTERNAL PACKAGES
+# =============================================================================
+install_stochos() {
+  local installer
+  installer="$(mktemp)"
+  trap 'rm -f "$installer"' RETURN
+
+  log "Downloading the Stochos installer..."
+  curl -fsSL --connect-timeout 10 --max-time 60 \
+    https://raw.githubusercontent.com/museslabs/stochos/main/install.sh \
+    -o "$installer"
+  sh "$installer"
+
+  command -v stochos &>/dev/null || {
+    log_error "Stochos installation completed but the command is not on PATH."
+    return 1
+  }
+  log_ok "Stochos installed."
+}
+
+# =============================================================================
 # POST-INSTALL CONFIGURATION
 # =============================================================================
 configure_zram() {
@@ -246,6 +267,9 @@ main() {
   log_section "Installing — Standard Packages"
   pacman_install "Standard" "${STANDARD_INSTALL_OFFICIAL[@]}"
   aur_install    "Standard" "${STANDARD_INSTALL_AUR[@]}"
+
+  log_section "Installing — External Packages"
+  install_stochos
 
   configure_zram
   configure_bluetooth
