@@ -1,0 +1,7 @@
+#!/usr/bin/ash
+
+run_latehook() {
+    mkdir -p /run/cloudyy
+    chmod 0777 /run/cloudyy
+    : > /run/cloudyy/cold-boot
+}

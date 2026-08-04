@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Install Cloudyy Plymouth theme and mkinitcpio wiring
+# cloudyy:requires-sudo=true
+set -euo pipefail
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root (use sudo)"
+  exit 1
+fi
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+THEME_SRC_DIR="${REPO_DIR}/install/assets/plymouth/cloudyy"
+MKINIT_SRC_DIR="${REPO_DIR}/install/assets/mkinitcpio"
+
+THEME_DST_DIR="/usr/share/plymouth/themes/cloudyy"
+HOOKS_DST_DIR="/usr/lib/initcpio/hooks"
+INSTALL_DST_DIR="/usr/lib/initcpio/install"
+DROPIN_DST_DIR="/etc/mkinitcpio.conf.d"
+DROPIN_DST_FILE="${DROPIN_DST_DIR}/cloudyy.conf"
+
+for path in \
+  "${THEME_SRC_DIR}/cloudyy.plymouth" \
+  "${THEME_SRC_DIR}/cloudyy.script" \
+  "${THEME_SRC_DIR}/pill.png" \
+  "${THEME_SRC_DIR}/bullet.png" \
+  "${MKINIT_SRC_DIR}/hooks/cloudyy-coldboot" \
+  "${MKINIT_SRC_DIR}/install/cloudyy-coldboot" \
+  "${MKINIT_SRC_DIR}/cloudyy.conf"
+do
+  [[ -f "$path" ]] || { echo "Missing required asset: $path"; exit 1; }
+done
+
+echo "--- Installing Cloudyy Plymouth assets ---"
+install -d "${THEME_DST_DIR}"
+for theme_asset in "${THEME_SRC_DIR}"/*; do
+  [[ -f "$theme_asset" ]] || continue
+  install -m 0644 "$theme_asset" "${THEME_DST_DIR}/$(basename "$theme_asset")"
+done
+
+echo "--- Installing mkinitcpio hook + install scripts ---"
+install -d "${HOOKS_DST_DIR}" "${INSTALL_DST_DIR}" "${DROPIN_DST_DIR}"
+install -m 0755 "${MKINIT_SRC_DIR}/hooks/cloudyy-coldboot" "${HOOKS_DST_DIR}/cloudyy-coldboot"
+install -m 0755 "${MKINIT_SRC_DIR}/install/cloudyy-coldboot" "${INSTALL_DST_DIR}/cloudyy-coldboot"
+install -m 0644 "${MKINIT_SRC_DIR}/cloudyy.conf" "${DROPIN_DST_FILE}"
+
+if ! command -v plymouth-set-default-theme >/dev/null 2>&1; then
+  echo "Missing command: plymouth-set-default-theme (install plymouth first)"
+  exit 1
+fi
+if ! command -v mkinitcpio >/dev/null 2>&1; then
+  echo "Missing command: mkinitcpio"
+  exit 1
+fi
+
+echo "--- Setting default Plymouth theme ---"
+plymouth-set-default-theme cloudyy
+
+echo "--- Rebuilding initramfs presets ---"
+mkinitcpio -P
+
+echo "--- Cloudyy Plymouth setup complete ---"
