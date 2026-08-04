@@ -1,0 +1,12 @@
+#!/bin/bash
+
+build() {
+    add_runscript
+}
+
+help() {
+    cat <<HELPEOF
+Creates /run/cloudyy/cold-boot after initramfs so userspace can skip the
+session lock once on cold boot (not on suspend resume).
+HELPEOF
+}
