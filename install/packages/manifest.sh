@@ -37,7 +37,6 @@ MANDATORY_OFFICIAL_DAEMONS=(
   "hypridle"   # Idle → lock/suspend trigger
   "hyprsunset" # Blue light filter (keybind in dotfiles)
   "hyprpicker" # Colour picker
-  "plymouth"   # Boot splash renderer and LUKS prompt UI
 )
 MANDATORY_AUR_DAEMONS=(
   "hyprcap"    # Screen capture daemon

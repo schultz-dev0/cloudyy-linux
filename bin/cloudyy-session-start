@@ -20,22 +20,7 @@ esac
 cloudyy-wallpaper-restore &
 wallpaper_pid=$!
 
-cold_boot_marker="/run/cloudyy/cold-boot"
-if [[ -e "$cold_boot_marker" ]]; then
-  rm -f "$cold_boot_marker"
-  cred="${XDG_DATA_HOME:-$HOME/.local/share}/cloudyy/keyring-unlock.cred"
-  if [[ -f "$cred" ]]; then
-    perm="$(stat -c '%a' "$cred")"
-    if [[ "$perm" == "600" || "$perm" == "400" ]]; then
-      timeout 10 gnome-keyring-daemon --unlock < "$cred" || true
-    else
-      printf 'cloudyy-session-start: refusing keyring cred with mode %s\n' "$perm" >&2
-    fi
-  fi
-else
-  cloudyy-lock --wait
-fi
-
+cloudyy-lock --wait
 wait "$wallpaper_pid" 2>/dev/null || true
 
 systemctl --user start hypridle.service

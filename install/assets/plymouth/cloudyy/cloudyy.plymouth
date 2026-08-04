@@ -1,8 +1,0 @@
-[Plymouth Theme]
-Name=cloudyy
-Description=Cloudyy LUKS unlock
-ModuleName=script
-
-[script]
-ImageDir=/usr/share/plymouth/themes/cloudyy
-ScriptFile=/usr/share/plymouth/themes/cloudyy/cloudyy.script
