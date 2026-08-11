@@ -1,242 +1,338 @@
 pragma ComponentBehavior: Bound
 
+// modules/timer/TimerCard.qml
 import QtQuick
 import QtQuick.Layouts
 import "../.."
 
-Rectangle {
+Item {
     id: card
 
-    // ── Input properties ──────────────────────────────────────────────────
     required property string timerId
     required property string label
     required property string mode
-    required property int    targetSeconds
-    required property int    elapsedSeconds
+    required property int targetSeconds
+    required property int elapsedSeconds
     required property string timerState
 
-    // ── Local state ───────────────────────────────────────────────────────
-    property bool editing:           false
+    property bool editing: false
     property bool confirmingDismiss: false
 
-    // ── Computed ──────────────────────────────────────────────────────────
-    readonly property bool   isCountdown: mode === "countdown"
-    readonly property int    displaySecs: isCountdown
-                                          ? Math.max(0, targetSeconds - elapsedSeconds)
-                                          : elapsedSeconds
-    readonly property bool   isWarning:   isCountdown && displaySecs < 300 && timerState === "running"
-    readonly property double progress:    (isCountdown && targetSeconds > 0)
-                                          ? Math.max(0, 1.0 - elapsedSeconds / targetSeconds)
-                                          : 0
+    readonly property bool isCountdown: mode === "countdown"
+    readonly property int displaySecs: isCountdown
+        ? Math.max(0, targetSeconds - elapsedSeconds) : elapsedSeconds
+    readonly property bool isWarning: isCountdown && displaySecs < 300
+        && timerState === "running"
+    readonly property double progress: isCountdown && targetSeconds > 0
+        ? Math.max(0, 1 - elapsedSeconds / targetSeconds) : 0
 
-    implicitHeight: cardCol.implicitHeight + 20
-    radius: 10
-    color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.7)
+    implicitHeight: cardCol.implicitHeight + 12
 
-    // Colored left accent border
-    Rectangle {
-        width: 3
-        height: parent.height
-        anchors { left: parent.left; top: parent.top }
-        radius: 2
-        color: timerState === "running" ? Theme.primary : Theme.tertiary
-        Behavior on color { ColorAnimation { duration: 200 } }
+    function focusInitial() {
+        pauseButton.forceActiveFocus();
+    }
+
+    function toggleRunning() {
+        if (card.timerState === "running")
+            TimerService.pauseTimer(card.timerId);
+        else
+            TimerService.resumeTimer(card.timerId);
+    }
+
+    function requestDismiss() {
+        if (card.elapsedSeconds > 0 && !card.confirmingDismiss)
+            card.confirmingDismiss = true;
+        else
+            TimerService.dismissTimer(card.timerId);
     }
 
     ColumnLayout {
         id: cardCol
         anchors {
-            top: parent.top; left: parent.left; right: parent.right
-            margins: 10
-            leftMargin: 14
+            top: parent.top
+            left: parent.left
+            right: parent.right
         }
-        spacing: 4
+        spacing: 5
 
-        // ── Status row ────────────────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true
 
             Text {
-                text: {
-                    const icon  = timerState === "running" ? "▶" : "⏸"
-                    const state = timerState === "running" ? "RUNNING" : "PAUSED"
-                    const modeLabel = card.isCountdown
-                                      ? ("COUNTDOWN " + TimerService.fmtTime(targetSeconds))
-                                      : "STOPWATCH"
-                    return icon + " " + state + " · " + modeLabel
-                }
-                color: timerState === "running" ? Theme.primary : Theme.tertiary
+                text: (card.timerState === "running" ? "RUNNING" : "PAUSED")
+                    + " · " + (card.isCountdown ? "COUNTDOWN" : "STOPWATCH")
+                color: card.timerState === "running" ? Theme.islandAccent : Theme.islandAccentAlt
+                font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 9
                 font.weight: Font.Medium
-                font.family: "JetBrainsMono Nerd Font"
+                renderType: Text.NativeRendering
                 Layout.fillWidth: true
             }
 
-            Row {
-                spacing: 4
+            Rectangle {
+                id: editButton
+                implicitWidth: 27
+                implicitHeight: 24
+                radius: 6
+                visible: !card.confirmingDismiss
+                activeFocusOnTab: visible
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.islandFocus : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
 
-                // Edit button (hidden while confirming dismiss)
                 Text {
-                    visible: !card.confirmingDismiss
-                    text:    "✏"
-                    color:   Theme.on_surface_variant
+                    anchors.centerIn: parent
+                    text: "󰏫"
+                    color: Theme.islandOnSurfaceVariant
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked: {
-                            card.editing = !card.editing
-                            if (card.editing) editField.forceActiveFocus()
-                        }
-                    }
+                    renderType: Text.NativeRendering
                 }
 
-                // Cancel confirm
+                function activate() {
+                    card.editing = true;
+                    Qt.callLater(() => editField.forceActiveFocus());
+                }
+                Keys.onReturnPressed: event => { editButton.activate(); event.accepted = true; }
+                Keys.onEnterPressed: event => { editButton.activate(); event.accepted = true; }
+                Keys.onSpacePressed: event => { editButton.activate(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: editButton.activate()
+                }
+            }
+
+            Rectangle {
+                id: cancelDismissButton
+                implicitWidth: cancelDismissLabel.implicitWidth + 12
+                implicitHeight: 24
+                radius: 6
+                visible: card.confirmingDismiss
+                activeFocusOnTab: visible
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.islandFocus : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
+
                 Text {
-                    visible: card.confirmingDismiss
-                    text:    "Cancel"
-                    color:   Theme.on_surface_variant
+                    id: cancelDismissLabel
+                    anchors.centerIn: parent
+                    text: "Cancel"
+                    color: Theme.islandOnSurfaceVariant
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 9
-                    font.family: "JetBrainsMono Nerd Font"
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked:    card.confirmingDismiss = false
-                    }
+                    renderType: Text.NativeRendering
                 }
 
-                // Dismiss / confirm-dismiss
+                function activate() { card.confirmingDismiss = false; }
+                Keys.onReturnPressed: event => { cancelDismissButton.activate(); event.accepted = true; }
+                Keys.onEnterPressed: event => { cancelDismissButton.activate(); event.accepted = true; }
+                Keys.onSpacePressed: event => { cancelDismissButton.activate(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: cancelDismissButton.activate()
+                }
+            }
+
+            Rectangle {
+                id: dismissButton
+                objectName: "timerCardDismiss:" + card.timerId
+                implicitWidth: dismissLabel.implicitWidth + 12
+                implicitHeight: 24
+                radius: 6
+                activeFocusOnTab: true
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.error : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
+
                 Text {
-                    text:  card.confirmingDismiss ? "Dismiss?" : "✕"
-                    color: card.confirmingDismiss ? Theme.error : Theme.on_surface_variant
-                    font.pixelSize:  card.confirmingDismiss ? 10 : 11
-                    font.weight:     card.confirmingDismiss ? Font.Bold : Font.Normal
+                    id: dismissLabel
+                    anchors.centerIn: parent
+                    text: card.confirmingDismiss ? "Dismiss?" : "󰅖"
+                    color: card.confirmingDismiss ? Theme.error : Theme.islandOnSurfaceVariant
                     font.family: "JetBrainsMono Nerd Font"
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked: {
-                            if (card.elapsedSeconds > 0 && !card.confirmingDismiss) {
-                                card.confirmingDismiss = true
-                            } else {
-                                TimerService.dismissTimer(card.timerId)
-                            }
-                        }
-                    }
+                    font.pixelSize: 10
+                    font.weight: card.confirmingDismiss ? Font.DemiBold : Font.Normal
+                    renderType: Text.NativeRendering
+                }
+
+                Keys.onReturnPressed: event => { card.requestDismiss(); event.accepted = true; }
+                Keys.onEnterPressed: event => { card.requestDismiss(); event.accepted = true; }
+                Keys.onSpacePressed: event => { card.requestDismiss(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.requestDismiss()
                 }
             }
         }
 
-        // ── Label (static text or edit field) ─────────────────────────────
         Text {
             visible: !card.editing
-            text:    card.label
-            color:   Theme.on_surface
-            font.pixelSize: 11
+            text: card.label
+            color: Theme.islandOnSurface
             font.family: "JetBrainsMono Nerd Font"
-            elide:   Text.ElideRight
+            font.pixelSize: 11
+            renderType: Text.NativeRendering
+            elide: Text.ElideRight
             Layout.fillWidth: true
         }
 
         TextInput {
             id: editField
-            visible:    card.editing
-            text:       card.label
-            color:      Theme.on_surface
-            font.pixelSize: 11
+            visible: card.editing
+            activeFocusOnTab: visible
+            text: card.label
+            color: Theme.islandOnSurface
+            selectionColor: Theme.islandAccent
             font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 11
+            renderType: TextInput.NativeRendering
             Layout.fillWidth: true
-            Keys.onReturnPressed: {
-                TimerService.renameTimer(card.timerId, text)
-                card.editing = false
+            Keys.onReturnPressed: event => {
+                const nextLabel = text.trim();
+                if (nextLabel)
+                    TimerService.renameTimer(card.timerId, nextLabel);
+                card.editing = false;
+                event.accepted = true;
             }
-            Keys.onEscapePressed: card.editing = false
+            Keys.onEscapePressed: event => {
+                text = card.label;
+                card.editing = false;
+                event.accepted = true;
+            }
         }
 
-        // ── Time display + controls ────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true
+            spacing: 7
 
             Text {
-                text:       TimerService.fmtTime(card.displaySecs)
-                color:      card.isWarning ? Theme.error : Theme.on_surface
-                font.pixelSize: 22
-                font.family:    "JetBrainsMono Nerd Font"
-                font.weight:    Font.Bold
-                Behavior on color { ColorAnimation { duration: 300 } }
+                text: TimerService.fmtTime(card.displaySecs)
+                color: card.isWarning ? Theme.error : Theme.islandOnSurface
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 21
+                font.weight: Font.Bold
+                renderType: Text.NativeRendering
             }
 
             Item { Layout.fillWidth: true }
 
-            Row {
-                spacing: 6
+            Rectangle {
+                id: resetButton
+                implicitWidth: 30
+                implicitHeight: 25
+                radius: 6
+                activeFocusOnTab: true
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.islandFocus : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
 
-                // Pause / Resume
-                Rectangle {
-                    width: 30; height: 24; radius: 6
-                    color: Qt.rgba(Theme.surface_container_high.r,
-                                   Theme.surface_container_high.g,
-                                   Theme.surface_container_high.b, 0.8)
-                    Text {
-                        anchors.centerIn: parent
-                        text:  timerState === "running" ? "⏸" : "▶"
-                        color: Theme.on_surface
-                        font.pixelSize: 12
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked: {
-                            if (timerState === "running")
-                                TimerService.pauseTimer(card.timerId)
-                            else
-                                TimerService.resumeTimer(card.timerId)
-                        }
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰑐"
+                    color: Theme.islandOnSurface
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    renderType: Text.NativeRendering
                 }
 
-                // Stop
-                Rectangle {
-                    width: 30; height: 24; radius: 6
-                    color: Qt.rgba(Theme.surface_container_high.r,
-                                   Theme.surface_container_high.g,
-                                   Theme.surface_container_high.b, 0.8)
-                    Text {
-                        anchors.centerIn: parent
-                        text:  "■"
-                        color: Theme.on_surface
-                        font.pixelSize: 12
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.PointingHandCursor
-                        onClicked:    TimerService.stopTimer(card.timerId)
-                    }
+                function activate() { TimerService.resetTimer(card.timerId); }
+                Keys.onReturnPressed: event => { resetButton.activate(); event.accepted = true; }
+                Keys.onEnterPressed: event => { resetButton.activate(); event.accepted = true; }
+                Keys.onSpacePressed: event => { resetButton.activate(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: resetButton.activate()
+                }
+            }
+
+            Rectangle {
+                id: pauseButton
+                objectName: "timerCardPause:" + card.timerId
+                implicitWidth: 30
+                implicitHeight: 25
+                radius: 6
+                activeFocusOnTab: true
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.islandFocus : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: card.timerState === "running" ? "󰏤" : "󰐊"
+                    color: Theme.islandOnSurface
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    renderType: Text.NativeRendering
+                }
+
+                Keys.onReturnPressed: event => { card.toggleRunning(); event.accepted = true; }
+                Keys.onEnterPressed: event => { card.toggleRunning(); event.accepted = true; }
+                Keys.onSpacePressed: event => { card.toggleRunning(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: card.toggleRunning()
+                }
+            }
+
+            Rectangle {
+                id: stopButton
+                objectName: "timerCardStop:" + card.timerId
+                implicitWidth: 30
+                implicitHeight: 25
+                radius: 6
+                activeFocusOnTab: true
+                color: activeFocus ? Theme.islandFocus : "transparent"
+                border.color: activeFocus ? Theme.error : Theme.islandBorder
+                border.width: activeFocus ? 2 : 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰓛"
+                    color: Theme.error
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    renderType: Text.NativeRendering
+                }
+
+                function activate() { TimerService.stopTimer(card.timerId); }
+                Keys.onReturnPressed: event => { stopButton.activate(); event.accepted = true; }
+                Keys.onEnterPressed: event => { stopButton.activate(); event.accepted = true; }
+                Keys.onSpacePressed: event => { stopButton.activate(); event.accepted = true; }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: stopButton.activate()
                 }
             }
         }
 
-        // ── Countdown progress bar ─────────────────────────────────────────
         Rectangle {
             Layout.fillWidth: true
             visible: card.isCountdown
-            height:  3
-            radius:  2
+            implicitHeight: 3
+            radius: 2
             color: Qt.rgba(Theme.surface_container_high.r,
-                           Theme.surface_container_high.g,
-                           Theme.surface_container_high.b, 0.6)
+                Theme.surface_container_high.g, Theme.surface_container_high.b, 0.5)
 
             Rectangle {
-                width:  parent.width * card.progress
+                width: parent.width * card.progress
                 height: parent.height
                 radius: parent.radius
-                color:  card.isWarning ? Theme.error : Theme.primary
-                Behavior on width {
-                    enabled: Perf.animationsEnabled
-                    NumberAnimation { duration: Perf.lightweight ? 0 : 400; easing.type: Easing.Linear }
-                }
-                Behavior on color { ColorAnimation { duration: 300 } }
+                color: card.isWarning ? Theme.error : Theme.islandAccent
             }
+        }
+
+        Rectangle {
+            id: rowRule
+            Layout.fillWidth: true
+            Layout.topMargin: 5
+            implicitHeight: 1
+            color: card.activeFocus ? Theme.islandFocus : Theme.islandBorder
         }
     }
 }

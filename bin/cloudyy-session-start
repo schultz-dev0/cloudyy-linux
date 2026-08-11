@@ -7,12 +7,12 @@ scripts_dir="${HOME}/cloudyy_scripts"
 
 personal_services=false
 case "${1:-}" in
-  "") ;;
-  --personal) personal_services=true ;;
-  *)
-    printf 'Usage: cloudyy-session-start [--personal]\n' >&2
-    exit 64
-    ;;
+"") ;;
+--personal) personal_services=true ;;
+*)
+  printf 'Usage: cloudyy-session-start [--personal]\n' >&2
+  exit 64
+  ;;
 esac
 
 # Restore the saved wallpaper behind the lock without rerunning Matugen or

@@ -10,6 +10,7 @@ import Quickshell.Wayland
 import "modules/controlcenter"
 import "modules/controlcenter/tiles"
 import "modules/calendar"
+import "modules/notifpanel" as QuickNotifPanel
 
 PanelWindow {
     id: panel
@@ -68,13 +69,11 @@ PanelWindow {
     // ── Props ─────────────────────────────────────────────────────────────────
     property bool open: false
     property bool dnd: false
-    property bool calculatorOpen: false
     property var notifServer: null
     property var sliderController: null
     property bool suppressLayoutAnim: false
     signal close
     signal dndToggle
-    signal calculatorToggle
 
     readonly property int openFadeMs: Perf.msHalf(80)
 
@@ -91,6 +90,7 @@ PanelWindow {
         if (!open)
             return;
 
+        QuickNotifPanel.NotifPanelService.markAllRead();
         panel.refreshVisibleNotifications();
         panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
 
@@ -201,7 +201,7 @@ PanelWindow {
             //
             //   Row 1: [ WiFi + Bluetooth (tall) ]  [ Do Not Disturb ]
             //          [                         ]  [ Dark Mode      ]
-            //   Row 2: [ Night Light             ]  [ Calculator     ]
+            //   Row 2: [ Night Light             ]
             //
             // Using explicit RowLayout / ColumnLayout instead of GridLayout rowSpan.
             ColumnLayout {
@@ -234,7 +234,7 @@ PanelWindow {
                     }
                 }
 
-                // ── Second section: two tiles side by side ─────────────────────
+                // ── Second section: night light ────────────────────────────────
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 6
@@ -243,13 +243,6 @@ PanelWindow {
                         id: nlTile
                         Layout.fillWidth: true
                         sliderController: panel.sliderController
-                    }
-
-                    CalculatorTile {
-                        id: calcTile
-                        Layout.fillWidth: true
-                        open: panel.calculatorOpen
-                        onClicked: panel.calculatorToggle()
                     }
                 }
 

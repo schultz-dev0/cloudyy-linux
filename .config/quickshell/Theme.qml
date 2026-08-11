@@ -145,7 +145,47 @@ QtObject {
         ? Qt.rgba(outline.r, outline.g, outline.b, 0.38)
         : Qt.rgba(1, 1, 1, 0.22)
 
-    // Screenshot/recording island preview chrome
+    // Persistent top-attached island chrome and motion.
+    readonly property int islandRestWidth: 176
+    readonly property int islandTimerRestWidth: 240
+    readonly property int islandRestHeight: 24
+    readonly property int islandCarouselWidth: 610
+    readonly property int islandCarouselHeight: 142
+    readonly property int islandExpandedMaxHeight: 536
+    // 0 = corners are perfectly square where the island meets the screen
+    // edge; only the lower corners (islandRestLowerRadius/islandOpenLowerRadius)
+    // are rounded, so the shell reads as attached to the bezel, not floating.
+    readonly property int islandShoulderRadius: 0
+    readonly property int islandRestLowerRadius: 12
+    readonly property int islandOpenLowerRadius: 26
+    readonly property int islandOpenDuration: 220
+    readonly property int islandExpandDuration: 260
+    readonly property int islandCloseDuration: 180
+    readonly property int islandOpacityDuration: 120
+    // Island chrome is always black, independent of light/dark theme mode.
+    readonly property color islandSurface: Qt.rgba(0, 0, 0, 0.97)
+    readonly property color islandBorder: Qt.rgba(1, 1, 1, 0.10)
+    readonly property color islandOnSurface: Qt.rgba(1, 1, 1, 1)
+    readonly property color islandOnSurfaceVariant: Qt.rgba(1, 1, 1, 0.6)
+    readonly property color islandHover: Qt.rgba(1, 1, 1, 0.07)
+    readonly property color islandPressed: Qt.rgba(1, 1, 1, 0.12)
+    // matugen's primary/tertiary are computed against the real (light/dark)
+    // surface and can land on near-black tones in light mode (seen live:
+    // primary #000000, tertiary #3b3b3b) — invisible against the island's
+    // always-black surface. Clamp their lightness so island-only accent use
+    // keeps the wallpaper-derived hue but stays visible; islandOnAccent is
+    // the fixed dark counterpart for text/icons drawn on a filled accent.
+    function _minLightness(c, floor) {
+        return c.hslLightness < floor
+            ? Qt.hsla(c.hslHue, c.hslSaturation, floor, c.a)
+            : c;
+    }
+    readonly property color islandAccent: _minLightness(primary, 0.55)
+    readonly property color islandAccentAlt: _minLightness(tertiary, 0.55)
+    readonly property color islandOnAccent: Qt.rgba(0, 0, 0, 0.85)
+    readonly property color islandFocus: islandAccent
+
+    // Screenshot/recording preview sizing retained for transient activities.
     readonly property int islandShellWidth: 280
     readonly property int islandShellHeight: 64
     readonly property int islandShellRadius: 28

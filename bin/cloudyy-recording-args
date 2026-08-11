@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Print hyprcap/wf-recorder args from Cloud Center recording settings
+set -euo pipefail
+ROOT="${HOME}/cloudyy-linux/cloud-center"
+export PYTHONPATH="${ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m lib.recording_args "$@"

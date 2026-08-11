@@ -501,9 +501,7 @@ Singleton {
         const calc = results.filter(r => {
             if (r.type !== "calculator" && r.type !== "currency" && r.type !== "time")
                 return false;
-            if (r.type === "calculator" || r.type === "time")
-                return (r.expression ?? "") === query;
-            return true;
+            return (r.expression ?? "") === query;
         });
         const apps = extras.filter(r => r.type === "app");
         const files = extras.filter(r => r.type === "file");

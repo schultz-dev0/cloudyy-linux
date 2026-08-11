@@ -26,11 +26,6 @@ hl.bind("ALT + 3", hl.dsp.exec_cmd("uwsm-app -- cloudyy-center --audio"), { desc
 hl.bind("ALT + 4", hl.dsp.exec_cmd("uwsm-app -- cloudyy-center"), { desc = "Cloud Center" })
 hl.bind(mainMod .. " + K", hl.dsp.exec_cmd("quickshell ipc call spotlight toggle"), { desc = "Open spotlight search" })
 hl.bind(
-	mainMod .. " + CTRL + C",
-	hl.dsp.exec_cmd("quickshell ipc call calculator toggle"),
-	{ desc = "Open calculator" }
-)
-hl.bind(
 	mainMod .. " + Tab",
 	hl.dsp.exec_cmd("quickshell ipc call overview open"),
 	{ desc = "Show all workspaces (hold Super, keep pressing Tab to cycle)" }
@@ -62,7 +57,7 @@ hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"), { des
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
-hl.bind("SHIFT + Print", hl.dsp.exec_cmd("hyprcap shot region -z -w"), { desc = "Screenshot region and save" })
+hl.bind("SHIFT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot-save"), { desc = "Screenshot region, save, island preview" })
 hl.bind("Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"), { desc = "Screenshot popup (island)" })
 hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), { desc = "Screen record (island)" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
@@ -136,8 +131,11 @@ hl.bind(
 	hl.dsp.exec_cmd("qs ipc call system toggle"),
 	{ desc = "Toggle system stats overlay" }
 )
-hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd("quickshell ipc call timer toggle"), { desc = "Toggle timer panel" })
-hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("quickshell ipc call calendar toggle"), { desc = "Toggle calendar" })
+hl.bind(
+	mainMod .. " + SHIFT + Space",
+	hl.dsp.exec_cmd("qs ipc call island toggle"),
+	{ desc = "Toggle utility island" }
+)
 
 -- ── Window Management ─────────────────────────────────────────────────────────
 

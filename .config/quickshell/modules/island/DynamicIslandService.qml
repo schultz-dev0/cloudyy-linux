@@ -1,6 +1,8 @@
 pragma Singleton
 
 import QtQuick
+import Quickshell
+import "IslandStatePolicy.js" as Policy
 
 QtObject {
     id: root
@@ -16,6 +18,11 @@ QtObject {
     property var recordPickerComponent: null
     property var recordingPreviewComponent: null
     property string recordingsDir: ""
+    // Mirror recording settings written by cloud-center (its own Quickshell
+    // process — see shell.qml's FileView readers for how these get set).
+    property string recFiletype: "mp4"
+    property string recFilenamePattern: ""
+    property int islandPreviewMs: 0
     property string playSoundScript: ""
     property var osdBurstComponent: null
 
@@ -24,6 +31,18 @@ QtObject {
 
     signal osdBurstUpdated()
     signal shellLayoutChanged()
+    signal transientPresented(var activity)
+    signal transientUpdated(var activity)
+    signal transientFinished(string activityId)
+
+    function _queuedOsd(kind) {
+        for (let i = 0; i < root._queue.length; i++) {
+            const activity = root._queue[i];
+            if (activity?.data?.activityType === "osd" && activity.data?.kind === kind)
+                return activity;
+        }
+        return null;
+    }
 
     function showOsdBurst(kind, icon, valueLabel, progress) {
         if (!root.osdBurstComponent)
@@ -33,18 +52,32 @@ QtObject {
         const act = root.currentActivity;
 
         if (act?.data?.activityType === "osd" && act.data?.kind === kind) {
+            if (Policy.shouldReviveOsd(
+                    act.data.activityType, act.data.kind, kind,
+                    root._finishingActivityId === act.id))
+                root._finishingActivityId = "";
             act.data.icon = icon;
             act.data.valueLabel = valueLabel;
             act.data.progress = prog;
             root._osdBurstId = act.id;
             root._startTimer(root.osdBurstDurationMs);
             root.osdBurstUpdated();
-            return;
+            root.transientUpdated(act);
+            return act.id;
         }
 
         if (act?.data?.activityType === "osd") {
             root.remove(act.id);
             root._osdBurstId = "";
+        }
+
+        const queued = root._queuedOsd(kind);
+        if (queued) {
+            queued.data.icon = icon;
+            queued.data.valueLabel = valueLabel;
+            queued.data.progress = prog;
+            root._osdBurstId = queued.id;
+            return queued.id;
         }
 
         root._osdBurstId = root.push({
@@ -59,10 +92,15 @@ QtObject {
                 progress:     prog
             }
         });
+        return root._osdBurstId;
     }
 
     property string _recordingOutFile: ""
     property string _recordingPickerId: ""
+    // Epoch ms when the current capture began (0 when idle). Used by the bar
+    // recording pill for elapsed time; restore after qs restart uses Date.now().
+    property real recordingStartedAt: 0
+    readonly property bool recordingActive: _recordingOutFile !== ""
 
     // ── Public: read by the island shell ─────────────────────────────────────
     property var  currentActivity: null
@@ -83,6 +121,8 @@ QtObject {
 
     property var  _queue:  []
     property int  _serial: 0
+    property string _finishingActivityId: ""
+    property bool _currentHeld: false
 
     function beginPreviewDrag() {
         root.previewDragActive = true;
@@ -103,6 +143,11 @@ QtObject {
         return root.notificationIslandDefaultMs + root.screenshotPreviewExtraMs;
     }
 
+    // island_preview_ms setting overrides the default preview duration when set.
+    function _previewDurationMs() {
+        return root.islandPreviewMs > 0 ? root.islandPreviewMs : root.screenshotPreviewDurationMs();
+    }
+
     property var _timer: Timer {
         repeat:   false
         running:  false
@@ -120,7 +165,7 @@ QtObject {
         else if (act?.data?.activityType === "recordPicker")
             root.dismissRecordPicker(act.id);
         else
-            root.exitRequested();
+            root._finishCurrent();
     }
 
     function push(activityDef) {
@@ -149,16 +194,23 @@ QtObject {
             return id;
         }
 
+        if (root.previewDragActive) {
+            root._insertQueued(activity);
+            root.pendingCount = root._queue.length;
+            return id;
+        }
+
         if (root.currentActivity === null) {
-            root.currentActivity = activity;
-            root._startTimer(activity.durationMs);
+            root._present(activity);
+        } else if (root._finishingActivityId) {
+            root._insertQueued(activity);
+            root.pendingCount = root._queue.length;
         } else if (activity.priority > root.currentActivity.priority) {
             const prev = root.currentActivity;
             root._timer.stop();
-            root.currentActivity = activity;
             root._insertQueued(prev);
             root.pendingCount = root._queue.length;
-            root._startTimer(activity.durationMs);
+            root._present(activity);
         } else {
             root._extendCurrent();
             root._insertQueued(activity);
@@ -172,8 +224,7 @@ QtObject {
         if (root._osdBurstId === id)
             root._osdBurstId = "";
         if (root.currentActivity && root.currentActivity.id === id) {
-            root._timer.stop();
-            root.exitRequested();
+            root._finishCurrent();
             return;
         }
         root._queue = root._queue.filter(a => a.id !== id);
@@ -205,12 +256,13 @@ QtObject {
         if (!isNotif(root.currentActivity))
             return;
 
-        root._timer.stop();
-        root.exitRequested();
+        root._finishCurrent();
     }
 
     function popCurrent() {
         root._timer.stop();
+        root._finishingActivityId = "";
+        root._currentHeld = false;
         if (root._queue.length > 0) {
             root._queue.sort((a, b) => {
                 const dp = b.priority - a.priority;
@@ -218,13 +270,46 @@ QtObject {
                     return dp;
                 return a.serial - b.serial;
             });
-            root.currentActivity = root._queue.shift();
+            const next = root._queue.shift();
             root.pendingCount    = root._queue.length;
-            root._startTimer(root.currentActivity.durationMs);
+            root._present(next);
         } else {
             root.currentActivity = null;
             root.pendingCount = 0;
         }
+    }
+
+    function _present(activity) {
+        root._finishingActivityId = "";
+        root._currentHeld = false;
+        root.currentActivity = activity;
+        root._startTimer(activity.durationMs);
+        root.transientPresented(root.currentActivity);
+    }
+
+    function _finishCurrent() {
+        const activityId = root.currentActivity?.id || "";
+        if (!activityId || root._finishingActivityId === activityId)
+            return;
+        root._timer.stop();
+        root._finishingActivityId = activityId;
+        root.transientFinished(activityId);
+        root.exitRequested();
+    }
+
+    function holdCurrent(activityId) {
+        if (!root.currentActivity || root.currentActivity.id !== activityId)
+            return;
+        root._currentHeld = true;
+        root._timer.stop();
+    }
+
+    function resumeCurrent(activityId) {
+        if (!root.currentActivity || root.currentActivity.id !== activityId
+                || !root._currentHeld || root._finishingActivityId)
+            return;
+        root._currentHeld = false;
+        root._startTimer(root.currentActivity.durationMs);
     }
 
     function _startTimer(durationMs) {
@@ -235,7 +320,8 @@ QtObject {
     }
 
     function _extendCurrent() {
-        if (root.currentActivity && root.currentActivity.durationMs > 0)
+        if (root.currentActivity && root.currentActivity.durationMs > 0
+                && !root._currentHeld)
             root._timer.restart();
     }
 
@@ -260,17 +346,18 @@ QtObject {
         root._runShell("sleep " + sec + " && rm -f -- " + root._shellQuote(imagePath));
     }
 
-    function showScreenshotPreview(imagePath, contentComponent) {
+    function showScreenshotPreview(imagePath, contentComponent, persistent) {
         const path = (imagePath || "").trim();
         if (!path || !contentComponent)
             return;
 
-        root._scheduleScreenshotFileCleanup(path);
+        if (!persistent)
+            root._scheduleScreenshotFileCleanup(path);
 
         const activityId = root.push({
             contentComponent: contentComponent,
             priority:         25,
-            durationMs:       root.screenshotPreviewDurationMs(),
+            durationMs:       root._previewDurationMs(),
             data: {
                 activityType: "screenshot",
                 imagePath:    path
@@ -306,6 +393,18 @@ QtObject {
         root._runShell("wl-copy --type image/png < " + root._shellQuote(imagePath));
     }
 
+    // Reads recording/edit_command at run time (no cached setting — Task 6 UI writes it).
+    function editScreenshotImage(imagePath) {
+        const path = (imagePath || "").trim();
+        if (!path)
+            return;
+        const cmd = "cmd=$(cat \"$HOME/.config/cloud-center/settings/recording/edit_command\" 2>/dev/null); "
+                    + "cmd=${cmd:-gio open}; "
+                    + "if [ \"$cmd\" = \"xdg-open\" ]; then cmd='gio open'; fi; "
+                    + "$cmd " + root._shellQuote(path);
+        root._runShell(cmd);
+    }
+
     // ── Recording (picker + active indicator + preview; hyprcap owns capture) ───
 
     readonly property string _recordingStateFile: "/tmp/cloudyy-recording.state"
@@ -323,12 +422,30 @@ QtObject {
         }
     }
 
+    // Mirrors lib/recording_core.expand_filename_pattern's token set/format exactly.
+    function _expandFilenamePattern(pattern) {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, "0");
+        const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        return pattern
+            .replace(/\{date\}/g, date)
+            .replace(/\{time\}/g, time)
+            .replace(/\{datetime\}/g, `${date}-${time}`);
+    }
+
     function _nextRecordingFilename() {
+        const ext = (root.recFiletype || "").trim() || "mp4";
+        const pattern = (root.recFilenamePattern || "").trim();
+        if (pattern) {
+            const expanded = root._expandFilenamePattern(pattern);
+            return /\.[A-Za-z0-9]+$/.test(expanded) ? expanded : `${expanded}.${ext}`;
+        }
         const now = new Date();
         const pad = n => String(n).padStart(2, "0");
         const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-`
                       + `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-        return `cloudyy-rec-${stamp}.mp4`;
+        return `cloudyy-rec-${stamp}.${ext}`;
     }
 
     function toggleRecording() {
@@ -381,25 +498,57 @@ QtObject {
 
     function beginRecording(selection, pickerActivityId) {
         const sel = (selection || "").trim();
-        if (!sel || !root.recordingsDir)
+        // Never leave recordingsDir empty — FileView races can briefly clear it.
+        if (!root.recordingsDir) {
+            const home = Quickshell.env("HOME") || "";
+            root.recordingsDir = home ? (home + "/Videos/Captures") : "";
+        }
+        if (!sel || !root.recordingsDir) {
+            console.warn("recording: beginRecording aborted",
+                         "selection=", sel, "recordingsDir=", root.recordingsDir);
+            root.showOsdBurst("record-error", "", "Recording unavailable", 0);
             return;
+        }
 
         root.dismissRecordPicker(pickerActivityId);
 
         const fname = root._nextRecordingFilename();
         const outFile = root.recordingsDir.replace(/\/$/, "") + "/" + fname;
 
-        root._recordingOutFile = outFile;
-        root._writeRecordingState(outFile, sel);
-
+        // cloudyy-recording-args prints "<front args> [-- <wf-recorder passthrough>]"
+        // (audio only ever appears after `--` — hyprcap's own `-a` is unrelated,
+        // it toggles notification actions). hyprcap needs the passthrough at the
+        // very end, so `-N rec-start <selection>` must be spliced in before it,
+        // not just appended to the whole string.
+        //
         // hyprcap: options BEFORE command; selection as positional arg after
         // rec-start (not `-s` — hyprcap 1.6.0 breaks on -s outside a function).
-        const cmd = "mkdir -p " + root._shellQuote(root.recordingsDir)
-                    + " && ( hyprcap -w -o " + root._shellQuote(root.recordingsDir)
-                    + " -f " + root._shellQuote(fname)
-                    + " -N rec-start " + root._shellQuote(sel)
-                    + " </dev/null >/dev/null 2>&1 & )";
-        root._runShell(cmd);
+        const cmd = "args=$(cloudyy-recording-args --kind rec --ensure-audio --filename "
+                    + root._shellQuote(fname) + ") || exit 1\n"
+                    + "eval \"arr=($args)\"\n"
+                    + "front=(); rest=(); dd=0\n"
+                    + "for tok in \"${arr[@]}\"; do\n"
+                    + "    if [ \"$dd\" -eq 0 ] && [ \"$tok\" = \"--\" ]; then dd=1; continue; fi\n"
+                    + "    if [ \"$dd\" -eq 0 ]; then front+=(\"$tok\"); else rest+=(\"$tok\"); fi\n"
+                    + "done\n"
+                    + "mkdir -p " + root._shellQuote(root.recordingsDir) + "\n"
+                    + "if [ \"$dd\" -eq 1 ]; then\n"
+                    + "    ( hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
+                    + " -- \"${rest[@]}\" </dev/null >/dev/null 2>&1 & )\n"
+                    + "else\n"
+                    + "    ( hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
+                    + " </dev/null >/dev/null 2>&1 & )\n"
+                    + "fi\n";
+
+        root._runShell(cmd, exitCode => {
+            if (exitCode !== 0) {
+                root.showOsdBurst("record-error", "", "Audio unavailable", 0);
+                return;
+            }
+            root._recordingOutFile = outFile;
+            root.recordingStartedAt = Date.now();
+            root._writeRecordingState(outFile, sel);
+        });
     }
 
     function stopRecording() {
@@ -407,6 +556,7 @@ QtObject {
         const previewComp = root.recordingPreviewComponent;
 
         root._recordingOutFile = "";
+        root.recordingStartedAt = 0;
         root._clearRecordingState();
 
         if (!outFile || !previewComp) {
@@ -451,7 +601,7 @@ QtObject {
         const activityId = root.push({
             contentComponent: contentComponent,
             priority:         25,
-            durationMs:       root.screenshotPreviewDurationMs(),
+            durationMs:       root._previewDurationMs(),
             data: {
                 activityType: "recording",
                 videoPath:    path
@@ -491,7 +641,9 @@ QtObject {
     function openRecordingVideo(videoPath) {
         if (!videoPath)
             return;
-        root._runShell("xdg-open " + root._shellQuote(videoPath));
+        // gio open respects GLib MIME defaults (mpv/Loupe); xdg-open often
+        // hands media to a browser on this setup.
+        root._runShell("gio open " + root._shellQuote(videoPath) + " 2>/dev/null || xdg-open " + root._shellQuote(videoPath));
     }
 
     function _shellQuote(path) {

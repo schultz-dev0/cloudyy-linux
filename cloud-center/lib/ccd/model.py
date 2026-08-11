@@ -50,6 +50,7 @@ NATIVE_PAGES: list[dict] = [
     {"id": "__bt__",      "title": "Bluetooth",       "icon": "\U000f00af", "flag": "--bluetooth"},       # 󰂯 bluetooth
     {"id": "__wifi__",    "title": "Wi-Fi",           "icon": "\U000f0928", "flag": "--wifi"},            # 󰤨 wifi
     {"id": "__audio__",   "title": "Audio",           "icon": "\U000f04c3", "flag": "--audio"},           # 󰓃 speaker
+    {"id": "__recording__", "title": "Recording",     "icon": "\U000f0100", "flag": "--page=recording"},   # 󰀀 camera
     {"id": "__region__",  "title": "Region & Time",   "icon": "\U000f034e", "flag": "--region"},          # 󰍎 map marker
     {"id": "__hkbm__",    "title": "Keybind Manager", "icon": "\U000f030c", "flag": "--keybinds"},        # 󰌌 keyboard
     {"id": "__rules__",   "title": "Rules & Startup", "icon": "\U000f0493", "flag": "--page=__rules__"},  # 󰒓 cog
@@ -60,7 +61,7 @@ NATIVE_PAGES: list[dict] = [
 CATEGORIES: list[tuple[str, list[str]]] = [
     ("Visuals",         ["appearance", "wallpapers", ACTIVE_SHELL_TAB, "hyprland", "terminal", "__rules__"]),
     ("Input & Display", ["input", "__cursor__", "__mon__", "__hkbm__"]),
-    ("System",          ["idle", "__bt__", "__wifi__", "__audio__", "__region__", "__battery__"]),
+    ("System",          ["idle", "__bt__", "__wifi__", "__audio__", "__recording__", "__region__", "__battery__"]),
 ]
 
 # Raw item configs by item id, for actions.py / state.py. Rebuilt on load_model.
@@ -233,6 +234,7 @@ def build_yaml_page(page_cfg: dict) -> dict:
 # Loader can pick a native component instead of YamlPage.
 NATIVE_KIND_OVERRIDES: dict[str, str] = {
     "__audio__": "audio",
+    "__recording__": "recording",
     "__battery__": "battery",
     "__bt__": "bluetooth",
     "__cursor__": "cursor",

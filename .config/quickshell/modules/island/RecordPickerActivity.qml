@@ -43,6 +43,7 @@ Item {
                 color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
+                renderType: Text.NativeRendering
             }
 
             Text {
@@ -51,6 +52,7 @@ Item {
                 font.family:        "JetBrainsMono Nerd Font"
                 font.pixelSize:     9
                 font.letterSpacing: 0.8
+                renderType: Text.NativeRendering
             }
 
             Item { Layout.fillWidth: true }
@@ -67,6 +69,7 @@ Item {
                     color:          "#ffffff"
                     font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
+                    renderType: Text.NativeRendering
                 }
 
                 MouseArea {
@@ -102,6 +105,7 @@ Item {
     }
 
     component RecordOption: Rectangle {
+        id: opt
         required property string label
         required property string icon
         required property string selection
@@ -121,18 +125,20 @@ Item {
             spacing: 8
 
             Text {
-                text:           icon
+                text:           opt.icon
                 color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 14
+                renderType: Text.NativeRendering
             }
 
             Text {
                 Layout.fillWidth: true
-                text:           label
+                text:           opt.label
                 color:          "#ffffff"
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
+                renderType: Text.NativeRendering
             }
 
             Text {
@@ -140,6 +146,7 @@ Item {
                 color:          Qt.rgba(1, 1, 1, 0.7)
                 font.family:    "JetBrainsMono Nerd Font"
                 font.pixelSize: 10
+                renderType: Text.NativeRendering
                 opacity:        0.7
             }
         }
@@ -149,7 +156,7 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape:  Qt.PointingHandCursor
-            onClicked: DynamicIslandService.beginRecording(selection, activityId)
+            onClicked: DynamicIslandService.beginRecording(opt.selection, opt.activityId)
         }
     }
 }

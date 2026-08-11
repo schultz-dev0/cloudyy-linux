@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Take a screenshot or screen recording
-# cloudyy:args=[--screenshot|--record]
+# cloudyy:args=[--screenshot|--screenshot-save|--record]
 # cloudyy:examples=cloudyy screenshot capture --screenshot
 # Screenshot + screen recording for the Dynamic Island preview flow.
-#   --screenshot  frozen region capture → island drag/upload (temp PNG in /tmp)
-#   --record      island picker → record → Alt+Print again → island drag/upload (Videos/Captures)
+#   --screenshot       frozen region capture → island drag/upload (temp PNG in /tmp)
+#   --screenshot-save  frozen region capture → saved to screenshots dir → persistent island preview
+#   --record           island picker → record → Alt+Print again → island drag/upload (Videos/Captures)
 set -uo pipefail
 
 readonly SCREENSHOT_PATH_FILE="/tmp/cloudyy-screenshot.path"
+readonly CC_ROOT="${HOME}/cloudyy-linux/cloud-center"
 
 usage() {
     cat <<'EOF'
-Usage: capture.sh [--screenshot | --record]
+Usage: capture.sh [--screenshot | --screenshot-save | --record]
 
-  --screenshot, -s   Region screenshot (frozen) → island preview (default)
-  --record, -r       Island target picker → record; run again to stop → island preview
+  --screenshot, -s        Region screenshot (frozen) → temp island preview (default)
+  --screenshot-save       Region screenshot (frozen) → saved file → persistent island preview
+  --record, -r            Island target picker → record; run again to stop → island preview
 EOF
 }
 
@@ -48,6 +51,35 @@ cmd_screenshot() {
     fi
 }
 
+cmd_screenshot_save() {
+    local fname out_dir args args_arr out_file
+
+    fname="screenshot-$(date +%Y-%m-%d-%H%M%S).png"
+
+    out_dir="$(PYTHONPATH="${CC_ROOT}${PYTHONPATH:+:$PYTHONPATH}" python3 -c \
+        'from lib.recording_core import load_settings; print(load_settings()["screenshots_dir"])')" \
+        || exit 0
+    mkdir -p "$out_dir"
+
+    args="$(cloudyy-recording-args --kind shot --filename "$fname")" || exit 0
+    eval "args_arr=($args)"
+
+    if ! hyprcap shot region -z "${args_arr[@]}" -N; then
+        exit 0
+    fi
+
+    out_file="${out_dir%/}/$fname"
+    [[ -f "$out_file" ]] || exit 0
+
+    printf '%s' "$out_file" >"$SCREENSHOT_PATH_FILE"
+
+    if ! qs_ipc screenshot showSaved; then
+        echo "screenshot: island IPC failed — reload quickshell: cloudyy-quickshell-reload" >&2
+        echo "  then verify: qs ipc show | rg screenshot" >&2
+        exit 1
+    fi
+}
+
 # ── Recording (orchestrated by quickshell island + hyprcap) ───────────────────
 
 cmd_record() {
@@ -63,6 +95,7 @@ cmd_record() {
 main() {
     case "${1:---screenshot}" in
         --screenshot | -s) cmd_screenshot ;;
+        --screenshot-save) cmd_screenshot_save ;;
         --record | -r) cmd_record ;;
         -h | --help) usage ;;
         *)

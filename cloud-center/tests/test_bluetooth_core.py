@@ -101,14 +101,33 @@ class BluetoothCoreTests(unittest.TestCase):
     def test_connect_uses_fixed_argv(self):
         from lib import bluetooth_core
 
+        responses = [(True, "ok"), (True, "Connected: yes\n")]
         with mock.patch.object(
-            bluetooth_core, "_run_bt", return_value=(True, "ok"),
-        ) as runner:
+            bluetooth_core, "_run_bt", side_effect=responses,
+        ) as runner, mock.patch.object(bluetooth_core.time, "sleep"):
             ok, _ = bluetooth_core.execute_bluetooth_action(
                 "connect", "AA:BB:CC:DD:EE:FF", None,
             )
         self.assertTrue(ok)
-        runner.assert_called_once_with(["connect", "AA:BB:CC:DD:EE:FF"], timeout=18)
+        runner.assert_any_call(["connect", "AA:BB:CC:DD:EE:FF"], timeout=18)
+        self.assertEqual(runner.call_count, 2)
+
+    def test_connect_retries_once_if_link_drops_right_after_connect(self):
+        from lib import bluetooth_core
+
+        responses = [
+            (True, "Connection successful"),
+            (True, "Connected: no\n"),
+            (True, "Connection successful"),
+        ]
+        with mock.patch.object(
+            bluetooth_core, "_run_bt", side_effect=responses,
+        ) as runner, mock.patch.object(bluetooth_core.time, "sleep"):
+            ok, _ = bluetooth_core.connect_device("AA:BB:CC:DD:EE:FF")
+
+        self.assertTrue(ok)
+        self.assertEqual(runner.call_count, 3)
+        runner.assert_any_call(["info", "AA:BB:CC:DD:EE:FF"])
 
     def test_set_power_and_trust_dispatch(self):
         from lib import bluetooth_core

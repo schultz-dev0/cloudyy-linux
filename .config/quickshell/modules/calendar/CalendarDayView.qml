@@ -17,6 +17,14 @@ Item {
 
     implicitHeight: dayHeader.implicitHeight + (root._events.length > 0 ? eventList.implicitHeight : emptyState.implicitHeight) + 32
 
+    function focusInitial() {
+        const firstEvent = eventRepeater.itemAt(0);
+        if (firstEvent)
+            firstEvent.forceActiveFocus();
+        else
+            addButton.forceActiveFocus();
+    }
+
     // ── Day header ────────────────────────────────────────────────────────────
     RowLayout {
         id: dayHeader
@@ -28,27 +36,45 @@ Item {
                 parseInt(root.selectedDate.split("-")[1]) - 1,
                 parseInt(root.selectedDate.split("-")[2])
             )
-            color: Theme.on_surface
+            color: Theme.islandOnSurface
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 13
             font.weight: Font.Medium
+            renderType: Text.NativeRendering
             Layout.fillWidth: true
         }
 
         // Add event FAB
         Rectangle {
-            width: 28; height: 28
+            id: addButton
+            implicitWidth: 28; implicitHeight: 28
             radius: 14
-            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18)
-            border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.4)
+            color: activeFocus ? Theme.islandAccent
+                : Qt.rgba(Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.18)
+            border.color: Qt.rgba(Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.4)
             border.width: 1
+            activeFocusOnTab: true
 
             Text {
                 anchors.centerIn: parent
                 text: "󰐕"
-                color: Theme.primary
+                color: addButton.activeFocus ? Theme.islandOnAccent : Theme.islandAccent
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 14
+                renderType: Text.NativeRendering
+            }
+
+            Keys.onReturnPressed: event => {
+                root.addEventRequested(root.selectedDate);
+                event.accepted = true;
+            }
+            Keys.onEnterPressed: event => {
+                root.addEventRequested(root.selectedDate);
+                event.accepted = true;
+            }
+            Keys.onSpacePressed: event => {
+                root.addEventRequested(root.selectedDate);
+                event.accepted = true;
             }
 
             MouseArea {
@@ -77,16 +103,18 @@ Item {
 
             Text {
                 text: "󰃰"
-                color: Theme.on_surface_variant
+                color: Theme.islandOnSurfaceVariant
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 22
+                renderType: Text.NativeRendering
                 Layout.alignment: Qt.AlignHCenter
             }
             Text {
                 text: "No events"
-                color: Theme.on_surface_variant
+                color: Theme.islandOnSurfaceVariant
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
+                renderType: Text.NativeRendering
                 Layout.alignment: Qt.AlignHCenter
             }
         }
@@ -102,16 +130,20 @@ Item {
             topMargin: 8
         }
         visible: root._events.length > 0
-        spacing: 6
+        spacing: 0
 
         Repeater {
+            id: eventRepeater
             model: root._events
             delegate: CalendarEventCard {
                 required property var modelData
                 Layout.fillWidth: true
                 event: modelData
                 onEditRequested: ev => root.editEventRequested(ev)
-                onDeleteRequested: id => root.deleteEventRequested(id)
+                onDeleteRequested: id => {
+                    root.deleteEventRequested(id);
+                    Qt.callLater(() => root.focusInitial());
+                }
             }
         }
     }

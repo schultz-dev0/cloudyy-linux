@@ -2,33 +2,59 @@ pragma ComponentBehavior: Bound
 
 // modules/currency/backend/CurrencyConverter.qml
 import QtQuick
+import "CurrencyParse.js" as CurrencyParse
 
 QtObject {
     id: currencyConverter
 
-    // Parse queries like "100 USD to EUR", "50 usd in eur", "25.5 GBP JPY"
+    // from|to → { rate, date, fetchedAt }
+    property var rateCache: ({})
+
     function parseQuery(str) {
-        if (!str || str.trim().length === 0)
-            return null;
-
-        const m = str.trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]{3})\s*(?:(?:to|in)\s+)?([a-zA-Z]{3})$/i);
-        if (!m)
-            return null;
-
-        const from = m[2].toUpperCase();
-        const to = m[3].toUpperCase();
-        if (from === to)
-            return null;
-
-        return {
-            amount: parseFloat(m[1]),
-            from: from,
-            to: to
-        };
+        return CurrencyParse.parseQuery(str);
     }
 
     function isCurrencyQuery(str) {
-        return parseQuery(str) !== null;
+        return CurrencyParse.isCurrencyQuery(str);
+    }
+
+    function cacheKey(from, to) {
+        return from + "|" + to;
+    }
+
+    function getCachedRate(from, to) {
+        const key = cacheKey(from, to);
+        const hit = rateCache[key];
+        if (!hit || !Number.isFinite(hit.rate))
+            return null;
+        return hit;
+    }
+
+    function rememberRate(from, to, rate, date) {
+        if (!Number.isFinite(rate))
+            return;
+        const next = Object.assign({}, rateCache);
+        next[cacheKey(from, to)] = {
+            rate: rate,
+            date: date || "",
+            fetchedAt: Date.now()
+        };
+        rateCache = next;
+    }
+
+    function convertCached(amount, from, to) {
+        const hit = getCachedRate(from, to);
+        if (!hit)
+            return null;
+        return {
+            amount: amount,
+            from: from,
+            to: to,
+            converted: amount * hit.rate,
+            rate: hit.rate,
+            date: hit.date || "",
+            cached: true
+        };
     }
 
     function formatAmount(value) {
@@ -41,18 +67,20 @@ QtObject {
     }
 
     function formatResult(amount, from, to, converted, date) {
-        const line = `${formatAmount(amount)} ${from} = ${formatAmount(converted)} ${to}`;
-        if (!date)
-            return line;
-        return line;
+        return `${formatAmount(amount)} ${from} = ${formatAmount(converted)} ${to}`;
     }
 
-    function formatSubtitle(amount, from, to, rate, date) {
+    function formatSubtitle(amount, from, to, rate, date, extra) {
         const rateText = Number.isFinite(rate)
             ? `1 ${from} = ${formatAmount(rate)} ${to}`
             : "";
-        if (date && rateText)
-            return `${rateText} · ${date}`;
-        return rateText || date || "";
+        const bits = [];
+        if (rateText)
+            bits.push(rateText);
+        if (date)
+            bits.push(date);
+        if (extra)
+            bits.push(extra);
+        return bits.join(" · ");
     }
 }
