@@ -117,7 +117,7 @@ FloatingWindow {
                     cardTitle: root.updateTitle
                     cardSubtitle: root.updateSub
                     buttonLabel: "Update →"
-                    onClicked: root.launch("kitty --title cloudyy-update cloudyy-update")
+                    onClicked: root.launch("kitty --title cloudyy-up3date cloudyy-update")
                 }
             }
 

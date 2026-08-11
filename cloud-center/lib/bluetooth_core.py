@@ -184,7 +184,21 @@ def get_devices(force: bool = False) -> list[BluetoothDevice]:
     return list(results)
 
 
+CONNECT_DROP_CHECK_DELAY = 2.0
+
+
 def connect_device(address: str) -> tuple[bool, str]:
+    # ponytail: BLE HID peripherals waking from sleep sometimes have their GATT
+    # server fail first-read with ATT 0x0E right after connect, and bluetoothd
+    # tears the link down without retrying (bluez #1911, unpatched upstream).
+    # One retry covers it; raise CONNECT_DROP_CHECK_DELAY if it still flaps.
+    ok, out = _run_bt(["connect", address], timeout=18)
+    if not ok:
+        return ok, out
+    time.sleep(CONNECT_DROP_CHECK_DELAY)
+    _, info = _run_bt(["info", address])
+    if "Connected: yes" in info:
+        return ok, out
     return _run_bt(["connect", address], timeout=18)
 
 

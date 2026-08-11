@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 // modules/calendar/CalendarEventDialog.qml
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 import "../.."
 
 Item {
@@ -17,6 +16,34 @@ Item {
 
     signal accepted()
     signal cancelled()
+
+    function _cancel() {
+        root.open = false;
+        root.cancelled();
+    }
+
+    function _focusables() {
+        const items = [_titleField, _dateField, _allDayCheck];
+        if (!_allDayCheck.checked)
+            items.push(_startField, _endField);
+        for (let i = 0; i < colorRepeater.count; i++)
+            items.push(colorRepeater.itemAt(i));
+        items.push(_descField, cancelButton, saveButton);
+        return items;
+    }
+
+    function _moveFocus(delta) {
+        const items = _focusables();
+        let current = -1;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i] && items[i].activeFocus) {
+                current = i;
+                break;
+            }
+        }
+        const next = ((current + delta) % items.length + items.length) % items.length;
+        items[next].forceActiveFocus();
+    }
 
     function openAdd(date) {
         root.editId = ""
@@ -75,19 +102,32 @@ Item {
 
     // ── Slide animation ───────────────────────────────────────────────────────
     anchors.fill: parent
+    focus: open
+    Keys.priority: Keys.BeforeItem
+    Keys.onTabPressed: event => {
+        root._moveFocus(1);
+        event.accepted = true;
+    }
+    Keys.onBacktabPressed: event => {
+        root._moveFocus(-1);
+        event.accepted = true;
+    }
+    Keys.onEscapePressed: event => {
+        root._cancel();
+        event.accepted = true;
+    }
 
     Rectangle {
         id: overlay
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.4)
         opacity: root.open ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Behavior on opacity { NumberAnimation { duration: Perf.opacityMs(200) } }
 
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                root.open = false
-                root.cancelled()
+                root._cancel()
             }
         }
     }
@@ -106,7 +146,7 @@ Item {
         border.width: 1
 
         y: root.open ? 0 : height
-        Behavior on y { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: Perf.geometryMs(280); easing.type: Easing.OutCubic } }
 
         // Swallow clicks so overlay close doesn't fire
         MouseArea { anchors.fill: parent }
@@ -129,6 +169,7 @@ Item {
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 15
                     font.weight: Font.Bold
+                    renderType: Text.NativeRendering
                     Layout.fillWidth: true
                 }
 
@@ -137,10 +178,11 @@ Item {
                     color: Theme.on_surface_variant
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 18
+                    renderType: Text.NativeRendering
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: { root.open = false; root.cancelled() }
+                        onClicked: root._cancel()
                     }
                 }
             }
@@ -173,17 +215,22 @@ Item {
                         color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
+                        renderType: Text.NativeRendering
                     }
                     Rectangle {
                         id: _allDayCheck
                         property bool checked: false
-                        width: 22; height: 22
+                        implicitWidth: 22; implicitHeight: 22
                         radius: 6
                         color: checked
                             ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
                             : Theme.surface_container
-                        border.color: checked ? Theme.primary : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.5)
-                        border.width: 1.5
+                        border.color: activeFocus ? Theme.islandFocus
+                            : checked ? Theme.primary
+                            : Qt.rgba(Theme.outline_variant.r,
+                                Theme.outline_variant.g, Theme.outline_variant.b, 0.5)
+                        border.width: activeFocus ? 2 : 1.5
+                        activeFocusOnTab: true
 
                         Text {
                             anchors.centerIn: parent
@@ -192,6 +239,20 @@ Item {
                             color: Theme.primary
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
+                            renderType: Text.NativeRendering
+                        }
+
+                        Keys.onReturnPressed: event => {
+                            _allDayCheck.checked = !_allDayCheck.checked;
+                            event.accepted = true;
+                        }
+                        Keys.onEnterPressed: event => {
+                            _allDayCheck.checked = !_allDayCheck.checked;
+                            event.accepted = true;
+                        }
+                        Keys.onSpacePressed: event => {
+                            _allDayCheck.checked = !_allDayCheck.checked;
+                            event.accepted = true;
                         }
 
                         MouseArea {
@@ -221,6 +282,7 @@ Item {
                     color: Theme.on_surface_variant
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
+                    renderType: Text.NativeRendering
                 }
 
                 StyledField {
@@ -241,22 +303,48 @@ Item {
                     color: Theme.on_surface_variant
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
+                    renderType: Text.NativeRendering
                 }
 
                 Repeater {
+                    id: colorRepeater
                     model: root._colorOptions
                     delegate: Rectangle {
+                        id: colorOption
                         required property var modelData
                         width: 22; height: 22
                         radius: 11
                         color: modelData.color
                         border.width: root._selectedColor === modelData.tag ? 3 : 0
                         border.color: Qt.rgba(1, 1, 1, 0.7)
+                        activeFocusOnTab: true
+
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -3
+                            radius: width / 2
+                            color: "transparent"
+                            border.width: parent.activeFocus ? 2 : 0
+                            border.color: Theme.on_surface
+                        }
+
+                        Keys.onReturnPressed: event => {
+                            root._selectedColor = modelData.tag;
+                            event.accepted = true;
+                        }
+                        Keys.onEnterPressed: event => {
+                            root._selectedColor = modelData.tag;
+                            event.accepted = true;
+                        }
+                        Keys.onSpacePressed: event => {
+                            root._selectedColor = modelData.tag;
+                            event.accepted = true;
+                        }
 
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root._selectedColor = modelData.tag
+                            onClicked: root._selectedColor = colorOption.modelData.tag
                         }
                     }
                 }
@@ -279,6 +367,8 @@ Item {
                     color: Theme.on_surface
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
+                    renderType: TextEdit.NativeRendering
+                    activeFocusOnTab: true
                     wrapMode: TextEdit.WordWrap
                     selectedTextColor: Theme.on_primary
                     selectionColor: Theme.primary
@@ -290,6 +380,7 @@ Item {
                         color: Theme.on_surface_variant
                         font: _descField.font
                         opacity: 0.6
+                        renderType: Text.NativeRendering
                     }
                 }
             }
@@ -302,12 +393,16 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Rectangle {
+                    id: cancelButton
                     implicitWidth: cancelText.implicitWidth + 24
                     implicitHeight: 34
                     radius: 10
                     color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.2)
-                    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
-                    border.width: 1
+                    border.color: activeFocus ? Theme.islandFocus
+                        : Qt.rgba(Theme.outline_variant.r,
+                            Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                    border.width: activeFocus ? 2 : 1
+                    activeFocusOnTab: true
 
                     Text {
                         id: cancelText
@@ -316,22 +411,39 @@ Item {
                         color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
+                        renderType: Text.NativeRendering
+                    }
+
+                    Keys.onReturnPressed: event => {
+                        root._cancel();
+                        event.accepted = true;
+                    }
+                    Keys.onEnterPressed: event => {
+                        root._cancel();
+                        event.accepted = true;
+                    }
+                    Keys.onSpacePressed: event => {
+                        root._cancel();
+                        event.accepted = true;
                     }
 
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: { root.open = false; root.cancelled() }
+                        onClicked: root._cancel()
                     }
                 }
 
                 Rectangle {
+                    id: saveButton
                     implicitWidth: saveText.implicitWidth + 24
                     implicitHeight: 34
                     radius: 10
                     color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
-                    border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
-                    border.width: 1
+                    border.color: activeFocus ? Theme.islandFocus
+                        : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                    border.width: activeFocus ? 2 : 1
+                    activeFocusOnTab: true
 
                     Text {
                         id: saveText
@@ -341,6 +453,20 @@ Item {
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                         font.weight: Font.Medium
+                        renderType: Text.NativeRendering
+                    }
+
+                    Keys.onReturnPressed: event => {
+                        root._commit();
+                        event.accepted = true;
+                    }
+                    Keys.onEnterPressed: event => {
+                        root._commit();
+                        event.accepted = true;
+                    }
+                    Keys.onSpacePressed: event => {
+                        root._commit();
+                        event.accepted = true;
                     }
 
                     MouseArea {
@@ -354,7 +480,7 @@ Item {
     }
 
     // ── Inline styled text field component ───────────────────────────────────
-    component StyledField: Rectangle {
+    component StyledField: FocusScope {
         id: sfRoot
         property alias text: sfInput.text
         property alias placeholderText: sfPlaceholder.text
@@ -362,20 +488,27 @@ Item {
         signal accepted()
 
         implicitHeight: 36
-        radius: 10
-        color: Theme.surface_container
-        border.color: sfInput.activeFocus
-            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
-            : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
-        border.width: sfInput.activeFocus ? 1.5 : 1
+        activeFocusOnTab: true
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 10
+            color: Theme.surface_container
+            border.color: sfRoot.activeFocus
+                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
+                : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+            border.width: sfRoot.activeFocus ? 1.5 : 1
+        }
 
         TextInput {
             id: sfInput
+            focus: true
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             verticalAlignment: TextInput.AlignVCenter
             color: Theme.on_surface
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
+            renderType: TextInput.NativeRendering
             selectedTextColor: Theme.on_primary
             selectionColor: Theme.primary
             onAccepted: sfRoot.accepted()
@@ -388,6 +521,7 @@ Item {
                 color: Theme.on_surface_variant
                 font: sfInput.font
                 opacity: 0.6
+                renderType: Text.NativeRendering
             }
         }
     }

@@ -16,7 +16,8 @@ declare -A ALIASES=(
   [wifi]="__wifi__" [bluetooth]="__bt__" [monitors]="__mon__" [monitor]="__mon__"
   [audio]="__audio__" [keybinds]="__hkbm__" [keybind-manager]="__hkbm__"
   [cursor]="__cursor__" [region]="__region__" [time]="__region__" [datetime]="__region__"
-  [battery]="__battery__" [rules]="__rules__" [config-manager]="__hkbm__"
+  [battery]="__battery__" [recording]="__recording__" [record]="__recording__"
+  [screenshots]="__recording__" [rules]="__rules__" [config-manager]="__hkbm__"
 )
 
 page="${1:-}"

@@ -141,6 +141,7 @@ class TestLoadModel(ModelTest):
         self.assertEqual(by_id["__wifi__"]["kind"], "wifi")
         self.assertEqual(by_id["__battery__"]["kind"], "battery")
         self.assertEqual(by_id["__audio__"]["kind"], "audio")
+        self.assertEqual(by_id["__recording__"]["kind"], "recording")
         self.assertEqual(by_id["__region__"]["kind"], "region")
         self.assertNotIn("deep_link", by_id["__mon__"])
         self.assertNotIn("deep_link", by_id["__bt__"])

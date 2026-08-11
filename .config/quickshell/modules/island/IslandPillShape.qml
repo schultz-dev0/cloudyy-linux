@@ -1,91 +1,28 @@
 import QtQuick
-import QtQuick.Shapes
 
-// Vector pill chrome — smooth anti-aliased border without MultiEffect.
-Shape {
+// Top-attached island silhouette: square top corners (flush with the screen
+// edge) and rounded bottom corners. A plain Rectangle with per-corner radius
+// (Qt 6.7+) replaces the old custom Shape/ShapePath geometry it used to take
+// to get independent top/bottom radii — cheaper to resize/animate (native
+// rect, no path retessellation every frame) and far simpler.
+Rectangle {
     id: root
 
-    property real outerRadius: 28
-    property real strokeWidth: 2
-    property color strokeColor: Qt.rgba(1, 1, 1, 0.12)
-    property color fillColor: Qt.rgba(0, 0, 0, 0.95)
+    property real shoulderRadius: 10
+    property real lowerRadius: 26
+    property real strokeWidth: 1
+    property color strokeColor: Qt.rgba(1, 1, 1, 0.10)
+    property color fillColor: Qt.rgba(0, 0, 0, 0.97)
 
-    readonly property real pw: width
-    readonly property real ph: height
-    readonly property real r: Math.min(outerRadius, Math.floor(ph / 2))
-    readonly property real ir: Math.max(0, r - strokeWidth)
-    readonly property real m: strokeWidth
+    readonly property real shoulder: Math.min(shoulderRadius, width / 4, height)
+    readonly property real lower: Math.min(lowerRadius, height / 2, width / 2)
 
     antialiasing: true
-    preferredRendererType: Shape.CurveRenderer
-
-    ShapePath {
-        strokeWidth: 0
-        fillColor: root.strokeColor
-        startX: root.r
-        startY: 0
-        PathLine { x: root.pw - root.r; y: 0 }
-        PathArc {
-            x: root.pw
-            y: root.r
-            radiusX: root.r
-            radiusY: root.r
-        }
-        PathLine { x: root.pw; y: root.ph - root.r }
-        PathArc {
-            x: root.pw - root.r
-            y: root.ph
-            radiusX: root.r
-            radiusY: root.r
-        }
-        PathLine { x: root.r; y: root.ph }
-        PathArc {
-            x: 0
-            y: root.ph - root.r
-            radiusX: root.r
-            radiusY: root.r
-        }
-        PathLine { x: 0; y: root.r }
-        PathArc {
-            x: root.r
-            y: 0
-            radiusX: root.r
-            radiusY: root.r
-        }
-    }
-
-    ShapePath {
-        strokeWidth: 0
-        fillColor: root.fillColor
-        startX: root.m + root.ir
-        startY: root.m
-        PathLine { x: root.pw - root.m - root.ir; y: root.m }
-        PathArc {
-            x: root.pw - root.m
-            y: root.m + root.ir
-            radiusX: root.ir
-            radiusY: root.ir
-        }
-        PathLine { x: root.pw - root.m; y: root.ph - root.m - root.ir }
-        PathArc {
-            x: root.pw - root.m - root.ir
-            y: root.ph - root.m
-            radiusX: root.ir
-            radiusY: root.ir
-        }
-        PathLine { x: root.m + root.ir; y: root.ph - root.m }
-        PathArc {
-            x: root.m
-            y: root.ph - root.m - root.ir
-            radiusX: root.ir
-            radiusY: root.ir
-        }
-        PathLine { x: root.m; y: root.m + root.ir }
-        PathArc {
-            x: root.m + root.ir
-            y: root.m
-            radiusX: root.ir
-            radiusY: root.ir
-        }
-    }
+    color: root.fillColor
+    border.width: root.strokeWidth
+    border.color: root.strokeColor
+    topLeftRadius: root.shoulder
+    topRightRadius: root.shoulder
+    bottomLeftRadius: root.lower
+    bottomRightRadius: root.lower
 }

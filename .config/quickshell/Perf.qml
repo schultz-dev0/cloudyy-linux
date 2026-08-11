@@ -23,5 +23,13 @@ QtObject {
         return lightweight ? Math.max(0, Math.round(normal * 0.45)) : normal;
     }
 
+    function geometryMs(normal) {
+        return lightweight ? 0 : normal;
+    }
+
+    function opacityMs(normal) {
+        return lightweight ? 60 : normal;
+    }
+
     readonly property int dockFrameMs: lightweight ? 32 : 16
 }

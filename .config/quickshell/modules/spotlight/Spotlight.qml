@@ -170,9 +170,15 @@ PanelWindow {
     function prependInlineResults() {
         const timeEntry = buildTimeEntry();
         const calcEntry = buildCalcEntry();
+        const currencyQuery = currencyConverter.isCurrencyQuery(svc.query);
+        const currencyEntry = currencyQuery
+            ? svc.results.find(r => r.type === "currency" && (r.expression ?? "") === svc.query)
+            : null;
         const withoutInline = svc.results.filter(r =>
-            r.type !== "time" && r.type !== "calculator");
+            r.type !== "time" && r.type !== "calculator" && r.type !== "currency");
         const next = [];
+        if (currencyEntry)
+            next.push(currencyEntry);
         if (timeEntry)
             next.push(timeEntry);
         if (calcEntry)
@@ -193,6 +199,72 @@ PanelWindow {
         svc.results = next.concat(withoutInline);
     }
 
+    function upsertCurrencyEntry(entry) {
+        const rest = svc.results.filter(r => r.type !== "currency");
+        svc.results = [entry, ...rest];
+    }
+
+    function clearCurrencyResults() {
+        currencyDebounce.stop();
+        currencyProc.running = false;
+        currencyProc.fetchQuery = "";
+        if (svc.results.some(r => r.type === "currency"))
+            svc.results = svc.results.filter(r => r.type !== "currency");
+    }
+
+    function showCurrencyPending(parsed) {
+        const cached = currencyConverter.convertCached(parsed.amount, parsed.from, parsed.to);
+        if (cached) {
+            upsertCurrencyEntry({
+                type: "currency",
+                expression: svc.query,
+                result: currencyConverter.formatResult(parsed.amount, parsed.from, parsed.to, cached.converted, cached.date),
+                subtitle: currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, cached.rate, cached.date, "refreshing…")
+            });
+            return;
+        }
+        upsertCurrencyEntry({
+            type: "currency",
+            expression: svc.query,
+            result: `${currencyConverter.formatAmount(parsed.amount)} ${parsed.from} → ${parsed.to}`,
+            subtitle: "Looking up…"
+        });
+    }
+
+    function startCurrencyFetch(parsed, querySnapshot) {
+        currencyProc.running = false;
+        currencyProc.fetchQuery = querySnapshot;
+        currencyProc.command = [
+            "bash", root.currencyFetchScript,
+            parsed.amount.toString(),
+            parsed.from,
+            parsed.to
+        ];
+        currencyProc.running = true;
+    }
+
+    function syncCurrencyForQuery() {
+        const parsed = currencyConverter.parseQuery(svc.query);
+        if (!parsed) {
+            clearCurrencyResults();
+            return;
+        }
+        showCurrencyPending(parsed);
+        currencyDebounce.restart();
+    }
+
+    Timer {
+        id: currencyDebounce
+        interval: 180
+        repeat: false
+        onTriggered: {
+            const parsed = currencyConverter.parseQuery(svc.query);
+            if (!parsed)
+                return;
+            root.startCurrencyFetch(parsed, svc.query);
+        }
+    }
+
     Process {
         id: currencyProc
         property string fetchQuery: ""
@@ -206,18 +278,27 @@ PanelWindow {
                     return;
                 try {
                     const data = JSON.parse(text);
-                    if (data.error)
-                        return;
                     const parsed = currencyConverter.parseQuery(svc.query);
                     if (!parsed)
                         return;
-                    const entry = {
+                    if (data.error) {
+                        root.upsertCurrencyEntry({
+                            type: "currency",
+                            expression: svc.query,
+                            result: `${currencyConverter.formatAmount(parsed.amount)} ${parsed.from} → ${parsed.to}`,
+                            subtitle: String(data.error)
+                        });
+                        return;
+                    }
+                    if (Number.isFinite(data.rate))
+                        currencyConverter.rememberRate(parsed.from, parsed.to, data.rate, data.date || "");
+                    const extra = data.stale || data.cached ? "cached" : "";
+                    root.upsertCurrencyEntry({
                         type: "currency",
                         expression: svc.query,
                         result: currencyConverter.formatResult(parsed.amount, parsed.from, parsed.to, data.converted, data.date),
-                        subtitle: currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, data.rate, data.date)
-                    };
-                    svc.results = [entry, ...svc.results.filter(r => r.type !== "currency")];
+                        subtitle: currencyConverter.formatSubtitle(parsed.amount, parsed.from, parsed.to, data.rate, data.date, extra)
+                    });
                 } catch (_) {}
             }
         }
@@ -230,19 +311,7 @@ PanelWindow {
                 searchInput.text = svc.query;
 
             prependInlineResults();
-
-            const parsed = currencyConverter.parseQuery(svc.query);
-            if (!parsed)
-                return;
-            currencyProc.running = false;
-            currencyProc.fetchQuery = svc.query;
-            currencyProc.command = [
-                "bash", root.currencyFetchScript,
-                parsed.amount.toString(),
-                parsed.from,
-                parsed.to
-            ];
-            currencyProc.running = true;
+            root.syncCurrencyForQuery();
         }
         function onResultsChanged() {
             prependInlineResults();

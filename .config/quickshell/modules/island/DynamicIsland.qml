@@ -1,577 +1,427 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import "../.."
 import "." as QuickIsland
-
-// Open TO:DOs:
-// - [ ] Fix timer component to call a pop up upon completion/start
-// - [ ] Explore charging pop up for laptops
+import "IslandStatePolicy.js" as Policy
 
 PanelWindow {
     id: island
 
     property var assignedScreen: null
+    property bool transientDismissing: false
+    property var persistentSnapshot: null
 
-    readonly property var resolvedScreen: { 
-        const pref = assignedScreen;
-        const all = Quickshell.screens;
-        if (!all.length)
-            return null;    
-        if (!pref)
-            return all[0];  
-        const name = pref.name;
-        for (let i = 0; i < all.length; i++) {  
-            if (all[i].name === name)
-                return all[i];
-        }   
-        return all[0];  
-    }   
+    readonly property var resolvedScreen: {
+        const screens = Quickshell.screens;
+        if (!screens.length)
+            return null;
+
+        const ownedName = QuickIsland.IslandState.openingScreenName;
+        const preferredName = ownedName || assignedScreen?.name || "";
+        for (let i = 0; i < screens.length; i++) {
+            if (screens[i].name === preferredName)
+                return screens[i];
+        }
+        return screens[0];
+    }
+    readonly property var activeTransient:
+        QuickIsland.DynamicIslandService.currentActivity
+    readonly property string transientPresentation: activeTransient
+        ? Policy.transientPresentation(activeTransient.data?.activityType,
+                                       QuickIsland.IslandState.pinned)
+        : "none"
+    readonly property bool transientActive: transientPresentation === "full"
+    readonly property var inlineNotification: transientPresentation === "inline"
+        ? activeTransient.data : null
+    readonly property bool largePreview: {
+        const type = QuickIsland.DynamicIslandService.currentActivity?.data?.activityType;
+        return type === "screenshot" || type === "recording" || type === "recordPicker";
+    }
+    readonly property int persistentWidth: QuickIsland.IslandState.mode === "resting"
+        ? (timerPill.active ? Theme.islandTimerRestWidth : Theme.islandRestWidth)
+        : Theme.islandCarouselWidth
+    readonly property int persistentHeight: {
+        if (QuickIsland.IslandState.expanded)
+            return Theme.islandExpandedMaxHeight;
+        return QuickIsland.IslandState.mode === "resting"
+            ? Theme.islandRestHeight : Theme.islandCarouselHeight;
+    }
+    readonly property int transientHeight: {
+        if (!largePreview || !contentLoader.item)
+            return Theme.islandShellHeight;
+        const contentHeight = contentLoader.item.implicitHeight || Theme.islandShellHeight;
+        return Math.min(280, Math.max(
+            Theme.islandShellHeight,
+            contentHeight + Theme.islandPreviewInset * 2 + pillShape.strokeWidth * 2));
+    }
+    readonly property real targetWidth: transientActive
+        ? Theme.islandShellWidth : persistentWidth
+    readonly property real targetHeight: transientActive
+        ? transientHeight : persistentHeight
+    readonly property real lowerRadius: QuickIsland.IslandState.mode === "resting"
+        && !transientActive ? Theme.islandRestLowerRadius : Theme.islandOpenLowerRadius
+    readonly property real effectiveLowerRadius: Math.min(
+        lowerRadius, width / 2, height / 2)
 
     screen: resolvedScreen ?? (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
 
-    Component {
-        id: notificationActivityComp
-        QuickIsland.NotificationActivity {}
-    }
-
-    readonly property Component notificationActivityComponent: notificationActivityComp
-
-    readonly property int islandPadding: 12
-    readonly property int compactShellWidth: 148
-    readonly property int compactShellHeight: 36
-    readonly property int barReservedHeight: 21
-    readonly property int displayTopGap: 1
-    readonly property int shellRadius: Theme.islandShellRadius
-    readonly property int standardShellWidth: Theme.islandShellWidth
-    readonly property int standardShellHeight: Theme.islandShellHeight
-    readonly property int hoverOverflow: 4
-    readonly property int maxPreviewHeight: 280
-    readonly property int previewInset: Theme.islandPreviewInset
-    readonly property color shellFill: Qt.rgba(0.015, 0.015, 0.018, 0.985)
-    readonly property color shellBorder: Qt.rgba(1, 1, 1, 0.085)
-    readonly property color shellBorderHovered: Qt.rgba(1, 1, 1, 0.15)
-
-    readonly property int activationHeight: 1
-    property bool bodyHovered: false
-    readonly property int animScaleIn: Perf.msHalf(100)
-    readonly property int animScaleOut: Perf.msHalf(90)
-    readonly property int animExpand: Perf.msHalf(170)
-    readonly property int animFade: Perf.msHalf(80)
-
-    property string islandState: "idle"
-    property real targetWidth: standardShellWidth
-    property real targetHeight: standardShellHeight
-
-    readonly property bool pillShown: islandState !== "idle"
-    readonly property bool chromeVisible: pillShown
-
-    anchors {
-        top: true
-    }
-    margins {
-        // Counter the bar's 18 px height + 3 px top gap, then leave one
-        // physical pixel between the island and the display edge.
-        top: displayTopGap - barReservedHeight
-    }
-
-    implicitWidth: chromeVisible ? targetWidth + hoverOverflow * 2 : 160
-    implicitHeight: chromeVisible ? targetHeight + hoverOverflow : activationHeight
-    exclusiveZone: 0
+    anchors.top: true
+    implicitWidth: Math.min(targetWidth, screen ? screen.width - 16 : targetWidth)
+    implicitHeight: Math.min(targetHeight, screen ? screen.height - 40 : targetHeight)
+    // No exclusiveZone assignment: it would flip exclusionMode back to Normal
+    // and let the bar's reserved area push the island off the physical top edge.
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     visible: true
+    mask: Region {
+        Region {
+            x: Theme.islandShoulderRadius
+            width: Math.max(0, island.width - Theme.islandShoulderRadius * 2)
+            height: Theme.islandShoulderRadius
+        }
+        Region {
+            y: Theme.islandShoulderRadius
+            width: island.width
+            height: Math.max(0, island.height
+                - Theme.islandShoulderRadius - island.effectiveLowerRadius)
+        }
+        Region {
+            x: island.effectiveLowerRadius
+            y: Math.max(Theme.islandShoulderRadius,
+                island.height - island.effectiveLowerRadius)
+            width: Math.max(0, island.width - island.effectiveLowerRadius * 2)
+            height: Math.min(island.effectiveLowerRadius,
+                island.height - Theme.islandShoulderRadius)
+        }
+        Region {
+            y: island.height - island.effectiveLowerRadius * 2
+            width: island.effectiveLowerRadius * 2
+            height: island.effectiveLowerRadius * 2
+            shape: RegionShape.Ellipse
+        }
+        Region {
+            x: island.width - island.effectiveLowerRadius * 2
+            y: island.height - island.effectiveLowerRadius * 2
+            width: island.effectiveLowerRadius * 2
+            height: island.effectiveLowerRadius * 2
+            shape: RegionShape.Ellipse
+        }
+    }
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:island"
+    WlrLayershell.keyboardFocus: QuickIsland.IslandState.keyboardRequested
+        ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-    Component.onCompleted: Qt.callLater(() => island._restoreFromService())
-
-    function _restoreFromService() {
-        const act = QuickIsland.DynamicIslandService.currentActivity;
-        if (!act)
-            return;
-        if (island.islandState === "idle") {
-            island.islandState = "pill-in";
-            return;
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: Perf.geometryMs(to < from
+                ? Theme.islandCloseDuration : Theme.islandOpenDuration)
+            easing.type: to < from ? Easing.InCubic : Easing.OutCubic
         }
-        if (island.islandState === "visible" || island.islandState === "pill-in")
-            island._resyncVisibleContent();
     }
 
-    function _resyncVisibleContent() {
-        island._applyTargetSize();
-        if (!contentLoader.active)
-            contentLoader.active = true;
-        if (!contentLoader.item)
-            return;
-        island._applyActivityToLoader();
-        island._syncPillGeometry(island._isLargePreview());
-        island._revealContent();
+    Behavior on implicitHeight {
+        NumberAnimation {
+            duration: Perf.geometryMs(to < from
+                ? Theme.islandCloseDuration
+                : (QuickIsland.IslandState.expanded
+                    ? Theme.islandExpandDuration : Theme.islandOpenDuration))
+            easing.type: to < from
+                ? Easing.InCubic
+                : (QuickIsland.IslandState.expanded ? Easing.OutQuart : Easing.OutCubic)
+        }
+    }
+
+    Component {
+        id: notificationActivityComponent
+        QuickIsland.NotificationActivity {}
     }
 
     Connections {
         target: QuickIsland.DynamicIslandService
-        function onExitRequested() {
-            island.islandState = "contracting";
+
+        function onCurrentActivityChanged() {
+            island.transientDismissing = false;
+            island._syncTransientPresentation();
         }
+
+        function onTransientPresented(activity) {
+            island._syncTransientPresentation();
+        }
+
+        function onTransientUpdated(activity) {
+            if (island.activeTransient?.id !== activity?.id)
+                return;
+            if (!QuickIsland.DynamicIslandService._finishingActivityId) {
+                dismissTimer.stop();
+                island.transientDismissing = false;
+            }
+            island._syncTransientPresentation();
+        }
+
+        function onTransientFinished(activityId) {
+            if (island.activeTransient?.id !== activityId)
+                return;
+            island._restorePersistentState();
+            if (island.transientActive) {
+                island.transientDismissing = true;
+                dismissTimer.restart();
+            } else {
+                QuickIsland.DynamicIslandService.popCurrent();
+            }
+        }
+
         function onOsdBurstUpdated() {
             island._applyActivityToLoader();
         }
+
         function onShellLayoutChanged() {
-            island._syncPillGeometry(true);
-        }
-        function onCurrentActivityChanged() {
-            const act = QuickIsland.DynamicIslandService.currentActivity;
-            if (act !== null && island.islandState === "idle") {
-                island.islandState = "pill-in";
-            } else if (act !== null
-                       && island.islandState !== "contracting") {
-                island._swapActivityInPlace();
-            } else {
-                island._applyActivityToLoader();
-            }
+            island._applyActivityToLoader();
         }
     }
 
     Connections {
-        target: Theme
-        function onIslandPreviewInsetChanged() {
-            if (island.islandState === "visible" || island.islandState === "pill-in")
-                island._resyncVisibleContent();
-        }
-        function onIslandPreviewContentWidthChanged() {
-            if (island.islandState === "visible" || island.islandState === "pill-in")
-                island._resyncVisibleContent();
+        target: contentLoader.item
+        ignoreUnknownSignals: true
+
+        function onPreviewHeightChanged() {
+            QuickIsland.DynamicIslandService.shellLayoutChanged();
         }
     }
 
-    function _isLargePreview() {
-        const act = QuickIsland.DynamicIslandService.currentActivity;
-        if (!act)
-            return false;
-        const t = act.data?.activityType;
-        return t === "screenshot" || t === "recording" || t === "recordPicker";
-    }
-
-    function _previewOuterPad() {
-        return island.previewInset * 2 + pillShape.strokeWidth * 2;
-    }
-
-    function _resolveTargetSize() {
-        const width = standardShellWidth;
-        if (_isLargePreview() && contentLoader.item) {
-            const pad = _previewOuterPad();
-            const innerH = contentLoader.item.implicitHeight || standardShellHeight;
-            return {
-                width:  width,
-                height: Math.min(maxPreviewHeight,
-                    Math.max(standardShellHeight, innerH + pad))
-            };
-        }
-        return { width: width, height: standardShellHeight };
-    }
-
-    function _applyTargetSize() {
-        const size = _resolveTargetSize();
-        island.targetWidth = size.width;
-        island.targetHeight = size.height;
-    }
-
-    function _syncPillGeometry(animateHeight) {
-        const prevH = pill.height;
-        _applyTargetSize();
-        pill.width = targetWidth;
-        // Snap preview height — animating while thumbnail loads clips the bottom.
-        if (_isLargePreview()) {
-            pill.height = targetHeight;
-            return;
-        }
-        if (animateHeight && Math.abs(prevH - targetHeight) > 1
-                && !pillHeightAnim.running) {
-            pillHeightAnim.from = prevH;
-            pillHeightAnim.to = targetHeight;
-            pillHeightAnim.start();
-        } else {
-            pill.height = targetHeight;
-        }
-    }
-
-    function _swapActivityInPlace() {
-        _pillInDone = false;
-        _loaderReady = false;
-        _layoutHookedActivityId = "";
-        contentLoader.opacity = 0;
-        contentLoader.active = false;
-        contentLoader.active = true;
-        island.islandState = "pill-in";
-    }
-
-    function _beginContract() {
-        pillShowInAnim.stop();
-        pillScaleInAnim.stop();
-        contentOpacityInAnim.stop();
-        contentOpacityOutAnim.stop();
-        pillShowOutAnim.stop();
-        pillScaleOutAnim.stop();
-        contentLoader.opacity = 0;
-        if (island.animScaleOut <= 0) {
-            pill.showOpacity = 0;
-            pill.showScale = 0.96;
-            island._finishPillOut();
-        } else {
-            pillShowOutAnim.from = pill.showOpacity;
-            pillShowOutAnim.to = 0;
-            pillShowOutAnim.start();
-            pillScaleOutAnim.from = pill.showScale;
-            pillScaleOutAnim.start();
-        }
-    }
-
-    onIslandStateChanged: {
-        switch (islandState) {
-
-        case "pill-in":
-            _pillInDone = false;
-            _loaderReady = false;
-            _layoutHookedActivityId = "";
-            island._applyTargetSize();
-            contentLoader.active = false;
-            pill.width = island.compactShellWidth;
-            pill.height = island.compactShellHeight;
-            contentLoader.opacity = 0;
-            contentLoader.active = true;
-            if (animScaleIn <= 0) {
-                pill.showOpacity = 1;
-                pill.showScale = 1;
-                _onPillInDone();
-            } else {
-                pill.showOpacity = 0;
-                pill.showScale = 0.96;
-                pillScaleInAnim.start();
-                pillShowInAnim.start();
-            }
-            break;
-
-        case "expanding":
-            island._applyTargetSize();
-            if (animExpand <= 0) {
-                pill.width = island.targetWidth;
-                pill.height = island.targetHeight;
-                islandState = "visible";
-            } else {
-                pillExpandHeightAnim.start();
-                pillExpandWidthAnim.start();
-            }
-            break;
-
-        case "visible":
-            _resyncVisibleContent();
-            break;
-
-        case "contracting":
-            island._beginContract();
-            break;
-
-        case "idle":
-            pillScaleOutAnim.stop();
-            contentLoader.active = false;
-            contentLoader.opacity = 0;
-            pill.width = island.compactShellWidth;
-            pill.height = island.compactShellHeight;
-            pill.showOpacity = 0;
-            pill.showScale = 0.96;
-            break;
-        }
+    Timer {
+        id: dismissTimer
+        interval: Perf.opacityMs(Theme.islandOpacityDuration)
+        repeat: false
+        onTriggered: QuickIsland.DynamicIslandService.popCurrent()
     }
 
     Item {
-        id: pill
-
-        anchors {
-            top: parent.top
-            horizontalCenter: parent.horizontalCenter
-        }
-
-        width: island.targetWidth
-        height: island.targetHeight
-        opacity: showOpacity
-        scale: showScale * hoverScale
-        transformOrigin: Item.Top
-
-        property real showOpacity: 0
-        property real showScale: 0.96
-        property real hoverScale: island.bodyHovered && island.islandState === "visible" ? 1.015 : 1
-
-        Behavior on hoverScale {
-            enabled: Perf.animationsEnabled
-            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-        }
-
-        readonly property color pillStrokeColor: {
-            const d = QuickIsland.DynamicIslandService.currentActivity?.data ?? {};
-            return (d.urgency === 2)
-                ? Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.55)
-                : (island.bodyHovered ? island.shellBorderHovered : island.shellBorder)
-        }
+        id: shell
+        anchors.fill: parent
 
         QuickIsland.IslandPillShape {
-            anchors.fill: parent
-            anchors.topMargin: 2
-            outerRadius: island.shellRadius
+            anchors {
+                fill: parent
+                topMargin: 2
+            }
+            shoulderRadius: Theme.islandShoulderRadius
+            lowerRadius: island.effectiveLowerRadius
             strokeWidth: 0
             strokeColor: "transparent"
-            fillColor: Qt.rgba(0, 0, 0, 0.32)
+            fillColor: Qt.rgba(0, 0, 0, 0.18)
         }
 
         QuickIsland.IslandPillShape {
             id: pillShape
-            anchors.fill: parent
-            outerRadius: island.shellRadius
-            strokeWidth: 1
-            strokeColor: pill.pillStrokeColor
-            fillColor: island.shellFill
-
-            Behavior on strokeColor {
-                enabled: Perf.animationsEnabled
-                ColorAnimation { duration: 120; easing.type: Easing.OutQuad }
+            // Extend 1px above the window's own top edge so the border's
+            // top stroke falls outside the surface and gets clipped away —
+            // a border on all four sides reads as a separate floating card;
+            // dropping just the top one (which sits flush on the screen
+            // edge) is what sells "attached to the bezel" over "hovering
+            // below it." Left/right/bottom stay bordered as before.
+            anchors {
+                fill: parent
+                topMargin: -1
             }
+            shoulderRadius: Theme.islandShoulderRadius
+            lowerRadius: island.effectiveLowerRadius
+            strokeWidth: 1
+            strokeColor: Theme.islandBorder
+            fillColor: Theme.islandSurface
         }
 
         Item {
-            id: pillFace
+            id: persistentContent
             anchors.fill: parent
-            anchors.margins: pillShape.strokeWidth
-            clip: true
+            enabled: !island.transientActive
+            opacity: island.transientActive ? 0 : 1
 
-            HoverHandler {
-                onHoveredChanged: island.bodyHovered = hovered
-            }
-
-            Loader {
-                id: contentLoader
+            QuickIsland.IslandCarousel {
                 anchors.fill: parent
-                anchors.leftMargin: island._isLargePreview() ? island.previewInset : Theme.islandShellHMargin
-                anchors.rightMargin: island._isLargePreview() ? island.previewInset : Theme.islandShellHMargin
-                anchors.topMargin: island._isLargePreview() ? island.previewInset : island.islandPadding
-                anchors.bottomMargin: island._isLargePreview() ? island.previewInset : island.islandPadding
-                active: false
-                opacity: 0
-                asynchronous: false
+                visible: QuickIsland.IslandState.mode !== "resting"
+                inlineActivity: island.inlineNotification
+            }
 
-                sourceComponent: {
-                    const act = QuickIsland.DynamicIslandService.currentActivity;
-                    return act?.contentComponent ?? island.notificationActivityComponent;
-                }
+            QuickIsland.TimerRestingPill {
+                id: timerPill
+            }
 
-                onStatusChanged: {
-                    if (status === Loader.Ready) {
-                        island._applyActivityToLoader();
-                        island._onLoaderReady();
-                    }
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Perf.opacityMs(Theme.islandOpacityDuration)
+                    easing.type: Easing.OutQuad
                 }
             }
         }
-    }
 
-    property bool _pillInDone: false
-    property bool _loaderReady: false
-    property string _layoutHookedActivityId: ""
+        Loader {
+            id: contentLoader
+            property var loadedSourceComponent: null
 
-    function _revealContent() {
-        contentOpacityInAnim.stop();
-        contentOpacityOutAnim.stop();
-        contentLoader.opacity = 1;
-    }
-
-    function _hookPreviewLayout(actId) {
-        const item = contentLoader.item;
-        if (!item || !actId || item.previewHeight === undefined)
-            return;
-        if (island._layoutHookedActivityId === actId)
-            return;
-        island._layoutHookedActivityId = actId;
-        item.previewHeightChanged.connect(() => {
-            QuickIsland.DynamicIslandService.shellLayoutChanged();
-        });
-    }
-
-    function _tryAdvanceToExpanding() {
-        if (_pillInDone && _loaderReady) {
-            _pillInDone = false;
-            _loaderReady = false;
-            _revealContent();
-            islandState = "expanding";
-        }
-    }
-    function _onPillInDone() {
-        _pillInDone = true;
-        _tryAdvanceToExpanding();
-    }
-    function _onLoaderReady() {
-        if (islandState === "pill-in") {
-            _loaderReady = true;
-            _tryAdvanceToExpanding();
-            return;
-        }
-        if (islandState === "expanding") {
-            island._applyTargetSize();
-            pill.height = island.targetHeight;
-            if (animExpand <= 0) {
-                pill.width = island.targetWidth;
-                islandState = "visible";
-            } else if (!pillExpandWidthAnim.running) {
-                pillExpandWidthAnim.start();
+            anchors.fill: parent
+            anchors.leftMargin: island.largePreview
+                ? Theme.islandPreviewInset : Theme.islandShellHMargin
+            anchors.rightMargin: island.largePreview
+                ? Theme.islandPreviewInset : Theme.islandShellHMargin
+            anchors.topMargin: island.largePreview ? Theme.islandPreviewInset : 12
+            anchors.bottomMargin: island.largePreview ? Theme.islandPreviewInset : 12
+            active: island.transientActive
+            asynchronous: false
+            opacity: active && status === Loader.Ready && !island.transientDismissing ? 1 : 0
+            sourceComponent: {
+                const activity = QuickIsland.DynamicIslandService.currentActivity;
+                return island._expectedActivityComponent(activity);
             }
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Perf.opacityMs(Theme.islandOpacityDuration)
+                    easing.type: Easing.OutQuad
+                }
+            }
+
+            onSourceComponentChanged: loadedSourceComponent = null
+            onStatusChanged: {
+                if (status !== Loader.Ready)
+                    loadedSourceComponent = null;
+            }
+            onLoaded: {
+                loadedSourceComponent = sourceComponent;
+                island._applyActivityToLoader();
+            }
+        }
+
+        HoverHandler {
+            enabled: !island.transientActive
+            onHoveredChanged: {
+                if (hovered)
+                    QuickIsland.IslandState.beginHover(island.screen?.name ?? "");
+                else
+                    QuickIsland.IslandState.endHover();
+            }
+        }
+
+        TapHandler {
+            // Only the resting (collapsed) pill needs "click anywhere to
+            // open" — once the island is already open, this whole-shell
+            // handler still fires on every click, including clicks on
+            // buttons inside the carousel/expanded content (e.g. Timer's
+            // "+ New timer"), and pin() unconditionally ends with
+            // mode = "pinned", clobbering whatever that button's own
+            // handler just set (like activateCurrent()'s mode = "expanded")
+            // in the same click. Scoping it to resting removes the race
+            // without losing anything — hover and pinned both already
+            // auto-collapse the same way now, so there's nothing left for
+            // a background click to usefully do once it's open.
+            enabled: !island.transientActive && QuickIsland.IslandState.mode === "resting"
+            onTapped: QuickIsland.IslandState.pin(island.screen?.name ?? "")
+        }
+    }
+
+    onTransientPresentationChanged: _syncTransientPresentation()
+
+    function _capturePersistentState() {
+        if (island.persistentSnapshot)
             return;
+        island.persistentSnapshot = {
+            mode: QuickIsland.IslandState.mode,
+            currentPage: QuickIsland.IslandState.currentPage,
+            rememberedPage: QuickIsland.IslandState.rememberedPage,
+            openingScreenName: QuickIsland.IslandState.openingScreenName
+        };
+    }
+
+    function _restorePersistentState() {
+        const snapshot = island.persistentSnapshot;
+        if (!snapshot)
+            return;
+        QuickIsland.IslandState.mode = snapshot.mode;
+        QuickIsland.IslandState.currentPage = snapshot.currentPage;
+        QuickIsland.IslandState.rememberedPage = snapshot.rememberedPage;
+        QuickIsland.IslandState.openingScreenName = snapshot.openingScreenName;
+        island.persistentSnapshot = null;
+    }
+
+    function _syncTransientPresentation() {
+        const activity = island.activeTransient;
+        if (!activity)
+            return;
+        if (island.transientActive) {
+            island._capturePersistentState();
+        } else {
+            island.persistentSnapshot = null;
         }
-        if (islandState === "visible") {
-            island._applyActivityToLoader();
-            island._syncPillGeometry(true);
-            island._revealContent();
-        }
+        if ((activity.data?.urgency ?? 0) === 2)
+            QuickIsland.DynamicIslandService.holdCurrent(activity.id);
+        else
+            QuickIsland.DynamicIslandService.resumeCurrent(activity.id);
+        island._applyActivityToLoader();
+    }
+
+    function _expectedActivityComponent(activity) {
+        return activity?.contentComponent ?? notificationActivityComponent;
     }
 
     function _applyActivityToLoader() {
-        if (!contentLoader.item)
+        const activity = QuickIsland.DynamicIslandService.currentActivity;
+        const expectedComponent = island._expectedActivityComponent(activity);
+        if (!activity || !contentLoader.item
+                || contentLoader.status !== Loader.Ready
+                || contentLoader.sourceComponent !== expectedComponent
+                || contentLoader.loadedSourceComponent !== expectedComponent)
             return;
-        const act = QuickIsland.DynamicIslandService.currentActivity;
-        const d = act?.data ?? {};
+        const data = activity?.data ?? {};
         const item = contentLoader.item;
 
-        if (d.activityType === "screenshot" || item.imagePath !== undefined) {
-            item.imagePath = d.imagePath || "";
-            item.activityId = act?.id || "";
-            island._hookPreviewLayout(act?.id || "");
+        if (data.activityType === "screenshot") {
+            if (item.imagePath === undefined)
+                return;
+            item.imagePath = data.imagePath || "";
+            item.activityId = activity?.id || "";
             return;
         }
 
-        if (d.activityType === "recording" || item.videoPath !== undefined) {
-            item.videoPath = d.videoPath || "";
-            item.activityId = act?.id || "";
-            island._hookPreviewLayout(act?.id || "");
+        if (data.activityType === "recording") {
+            if (item.videoPath === undefined)
+                return;
+            item.videoPath = data.videoPath || "";
+            item.activityId = activity?.id || "";
             return;
         }
 
-        if (d.activityType === "recordPicker") {
-            item.activityId = act?.id || "";
+        if (data.activityType === "recordPicker") {
+            if (item.activityId === undefined)
+                return;
+            item.activityId = activity?.id || "";
             return;
         }
 
-        if (d.activityType === "osd") {
-            item.kind = d.kind || "volume";
-            item.icon = d.icon || "󰕾";
-            item.valueLabel = d.valueLabel || "";
-            item.progress = d.progress ?? 0;
+        if (data.activityType === "osd") {
+            if (item.kind === undefined)
+                return;
+            item.kind = data.kind || "volume";
+            item.icon = data.icon || "󰕾";
+            item.valueLabel = data.valueLabel || "";
+            item.progress = data.progress ?? 0;
             return;
         }
 
-        if (d.activityType === "timer")
+        if (data.activityType === "timer") {
+            if (item.completedTimer === undefined)
+                return;
+            item.completedTimer = data.completedTimer ?? null;
             return;
+        }
 
-        item.appName = d.appName || "";
-        const line = (d.summary || d.body || "").trim();
+        if (item.appName === undefined || item.summary === undefined)
+            return;
+        item.appName = data.appName || "";
+        const line = (data.summary || data.body || "").trim();
         item.summary = line || "New notification";
-    }
-
-    function _finishPillOut() {
-        pill.showOpacity = 0;
-        pill.showScale = 0.96;
-        QuickIsland.DynamicIslandService.popCurrent();
-        const next = QuickIsland.DynamicIslandService.currentActivity;
-        if (next === null) {
-            island.islandState = "idle";
-        } else {
-            island.islandState = "pill-in";
-        }
-    }
-
-    NumberAnimation {
-        id: pillShowInAnim
-        target: pill
-        property: "showOpacity"
-        from: 0
-        to: 1
-        duration: island.animScaleIn
-        easing.type: Easing.OutCubic
-        onFinished: island._onPillInDone()
-    }
-
-    NumberAnimation {
-        id: pillScaleInAnim
-        target: pill
-        property: "showScale"
-        from: 0.96
-        to: 1
-        duration: island.animScaleIn
-        easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-        id: pillExpandWidthAnim
-        target: pill
-        property: "width"
-        to: island.targetWidth
-        duration: island.animExpand
-        easing.type: Easing.OutCubic
-        onFinished: island.islandState = "visible"
-    }
-
-    NumberAnimation {
-        id: pillExpandHeightAnim
-        target: pill
-        property: "height"
-        to: island.targetHeight
-        duration: island.animExpand
-        easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-        id: contentOpacityInAnim
-        target: contentLoader
-        property: "opacity"
-        from: 0
-        to: 1
-        duration: island.animFade
-        easing.type: Easing.OutQuad
-    }
-
-    NumberAnimation {
-        id: contentOpacityOutAnim
-        target: contentLoader
-        property: "opacity"
-        from: 1
-        to: 0
-        duration: island.animFade
-        easing.type: Easing.InQuad
-    }
-
-    NumberAnimation {
-        id: pillHeightAnim
-        target: pill
-        property: "height"
-        duration: island.animExpand
-        easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-        id: pillShowOutAnim
-        target: pill
-        property: "showOpacity"
-        duration: island.animScaleOut
-        easing.type: Easing.InCubic
-        onFinished: island._finishPillOut()
-    }
-
-    NumberAnimation {
-        id: pillScaleOutAnim
-        target: pill
-        property: "showScale"
-        to: 0.96
-        duration: island.animScaleOut
-        easing.type: Easing.InCubic
     }
 }

@@ -9,12 +9,10 @@ import Quickshell.Services.Notifications
 import Quickshell.Services.Mpris
 import "modules/dock" as QuickDock
 import "modules/sliders" as QuickSliders
-import "modules/calendar" as QuickCalendar
 import "modules/spotlight" as QuickSpotlight
 import "modules/commandcenter/applibrary" as QuickAppLibrary
 import "modules/commandcenter/powermenu" as QuickPowerMenu
 import "modules/commandcenter/wallpapers" as QuickWallpapers
-import "modules/calculator" as QuickCalculator
 import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/island" as QuickIsland
@@ -39,8 +37,6 @@ ShellRoot {
     // ── Global state ────────────────────────────────────────────────────────
     property bool notifOpen: false
     property bool dnd: false
-    property bool calendarOpen: false
-    property bool calculatorOpen: false
 
     // ── Multi-monitor shell layout (Cloud Center → quickshell.json) ─────────
     property bool barOnAllScreens: false
@@ -73,6 +69,14 @@ ShellRoot {
     readonly property var islandScreen: {
         if (root.islandScreenPin)
             return root.islandScreenPin;
+        const owner = QuickIsland.IslandState.openingScreenName;
+        if (owner) {
+            const screens = Quickshell.screens;
+            for (let i = 0; i < screens.length; i++) {
+                if (screens[i].name === owner)
+                    return screens[i];
+            }
+        }
         const _fm = Hyprland.focusedMonitor; // keep the island on the focused monitor
         const screens = root.targetScreens(false);
         return screens.length ? screens[0] : null;
@@ -82,8 +86,7 @@ ShellRoot {
         target: QuickIsland.DynamicIslandService
         function onPreviewDragActiveChanged() {
             if (QuickIsland.DynamicIslandService.previewDragActive) {
-                const screens = root.targetScreens(false);
-                root.islandScreenPin = screens.length ? screens[0] : null;
+                root.islandScreenPin = root.islandScreen;
             } else {
                 root.islandScreenPin = null;
             }
@@ -171,6 +174,11 @@ ShellRoot {
         QuickIsland.OsdBurstActivity {}
     }
 
+    Component {
+        id: timerIslandContentComp
+        QuickIsland.TimerIslandContent {}
+    }
+
     // Polls the first kbd_backlight LED device found in /sys/class/leds every 200 ms.
     // Uses a glob so it works on ASUS, ThinkPad, Dell, Samsung, etc.
     // sysfs does not emit inotify events on kernel-driven writes, so polling is required.
@@ -213,6 +221,61 @@ ShellRoot {
         return videos ? (videos + "/Captures") : "";
     }
 
+    readonly property string _recordingSettingsDir: {
+        const home = Quickshell.env("HOME") || "";
+        return home ? (home + "/.config/cloud-center/settings/recording") : "";
+    }
+
+    // Recording settings are edited from cloud-center's own Quickshell process,
+    // so this shell only learns about them via the settings files on disk —
+    // same FileView+watchChanges hot-reload pattern as Theme.qml's colorsFile.
+    FileView {
+        id: recordingsDirFile
+        path: root._recordingSettingsDir + "/recordings_dir"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            const v = text().trim();
+            QuickIsland.DynamicIslandService.recordingsDir = v || root.recordingsDir;
+        }
+        onLoadFailed: error => {
+            QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
+        }
+    }
+
+    FileView {
+        id: recFiletypeFile
+        path: root._recordingSettingsDir + "/rec_filetype"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            const v = text().trim();
+            QuickIsland.DynamicIslandService.recFiletype = v || "mp4";
+        }
+        onLoadFailed: error => { QuickIsland.DynamicIslandService.recFiletype = "mp4"; }
+    }
+
+    FileView {
+        id: recFilenamePatternFile
+        path: root._recordingSettingsDir + "/rec_filename_pattern"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: { QuickIsland.DynamicIslandService.recFilenamePattern = text().trim(); }
+        onLoadFailed: error => { QuickIsland.DynamicIslandService.recFilenamePattern = ""; }
+    }
+
+    FileView {
+        id: islandPreviewMsFile
+        path: root._recordingSettingsDir + "/island_preview_ms"
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            const n = parseInt(text().trim(), 10);
+            QuickIsland.DynamicIslandService.islandPreviewMs = (Number.isFinite(n) && n > 0) ? n : 0;
+        }
+        onLoadFailed: error => { QuickIsland.DynamicIslandService.islandPreviewMs = 0; }
+    }
+
     readonly property string playSoundScript: {
         const home = Quickshell.env("HOME") || "";
         return home ? (home + "/.config/quickshell/play_sound.sh") : "";
@@ -236,6 +299,18 @@ ShellRoot {
     }
 
     Process {
+        id: screenshotSavedPathReader
+        running: false
+        stdout: SplitParser {
+            onRead: line => {
+                const path = line.trim();
+                if (path)
+                    QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp, true);
+            }
+        }
+    }
+
+    Process {
         id: recordingPathReader
         running: false
         stdout: SplitParser {
@@ -254,8 +329,10 @@ ShellRoot {
         stdout: SplitParser {
             onRead: line => {
                 const path = line.trim();
-                if (path)
+                if (path) {
                     QuickIsland.DynamicIslandService._recordingOutFile = path;
+                    QuickIsland.DynamicIslandService.recordingStartedAt = Date.now();
+                }
             }
         }
     }
@@ -279,6 +356,21 @@ ShellRoot {
         }
     }
 
+    Connections {
+        target: QuickTimer.TimerService
+        function onTimerCompleted(timer) {
+            QuickIsland.DynamicIslandService.push({
+                contentComponent: timerIslandContentComp,
+                priority: 80,
+                durationMs: QuickIsland.DynamicIslandService.notificationIslandDefaultMs,
+                data: {
+                    activityType: "timer",
+                    completedTimer: timer
+                }
+            });
+        }
+    }
+
     Instantiator {
         model: Mpris.players.values
         delegate: Connections {
@@ -296,14 +388,13 @@ ShellRoot {
         id: notifServer
         keepOnReload: true
         persistenceSupported: true
+        actionsSupported: true
         onNotification: notif => {
-            if (root.dnd) {
-                notif.expire();
-                return;
-            }
-
-            // NotifPanel reads trackedNotifications — persist before island/lastGeneration checks.
+            // Persist before presentation checks so DND suppresses only the glance.
             QuickNotifPanel.NotifPanelService.track(notif);
+
+            if (root.dnd)
+                return;
 
             if (notif.lastGeneration)
                 return;
@@ -320,7 +411,8 @@ ShellRoot {
                     appName:        notif.appName || "",
                     summary:        notif.summary || "",
                     body:           notif.body || "",
-                    urgency:        notif.urgency
+                    urgency:        notif.urgency,
+                    notification:   notif
                 }
             });
 
@@ -331,7 +423,42 @@ ShellRoot {
         }
     }
 
+    Connections {
+        target: QuickIsland.IslandState
+        function onControlCenterRequested() {
+            root.notifOpen = true;
+            QuickIsland.IslandState.completeExternalActivation("controlCenter", root.notifOpen);
+        }
+        function onSystemOverviewRequested() {
+            try {
+                QuickSystemMonitor.SystemMonitorService.open = true;
+            } catch (error) {
+                QuickIsland.IslandState.completeExternalActivation(
+                    "systemOverview", false);
+                return;
+            }
+            Qt.callLater(() => {
+                let opened = false;
+                try {
+                    opened = QuickSystemMonitor.SystemMonitorService.open === true;
+                } catch (error) {
+                    opened = false;
+                }
+                QuickIsland.IslandState.completeExternalActivation(
+                    "systemOverview", opened);
+            });
+        }
+    }
+
     // ── IPC — called by bindings.conf ────────────────────────────────────────
+    IpcHandler {
+        target: "island"
+        function toggle(): void { QuickIsland.IslandState.toggle(Hyprland.focusedMonitor?.name ?? ""); }
+        function show(): void { QuickIsland.IslandState.show(Hyprland.focusedMonitor?.name ?? ""); }
+        function hide(): void { QuickIsland.IslandState.hide(); }
+        function page(id: string): void { QuickIsland.IslandState.showPage(id, Hyprland.focusedMonitor?.name ?? ""); }
+    }
+
     IpcHandler {
         target: "notifs"
         function toggle() {
@@ -356,42 +483,6 @@ ShellRoot {
     }
 
     IpcHandler {
-        target: "calendar"
-        function toggle() {
-            root.calendarOpen = !root.calendarOpen;
-        }
-        function nextMonth() {
-            calendarPanel.nextMonth();
-        }
-        function prevMonth() {
-            calendarPanel.prevMonth();
-        }
-        function today() {
-            calendarPanel.jumpToToday();
-        }
-    }
-
-    IpcHandler {
-        target: "calculator"
-        function toggle() {
-            root.calculatorOpen = !root.calculatorOpen;
-        }
-        function show() {
-            root.calculatorOpen = true;
-        }
-        function hide() {
-            root.calculatorOpen = false;
-        }
-    }
-
-    IpcHandler {
-        target: "timer"
-        function toggle() { QuickTimer.TimerService.open = !QuickTimer.TimerService.open }
-        function show()   { QuickTimer.TimerService.open = true }
-        function hide()   { QuickTimer.TimerService.open = false }
-    }
-
-    IpcHandler {
         target: "idle"
         function activate() { QuickIdle.IdleService.show(); }
         function dismiss() { QuickIdle.IdleService.dismiss(); }
@@ -407,11 +498,21 @@ ShellRoot {
     IpcHandler {
         target: "screenshot"
         function showLatest() {
+            // Re-arm: Quickshell Process will not re-run if left running=true.
+            screenshotPathReader.running = false;
             screenshotPathReader.command = ["cat", root.screenshotPendingPathFile];
             screenshotPathReader.running = true;
         }
+        function showSaved() {
+            screenshotSavedPathReader.running = false;
+            screenshotSavedPathReader.command = ["cat", root.screenshotPendingPathFile];
+            screenshotSavedPathReader.running = true;
+        }
         function show(path: string) {
             QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp);
+        }
+        function showPersistent(path: string) {
+            QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp, true);
         }
         function dismiss() {
             QuickIsland.DynamicIslandService.dismissCurrentScreenshot();
@@ -424,6 +525,7 @@ ShellRoot {
             QuickIsland.DynamicIslandService.toggleRecording();
         }
         function showLatest() {
+            recordingPathReader.running = false;
             recordingPathReader.command = ["cat", root.recordingPendingPathFile];
             recordingPathReader.running = true;
         }
@@ -457,10 +559,7 @@ ShellRoot {
             assignedScreen: modelData
             visible: QuickIdle.IdleService.state !== "scene"
             ipcEnabled: root.barIpcEnabled(modelData)
-            notifOpen: root.notifOpen
-            dnd: root.dnd
             onNotifToggle: root.notifOpen = !root.notifOpen
-            onCalendarToggle: root.calendarOpen = !root.calendarOpen
         }
     }
 
@@ -472,12 +571,10 @@ ShellRoot {
         id: notifPanel
         open: root.notifOpen
         dnd: root.dnd
-        calculatorOpen: root.calculatorOpen
         notifServer: notifServer
         sliderController: sliderController
         onClose: root.notifOpen = false
         onDndToggle: root.dnd = !root.dnd
-        onCalculatorToggle: root.calculatorOpen = !root.calculatorOpen
     }
 
     QuickIsland.DynamicIsland {
@@ -498,17 +595,6 @@ ShellRoot {
 
     QuickOverview.Overview {}
 
-    QuickCalendar.CalendarPanel {
-        id: calendarPanel
-        open: root.calendarOpen
-    }
-
-    QuickCalculator.Calculator {
-        id: calcWindow
-        open: root.calculatorOpen
-        onRequestClose: root.calculatorOpen = false
-    }
-
     QuickSpotlight.Spotlight {}
 
     Variants {
@@ -525,8 +611,6 @@ ShellRoot {
     QuickPowerMenu.PowerMenu {}
 
     QuickWallpapers.WallpaperPicker {}
-
-    QuickTimer.TimerPanel {}
 
     QuickSystemMonitor.SystemOverviewPanel {
         notifOpen: root.notifOpen

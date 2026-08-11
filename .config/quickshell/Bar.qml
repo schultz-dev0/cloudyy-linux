@@ -11,7 +11,6 @@ import Quickshell.Services.Mpris
 import Quickshell.Io
 import Quickshell.Wayland
 import "overview/services"
-import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/battery" as QuickBattery
 import "modules/island" as QuickIsland
@@ -42,14 +41,14 @@ PanelWindow {
     visible: QuickIdle.IdleService.state !== "scene"
 
     // ── Tunables ─────────────────────────────────────
-    readonly property int barHeight: 18          // shrink the size a bit
-    readonly property int topGap: 3              // create a larger gap to accomodate for the shrink ^
+    readonly property int barHeight: 10          // shrink the size a bit
+    readonly property int topGap: 5             // create a larger gap to accomodate for the shrink ^
     readonly property int sideGap: 0
     readonly property int radius: 0
     readonly property int pillRadius: 6
     readonly property int pillPadH: 6
     readonly property int pillPadV: 3
-    readonly property int pillGap: 6
+    readonly property int pillGap: 10
     readonly property real bgOpacity: 0.0
 
     // ── Bar colors (macOS floating style) ─────────────────────────────────────
@@ -58,14 +57,10 @@ PanelWindow {
     readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
     readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.98) //0.58)
     readonly property color barFgCharging: Qt.rgba(0.65, 0.95, 0.72, 0.98)
-    readonly property color barHoverBg: Qt.rgba(1, 1, 1, 0.12)
 
     // ── Props ─────────────────────────────────────────────────────────────────
-    property bool notifOpen: false
-    property bool dnd: false
     property string keyboardLayoutLabel: "--"
     signal notifToggle
-    signal calendarToggle
 
     // ── Window ────────────────────────────────────────────────────────────────
     anchors {
@@ -188,22 +183,49 @@ PanelWindow {
                 e.angleDelta.y > 0 ? pill.scrollUp() : pill.scrollDown();
             }
             onEntered: {
-                if (pill.hoverable) {
-                    pill.color = bar.barHoverBg;
+                if (pill.hoverable)
                     pill.hoverEntered();
-                }
             }
             onExited: {
-                pill.color = pill.bg;
                 if (pill.hoverable)
                     pill.hoverExited();
             }
         }
     }
 
+    Item {
+        id: islandReserve
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: 200
+        height: parent.height
+    }
+
+    Item {
+        id: leftZone
+        anchors {
+            top: parent.top
+            bottom: parent.bottom
+            left: parent.left
+            right: islandReserve.left
+        }
+        clip: true
+    }
+
+    Item {
+        id: rightZone
+        anchors {
+            top: parent.top
+            bottom: parent.bottom
+            left: islandReserve.right
+            right: parent.right
+        }
+        clip: true
+    }
+
     // LEFT
     Row {
         id: leftRow
+        parent: leftZone
         anchors {
             left: parent.left
             leftMargin: 4
@@ -222,6 +244,94 @@ PanelWindow {
             onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "spotlight", "command"])
         }
 
+        // Workspaces
+        Row {
+            id: wsRow
+            spacing: 4
+
+            Repeater {
+                model: Array.from({ length: 5 }, (_, i) => i + 1)
+
+                delegate: Item {
+                    required property int modelData
+                    readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
+                    readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
+                    readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+                    readonly property bool empty: workspaceWindow === null
+
+                    width: 20
+                    // Icon cell matches pill height so icons share the bar
+                    // baseline; the keyline sits below it instead of clipping
+                    // through the icon.
+                    height: workspaceIconCell.height + workspaceKeyline.height + 2
+
+                    Item {
+                        id: workspaceIconCell
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            top: parent.top
+                        }
+                        height: bar.barHeight - bar.pillPadV * 2
+
+                        Image {
+                            id: workspaceIcon
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !empty
+                            width: focused ? 14 : 12
+                            height: focused ? 14 : 12
+                            property var currentIconSources: workspaceIconSources
+                            property int sourceIndex: 0
+                            onCurrentIconSourcesChanged: sourceIndex = 0
+                            sourceSize: Qt.size(28, 28)
+                            smooth: true
+                            source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
+                            layer.enabled: visible && !Perf.lightweight
+                            layer.smooth: !Perf.lightweight
+                            layer.effect: MultiEffect {
+                                colorization: 1.0
+                                colorizationColor: focused ? bar.barFgStrong : bar.barFgMuted
+                            }
+                            onStatusChanged: {
+                                if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
+                                    Qt.callLater(() => sourceIndex++);
+                            }
+                        }
+
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: empty
+                            text: String(modelData)
+                            color: focused ? bar.barFgStrong : bar.barFgMuted
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: focused ? 11 : 10
+                            font.weight: Font.DemiBold
+                        }
+                    }
+
+                    Rectangle {
+                        id: workspaceKeyline
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            bottom: parent.bottom
+                        }
+                        height: 2
+                        color: bar.barFgStrong
+                        visible: focused
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: HyprDispatch.focusWorkspace(modelData)
+                        onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
+                    }
+                }
+            }
+        }
+
         Item {
             id: clockPill
             height: bar.barHeight - bar.pillPadV * 2
@@ -235,12 +345,6 @@ PanelWindow {
                 const now = new Date();
                 dateText = Qt.formatDateTime(now, "ddd MMM d");
                 timeText = Qt.formatDateTime(now, "HH:mm");
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                radius: bar.pillRadius
-                color: clockMouse.containsMouse ? bar.barHoverBg : Qt.rgba(0, 0, 0, 0)
             }
 
             Row {
@@ -277,7 +381,7 @@ PanelWindow {
                 id: clockMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: bar.calendarToggle()
+                onClicked: QuickIsland.IslandState.showPage("calendar", bar.screen?.name ?? "")
             }
         }
 
@@ -305,104 +409,12 @@ PanelWindow {
             }
         }
 
-        Pill {
-            id: notifBell
-            label: bar.dnd ? "󰂛" : "󰂚"
-            width: implicitWidth + bar.pillPadH * 2
-            iconSize: 13
-            onClicked: bar.notifToggle()
-        }
-
-        QuickTimer.TimerBarPill {
-            plain: true
-            height: bar.barHeight - bar.pillPadV * 2
-            fg: bar.barFg
-            fgActive: bar.barFgStrong
-            fgWarn: Theme.error
-            fgMuted: bar.barFgMuted
-        }
-    }
-
-    // CENTER
-    Row {
-        anchors {
-            horizontalCenter: parent.horizontalCenter
-            top: parent.top
-            topMargin: bar.topGap
-        }
-        height: bar.barHeight
-        spacing: bar.pillGap
-
-        // Workspaces
-        Row {
-            id: wsRow
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 4
-
-            Repeater {
-                model: Array.from({ length: 5 }, (_, i) => i + 1)
-
-                delegate: Item {
-                    required property int modelData
-                    readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
-                    readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
-                    readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
-                    readonly property bool empty: workspaceWindow === null
-
-                    width: 18
-                    height: bar.barHeight - bar.pillPadV * 2
-
-                    Image {
-                        id: workspaceIcon
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: focused ? -2 : 0
-                        visible: !empty
-                        width: focused ? 14 : 12
-                        height: focused ? 14 : 12
-                        property var currentIconSources: workspaceIconSources
-                        property int sourceIndex: 0
-                        onCurrentIconSourcesChanged: sourceIndex = 0
-                        sourceSize: Qt.size(28, 28)
-                        smooth: true
-                        source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
-                        layer.enabled: visible && !Perf.lightweight
-                        layer.smooth: !Perf.lightweight
-                        layer.effect: MultiEffect {
-                            colorization: 1.0
-                            colorizationColor: focused ? bar.barFgStrong : bar.barFgMuted
-                        }
-                        onStatusChanged: {
-                            if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
-                                Qt.callLater(() => sourceIndex++);
-                        }
-                    }
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: focused ? -2 : 0
-                        visible: empty
-                        text: String(modelData)
-                        color: focused ? bar.barFgStrong : bar.barFgMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: focused ? 11 : 10
-                        font.weight: Font.DemiBold
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: HyprDispatch.focusWorkspace(modelData)
-                        onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
-                    }
-                }
-            }
-        }
     }
 
     // RIGHT
     Row {
         id: rightRow
+        parent: rightZone
         anchors {
             right: parent.right
             rightMargin: 4
@@ -411,6 +423,155 @@ PanelWindow {
         }
         height: bar.barHeight
         spacing: bar.pillGap
+
+        // Live screen-recording indicator (macOS-style): red dot while capturing;
+        // hover expands to timer + Stop. Only the dot is red.
+        // Height matches Pill; do not clip — bar pills rely on text overflowing the
+        // tiny barHeight box the same way the rest of the tray does.
+        Item {
+            id: recordingControl
+            readonly property var svc: QuickIsland.DynamicIslandService
+            readonly property bool active: svc.recordingActive
+            readonly property color recRed: Qt.rgba(1, 0.27, 0.23, 1)
+            readonly property int collapsedW: 18
+            readonly property int expandedW: 86
+            property bool hovered: false
+            property string elapsedText: "00:00"
+
+            visible: active
+            height: bar.barHeight - bar.pillPadV * 2
+            width: !active ? 0 : (hovered ? expandedW : collapsedW)
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: 160
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            function refreshElapsed() {
+                const start = svc.recordingStartedAt;
+                if (!start) {
+                    elapsedText = "00:00";
+                    return;
+                }
+                const s = Math.max(0, Math.floor((Date.now() - start) / 1000));
+                const m = Math.floor(s / 60);
+                const r = s % 60;
+                elapsedText = String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+            }
+
+            // Collapsed: just the live dot, centered in the slot.
+            Rectangle {
+                id: liveDot
+                visible: !recordingControl.hovered
+                width: 8
+                height: 8
+                radius: 4
+                anchors.centerIn: parent
+                color: recordingControl.recRed
+
+                SequentialAnimation on opacity {
+                    running: recordingControl.active && !recordingControl.hovered
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1; to: 0.45; duration: 700; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 0.45; to: 1; duration: 700; easing.type: Easing.InOutSine }
+                }
+            }
+
+            // Expanded: neutral chrome row (dot stays red).
+            Row {
+                id: expandedRow
+                visible: recordingControl.hovered
+                anchors.centerIn: parent
+                spacing: 8
+
+                Rectangle {
+                    width: 8
+                    height: 8
+                    radius: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: recordingControl.recRed
+                }
+
+                Text {
+                    text: recordingControl.elapsedText
+                    color: bar.barFgStrong
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
+                    renderType: Text.NativeRendering
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Rectangle {
+                    width: 9
+                    height: 9
+                    radius: 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: bar.barFgStrong
+                }
+            }
+
+            MouseArea {
+                id: recordingHover
+                z: 1
+                anchors.fill: parent
+                // Tall hit target so hover is usable on the thin bar.
+                anchors.topMargin: -6
+                anchors.bottomMargin: -6
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                onEntered: {
+                    leaveDelay.stop();
+                    recordingControl.hovered = true;
+                }
+                onExited: leaveDelay.restart()
+            }
+
+            MouseArea {
+                z: 2
+                visible: recordingControl.hovered
+                width: 22
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.topMargin: -6
+                anchors.bottomMargin: -6
+                anchors.right: parent.right
+                cursorShape: Qt.PointingHandCursor
+                onClicked: recordingControl.svc.stopRecording()
+                onEntered: {
+                    leaveDelay.stop();
+                    recordingControl.hovered = true;
+                }
+                onExited: leaveDelay.restart()
+            }
+
+            Timer {
+                id: leaveDelay
+                interval: 180
+                repeat: false
+                onTriggered: {
+                    if (!recordingHover.containsMouse)
+                        recordingControl.hovered = false;
+                }
+            }
+
+            Timer {
+                interval: 1000
+                running: recordingControl.active
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: recordingControl.refreshElapsed()
+            }
+
+            onActiveChanged: {
+                if (!active)
+                    hovered = false;
+                else
+                    refreshElapsed();
+            }
+        }
 
         // Mpris
         Pill {

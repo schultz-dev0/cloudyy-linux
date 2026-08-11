@@ -247,6 +247,7 @@ Item {
                             color:          "#ffffff"
                             font.family:    "JetBrainsMono Nerd Font"
                             font.pixelSize: 9
+                            renderType: Text.NativeRendering
                             elide:          Text.ElideRight
                             horizontalAlignment: Text.AlignHCenter
                         }
@@ -273,6 +274,7 @@ Item {
                             color:          "#ffffff"
                             font.family:    "JetBrainsMono Nerd Font"
                             font.pixelSize: 14
+                            renderType: Text.NativeRendering
                         }
 
                         MouseArea {
@@ -293,7 +295,7 @@ Item {
                     color:  "transparent"
                     border.width: dragHandler.active ? 1 : 0
                     border.color: Qt.rgba(
-                        Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                        Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.5)
 
                     Behavior on border.width {
                         enabled: Perf.animationsEnabled

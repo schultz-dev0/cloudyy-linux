@@ -23,6 +23,7 @@ from lib.ccd import (  # noqa: F401
     monitors,
     online_wallpapers,
     protocol,
+    recording,
     region,
     rules_startup,
     state,
@@ -53,6 +54,7 @@ def main() -> None:
         bluetooth.shutdown()
         cursor.shutdown()
         monitors.shutdown()
+        recording.shutdown()
         region.shutdown()
         rules_startup.shutdown()
         state.shutdown()

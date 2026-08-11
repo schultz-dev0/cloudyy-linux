@@ -14,6 +14,11 @@ Singleton {
     property var    events:         []
     property var    markedDays:     ({})
     property bool   loaded:         false
+    property string persistenceError: ""
+    property bool _saveInFlight: false
+    property string _pendingSavePayload: ""
+
+    signal persistenceFailed(string message)
 
     // ── Date helpers ──────────────────────────────────────────────────────────
     function today() {
@@ -127,8 +132,16 @@ Singleton {
     // ── Persistence ───────────────────────────────────────────────────────────
     function save() {
         const payload = JSON.stringify({ events: root.events, markedDays: root.markedDays })
+        if (root._saveInFlight) {
+            root._pendingSavePayload = payload;
+            return;
+        }
+        root._startSave(payload);
+    }
+
+    function _startSave(payload) {
+        root._saveInFlight = true;
         saveProc.environment = ({ "QS_DATA": payload })
-        saveProc.running = false
         saveProc.running = true
     }
 
@@ -166,6 +179,27 @@ Singleton {
             "dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/calendar\";" +
             "printf '%s' \"$QS_DATA\" > \"$dir/events.json\""
         ]
+        onExited: (exitCode, exitStatus) => {
+            const succeeded = exitCode === 0 && exitStatus === 0;
+            const pending = root._pendingSavePayload;
+            root._pendingSavePayload = "";
+            root._saveInFlight = false;
+
+            if (pending) {
+                if (succeeded)
+                    root.persistenceError = "";
+                root._startSave(pending);
+                return;
+            }
+            if (succeeded) {
+                root.persistenceError = "";
+                return;
+            }
+            root.persistenceError = "Could not save calendar events (exit "
+                + exitCode + ", status " + exitStatus + ")";
+            console.warn("calendar:", root.persistenceError);
+            root.persistenceFailed(root.persistenceError);
+        }
     }
 
     Component.onCompleted: {

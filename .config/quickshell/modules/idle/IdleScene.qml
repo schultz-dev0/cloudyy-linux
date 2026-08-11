@@ -130,7 +130,7 @@ PanelWindow {
                     + " \\                         .'\n"
                     + "   ~- ._ ,. ,.,.,., ,.. -~ \n"
                     + "           '       '       "
-                color: "#6f8990"
+                color: "#113321"
                 opacity: modelData.opacity
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: Math.max(20, scene.width / 76) * modelData.scale

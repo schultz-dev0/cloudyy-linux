@@ -18,7 +18,7 @@ set_cursor_invisible() {
 hide_cursor() {
   mkdir -p "$STATE_DIR"
   if [[ ! -f "$CURSOR_STATE" ]]; then
-    hyprctl getoption cursor:invisible -j | jq -r '.bool' > "$CURSOR_STATE"
+    hyprctl getoption cursor:invisible -j | jq -r '.bool' >"$CURSOR_STATE"
   fi
   set_cursor_invisible true
 }
@@ -31,24 +31,24 @@ restore_cursor() {
 }
 
 case "${1:-}" in
-  show)
-    hide_cursor
-    hyprctl dispatch 'hl.dsp.submap("cloudyy-idle")' >/dev/null
-    if ! quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle activate; then
-      restore_cursor
-      hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
-      exit 1
-    fi
-    ;;
-  dismiss)
+show)
+  hide_cursor
+  hyprctl dispatch 'hl.dsp.submap("cloudyy-idle")' >/dev/null
+  if ! quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle activate; then
     restore_cursor
     hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
-    exec quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle dismiss
-    ;;
-  lock)
-    restore_cursor
-    hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
-    exec cloudyy-lock
+    exit 1
+  fi
+  ;;
+dismiss)
+  restore_cursor
+  hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
+  exec quickshell -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell" ipc call idle dismiss
+  ;;
+lock)
+  restore_cursor
+  hyprctl dispatch 'hl.dsp.submap("reset")' >/dev/null
+  exec cloudyy-lock
   ;;
 *)
   usage

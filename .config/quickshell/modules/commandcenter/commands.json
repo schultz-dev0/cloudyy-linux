@@ -112,7 +112,7 @@
         "https://tmuxcheatsheet.com/"
       ]
     }
-  },  
+  },
   {
     "id": "tools",
     "label": "Tools",
@@ -411,7 +411,7 @@
     "action": {
       "type": "navigate"
     }
-  },  
+  },
   {
     "id": "cycle.automode.light.5",
     "label": "05:00",
@@ -577,6 +577,88 @@
       "command": [
         "hyprctl",
         "kill"
+      ]
+    }
+  },
+  {
+    "id": "trigger",
+    "label": "Trigger",
+    "icon": "󱐋",
+    "keywords": [
+      "trigger",
+      "actions"
+    ],
+    "parent": null,
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "trigger.screenshot",
+    "label": "Screenshot",
+    "icon": "󰄀",
+    "keywords": [
+      "screenshot",
+      "capture",
+      "shot"
+    ],
+    "parent": "trigger",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-screenshot-capture",
+        "--screenshot"
+      ]
+    }
+  },
+  {
+    "id": "trigger.record",
+    "label": "Screen Recording",
+    "icon": "",
+    "keywords": [
+      "record",
+      "recording",
+      "screencast"
+    ],
+    "parent": "trigger",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-screenshot-capture",
+        "--record"
+      ]
+    }
+  },
+  {
+    "id": "trigger.screensaver",
+    "label": "Screensaver",
+    "icon": "󰤄",
+    "keywords": [
+      "screensaver",
+      "idle"
+    ],
+    "parent": "trigger",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-idle",
+        "show"
+      ]
+    }
+  },
+  {
+    "id": "trigger.lock",
+    "label": "Lock Screen",
+    "icon": "󰷛",
+    "keywords": [
+      "lock",
+      "screen"
+    ],
+    "parent": "trigger",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-lock"
       ]
     }
   },

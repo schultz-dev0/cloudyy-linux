@@ -441,7 +441,7 @@ PanelWindow {
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: svc.ensureMonitor()
+                        onClicked: svc.ensureDaemon()
                     }
                 }
             }

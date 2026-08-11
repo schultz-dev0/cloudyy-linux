@@ -21,6 +21,7 @@ Item {
             color: "#ffffff"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 17
+            renderType: Text.NativeRendering
             Layout.alignment: Qt.AlignVCenter
         }
 
@@ -51,9 +52,10 @@ Item {
         Text {
             text: root.valueLabel
             color: Qt.rgba(1, 1, 1, 0.68)
-            font.family: "sans-serif"
+            font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
             font.weight: Font.DemiBold
+            renderType: Text.NativeRendering
             Layout.alignment: Qt.AlignVCenter
             Layout.preferredWidth: 44
             horizontalAlignment: Text.AlignRight

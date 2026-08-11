@@ -10,10 +10,18 @@ Singleton {
 
     readonly property int historyMax: 60
     readonly property int pollIntervalMs: 2000
+    readonly property int snapshotTimeoutMs: 5000
 
     property bool open: false
     property bool stale: false
     property bool daemonManaged: false
+    property bool hasSnapshot: false
+    property bool cpuAvailable: false
+    property bool ramAvailable: false
+    property bool temperatureAvailable: false
+    property bool gpuMetricAvailable: false
+    property int uptimeSeconds: 0
+    readonly property string uptimeLabel: formatUptime(uptimeSeconds)
 
     property int cpuPercent: 0
     property int cpuAvgPercent: 0
@@ -49,6 +57,9 @@ Singleton {
     property var fans: []
 
     property string _resolvedBinary: ""
+    property int _snapshotGeneration: 0
+    property int _activeSnapshotGeneration: 0
+    property int _timedOutSnapshotGeneration: 0
 
     readonly property string monitorBinary: {
         if (_resolvedBinary.length > 0)
@@ -94,17 +105,48 @@ Singleton {
         stdout: StdioCollector {
             id: snapshotOut
             onStreamFinished: {
+                const generation = root._activeSnapshotGeneration;
+                if (generation === root._timedOutSnapshotGeneration)
+                    return;
                 const text = snapshotOut.text.trim();
                 if (text.length)
                     root.ingestLine(text);
                 else
-                    root.stale = true;
+                    root.markSnapshotUnavailable();
             }
         }
         onExited: {
+            snapshotTimeout.stop();
+            if (root._activeSnapshotGeneration
+                    === root._timedOutSnapshotGeneration)
+                return;
             if (!snapshotOut.text.trim().length)
-                root.stale = true;
+                root.markSnapshotUnavailable();
         }
+    }
+
+    readonly property Timer _snapshotTimeout: Timer {
+        id: snapshotTimeout
+        interval: root.snapshotTimeoutMs
+        repeat: false
+        onTriggered: {
+            root._timedOutSnapshotGeneration = root._activeSnapshotGeneration;
+            root.markSnapshotUnavailable();
+            if (snapshotProc.running)
+                snapshotProc.signal(15);
+        }
+    }
+
+    readonly property FileView _uptimeFile: FileView {
+        path: "/proc/uptime"
+        onLoaded: root.ingestUptime(text())
+    }
+
+    readonly property Timer _uptimeTimer: Timer {
+        interval: 1000
+        repeat: true
+        running: root.uptimeSeconds > 0
+        onTriggered: root.uptimeSeconds++
     }
 
     readonly property Process _ensureDaemonProc: Process {
@@ -163,12 +205,14 @@ Singleton {
     function pollSnapshot() {
         if (_snapshotProc.running)
             return;
+        _snapshotGeneration++;
+        _activeSnapshotGeneration = _snapshotGeneration;
         _snapshotProc.command = [root.monitorBinary, "--once"];
+        snapshotTimeout.restart();
         _snapshotProc.running = true;
     }
 
     function restartMonitor() {
-        stale = false;
         ensureDaemon();
         pollSnapshot();
     }
@@ -179,22 +223,29 @@ Singleton {
 
     function ingestLine(line) {
         const trimmed = line.trim();
-        if (!trimmed.length || trimmed[0] !== "{")
+        if (!trimmed.length)
             return;
+        if (trimmed[0] !== "{") {
+            markSnapshotUnavailable();
+            return;
+        }
 
         let data;
         try {
             data = JSON.parse(trimmed);
         } catch (e) {
             console.warn("SystemMonitorService: invalid JSON", e, trimmed.slice(0, 80));
-            stale = true;
+            markSnapshotUnavailable();
             return;
         }
 
         stale = false;
+        hasSnapshot = true;
 
         const cpu = data.cpu || {};
         const rawCpu = num(cpu.percent, -1);
+        cpuAvailable = isNumber(cpu.percent);
+        temperatureAvailable = isNumber(cpu.temp_c) && cpu.temp_c > 0;
         cpuAvgPercent = num(cpu.avg_percent, cpuAvgPercent);
         // --once without cache can still report 0; avg_percent tracks recent samples in the daemon.
         cpuPercent = rawCpu > 0 ? rawCpu : (cpuAvgPercent > 0 ? cpuAvgPercent : (rawCpu === 0 ? 0 : cpuPercent));
@@ -205,6 +256,7 @@ Singleton {
         cpuHistory = pushHistory(cpuHistory, cpuPercent);
 
         const ram = data.ram || {};
+        ramAvailable = isNumber(ram.percent);
         ramPercent = num(ram.percent, ramPercent);
         ramUsedGb = real(ram.used_gb, ramUsedGb);
         ramTotalGb = real(ram.total_gb, ramTotalGb);
@@ -215,13 +267,16 @@ Singleton {
 
         const gpu = data.gpu || {};
         gpuAvailable = !!gpu.available;
+        gpuMetricAvailable = gpuAvailable && isNumber(gpu.percent);
         if (gpuAvailable) {
-            gpuPercent = num(gpu.percent, gpuPercent);
             gpuPowerW = num(gpu.power_w, 0);
             gpuTempC = num(gpu.temp_c, 0);
             gpuVramUsedGb = real(gpu.vram_used_gb, 0);
             gpuVramTotalGb = real(gpu.vram_total_gb, 0);
             gpuName = str(gpu.name, gpuName);
+        }
+        if (gpuMetricAvailable) {
+            gpuPercent = num(gpu.percent, gpuPercent);
             gpuHistory = pushHistory(gpuHistory, gpuPercent);
         }
 
@@ -235,6 +290,38 @@ Singleton {
 
         sensors = Array.isArray(data.sensors) ? data.sensors : [];
         fans = Array.isArray(data.fans) ? data.fans : [];
+
+        if (isNumber(data.uptime_seconds))
+            uptimeSeconds = Math.max(0, Math.floor(data.uptime_seconds));
+        else
+            _uptimeFile.reload();
+    }
+
+    function markSnapshotUnavailable() {
+        stale = true;
+        cpuAvailable = false;
+        ramAvailable = false;
+        temperatureAvailable = false;
+        gpuMetricAvailable = false;
+    }
+
+    function ingestUptime(value) {
+        const seconds = parseFloat(String(value).trim().split(/\s+/)[0]);
+        if (!isNaN(seconds) && isFinite(seconds) && seconds >= 0)
+            uptimeSeconds = Math.floor(seconds);
+    }
+
+    function formatUptime(seconds) {
+        if (seconds <= 0)
+            return "--";
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (days > 0)
+            return days + "d " + hours + "h";
+        if (hours > 0)
+            return hours + "h " + minutes + "m";
+        return minutes + "m";
     }
 
     function pushHistory(arr, value) {
@@ -250,6 +337,10 @@ Singleton {
             return fallback;
         const n = parseInt(v, 10);
         return isNaN(n) ? fallback : n;
+    }
+
+    function isNumber(v) {
+        return typeof v === "number" && isFinite(v);
     }
 
     function real(v, fallback) {

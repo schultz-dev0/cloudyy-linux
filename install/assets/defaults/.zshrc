@@ -39,6 +39,13 @@ export EDITOR="nvim"
 # also honor ~/.ssh/config's IdentityAgent.
 export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ssh-agent.socket"
 
+# XDG user dirs
+if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs" ]]; then
+    set -a
+    source "${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs"
+    set +a
+fi
+
 # aliases #
 
 # general utility #

@@ -16,7 +16,7 @@ QtObject {
         let paused = null;
         for (let i = 0; i < players.length; i++) {
             const p = players[i];
-            if (p.playbackState === MprisPlaybackState.Playing)
+            if (!playing && p.playbackState === MprisPlaybackState.Playing)
                 playing = p;
             else if (!paused && p.playbackState === MprisPlaybackState.Paused)
                 paused = p;

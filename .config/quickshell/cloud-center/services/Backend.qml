@@ -33,6 +33,8 @@ Singleton {
     signal wifiActionDoneEvent(string actionId, string target, int generation, bool ok, bool staleTarget, string message)
     signal batterySnapshotEvent(var snapshot)
     signal batteryActionDoneEvent(string actionId, string target, int generation, bool ok, bool staleTarget, string message)
+    signal recordingSnapshotEvent(var snapshot)
+    signal recordingActionDoneEvent(string actionId, string target, int generation, bool ok, bool staleTarget, string message)
     signal regionSnapshotEvent(var snapshot)
     signal regionActionDoneEvent(string actionId, string target, int generation, bool ok, bool staleTarget, string message)
     signal bezierEditorRequested()
@@ -117,6 +119,12 @@ Singleton {
             batterySnapshotEvent(msg.snapshot ?? ({})); break;
         case "battery_action_done":
             batteryActionDoneEvent(String(msg.action_id ?? ""), String(msg.target ?? ""),
+                Number(msg.generation ?? 0), msg.ok ?? false, msg.stale_target ?? false,
+                msg.message ?? ""); break;
+        case "recording_snapshot":
+            recordingSnapshotEvent(msg.snapshot ?? ({})); break;
+        case "recording_action_done":
+            recordingActionDoneEvent(String(msg.action_id ?? ""), String(msg.target ?? ""),
                 Number(msg.generation ?? 0), msg.ok ?? false, msg.stale_target ?? false,
                 msg.message ?? ""); break;
         case "region_snapshot":

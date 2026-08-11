@@ -19,7 +19,7 @@ Item {
             Layout.preferredHeight: 28
             Layout.alignment: Qt.AlignVCenter
             radius: 9
-            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.92)
+            color: Qt.rgba(Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.92)
 
             Text {
                 anchors.centerIn: parent
@@ -27,6 +27,7 @@ Item {
                 color: Qt.rgba(0, 0, 0, 0.82)
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 14
+                renderType: Text.NativeRendering
             }
         }
 
@@ -42,9 +43,10 @@ Item {
                     return name || "Notification";
                 }
                 color: Qt.rgba(1, 1, 1, 0.52)
-                font.family: "sans-serif"
+                font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 10
                 font.weight: Font.DemiBold
+                renderType: Text.NativeRendering
                 maximumLineCount: 1
                 elide: Text.ElideRight
             }
@@ -53,9 +55,10 @@ Item {
                 Layout.fillWidth: true
                 text: root.summary
                 color: Qt.rgba(1, 1, 1, 0.94)
-                font.family: "sans-serif"
+                font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 13
                 font.weight: Font.Medium
+                renderType: Text.NativeRendering
                 maximumLineCount: 1
                 elide: Text.ElideRight
             }

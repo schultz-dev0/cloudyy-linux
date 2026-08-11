@@ -130,6 +130,7 @@ FloatingWindow {
                     : page.kind === "bluetooth" ? bluetoothComponent
                     : page.kind === "wifi" ? wifiComponent
                     : page.kind === "battery" ? batteryComponent
+                    : page.kind === "recording" ? recordingComponent
                     : page.kind === "region" ? regionComponent
                     : yamlComponent
             }
@@ -143,6 +144,7 @@ FloatingWindow {
             Component { id: bluetoothComponent; BluetoothEditor { page: pageLoader.page } }
             Component { id: wifiComponent; WifiEditor { page: pageLoader.page } }
             Component { id: batteryComponent; BatteryEditor { page: pageLoader.page } }
+            Component { id: recordingComponent; RecordingEditor { page: pageLoader.page } }
             Component { id: regionComponent; RegionTimeEditor { page: pageLoader.page } }
 
             Text {
