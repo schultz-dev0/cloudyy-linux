@@ -122,6 +122,9 @@ cloudyy_scripts/terminal/.claude/
 !/.codex/skills/
 /.codex/skills/*
 !/.codex/skills/cloudyy
+# ductor marker files must never be tracked
+**/.ductor*
+**/.ductor_managed
 .worktrees/
 **/.docs/
 
