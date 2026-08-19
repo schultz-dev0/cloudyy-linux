@@ -66,13 +66,47 @@ PanelWindow {
     readonly property real lowerRadius: QuickIsland.IslandState.mode === "resting"
         && !transientActive ? Theme.islandRestLowerRadius : Theme.islandOpenLowerRadius
     readonly property real effectiveLowerRadius: Math.min(
-        lowerRadius, width / 2, height / 2)
+        lowerRadius, shell.width / 2, shell.height / 2)
+
+    // The Wayland surface itself stays fixed at the largest size any state
+    // needs; only `shell` (a plain Item drawn inside it) animates. Resizing
+    // a wlr-layer-shell surface every frame means a configure/ack round
+    // trip with Hyprland per step, which the compositor throttles/coalesces
+    // — that's what read as "laggy" (a hard pop instead of a smooth tween).
+    // Animating an Item inside a static-size surface is pure client-side
+    // scene graph work, so it stays smooth. `mask` (below) still shrinks
+    // to `shell`'s animated bounds, so the unused surface area stays
+    // click-through.
+    property real visualWidth: targetWidth
+    property real visualHeight: targetHeight
+
+    Behavior on visualWidth {
+        NumberAnimation {
+            duration: Perf.geometryMs(to < from
+                ? Theme.islandCloseDuration : Theme.islandOpenDuration)
+            easing.type: to < from ? Easing.InCubic : Easing.OutCubic
+        }
+    }
+
+    Behavior on visualHeight {
+        NumberAnimation {
+            duration: Perf.geometryMs(to < from
+                ? Theme.islandCloseDuration
+                : (QuickIsland.IslandState.expanded
+                    ? Theme.islandExpandDuration : Theme.islandOpenDuration))
+            easing.type: to < from
+                ? Easing.InCubic
+                : (QuickIsland.IslandState.expanded ? Easing.OutQuart : Easing.OutCubic)
+        }
+    }
 
     screen: resolvedScreen ?? (Quickshell.screens.length > 0 ? Quickshell.screens[0] : null)
 
     anchors.top: true
-    implicitWidth: Math.min(targetWidth, screen ? screen.width - 16 : targetWidth)
-    implicitHeight: Math.min(targetHeight, screen ? screen.height - 40 : targetHeight)
+    implicitWidth: Math.min(Theme.islandCarouselWidth,
+        screen ? screen.width - 16 : Theme.islandCarouselWidth)
+    implicitHeight: Math.min(Theme.islandExpandedMaxHeight,
+        screen ? screen.height - 40 : Theme.islandExpandedMaxHeight)
     // No exclusiveZone assignment: it would flip exclusionMode back to Normal
     // and let the bar's reserved area push the island off the physical top edge.
     exclusionMode: ExclusionMode.Ignore
@@ -80,33 +114,35 @@ PanelWindow {
     visible: true
     mask: Region {
         Region {
-            x: Theme.islandShoulderRadius
-            width: Math.max(0, island.width - Theme.islandShoulderRadius * 2)
+            x: shell.x + Theme.islandShoulderRadius
+            width: Math.max(0, shell.width - Theme.islandShoulderRadius * 2)
             height: Theme.islandShoulderRadius
         }
         Region {
+            x: shell.x
             y: Theme.islandShoulderRadius
-            width: island.width
-            height: Math.max(0, island.height
+            width: shell.width
+            height: Math.max(0, shell.height
                 - Theme.islandShoulderRadius - island.effectiveLowerRadius)
         }
         Region {
-            x: island.effectiveLowerRadius
+            x: shell.x + island.effectiveLowerRadius
             y: Math.max(Theme.islandShoulderRadius,
-                island.height - island.effectiveLowerRadius)
-            width: Math.max(0, island.width - island.effectiveLowerRadius * 2)
+                shell.height - island.effectiveLowerRadius)
+            width: Math.max(0, shell.width - island.effectiveLowerRadius * 2)
             height: Math.min(island.effectiveLowerRadius,
-                island.height - Theme.islandShoulderRadius)
+                shell.height - Theme.islandShoulderRadius)
         }
         Region {
-            y: island.height - island.effectiveLowerRadius * 2
+            x: shell.x
+            y: shell.height - island.effectiveLowerRadius * 2
             width: island.effectiveLowerRadius * 2
             height: island.effectiveLowerRadius * 2
             shape: RegionShape.Ellipse
         }
         Region {
-            x: island.width - island.effectiveLowerRadius * 2
-            y: island.height - island.effectiveLowerRadius * 2
+            x: shell.x + shell.width - island.effectiveLowerRadius * 2
+            y: shell.height - island.effectiveLowerRadius * 2
             width: island.effectiveLowerRadius * 2
             height: island.effectiveLowerRadius * 2
             shape: RegionShape.Ellipse
@@ -122,26 +158,6 @@ PanelWindow {
     // for the same reason.
     WlrLayershell.keyboardFocus: QuickIsland.IslandState.keyboardRequested
         ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-
-    Behavior on implicitWidth {
-        NumberAnimation {
-            duration: Perf.geometryMs(to < from
-                ? Theme.islandCloseDuration : Theme.islandOpenDuration)
-            easing.type: to < from ? Easing.InCubic : Easing.OutCubic
-        }
-    }
-
-    Behavior on implicitHeight {
-        NumberAnimation {
-            duration: Perf.geometryMs(to < from
-                ? Theme.islandCloseDuration
-                : (QuickIsland.IslandState.expanded
-                    ? Theme.islandExpandDuration : Theme.islandOpenDuration))
-            easing.type: to < from
-                ? Easing.InCubic
-                : (QuickIsland.IslandState.expanded ? Easing.OutQuart : Easing.OutCubic)
-        }
-    }
 
     Component {
         id: notificationActivityComponent
@@ -216,7 +232,10 @@ PanelWindow {
 
     Item {
         id: shell
-        anchors.fill: parent
+        width: island.visualWidth
+        height: island.visualHeight
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
 
         QuickIsland.IslandPillShape {
             anchors {
