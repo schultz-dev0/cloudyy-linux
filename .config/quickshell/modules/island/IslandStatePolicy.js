@@ -1,22 +1,33 @@
 .pragma library
+.import "IslandRegistryPolicy.js" as RegistryPolicy
 
-const pageIds = ["notifications", "calendar", "timer", "media", "system"];
-
-function isValidPage(id) {
-    return pageIds.indexOf(id) !== -1;
+function cyclePage(id, delta, availableIds) {
+    return RegistryPolicy.cyclePage(id, delta, availableIds);
 }
 
-function cyclePage(id, delta) {
-    const current = Math.max(0, pageIds.indexOf(id));
-    const next = ((current + delta) % pageIds.length + pageIds.length) % pageIds.length;
-    return pageIds[next];
+function repairNavigation(currentId, rememberedId, orderedIds, availableIds) {
+    const remembered = rememberedId || currentId;
+    if (availableIds.length === 0) {
+        return {
+            currentPage: "",
+            rememberedPage: remembered
+        };
+    }
+    if (availableIds.indexOf(remembered) !== -1) {
+        return {
+            currentPage: remembered,
+            rememberedPage: remembered
+        };
+    }
+    return {
+        currentPage: RegistryPolicy.repairCurrentPage(
+            currentId, orderedIds, availableIds),
+        rememberedPage: remembered
+    };
 }
 
-function activationForPage(id) {
-    if (id === "notifications") return "controlCenter";
-    if (id === "calendar" || id === "timer") return "expand";
-    if (id === "system") return "systemOverview";
-    return "stayCompact";
+function activationForPage(integration) {
+    return integration?.activation ?? "stayCompact";
 }
 
 function escapeTarget(mode) {

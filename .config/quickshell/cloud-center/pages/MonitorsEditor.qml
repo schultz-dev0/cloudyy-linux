@@ -183,60 +183,15 @@ Flickable {
         }
     }
 
-    component StyledCombo: ComboBox {
+    component StyledCombo: CloudSelect {
         id: styledCombo
         property var values: []
         property var labels: []
         signal valueChosen(var value)
         width: 175
-        height: 28
-        model: labels
-        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 }
-        onActivated: index => valueChosen(values[index])
-        contentItem: Text {
-            leftPadding: 8
-            text: styledCombo.displayText
-            color: Theme.textPrimary
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-            font: styledCombo.font
-        }
-        background: Rectangle {
-            radius: 7
-            color: Theme.surface_container
-            border { width: 1; color: Theme.outline_variant }
-        }
-        delegate: ItemDelegate {
-            width: styledCombo.width
-            highlighted: styledCombo.highlightedIndex === index
-            contentItem: Text {
-                text: modelData
-                color: Theme.textPrimary
-                verticalAlignment: Text.AlignVCenter
-                font: styledCombo.font
-            }
-            background: Rectangle {
-                color: highlighted ? Theme.glass(Theme.primary, 0.14) : "transparent"
-            }
-        }
-        popup: Popup {
-            y: styledCombo.height + 3
-            width: styledCombo.width
-            padding: 4
-            enter: null
-            exit: null
-            contentItem: ListView {
-                clip: true
-                implicitHeight: Math.min(220, contentHeight)
-                model: styledCombo.popup.visible ? styledCombo.delegateModel : null
-                currentIndex: styledCombo.highlightedIndex
-            }
-            background: Rectangle {
-                radius: 8
-                color: Theme.surface_container
-                border { width: 1; color: Theme.outline_variant }
-            }
-        }
+        compact: true
+        options: labels
+        onActivated: index => styledCombo.valueChosen(styledCombo.values[index])
     }
 
     component SmallField: Rectangle {
@@ -246,9 +201,9 @@ Flickable {
         signal committed(string text)
         width: 76
         height: 28
-        radius: 7
+        radius: 2
         color: Theme.surface_container
-        border { width: 1; color: Theme.outline_variant }
+        border { width: 1; color: Theme.hairline }
         TextInput {
             id: field
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
@@ -300,9 +255,10 @@ Flickable {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 7
                 Rectangle {
-                    width: headlessText.implicitWidth + 18; height: 28; radius: 7
-                    color: headlessHover.hovered ? Theme.glass(Theme.primary, 0.16) : Theme.glass(Theme.primary, 0.09)
-                    Text { id: headlessText; anchors.centerIn: parent; text: "󰐕 Headless"; color: Theme.accent
+                    width: headlessText.implicitWidth + 18; height: 28; radius: 2
+                    color: headlessHover.hovered ? Theme.primary : Theme.primary_container
+                    Text { id: headlessText; anchors.centerIn: parent; text: "󰐕 Headless"
+                           color: headlessHover.hovered ? Theme.on_primary : Theme.on_primary_container
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                     HoverHandler { id: headlessHover }
                     TapHandler {
@@ -313,9 +269,10 @@ Flickable {
                     }
                 }
                 Rectangle {
-                    width: rescanText.implicitWidth + 18; height: 28; radius: 7
-                    color: rescanHover.hovered ? Theme.glass(Theme.primary, 0.16) : Theme.glass(Theme.primary, 0.09)
-                    Text { id: rescanText; anchors.centerIn: parent; text: "󰑓 Rescan"; color: Theme.accent
+                    width: rescanText.implicitWidth + 18; height: 28; radius: 2
+                    color: rescanHover.hovered ? Theme.primary : Theme.primary_container
+                    Text { id: rescanText; anchors.centerIn: parent; text: "󰑓 Rescan"
+                           color: rescanHover.hovered ? Theme.on_primary : Theme.on_primary_container
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                     HoverHandler { id: rescanHover }
                     TapHandler { onTapped: monPage.rescan() }
@@ -403,9 +360,9 @@ Flickable {
                         delegate: Rectangle {
                             required property var modelData
                             width: modelData.delta === 0 ? 62 : 28
-                            height: 28; radius: 7
+                            height: 28; radius: 2
                             color: modelData.delta === 0 ? Theme.surface_container : scaleHover.hovered ? Theme.surface_container_high : Theme.surface_container
-                            border { width: 1; color: Theme.outline_variant }
+                            border { width: 1; color: Theme.hairline }
                             Text { anchors.centerIn: parent; text: modelData.label; color: Theme.textPrimary
                                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                             HoverHandler { id: scaleHover }
@@ -486,17 +443,17 @@ Flickable {
                                 required property int index
                                 readonly property string workspaceId: String(index + 1)
                                 width: (workspaceColumn.width - 40) / 5
-                                height: 28; radius: 7
+                                height: 28; radius: 2
                                 color: monPage.workspaceEnabled(workspaceId)
-                                    ? Theme.glass(Theme.primary, 0.18) : Theme.surface_container
-                                border { width: 1; color: monPage.workspaceEnabled(workspaceId) ? Theme.primary : Theme.outline_variant }
+                                    ? Theme.primary_container : Theme.surface_container
+                                border { width: 1; color: monPage.workspaceEnabled(workspaceId) ? Theme.primary : Theme.hairline }
                                 Row {
                                     anchors.centerIn: parent
                                     spacing: 6
                                     Rectangle {
                                         width: 13; height: 13; radius: 4
                                         color: monPage.workspaceEnabled(workspaceId) ? Theme.primary : "transparent"
-                                        border { width: 1; color: Theme.outline_variant }
+                                        border { width: 1; color: Theme.hairline }
                                         Text { anchors.centerIn: parent; visible: monPage.workspaceEnabled(workspaceId)
                                                text: "✓"; color: Theme.background; font.pixelSize: 9 }
                                     }
@@ -518,9 +475,9 @@ Flickable {
                             delegate: Rectangle {
                                 required property string modelData
                                 width: extraLabel.implicitWidth + 28
-                                height: 25; radius: 7
+                                height: 25; radius: 2
                                 color: Theme.surface_container
-                                border { width: 1; color: Theme.outline_variant }
+                                border { width: 1; color: Theme.hairline }
                                 Text { id: extraLabel; anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
                                        text: modelData; color: Theme.textPrimary
                                        renderType: Text.NativeRendering
@@ -535,9 +492,9 @@ Flickable {
 
                     Rectangle {
                         width: parent.width
-                        height: 30; radius: 7
+                        height: 30; radius: 2
                         color: Theme.surface_container
-                        border { width: 1; color: Theme.outline_variant }
+                        border { width: 1; color: Theme.hairline }
                         TextInput {
                             id: extraWorkspaceInput
                             anchors { left: parent.left; right: addExtra.left; top: parent.top; bottom: parent.bottom
@@ -617,9 +574,9 @@ Flickable {
                 width: parent.width
                 item: ({ icon: "󰈙", title: "ICC profile", description: "Overrides the color preset and is incompatible with HDR gaming" })
                 Rectangle {
-                    width: 245; height: 28; radius: 7
+                    width: 245; height: 28; radius: 2
                     color: Theme.surface_container
-                    border { width: 1; color: Theme.outline_variant }
+                    border { width: 1; color: Theme.hairline }
                     Text {
                         anchors { left: parent.left; right: clearIcc.left; leftMargin: 8; rightMargin: 6; verticalCenter: parent.verticalCenter }
                         text: monPage.selected && monPage.selected.icc ? monPage.selected.icc : "No profile selected"
@@ -668,7 +625,7 @@ Flickable {
                     value: monPage.selected ? Number(monPage.selected.sdrbrightness) : 1
                     onMoved: monPage.setSelectedField("sdrbrightness", value)
                     background: Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 4; radius: 2
-                                             color: Theme.outline_variant
+                                             color: Theme.hairline
                                              Rectangle { width: brightnessSlider.visualPosition * parent.width; height: parent.height; radius: 2; color: Theme.primary } }
                     handle: Rectangle { x: brightnessSlider.visualPosition * (brightnessSlider.width - width); anchors.verticalCenter: parent.verticalCenter
                                          width: 14; height: 14; radius: 7; color: Theme.surface_container_lowest; border { width: 1; color: Theme.outline } }
@@ -686,7 +643,7 @@ Flickable {
                     value: monPage.selected ? Number(monPage.selected.sdrsaturation) : 1
                     onMoved: monPage.setSelectedField("sdrsaturation", value)
                     background: Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 4; radius: 2
-                                             color: Theme.outline_variant
+                                             color: Theme.hairline
                                              Rectangle { width: saturationSlider.visualPosition * parent.width; height: parent.height; radius: 2; color: Theme.primary } }
                     handle: Rectangle { x: saturationSlider.visualPosition * (saturationSlider.width - width); anchors.verticalCenter: parent.verticalCenter
                                          width: 14; height: 14; radius: 7; color: Theme.surface_container_lowest; border { width: 1; color: Theme.outline } }
@@ -698,9 +655,10 @@ Flickable {
                 width: parent.width
                 item: ({ icon: "󰐥", title: "Power off now", description: "Temporary DPMS power-off; this does not alter the layout" })
                 Rectangle {
-                    width: 120; height: 28; radius: 7
-                    color: dpmsHover.hovered ? Theme.glass(Theme.error, 0.18) : Theme.glass(Theme.error, 0.11)
-                    Text { anchors.centerIn: parent; text: "Power off " + monPage.selectedName; color: Theme.error
+                    width: 120; height: 28; radius: 2
+                    color: dpmsHover.hovered ? Theme.error : Theme.error_container
+                    Text { anchors.centerIn: parent; text: "Power off " + monPage.selectedName
+                           color: dpmsHover.hovered ? Theme.on_error : Theme.error
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 9 } }
                     HoverHandler { id: dpmsHover }
                     TapHandler {
@@ -730,9 +688,9 @@ Flickable {
             Rectangle {
                 id: applyButton
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                width: 116; height: 30; radius: 8
+                width: 116; height: 30; radius: 2
                 color: monPage.dirty && !monPage.confirmationOpen
-                    ? (applyHover.hovered ? Theme.primary : Theme.glass(Theme.primary, 0.82))
+                    ? Theme.primary
                     : Theme.surface_container_high
                 Text { anchors.centerIn: parent; text: "Apply layout"
                        color: monPage.dirty && !monPage.confirmationOpen ? Theme.background : Theme.textMuted
@@ -747,8 +705,8 @@ Flickable {
         Rectangle {
             visible: monPage.selectedIsHeadless
             width: content.width
-            height: 34; radius: 8
-            color: Theme.glass(Theme.error, 0.08)
+            height: 34; radius: 0
+            color: Theme.error_container
             Text { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                    text: "Remove virtual output " + monPage.selectedName; color: Theme.error
                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
@@ -801,9 +759,9 @@ Flickable {
         exit: null
 
         background: Rectangle {
-            radius: 14
+            radius: 0
             color: Theme.surface_container
-            border { width: 1; color: Theme.outline_variant }
+            border { width: 1; color: Theme.hairline }
         }
 
         contentItem: Column {
@@ -841,17 +799,17 @@ Flickable {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 9
                 Rectangle {
-                    width: 112; height: 30; radius: 8
+                    width: 112; height: 30; radius: 2
                     color: revertHover.hovered ? Theme.surface_container_high : Theme.surface_container_low
-                    border { width: 1; color: Theme.outline_variant }
+                    border { width: 1; color: Theme.hairline }
                     Text { anchors.centerIn: parent; text: "Revert now"; color: Theme.textPrimary
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                     HoverHandler { id: revertHover }
                     TapHandler { onTapped: monPage.revertLayout() }
                 }
                 Rectangle {
-                    width: 112; height: 30; radius: 8
-                    color: keepHover.hovered ? Theme.primary : Theme.glass(Theme.primary, 0.82)
+                    width: 112; height: 30; radius: 2
+                    color: Theme.primary
                     Text { anchors.centerIn: parent; text: "Keep layout"; color: Theme.background
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 10; bold: true } }
                     HoverHandler { id: keepHover }

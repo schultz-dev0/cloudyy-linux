@@ -4,6 +4,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -20,8 +21,8 @@ PanelWindow {
     readonly property int panelMaxHeight: 900
     readonly property int topGap: 10
     readonly property int rightGap: 20
-    readonly property int panelRadius: 24
-    readonly property int sectionRadius: 16
+    readonly property int panelRadius: 0
+    readonly property int sectionRadius: 0
     readonly property int panelPadding: 18
     readonly property int emptyNotifHeight: 36
     readonly property int notifCardShadowSideInset: 18
@@ -151,19 +152,55 @@ PanelWindow {
     WlrLayershell.exclusiveZone: 0
 
     // ── Panel shell ───────────────────────────────────────────────────────────
+    // Resin material — real theme-hue tint, not neutral glass. See
+    // Theme.qml's resin() comment for the keycap reasoning.
     Rectangle {
         id: panelShell
         anchors.fill: parent
         radius: panel.panelRadius
-        color: Theme.glassShell
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+        color: Theme.resin(Theme.resinFillAlpha)
         border.width: 1
+        border.color: Theme.resinBorder
+        clip: true
 
         opacity: panel.open ? 1 : 0
         transformOrigin: Item.TopRight
         Behavior on opacity {
             enabled: Perf.animationsEnabled
             NumberAnimation { duration: panel.openFadeMs; easing.type: Easing.OutQuad }
+        }
+
+        // Gloss — light catching the material's upper edge.
+        Rectangle {
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: parent.height * 0.4
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.resinGloss }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
+        // Inner glow — a hint of structure beneath the material, like the
+        // switch under a keycap, not the desktop behind it. Actually blurred
+        // (not just low-opacity) so it reads as soft light, not a defined
+        // shape sitting on top of the fill. Corner-anchored with the center
+        // pushed past the edge (clipped by panelShell) instead of a
+        // percentage-of-height position, so it never lands under a text row
+        // regardless of how much content the panel holds.
+        Rectangle {
+            width: parent.width * 0.4
+            height: width
+            radius: width / 2
+            anchors {
+                left: parent.left
+                bottom: parent.bottom
+                leftMargin: -width * 0.5
+                bottomMargin: -height * 0.5
+            }
+            color: Theme.resinGlow
+            opacity: 0.5
+            layer.enabled: true
+            layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
         }
 
         ColumnLayout {
@@ -257,103 +294,104 @@ PanelWindow {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
             // ── Display ───────────────────────────────────────────────────────
-            Rectangle {
+            Item {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
-                radius: panel.sectionRadius
-                color: Theme.glassSection
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-                border.width: 1
-                implicitHeight: 72
+                implicitHeight: displayCol.implicitHeight
 
                 ColumnLayout {
-                    anchors {
-                        fill: parent
-                        margins: 12
-                    }
-                    spacing: 8
+                    id: displayCol
+                    anchors { left: parent.left; right: parent.right }
+                    spacing: 6
 
                     Text {
                         text: "Display"
-                        color: Theme.on_surface
+                        color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
+                        font.pixelSize: 10
                         font.weight: Font.Medium
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.6
                     }
 
-                    Rectangle {
+                    RowLayout {
                         Layout.fillWidth: true
-                        radius: 10
-                        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                        implicitHeight: 27
+                        spacing: 10
 
-                        RowLayout {
-                            anchors {
-                                fill: parent
-                                leftMargin: 12
-                                rightMargin: 12
-                            }
-                            spacing: 10
+                        Slider {
+                            id: brightnessSlider
+                            Layout.fillWidth: true
+                            from: 1
+                            to: 100
+                            live: true
+                            value: panel.sliderController ? panel.sliderController.brightnessValue : 50
+                            onMoved: if (panel.sliderController)
+                                panel.sliderController.setBrightness(value)
 
-                            Slider {
-                                id: brightnessSlider
-                                Layout.fillWidth: true
-                                from: 1
-                                to: 100
-                                live: true
-                                value: panel.sliderController ? panel.sliderController.brightnessValue : 50
-                                palette.highlight: Theme.tertiary
-                                onMoved: if (panel.sliderController)
-                                    panel.sliderController.setBrightness(value)
+                            // Tick-gauge track — filled ticks (accent) up to
+                            // the current value, unfilled ticks (hairline)
+                            // past it. Reads as a level meter, not a pill.
+                            background: Item {
+                                id: brightnessTrack
+                                x: brightnessSlider.leftPadding
+                                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                width: brightnessSlider.availableWidth
+                                height: 10
+                                readonly property int tickCount: 22
+                                readonly property real tickGap: width / (tickCount - 1)
 
-                                background: Rectangle {
-                                    x: brightnessSlider.leftPadding
-                                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                                    width: brightnessSlider.availableWidth
-                                    height: 10
-                                    radius: 999
-                                    color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
-                                    Rectangle {
-                                        width: brightnessSlider.visualPosition * parent.width
-                                        height: parent.height
-                                        radius: parent.radius
-                                        color: brightnessSlider.palette.highlight
-                                        opacity: brightnessSlider.enabled ? 1 : 0.35
+                                Repeater {
+                                    model: brightnessTrack.tickCount
+                                    delegate: Rectangle {
+                                        required property int index
+                                        x: index * brightnessTrack.tickGap - width / 2
+                                        width: 1.5
+                                        height: brightnessTrack.height
+                                        color: (index / (brightnessTrack.tickCount - 1)) <= brightnessSlider.visualPosition
+                                            ? Theme.accent
+                                            : Theme.hairline
                                     }
                                 }
-                                handle: Rectangle {
-                                    x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
-                                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: brightnessSlider.pressed ? Theme.primary : Theme.on_surface
-                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
-                                    border.width: 1
-                                    opacity: brightnessSlider.enabled ? 1 : 0.4
-                                }
                             }
+                            handle: Rectangle {
+                                x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                width: 2
+                                height: 16
+                                radius: 0
+                                color: Theme.on_surface
+                                opacity: brightnessSlider.enabled ? 1 : 0.4
+                            }
+                        }
 
-                            Rectangle {
-                                width: 25
-                                height: 25
-                                radius: 16
-                                color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.55)
-                                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
-                                border.width: 1
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "󰃠"
-                                    color: Theme.on_surface
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 16
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: if (panel.sliderController)
-                                        panel.sliderController.showBrightness()
-                                }
+                        Text {
+                            text: (panel.sliderController ? Math.round(panel.sliderController.brightnessValue) : 50) + "%"
+                            color: Theme.on_surface_variant
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 0
+                            color: "transparent"
+                            border.color: Theme.hairline
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰃠"
+                                color: Theme.on_surface
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: if (panel.sliderController)
+                                    panel.sliderController.showBrightness()
                             }
                         }
                     }
@@ -361,112 +399,112 @@ PanelWindow {
             }
 
             // ── Sound ─────────────────────────────────────────────────────────
-            Rectangle {
+            Item {
                 visible: !!panel.sliderController
                 Layout.fillWidth: true
-                radius: panel.sectionRadius
-                color: Theme.glassSection
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-                border.width: 1
-                implicitHeight: 72
+                implicitHeight: soundCol.implicitHeight
 
                 ColumnLayout {
-                    anchors {
-                        fill: parent
-                        margins: 12
-                    }
-                    spacing: 8
+                    id: soundCol
+                    anchors { left: parent.left; right: parent.right }
+                    spacing: 6
 
                     Text {
                         text: "Sound"
-                        color: Theme.on_surface
+                        color: Theme.on_surface_variant
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
+                        font.pixelSize: 10
                         font.weight: Font.Medium
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.6
                     }
 
-                    Rectangle {
+                    RowLayout {
                         Layout.fillWidth: true
-                        radius: 16
-                        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.5)
-                        implicitHeight: 25
+                        spacing: 10
 
-                        RowLayout {
-                            anchors {
-                                fill: parent
-                                leftMargin: 12
-                                rightMargin: 12
-                            }
-                            spacing: 10
+                        Slider {
+                            id: volumeSlider
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 100
+                            live: true
+                            value: panel.sliderController ? panel.sliderController.volumeValue : 50
+                            onMoved: if (panel.sliderController)
+                                panel.sliderController.setVolume(value)
 
-                            Slider {
-                                id: volumeSlider
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 100
-                                live: true
-                                value: panel.sliderController ? panel.sliderController.volumeValue : 50
-                                palette.highlight: Theme.primary
-                                onMoved: if (panel.sliderController)
-                                    panel.sliderController.setVolume(value)
+                            background: Item {
+                                id: volumeTrack
+                                x: volumeSlider.leftPadding
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                width: volumeSlider.availableWidth
+                                height: 10
+                                readonly property int tickCount: 22
+                                readonly property real tickGap: width / (tickCount - 1)
 
-                                background: Rectangle {
-                                    x: volumeSlider.leftPadding
-                                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                                    width: volumeSlider.availableWidth
-                                    height: 10
-                                    radius: 999
-                                    color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
-                                    Rectangle {
-                                        width: volumeSlider.visualPosition * parent.width
-                                        height: parent.height
-                                        radius: parent.radius
-                                        color: volumeSlider.palette.highlight
-                                        opacity: volumeSlider.enabled ? 1 : 0.35
+                                Repeater {
+                                    model: volumeTrack.tickCount
+                                    delegate: Rectangle {
+                                        required property int index
+                                        x: index * volumeTrack.tickGap - width / 2
+                                        width: 1.5
+                                        height: volumeTrack.height
+                                        color: (index / (volumeTrack.tickCount - 1)) <= volumeSlider.visualPosition
+                                            ? Theme.accent
+                                            : Theme.hairline
                                     }
                                 }
-                                handle: Rectangle {
-                                    x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                                    width: 16
-                                    height: 16
-                                    radius: 8
-                                    color: volumeSlider.pressed ? Theme.primary : Theme.on_surface
-                                    border.color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
-                                    border.width: 1
-                                    opacity: volumeSlider.enabled ? 1 : 0.4
-                                }
                             }
+                            handle: Rectangle {
+                                x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                width: 2
+                                height: 16
+                                radius: 0
+                                color: Theme.on_surface
+                                opacity: volumeSlider.enabled ? 1 : 0.4
+                            }
+                        }
 
-                            Rectangle {
-                                width: 25
-                                height: 25
-                                radius: 16
-                                color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.55)
-                                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
-                                border.width: 1
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: panel.sliderController ? panel.sliderController.volumeIcon : "󰕾"
-                                    color: Theme.on_surface
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 16
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: if (panel.sliderController)
-                                        panel.sliderController.toggleMute()
-                                }
+                        Text {
+                            text: (panel.sliderController ? Math.round(panel.sliderController.volumeValue) : 50) + "%"
+                            color: Theme.on_surface_variant
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 0
+                            color: "transparent"
+                            border.color: Theme.hairline
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: panel.sliderController ? panel.sliderController.volumeIcon : "󰕾"
+                                color: Theme.on_surface
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: if (panel.sliderController)
+                                    panel.sliderController.toggleMute()
                             }
                         }
                     }
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
             // ── Calendar mini strip ───────────────────────────────────────────
             CalendarMiniSection {
                 Layout.fillWidth: true
             }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
 
             // ── Media card ────────────────────────────────────────────────────
             MediaCard {
@@ -534,13 +572,13 @@ PanelWindow {
                             y:      panel.notifCardShadowTopInset
                             width:  parent.width - panel.notifCardShadowSideInset * 2
                             height: cardContent.implicitHeight + 28
-                            radius: 18
+                            radius: 4
                             color: cardWrapper.modelData.urgency === 2
-                                ? Qt.tint(Theme.glassSection, Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
-                                : Theme.glassSection
+                                ? Qt.tint(Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95), Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
+                                : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95)
                             border.color: cardWrapper.modelData.urgency === 2
                                 ? Theme.error
-                                : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                                : Theme.hairline
                             border.width: 1
 
                             Column {

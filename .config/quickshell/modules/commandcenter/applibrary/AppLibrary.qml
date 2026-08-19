@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
@@ -66,13 +67,49 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
+        // Resin material — real theme-hue tint, not neutral glass. See
+        // Theme.qml's resin() comment for the keycap reasoning.
         Rectangle {
+            id: panelShell
             anchors.fill: parent
-            radius: Theme.glassPanelRadius
-            color: Theme.glassShell
-            border.color: Theme.glassPanelBorder
+            radius: 0
+            color: Theme.resin(Theme.resinFillAlpha)
             border.width: 1
+            border.color: Theme.resinBorder
             antialiasing: true
+            clip: true
+
+            // Gloss — light catching the material's upper edge.
+            Rectangle {
+                anchors { top: parent.top; left: parent.left; right: parent.right }
+                height: parent.height * 0.4
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.resinGloss }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            // Inner glow — a hint of structure beneath the material.
+            // Actually blurred, not just low-opacity, so it reads as soft
+            // light rather than a defined shape. Corner-anchored with the
+            // center pushed past the edge (clipped by panelShell) instead
+            // of a percentage-of-height position, so it never lands under
+            // a list row regardless of how many results are showing.
+            Rectangle {
+                width: parent.width * 0.3
+                height: width
+                radius: width / 2
+                anchors {
+                    left: parent.left
+                    bottom: parent.bottom
+                    leftMargin: -width * 0.5
+                    bottomMargin: -height * 0.5
+                }
+                color: Theme.resinGlow
+                opacity: 0.5
+                layer.enabled: true
+                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+            }
         }
 
         Column {
@@ -194,7 +231,7 @@ PanelWindow {
             Rectangle {
                 width: parent.width
                 height: 1
-                color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
+                color: Theme.hairline
             }
 
             // Body

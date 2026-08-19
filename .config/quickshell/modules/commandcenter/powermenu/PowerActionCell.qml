@@ -27,14 +27,24 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
 
             Rectangle {
+                id: selectionMark
                 anchors.centerIn: parent
                 width: 50
                 height: 50
-                radius: 10
+                radius: 2
+                clip: true
                 visible: root.selected
                 color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
                 border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
                 border.width: 1.5
+
+                DotTexture {
+                    anchors.fill: parent
+                    tint: Theme.primary
+                    dotAlpha: 0.18
+                    cell: 5
+                    dotRadius: 0.7
+                }
             }
 
             Text {

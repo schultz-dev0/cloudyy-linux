@@ -7,57 +7,81 @@ import "." as QuickIsland
 FocusScope {
     id: root
 
+    required property var registry
+    required property var navigationState
+
     property var inlineActivity: null
-    readonly property string currentPage: QuickIsland.IslandState.currentPage
-    readonly property var pageOrder: ["notifications", "calendar", "timer", "media", "system"]
+    property var _pages: []
+    readonly property string currentPage: root.navigationState.currentPage
+    readonly property var pageOrder: root._pages.map(page => page.id)
+    readonly property int pageCount: pageOrder.length
     readonly property int currentIndex: Math.max(0, pageOrder.indexOf(currentPage))
     property real trackpadDelta: 0
 
-    // All 5 pages are kept alive (not Loader-based) so state survives
-    // cycling, but only the current page and its immediate neighbors are
-    // ever actually on/near screen during a slide — painting the other
-    // 2-3 full page trees every animation frame for no visible benefit is
-    // the likely source of the reported lag, so skip rendering them.
+    function _samePageStructure(nextPages) {
+        if (root._pages.length !== nextPages.length)
+            return false;
+        for (let i = 0; i < nextPages.length; i++) {
+            if (root._pages[i].id !== nextPages[i].id
+                    || root._pages[i].pageComponent !== nextPages[i].pageComponent)
+                return false;
+        }
+        return true;
+    }
+
+    function _syncPages() {
+        const nextPages = root.registry.availablePages;
+        if (root._samePageStructure(nextPages))
+            return;
+        root._pages = nextPages.map(page => ({
+            id: page.id,
+            pageComponent: page.pageComponent
+        }));
+    }
+
+    // Keep every available page alive so local state survives cycling, but
+    // only render the current page and immediate neighbors during a slide.
     function isPageNear(index) {
         return Math.abs(index - root.currentIndex) <= 1;
     }
 
-    focus: root.enabled && QuickIsland.IslandState.keyboardRequested
+    focus: root.enabled && root.navigationState.keyboardRequested
     clip: true
 
     Keys.onLeftPressed: event => {
-        if (QuickIsland.IslandState.expanded)
+        if (root.navigationState.expanded || root.pageCount < 2)
             return;
-        QuickIsland.IslandState.cycle(-1);
+        root.navigationState.cycle(-1);
         event.accepted = true;
     }
     Keys.onRightPressed: event => {
-        if (QuickIsland.IslandState.expanded)
+        if (root.navigationState.expanded || root.pageCount < 2)
             return;
-        QuickIsland.IslandState.cycle(1);
+        root.navigationState.cycle(1);
         event.accepted = true;
     }
     Keys.onReturnPressed: event => {
-        QuickIsland.IslandState.activateCurrent();
+        root.navigationState.activateCurrent();
         event.accepted = true;
     }
     Keys.onEnterPressed: event => {
-        QuickIsland.IslandState.activateCurrent();
+        root.navigationState.activateCurrent();
         event.accepted = true;
     }
     Keys.onEscapePressed: event => {
-        QuickIsland.IslandState.handleEscape();
+        root.navigationState.handleEscape();
         event.accepted = true;
     }
     Keys.onPressed: event => {
-        if (!QuickIsland.IslandState.expanded
+        if (!root.navigationState.expanded
+                || root.pageCount < 2
                 || !(event.modifiers & Qt.ControlModifier))
             return;
         if (event.key === Qt.Key_PageUp) {
-            QuickIsland.IslandState.cycle(-1);
+            root.navigationState.cycle(-1);
             event.accepted = true;
         } else if (event.key === Qt.Key_PageDown) {
-            QuickIsland.IslandState.cycle(1);
+            root.navigationState.cycle(1);
             event.accepted = true;
         }
     }
@@ -78,6 +102,7 @@ FocusScope {
         // index * viewport.width forever, regardless of visibility).
         Item {
             id: pageRow
+            objectName: "island-page-row"
             x: -root.currentIndex * viewport.width
             width: viewport.width * root.pageOrder.length
             height: viewport.height
@@ -95,60 +120,45 @@ FocusScope {
 
             Behavior on x {
                 NumberAnimation {
-                    duration: Perf.geometryMs(220)
+                    duration: Math.abs(to - from) > viewport.width * 1.5
+                        ? 0 : Perf.geometryMs(220)
                     easing.type: Easing.OutCubic
                 }
             }
 
-            QuickIsland.NotificationsPage {
-                x: 0 * viewport.width
-                width: viewport.width
-                height: viewport.height
-                visible: root.isPageNear(0)
-                opacity: root.currentPage === "notifications" ? 1 : 0.24
-                onActivateRequested: QuickIsland.IslandState.activateCurrent()
-            }
+            Repeater {
+                model: root._pages
 
-            QuickIsland.CalendarPage {
-                x: 1 * viewport.width
-                width: viewport.width
-                height: viewport.height
-                visible: root.isPageNear(1)
-                opacity: root.currentPage === "calendar" ? 1 : 0.24
-                onActivateRequested: QuickIsland.IslandState.activateCurrent()
-            }
+                delegate: Loader {
+                    id: pageLoader
 
-            QuickIsland.TimerPage {
-                x: 2 * viewport.width
-                width: viewport.width
-                height: viewport.height
-                visible: root.isPageNear(2)
-                opacity: root.currentPage === "timer" ? 1 : 0.24
-                onActivateRequested: QuickIsland.IslandState.activateCurrent()
-            }
+                    required property int index
+                    required property var modelData
 
-            QuickIsland.MediaPage {
-                x: 3 * viewport.width
-                width: viewport.width
-                height: viewport.height
-                visible: root.isPageNear(3)
-                opacity: root.currentPage === "media" ? 1 : 0.24
-                onActivateRequested: QuickIsland.IslandState.activateCurrent()
-            }
+                    objectName: "island-page-loader-" + modelData.id
+                    x: index * viewport.width
+                    width: viewport.width
+                    height: viewport.height
+                    active: true
+                    asynchronous: false
+                    visible: root.isPageNear(index)
+                    opacity: root.currentPage === modelData.id ? 1 : 0.24
+                    sourceComponent: modelData.pageComponent
 
-            QuickIsland.SystemOverviewPage {
-                x: 4 * viewport.width
-                width: viewport.width
-                height: viewport.height
-                visible: root.isPageNear(4)
-                opacity: root.currentPage === "system" ? 1 : 0.24
-                onActivateRequested: QuickIsland.IslandState.activateCurrent()
+                    Connections {
+                        target: pageLoader.item
+                        ignoreUnknownSignals: true
+                        function onActivateRequested() {
+                            root.navigationState.activateCurrent();
+                        }
+                    }
+                }
             }
         }
     }
 
     WheelHandler {
-        enabled: !QuickIsland.IslandState.expanded
+        enabled: root.pageCount > 1 && !root.navigationState.expanded
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
         onWheel: event => {
             const pixelX = event.pixelDelta.x;
@@ -164,11 +174,11 @@ FocusScope {
                 root.trackpadDelta += event.angleDelta.x / 3;
             } else if (event.angleDelta.y !== 0) {
                 root.trackpadDelta = 0;
-                QuickIsland.IslandState.cycle(event.angleDelta.y < 0 ? 1 : -1);
+                root.navigationState.cycle(event.angleDelta.y < 0 ? 1 : -1);
             }
 
             if (Math.abs(root.trackpadDelta) >= 40) {
-                QuickIsland.IslandState.cycle(root.trackpadDelta < 0 ? 1 : -1);
+                root.navigationState.cycle(root.trackpadDelta < 0 ? 1 : -1);
                 root.trackpadDelta = 0;
             }
             event.accepted = true;
@@ -192,6 +202,7 @@ FocusScope {
         font.pixelSize: 16
         font.weight: Font.Bold
         renderType: Text.NativeRendering
+        visible: root.pageCount > 1
         opacity: carouselHover.hovered ? 0.82 : 0.18
 
         Behavior on opacity {
@@ -202,7 +213,8 @@ FocusScope {
         }
 
         TapHandler {
-            onTapped: QuickIsland.IslandState.cycle(-1)
+            enabled: root.pageCount > 1
+            onTapped: root.navigationState.cycle(-1)
         }
     }
 
@@ -219,6 +231,7 @@ FocusScope {
         font.pixelSize: 16
         font.weight: Font.Bold
         renderType: Text.NativeRendering
+        visible: root.pageCount > 1
         opacity: carouselHover.hovered ? 0.82 : 0.18
 
         Behavior on opacity {
@@ -229,7 +242,8 @@ FocusScope {
         }
 
         TapHandler {
-            onTapped: QuickIsland.IslandState.cycle(1)
+            enabled: root.pageCount > 1
+            onTapped: root.navigationState.cycle(1)
         }
     }
 
@@ -246,4 +260,13 @@ FocusScope {
         icon: root.inlineActivity?.icon ?? ""
         urgency: root.inlineActivity?.urgency ?? 0
     }
+
+    Connections {
+        target: root.registry
+        function onRevisionChanged() {
+            root._syncPages();
+        }
+    }
+
+    Component.onCompleted: root._syncPages()
 }

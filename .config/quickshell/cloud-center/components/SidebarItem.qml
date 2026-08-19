@@ -11,7 +11,7 @@ Rectangle {
     signal clicked()
 
     height: 34
-    radius: 8
+    radius: 2
     color: selected ? Theme.primary
          : hover.hovered ? Theme.glass(Theme.primary, 0.08)
          : "transparent"

@@ -5,27 +5,54 @@ import "../../../.config/quickshell/modules/island/IslandStatePolicy.js" as Poli
 TestCase {
     name: "IslandStatePolicy"
 
-    function test_pageOrder() {
-        compare(Policy.pageIds.join(","), "notifications,calendar,timer,media,system");
+    function test_dynamic_cycle_wraps_and_handles_empty_and_one_page() {
+        compare(Policy.cyclePage("timer", -1, ["timer", "media", "agents"]), "agents");
+        compare(Policy.cyclePage("agents", 1, ["timer", "media", "agents"]), "timer");
+        compare(Policy.cyclePage("missing", 1, ["timer", "media"]), "timer");
+        compare(Policy.cyclePage("timer", 1, ["timer"]), "timer");
+        compare(Policy.cyclePage("timer", 1, []), "");
     }
 
-    function test_cycleWraps() {
-        compare(Policy.cyclePage("notifications", -1), "system");
-        compare(Policy.cyclePage("system", 1), "notifications");
-        compare(Policy.cyclePage("calendar", 2), "media");
+    function test_missing_current_repairs_right_first_and_remembers_preference() {
+        const repaired = Policy.repairNavigation(
+            "timer", "timer",
+            ["notifications", "timer", "media", "agents"],
+            ["notifications", "media", "agents"]);
+        compare(repaired.currentPage, "media");
+        compare(repaired.rememberedPage, "timer");
     }
 
-    function test_invalidPageFallsBack() {
-        verify(!Policy.isValidPage("calculator"));
-        compare(Policy.cyclePage("unknown", 0), "notifications");
+    function test_noncanonical_order_repairs_to_configured_right_neighbor() {
+        const repaired = Policy.repairNavigation(
+            "timer", "timer",
+            ["media", "timer", "notifications", "agents"],
+            ["media", "notifications", "agents"]);
+        compare(repaired.currentPage, "notifications");
+        compare(repaired.rememberedPage, "timer");
+    }
+
+    function test_remembered_page_returns_when_available_again() {
+        const repaired = Policy.repairNavigation(
+            "media", "timer",
+            ["notifications", "timer", "media", "agents"],
+            ["notifications", "timer", "media", "agents"]);
+        compare(repaired.currentPage, "timer");
+        compare(repaired.rememberedPage, "timer");
+    }
+
+    function test_empty_navigation_retains_removed_preference() {
+        const repaired = Policy.repairNavigation(
+            "media", "timer",
+            ["notifications", "timer", "media", "agents"], []);
+        compare(repaired.currentPage, "");
+        compare(repaired.rememberedPage, "timer");
     }
 
     function test_activationKinds() {
-        compare(Policy.activationForPage("notifications"), "controlCenter");
-        compare(Policy.activationForPage("calendar"), "expand");
-        compare(Policy.activationForPage("timer"), "expand");
-        compare(Policy.activationForPage("media"), "stayCompact");
-        compare(Policy.activationForPage("system"), "systemOverview");
+        compare(Policy.activationForPage({ activation: "controlCenter" }), "controlCenter");
+        compare(Policy.activationForPage({ activation: "expand" }), "expand");
+        compare(Policy.activationForPage({ activation: "stayCompact" }), "stayCompact");
+        compare(Policy.activationForPage(null), "stayCompact");
     }
 
     function test_escapeHierarchy() {

@@ -211,13 +211,22 @@ Item {
                 visible: root.multiWindow && !root.isDragSource
                 width: countLabel.implicitWidth + 8
                 height: 16
-                radius: 8
+                radius: 2
+                clip: true
                 color: Theme.primary
                 anchors {
                     top: parent.top
                     right: parent.right
                     topMargin: -4
                     rightMargin: -4
+                }
+
+                DotTexture {
+                    anchors.fill: parent
+                    tint: Theme.on_primary
+                    dotAlpha: 0.18
+                    cell: 4
+                    dotRadius: 0.6
                 }
 
                 Text {

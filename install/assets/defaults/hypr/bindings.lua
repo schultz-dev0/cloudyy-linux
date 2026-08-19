@@ -54,6 +54,7 @@ hl.bind(mainMod .. "+ CTRL + S", hl.dsp.exec_cmd("stochos"), { desc = "Open stoc
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd("qs ipc call spotlight command"), { desc = "Command Center" })
 hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd("qs ipc call applibrary open"), { desc = "App menu" })
 hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"), { desc = "Wallpaper menu" })
+hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("qs ipc call calendar toggle"), { desc = "Open calendar" })
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,11 @@ hl.bind(
 	mainMod .. " + SHIFT + Space",
 	hl.dsp.exec_cmd("qs ipc call island toggle"),
 	{ desc = "Toggle utility island" }
+)
+hl.bind(
+	mainMod .. " + apostrophe",
+	hl.dsp.exec_cmd("qs ipc call island toggle"),
+	{ desc = "Toggle utility island (pull out and focus)" }
 )
 
 -- ── Window Management ─────────────────────────────────────────────────────────

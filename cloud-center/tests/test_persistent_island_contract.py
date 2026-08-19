@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -64,26 +65,78 @@ def lua_call_blocks(source: str, call: str) -> list[str]:
 def test_island_state_and_pages_are_registered():
     qmldir = text(".config/quickshell/modules/island/qmldir")
     assert "singleton IslandState 1.0 IslandState.qml" in qmldir
+    assert "IslandNavigationState 1.0 IslandNavigationState.qml" in qmldir
     for component in (
         "IslandCarousel", "IslandPageFrame", "IslandInlineActivity",
-        "NotificationsPage", "CalendarPage", "TimerPage", "MediaPage",
+        "NotificationsPage", "MediaPage",
         "SystemOverviewPage",
     ):
         assert f"{component} 1.0 {component}.qml" in qmldir
+    # Calendar and Timer deliberately have no island page — see
+    # test_calendar_is_a_standalone_panel_not_an_island_page and
+    # test_removed_timer_surfaces_are_not_registered_or_present.
+    for component in ("CalendarPage", "TimerPage"):
+        assert f"{component} 1.0 {component}.qml" not in qmldir
 
 
-def test_island_carousel_has_fixed_literal_page_order():
+def test_island_carousel_keeps_dynamic_registry_delegates_alive():
     carousel = text(".config/quickshell/modules/island/IslandCarousel.qml")
-    assert '["notifications", "calendar", "timer", "media", "system"]' in carousel
-    components = (
-        "NotificationsPage", "CalendarPage", "TimerPage", "MediaPage",
-        "SystemOverviewPage",
-    )
-    positions = []
-    for component in components:
-        assert carousel.count(f"QuickIsland.{component} {{") == 1
-        positions.append(carousel.index(f"QuickIsland.{component} {{"))
-    assert positions == sorted(positions)
+    assert "required property var registry" in carousel
+    assert "required property var navigationState" in carousel
+    assert "function _syncPages()" in carousel
+    assert "if (root._samePageStructure(nextPages))" in carousel
+    assert "model: root._pages" in carousel
+    assert "model: QuickIsland.IslandIntegrationRegistry.availablePages" not in carousel
+    assert "Repeater {" in carousel
+    assert "delegate: Loader {" in carousel
+    assert "sourceComponent: modelData.pageComponent" in carousel
+    assert "active: true" in carousel
+    assert "visible: root.isPageNear(index)" in carousel
+    assert "layer.enabled: true" in carousel
+    for component in (
+        "NotificationsPage", "MediaPage",
+        "AgentsPage", "SystemOverviewPage",
+    ):
+        assert f"QuickIsland.{component} {{" not in carousel
+
+
+def test_dynamic_island_injects_real_carousel_dependencies():
+    island = text(".config/quickshell/modules/island/DynamicIsland.qml")
+    carousel = island.split("QuickIsland.IslandCarousel {", 1)[1].split("}", 1)[0]
+    assert "registry: QuickIsland.IslandIntegrationRegistry" in carousel
+    assert "navigationState: QuickIsland.IslandState" in carousel
+
+
+def test_injectable_navigation_model_is_the_single_state_implementation():
+    wrapper = text(".config/quickshell/modules/island/IslandState.qml")
+    model = text(".config/quickshell/modules/island/IslandNavigationState.qml")
+    assert "QuickIsland.IslandNavigationState {" in wrapper
+    assert "registry: QuickIsland.IslandIntegrationRegistry" in wrapper
+    assert "required property var registry" in model
+    assert "function _repairNavigation()" in model
+    assert "QuickIsland.IslandIntegrationRegistry" not in model
+
+
+def test_island_state_uses_registry_navigation_and_rejects_empty_opening():
+    state = text(".config/quickshell/modules/island/IslandNavigationState.qml")
+    assert "state.registry.availablePageIds" in state
+    assert "state.registry.integrations" in state
+    assert "function restorePersistentSnapshot(snapshot)" in state
+    for function_name in ("pin", "show", "showPage", "cycle"):
+        body = state.split(f"function {function_name}(", 1)[1].split("\n    }", 1)[0]
+        assert "return false;" in body
+    assert "function onRevisionChanged()" in state
+    assert "state._repairNavigation();" in state
+
+
+def test_carousel_disables_cycling_controls_for_fewer_than_two_pages():
+    carousel = text(".config/quickshell/modules/island/IslandCarousel.qml")
+    assert "readonly property int pageCount: pageOrder.length" in carousel
+    assert "enabled: root.pageCount > 1" in carousel
+    assert "visible: root.pageCount > 1" in carousel
+    assert "root.pageCount < 2" in carousel
+    wheel = carousel.split("WheelHandler {", 1)[1].split("HoverHandler {", 1)[0]
+    assert "root.pageCount > 1" in wheel
 
 
 def test_transient_activity_disables_persistent_input_and_focus():
@@ -93,205 +146,166 @@ def test_transient_activity_disables_persistent_input_and_focus():
         "Loader {", 1
     )[0]
     assert "enabled: !island.transientActive" in persistent
-    assert "focus: root.enabled && QuickIsland.IslandState.keyboardRequested" in carousel
+    assert "focus: root.enabled && root.navigationState.keyboardRequested" in carousel
 
 
-def test_timer_compact_page_falls_back_to_newest_paused_timer():
-    page = text(".config/quickshell/modules/island/TimerPage.qml")
-    assert "QuickTimer.TimerService.primaryTimer" in page
-    assert "readonly property var displayTimer:" in page
-    assert "QuickTimer.TimerService.timers" in page
-    assert 'timer.timerState === "running"' in page
-    assert 'timer.timerState === "paused"' in page
-    assert "return pausedTimer;" in page
-    assert page.count("root.displayTimer") >= 8
+# test_timer_compact_page_falls_back_to_newest_paused_timer removed: it
+# tested modules/island/TimerPage.qml, which no longer exists at all — see
+# test_removed_timer_surfaces_are_not_registered_or_present. The "which
+# timer to show" fallback logic it used to verify now lives only in the
+# resting pill (activeRestingSummary / IslandIntegrationRegistryModel.qml's
+# "timer" entry, restingSummary: countdown ? {...} : null).
 
 
 def test_removed_timer_surfaces_are_not_registered_or_present():
-    """Catch standalone timer windows surviving after the island cutover."""
+    """Timer has no island page at all anymore — not even a display-only
+    one. It only ever surfaces via the resting pill (see
+    test_dynamic_resting_content_uses_registry_summary_without_timer_surface
+    for that; the name there predates this change but the file it guards
+    against — a dedicated TimerRestingPill.qml — is the same kind of thing
+    this test guards against for the full page). Command Center (Trigger >
+    Timer) owns all creation/pause/reset/stop control.
+    """
     qmldir = text(".config/quickshell/modules/timer/qmldir")
-    assert "TimerContent 1.0 TimerContent.qml" in qmldir
-    for component in ("TimerPanel", "TimerBarPill"):
+    assert qmldir == "module QuickTimer\nsingleton TimerService 1.0 TimerService.qml\n"
+    for component in ("TimerPanel", "TimerBarPill", "TimerContent", "TimerCard", "NewTimerForm"):
         assert f"{component} 1.0 {component}.qml" not in qmldir
         assert not (ROOT / f".config/quickshell/modules/timer/{component}.qml").exists()
 
+    island_qmldir = text(".config/quickshell/modules/island/qmldir")
+    assert "TimerPage 1.0 TimerPage.qml" not in island_qmldir
+    assert not (ROOT / ".config/quickshell/modules/island/TimerPage.qml").exists()
 
-def test_timer_service_exposes_reset_completion_and_persistence_contracts():
+    registry = text(".config/quickshell/modules/island/IslandIntegrationRegistry.qml")
+    assert "QuickIsland.TimerPage {}" not in registry
+    assert "timerPageComponent" not in registry
+
+    model = text(".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml")
+    assert "timerPageComponent" not in model
+    timer_entry = model.split('id: "timer",', 1)[1].split("},", 1)[0]
+    assert "pageComponent: null," in timer_entry
+
+
+def test_timer_service_exposes_provider_adapter_contract():
     service = text(".config/quickshell/modules/timer/TimerService.qml")
     for token in (
-        'property string persistenceError: ""',
-        "signal persistenceFailed(string message)",
+        "property bool loaded: false",
+        "readonly property bool busy:",
+        'property string providerError: ""',
+        "readonly property ListModel timers: ListModel {}",
+        "readonly property int runningCount:",
+        "readonly property var nearestCountdown:",
+        "readonly property var primaryTimer:",
         "signal timerCompleted(var timer)",
-        "function resetTimer(timerId)",
+        "function refresh()",
+        "function createCountdown(label, durationSeconds)",
+        "function startStopwatch(label)",
+        "function pause(timerId, mode)",
+        "function resume(timerId)",
+        "function reset(timerId, mode)",
+        "function rename(timerId, label)",
+        "function remove(timerId)",
+        "function stop(timerId)",
     ):
         assert token in service
-    reset_flow = service.split("function resetTimer(timerId)", 1)[1].split(
-        "function stopTimer", 1
-    )[0]
-    assert 'timers.setProperty(idx, "elapsedSeconds", 0)' in reset_flow
-    assert 'timers.setProperty(idx, "timerId"' not in reset_flow
+    assert '["cloudyy-timer", "list", "--json"]' in service
+    assert "TimerProviderPolicy.js" in service
 
 
-def test_timer_service_serializes_overlapping_saves_and_emits_snapshot_first():
+def test_timer_service_watches_provider_state_and_reconciles_command_failures():
     service = text(".config/quickshell/modules/timer/TimerService.qml")
-    save_flow = service.split("function _saveNow()", 1)[1].split(
-        "function _serializeTimers()", 1
-    )[0]
-    assert "property bool _saveInFlight: false" in service
-    assert 'property string _pendingSavePayload: ""' in service
-    assert "if (root._saveInFlight)" in save_flow
-    assert "root._pendingSavePayload = payload;" in save_flow
-    assert "saveProc.running = false" not in save_flow
-    assert "function _startSave(payload)" in save_flow
-    finish_flow = service.split("function _finishTimer(idx)", 1)[1].split(
-        "// ── Public API", 1
-    )[0]
-    assert "const snapshot = root._timerSnapshot" in finish_flow
-    assert finish_flow.index("root.timerCompleted(snapshot);") < finish_flow.index(
-        "root._writeLog("
-    ) < finish_flow.index("timers.remove(idx)")
+    assert 'path: root.stateDir + "/state.json"' in service
+    assert "watchChanges: true" in service
+    assert "onFileChanged: root.refresh()" in service
+    command_exit = service.split("id: commandProc", 1)[1].split("Component.onCompleted", 1)[0]
+    assert "root.refresh();" in command_exit
+    assert "exitCode === 0 && exitStatus === 0" in command_exit
+    assert "root.providerError =" in command_exit
+    assert "property var _commandQueue: []" in service
+    assert "function _startNextCommand()" in service
+    assert "listProc.running || commandProc.running" in service
+    assert "root._commandQueue = root._commandQueue.concat([command]);" in service
 
 
-def test_timer_content_is_continuous_and_keyboard_accessible():
-    content = text(".config/quickshell/modules/timer/TimerContent.qml")
-    card = text(".config/quickshell/modules/timer/TimerCard.qml")
-    form = text(".config/quickshell/modules/timer/NewTimerForm.qml")
-    assert "function focusInitial()" in content
-    assert "id: timerBody" in content
-    assert "id: bodyDivider" in content
-    assert '"HISTORY"' in content
-    assert "activeFocusOnTab: true" in content
-    assert "Keys.onReturnPressed:" in content
-    assert "\nItem {\n    id: card" in card
-    assert "id: rowRule" in card
-    assert "TimerService.resetTimer(card.timerId)" in card
-    assert card.count("activeFocusOnTab:") >= 5
-    assert form.count("activeFocusOnTab:") >= 5
-    assert "Keys.onBacktabPressed:" in form
-
-
-def test_timer_page_hosts_content_and_completion_transient_uses_injected_data():
-    page = text(".config/quickshell/modules/island/TimerPage.qml")
-    transient = text(".config/quickshell/modules/island/TimerIslandContent.qml")
-    assert "QuickTimer.TimerContent {" in page
-    assert "function focusInitial()" in page
-    assert "QuickTimer.TimerService.resetTimer(root.displayTimer.timerId)" in page
-    assert "property var completedTimer: null" in transient
-    assert "QuickTimer.TimerService.primaryTimer" not in transient
-    assert "root.completedTimer" in transient
-
-
-def test_timer_restore_reports_cleanup_and_persists_it_after_load():
+def test_timer_service_has_no_qml_owned_persistence_or_ticking_model_mutation():
     service = text(".config/quickshell/modules/timer/TimerService.qml")
-    restore_flow = service.split("function _restoreTimers(rawList, savedAt)", 1)[1].split(
-        "// ── Internal helpers", 1
+    for obsolete in (
+        "active.json",
+        "_scheduleSave",
+        "_saveNow",
+        "_serializeTimers",
+        "_restoreTimers",
+        "saveProc",
+        "timer_log.sh",
+        'setProperty(i, "elapsedSeconds"',
+        'setProperty(idx, "elapsedSeconds"',
+    ):
+        assert obsolete not in service
+    assert "property int presentationEpoch:" in service
+    assert "interval: 1000" in service
+
+
+# test_timer_content_is_continuous_and_keyboard_accessible removed: it
+# tested TimerContent/TimerCard/NewTimerForm.qml, which no longer exist —
+# see test_removed_timer_surfaces_are_not_registered_or_present.
+
+
+# test_timer_page_is_display_only removed: it briefly existed to verify a
+# display-only (no buttons) island Timer page, but that whole page is gone
+# now too — see test_removed_timer_surfaces_are_not_registered_or_present.
+
+
+def test_timer_stop_routes_through_supported_cli():
+    service = text(".config/quickshell/modules/timer/TimerService.qml")
+    mgmt = text(".config/quickshell/modules/commandcenter/scripts/timer-mgmt.sh")
+    assert '["cloudyy-timer", "stop", timerId, "--json"]' in service
+    assert 'cloudyy-timer stop "$id" --json' in mgmt
+    assert "TimerService.complete(" not in mgmt
+
+
+def test_timer_completion_uses_standard_notifications_without_custom_qml_paths():
+    shell = text(".config/quickshell/shell.qml")
+    qmldir = text(".config/quickshell/modules/island/qmldir")
+    assert not (
+        ROOT / ".config/quickshell/modules/island/TimerIslandContent.qml"
+    ).exists()
+    assert not (ROOT / ".config/quickshell/modules/timer/timer_log.sh").exists()
+    assert "TimerIslandContent" not in qmldir
+    assert "TimerIslandContent" not in shell
+    assert "onTimerCompleted" not in shell
+    assert 'import "modules/timer" as QuickTimer' not in shell
+    assert "NotificationServer {" in shell
+    assert "QuickNotifPanel.NotifPanelService.track(notif);" in shell
+    assert "QuickIsland.DynamicIslandService.push({" in shell
+
+
+def test_timer_snapshot_replacement_prepares_focus_before_model_clear():
+    service = text(".config/quickshell/modules/timer/TimerService.qml")
+    replacement = service.split("function _replaceTimers(nextTimers, completedTimers)", 1)[1].split(
+        "function refresh()", 1
     )[0]
-    init_flow = service.split("onStreamFinished:", 1)[1].split("Process {", 1)[0]
-    assert "let changed = false" in restore_flow
-    assert "changed = true" in restore_flow
-    assert "return changed" in restore_flow
-    assert "let restoredWithCleanup" in init_flow
-    assert init_flow.index("root.loaded = true") < init_flow.index(
-        "root._scheduleSave()"
+    assert "root.timerAboutToRemove(" in replacement
+    assert "root.timers.clear();" in replacement
+    assert "if (!nextById[current.timerId] && completedById[current.timerId])" in replacement
+    assert replacement.index("root.timerAboutToRemove(") < replacement.index(
+        "root.timers.clear();"
     )
 
 
-def test_timer_completion_snapshot_is_frozen_and_removal_refinds_identity():
-    service = text(".config/quickshell/modules/timer/TimerService.qml")
-    snapshot_flow = service.split("function _timerSnapshot(timer)", 1)[1].split(
-        "// ── Public API", 1
-    )[0]
-    restore_flow = service.split("function _restoreTimers(rawList, savedAt)", 1)[1].split(
-        "// ── Internal helpers", 1
-    )[0]
-    finish_flow = service.split("function _finishTimer(idx)", 1)[1].split(
-        "function _timerSnapshot", 1
-    )[0]
-    assert "Object.freeze({" in snapshot_flow
-    assert "root._timerSnapshot({" in restore_flow
-    assert "idx = root._findTimer(snapshot.timerId)" in finish_flow
-    assert finish_flow.index("root.timerCompleted(snapshot);") < finish_flow.index(
-        "root._writeLog("
-    ) < finish_flow.index("root._findTimer(snapshot.timerId)")
+# test_timer_removal_focus_recovery_is_guarded_and_deterministic and
+# test_compact_timer_completion_recovers_pause_and_reset_focus removed: both
+# tested keyboard-focus recovery across the compact pause/reset/stop buttons
+# and expanded TimerContent, none of which exist anymore — see
+# test_removed_timer_surfaces_are_not_registered_or_present.
 
-
-def test_timer_removal_focus_recovery_is_guarded_and_deterministic():
-    service = text(".config/quickshell/modules/timer/TimerService.qml")
-    content = text(".config/quickshell/modules/timer/TimerContent.qml")
-    card = text(".config/quickshell/modules/timer/TimerCard.qml")
-    page = text(".config/quickshell/modules/island/TimerPage.qml")
-    assert "signal timerAboutToRemove(string timerId)" in service
-    assert service.count("root.timerAboutToRemove(") >= 2
-    for token in (
-        "property bool contentActive: false",
-        "function _prepareFocusRecovery(timerId)",
-        "function _restoreFocusAfterRemoval()",
-        "if (!root.contentActive)",
-        "timerRepeater.itemAt(",
-        "newButton.forceActiveFocus()",
-        "function onTimerAboutToRemove(timerId)",
-    ):
-        assert token in content
-    assert "function focusInitial()" in card
-    assert "pauseButton.forceActiveFocus()" in card
-    assert "function onTimerAboutToRemove(timerId)" in page
-    assert "if (!root.compactActive)" in page
-    assert "Qt.callLater(() => root._restoreCompactFocus())" in page
-    assert "readonly property bool compactActive:" in page
-    assert page.count("activeFocusOnTab: root.compactActive") == 4
-    assert page.count("enabled: root.compactActive") == 4
-
-
-def test_compact_timer_completion_recovers_pause_and_reset_focus():
-    page = text(".config/quickshell/modules/island/TimerPage.qml")
-    service_connections = page.split(
-        "target: QuickTimer.TimerService", 1
-    )[1].split("target: QuickIsland.IslandState", 1)[0]
-    for token in (
-        "function _compactActionOwnsFocus()",
-        "pauseButton.activeFocus",
-        "compactResetButton.activeFocus",
-        "stopButton.activeFocus",
-        "function _scheduleCompactFocusRecovery(timerId)",
-        "function onTimerCompleted(timer)",
-        "root._scheduleCompactFocusRecovery(timer.timerId)",
-    ):
-        assert token in page
-    assert "function onTimerCompleted(timer)" in service_connections
-    assert "if (!root.compactActive)" in page
-    restore_flow = page.split("function _restoreCompactFocus()", 1)[1].split(
-        "Connections {", 1
-    )[0]
-    assert "root.focusInitial();" in restore_flow
-    assert "pauseButton.forceActiveFocus()" not in restore_flow
-    assert "createButton.forceActiveFocus()" not in restore_flow
-
-
-def test_timer_history_refresh_tracks_month_and_completed_log_process():
-    service = text(".config/quickshell/modules/timer/TimerService.qml")
-    content = text(".config/quickshell/modules/timer/TimerContent.qml")
-    assert "signal historyChanged" in service
-    log_flow = service.split("function _writeLog", 1)[1].split(
-        "// ── Persistence", 1
-    )[0]
-    assert "p.exited.connect" in log_flow
-    assert "root.historyChanged();" in log_flow
-    for token in (
-        "property date currentDate: new Date()",
-        "readonly property string currentMonth:",
-        "onCurrentMonthChanged:",
-        "function onHistoryChanged()",
-        "if (root.contentActive)",
-    ):
-        assert token in content
-    assert "Qt.formatDate(root.currentDate, \"yyyy-MM\")" in content
-    assert "interval: 60000" in content
+# test_timer_history_refresh_tracks_month_without_qml_log_writer removed: it
+# tested TimerContent.qml's history view, which no longer exists.
 
 
 def test_carousel_wheel_uses_dominant_pixel_axis():
     carousel = text(".config/quickshell/modules/island/IslandCarousel.qml")
     assert carousel.count("WheelHandler {") == 1
-    assert "enabled: !QuickIsland.IslandState.expanded" in carousel
+    assert "enabled: root.pageCount > 1 && !root.navigationState.expanded" in carousel
     assert (
         "acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad"
         in carousel
@@ -312,9 +326,9 @@ def test_expanded_carousel_does_not_capture_plain_horizontal_arrows():
         "Keys.onReturnPressed:", 1
     )[0]
     for handler in (left, right):
-        assert "if (QuickIsland.IslandState.expanded)" in handler
-        assert handler.index("if (QuickIsland.IslandState.expanded)") < handler.index(
-            "QuickIsland.IslandState.cycle("
+        assert "root.navigationState.expanded || root.pageCount < 2" in handler
+        assert handler.index("root.navigationState.expanded") < handler.index(
+            "root.navigationState.cycle("
         )
 
 
@@ -328,26 +342,21 @@ def test_carousel_return_and_numpad_enter_activate_the_current_page():
         "Keys.onEscapePressed:", 1
     )[0]
     for handler in (return_handler, enter_handler):
-        assert "QuickIsland.IslandState.activateCurrent();" in handler
+        assert "root.navigationState.activateCurrent();" in handler
         assert "event.accepted = true;" in handler
 
 
-def test_calendar_summary_has_observable_minute_refresh():
-    page = text(".config/quickshell/modules/island/CalendarPage.qml")
-    assert "property date currentDate: new Date()" in page
-    assert "interval: 60000" in page
-    assert "onTriggered: root.currentDate = new Date()" in page
-    assert 'Qt.formatDate(root.currentDate, "dddd, MMMM d")' in page
-    assert "const currentDate = root.currentDate;" in page
-
-
-def test_removed_calendar_panel_is_not_registered_or_present():
-    """Catch the standalone calendar window surviving the island cutover."""
+def test_calendar_is_a_standalone_panel_not_an_island_page():
+    """Calendar was deliberately un-cut-over: its own top-center overlay,
+    opened from the bar clock and SUPER+CTRL+C, not an island carousel page.
+    """
     qmldir = text(".config/quickshell/modules/calendar/qmldir")
     assert "CalendarContent 1.0 CalendarContent.qml" in qmldir
     assert "CalendarMiniSection 1.0 CalendarMiniSection.qml" in qmldir
-    assert "CalendarPanel 1.0 CalendarPanel.qml" not in qmldir
-    assert not (ROOT / ".config/quickshell/modules/calendar/CalendarPanel.qml").exists()
+    assert "CalendarPanel 1.0 CalendarPanel.qml" in qmldir
+    assert "singleton CalendarPanelService 1.0 CalendarPanelService.qml" in qmldir
+    assert (ROOT / ".config/quickshell/modules/calendar/CalendarPanel.qml").exists()
+    assert not (ROOT / ".config/quickshell/modules/island/CalendarPage.qml").exists()
 
 
 def test_calendar_service_reports_save_failure_without_rollback():
@@ -461,15 +470,17 @@ def test_calendar_event_menu_stacks_above_shared_dismiss_layer():
     assert "onClicked: ctxMenu.close()" in dismiss
 
 
-def test_calendar_page_keeps_summary_above_expanded_content():
-    page = text(".config/quickshell/modules/island/CalendarPage.qml")
-    summary_pos = page.index("QuickIsland.IslandPageFrame {")
-    content_pos = page.index("QuickCalendar.CalendarContent {")
-    assert summary_pos < content_pos
-    assert "QuickIsland.IslandState.expanded" in page
-    assert 'Qt.formatTime(root.currentDate, "HH:mm")' in page
-    assert "model: 7" in page
-    assert "function focusInitial()" in page
+def test_calendar_panel_hosts_content_with_exclusive_keyboard_focus():
+    """on_demand only grants focus on a click; opening via keybind needs
+    Exclusive or arrow/enter/escape navigation inside CalendarContent never
+    receives input (see the same fix already applied to DynamicIsland.qml).
+    """
+    panel = text(".config/quickshell/modules/calendar/CalendarPanel.qml")
+    assert "QuickCalendar.CalendarContent {" in panel
+    assert "WlrKeyboardFocus.Exclusive" in panel
+    assert "WlrKeyboardFocus.OnDemand" not in panel
+    assert "calendarContent.focusInitial()" in panel
+    assert 'IpcHandler {\n        target: "calendar"' in panel
 
 
 def test_unified_island_ipc_replaces_standalone_handlers():
@@ -531,6 +542,8 @@ def test_external_activation_runtime_contract():
             ".config/quickshell/IslandStateRuntimeTest.qml",
         ],
         cwd=ROOT,
+        env={**os.environ, "QT_QPA_PLATFORM": os.environ.get(
+            "QT_QPA_PLATFORM", "offscreen")},
         capture_output=True,
         text=True,
         timeout=20,
@@ -543,32 +556,41 @@ def test_external_activation_runtime_contract():
 
 
 def test_shell_does_not_own_replaced_standalone_island_surfaces():
-    """Catch legacy windows, state, or imports surviving the island cutover."""
+    """Catch legacy windows/state surviving the island cutover. Calendar is
+    deliberately NOT part of this cutover (see
+    test_calendar_is_a_standalone_panel_not_an_island_page) — its own
+    top-level import/instantiation in shell.qml is expected and correct.
+    """
     shell = text(".config/quickshell/shell.qml")
     for token in (
-        'import "modules/calendar" as QuickCalendar',
         'import "modules/calculator" as QuickCalculator',
         "property bool calendarOpen",
         "property bool calculatorOpen",
-        "QuickCalendar.CalendarPanel {",
         "QuickCalculator.Calculator {",
         "QuickTimer.TimerPanel {",
     ):
         assert token not in shell
+    assert 'import "modules/calendar" as QuickCalendar' in shell
+    assert "QuickCalendar.CalendarPanel {" in shell
 
 
-def test_bar_routes_calendar_through_island_without_obsolete_controls():
-    """Catch the old bell/timer controls or clock-to-window routing returning."""
+def test_bar_routes_calendar_through_its_own_panel_without_obsolete_controls():
+    """Catch the old bell/timer controls returning. The clock deliberately
+    opens the standalone CalendarPanel (see
+    test_calendar_is_a_standalone_panel_not_an_island_page), not an island
+    page — the dead IslandState.showPage("calendar", ...) call this used to
+    make is exactly the bug that made the calendar unopenable.
+    """
     bar = text(".config/quickshell/Bar.qml")
     assert 'import "modules/timer" as QuickTimer' not in bar
     assert "QuickTimer.TimerBarPill {" not in bar
     assert "id: notifBell" not in bar
+    assert 'import "modules/calendar" as QuickCalendar' in bar
     clock = next(
         block for block in qml_blocks(bar, "Item") if "id: clockPill" in block
     )
-    assert 'QuickIsland.IslandState.showPage("calendar",' in clock
-    assert ".name" in clock
-    assert "calendarToggle" not in bar
+    assert "QuickCalendar.CalendarPanelService.toggle()" in clock
+    assert 'QuickIsland.IslandState.showPage("calendar",' not in bar
 
 
 def test_bar_left_owns_workspaces_and_center_reserve_prevents_overlap():
@@ -645,9 +667,11 @@ def test_removed_qml_surfaces_and_obsolete_references_do_not_survive():
     for path in removed:
         assert not (ROOT / path).exists()
 
+    # CalendarPanel/"ipc call calendar" are deliberately NOT obsolete — see
+    # test_calendar_is_a_standalone_panel_not_an_island_page.
     obsolete = re.compile(
-        r"CalendarPanel|TimerPanel|TimerBarPill|CalculatorTile|QuickCalculator|"
-        r"calculatorOpen|calendarOpen|ipc call (?:calculator|timer|calendar)"
+        r"TimerPanel|TimerBarPill|CalculatorTile|QuickCalculator|"
+        r"calculatorOpen|calendarOpen|ipc call (?:calculator|timer)\b"
     )
     roots = (
         ".config/quickshell",
@@ -675,8 +699,13 @@ def test_control_center_removes_only_calculator_tile_from_retained_content():
         assert token in panel
 
 
-def test_live_and_default_bindings_only_expose_the_unified_island_shortcut():
-    """Catch split island fields or an extra direct island-page bind in either copy."""
+def test_live_and_default_bindings_expose_two_island_toggle_shortcuts():
+    """Two deliberate island-toggle binds (SHIFT+Space and apostrophe, see
+    the "pull out and focus the island" keybind request) both dispatch the
+    same qs ipc call island toggle — not a split/duplicated island field.
+    Calendar's own SUPER+CTRL+C bind is deliberately allowed (see
+    test_calendar_is_a_standalone_panel_not_an_island_page).
+    """
     paths = (
         ".config/hypr/bindings.lua",
         "install/assets/defaults/hypr/bindings.lua",
@@ -687,17 +716,17 @@ def test_live_and_default_bindings_only_expose_the_unified_island_shortcut():
             block for block in lua_call_blocks(bindings, "hl.bind")
             if re.search(r"\b(?:qs|quickshell) ipc call island\b", block)
         ]
-        assert len(island_blocks) == 1
-        island = island_blocks[0]
-        assert re.search(
-            r'^hl\.bind\(\s*mainMod \.\. " \+ SHIFT \+ Space"\s*,',
-            island,
-        )
-        assert island.count(
-            'hl.dsp.exec_cmd("qs ipc call island toggle")'
-        ) == 1
-        assert island.count('{ desc = "Toggle utility island" }') == 1
-        assert re.search(r"ipc call (?:calculator|timer|calendar)\b", bindings) is None
+        assert len(island_blocks) == 2
+        keys = {
+            re.search(r'mainMod \.\. " \+ ([^"]+)"', block).group(1)
+            for block in island_blocks
+        }
+        assert keys == {"SHIFT + Space", "apostrophe"}
+        for island in island_blocks:
+            assert island.count(
+                'hl.dsp.exec_cmd("qs ipc call island toggle")'
+            ) == 1
+        assert re.search(r"ipc call (?:calculator|timer)\b", bindings) is None
 
 
 def test_task_11_preserves_adjacent_live_and_default_bindings():
@@ -798,20 +827,20 @@ def test_island_theme_has_persistent_shell_visual_tokens():
     for token in (
         "islandRestWidth: 176", "islandRestHeight: 24",
         "islandCarouselWidth: 610", "islandCarouselHeight: 142",
-        "islandExpandedMaxHeight: 536", "islandShoulderRadius: 10",
+        "islandExpandedMaxHeight: 536", "islandShoulderRadius: 0",
         "islandRestLowerRadius: 12", "islandOpenLowerRadius: 26",
     ):
         assert token in theme
 
 
-def test_island_shape_keeps_body_width_and_insets_border():
+def test_island_shape_uses_native_per_corner_radii():
     shape = text(".config/quickshell/modules/island/IslandPillShape.qml")
-    assert "startX: root.shoulder" in shape
-    assert "PathLine { x: root.width; y: root.height - root.lower }" in shape
-    assert "PathLine { x: 0; y: root.shoulder }" in shape
-    assert "readonly property real strokeInset: strokeWidth / 2" in shape
-    assert "x: root.width - root.strokeInset" in shape
-    assert "y: root.height - root.strokeInset" in shape
+    assert "Rectangle {" in shape
+    assert qml_blocks(shape, "ShapePath") == []
+    assert "topLeftRadius: root.shoulder" in shape
+    assert "topRightRadius: root.shoulder" in shape
+    assert "bottomLeftRadius: root.lower" in shape
+    assert "bottomRightRadius: root.lower" in shape
 
 
 def test_island_window_masks_transparent_shape_cutouts():
@@ -894,6 +923,7 @@ def test_dnd_tracks_before_suppressing_notification_presentation():
 def test_compact_notifications_use_service_objects_and_delegate_opening():
     page = text(".config/quickshell/modules/island/NotificationsPage.qml")
     carousel = text(".config/quickshell/modules/island/IslandCarousel.qml")
+    registry = text(".config/quickshell/modules/island/IslandIntegrationRegistry.qml")
     shell = text(".config/quickshell/shell.qml")
     for token in (
         "QuickNotifPanel.NotifPanelService.latestNotification",
@@ -904,13 +934,10 @@ def test_compact_notifications_use_service_objects_and_delegate_opening():
         "onTapped: root.activateRequested()",
     ):
         assert token in page
-    notification_page = carousel.split(
-        "QuickIsland.NotificationsPage {", 1
-    )[1].split("QuickIsland.CalendarPage {", 1)[0]
-    assert (
-        "onActivateRequested: QuickIsland.IslandState.activateCurrent()"
-        in notification_page
-    )
+    assert "QuickIsland.NotificationsPage {}" in registry
+    assert "target: pageLoader.item" in carousel
+    assert "function onActivateRequested()" in carousel
+    assert "root.navigationState.activateCurrent();" in carousel
     assert "function onControlCenterRequested()" in shell
     delegation = shell.split("function onControlCenterRequested()", 1)[1].split(
         "}", 1
@@ -1067,6 +1094,45 @@ def test_media_page_keeps_player_and_no_player_states_compact_and_accessible():
     assert "playerctl" not in page
 
 
+def test_audited_island_runtime_regressions_are_wired():
+    service = text(".config/quickshell/modules/island/DynamicIslandService.qml")
+    state = text(".config/quickshell/modules/island/IslandNavigationState.qml")
+    island = text(".config/quickshell/modules/island/DynamicIsland.qml")
+    carousel = text(".config/quickshell/modules/island/IslandCarousel.qml")
+    shell = text(".config/quickshell/shell.qml")
+    media = text(".config/quickshell/modules/island/MediaPage.qml")
+    resting = text(".config/quickshell/modules/island/IslandRestingPill.qml")
+
+    assert "property bool recordingStarting: false" in service
+    assert "exec hyprcap" in service
+    assert "kill -0" in service
+    assert "function _cancelRecordingLaunch()" in service
+    assert "launchSerial !== root._recordingLaunchSerial" in service
+    assert "root._recordingStartWaitProc" in service
+    assert 'pkill -TERM -P \\"$pid\\"' in service
+    assert 'grep -qx \'RECORDING=1\'' in shell
+
+    pin = state.split("function pin(screenName)", 1)[1].split("function toggle", 1)[0]
+    assert "if (screenName)" in pin
+    assert "openingScreenName = screenName;" in pin
+    escape = state.split("function handleEscape()", 1)[1]
+    assert 'if (target === "resting")' in escape
+    assert "hide();" in escape
+    assert "signal closingRequested" in state
+    assert "DynamicIslandService.clearAllNotifications();" in island
+
+    assert "Math.abs(to - from) > viewport.width * 1.5" in carousel
+    assert shell.count("screen: root.externalPanelScreen ?? root.islandScreen") == 2
+    assert shell.count("root.externalPanelScreen = root.islandScreen;") == 2
+    assert shell.count("root.externalPanelScreen = null;") == 2
+
+    assert "readonly property real currentPosition:" in media
+    assert "root.currentPosition / root.player.length" in media
+    assert "root.formatTime(root.currentPosition)" in media
+    assert "RowLayout {" in resting
+    assert "Layout.fillWidth: true" in resting
+
+
 def test_mpris_focus_keeps_the_first_playing_player_and_clears_when_empty():
     focus = text(".config/quickshell/modules/island/MprisFocus.qml")
     assert (
@@ -1123,14 +1189,29 @@ def test_dynamic_island_restores_exact_persistent_state_after_full_transient():
         "currentPage: QuickIsland.IslandState.currentPage",
         "rememberedPage: QuickIsland.IslandState.rememberedPage",
         "openingScreenName: QuickIsland.IslandState.openingScreenName",
-        "QuickIsland.IslandState.mode = snapshot.mode;",
-        "QuickIsland.IslandState.currentPage = snapshot.currentPage;",
-        "QuickIsland.IslandState.rememberedPage = snapshot.rememberedPage;",
-        "QuickIsland.IslandState.openingScreenName = snapshot.openingScreenName;",
+        "QuickIsland.IslandState.restorePersistentSnapshot(snapshot);",
         "function onTransientPresented(activity)",
         "function onTransientFinished(activityId)",
     ):
         assert token in shell
+    restore = shell.split("function _restorePersistentState()", 1)[1].split(
+        "function _syncTransientPresentation()", 1
+    )[0]
+    assert "IslandState.currentPage = snapshot.currentPage" not in restore
+
+
+def test_dynamic_resting_content_uses_registry_summary_without_timer_surface():
+    island = text(".config/quickshell/modules/island/DynamicIsland.qml")
+    qmldir = text(".config/quickshell/modules/island/qmldir")
+    assert "QuickIsland.IslandRestingPill {" in island
+    assert "summary: QuickIsland.IslandIntegrationRegistry.activeRestingSummary" in island
+    assert 'opacity: QuickIsland.IslandState.mode === "resting" ? 1 : 0' in island
+    assert 'activeRestingSummary?.kind === "neutral"' in island
+    assert "TimerRestingPill" not in island
+    assert "TimerRestingPill" not in qmldir
+    assert not (
+        ROOT / ".config/quickshell/modules/island/TimerRestingPill.qml"
+    ).exists()
 
 
 def test_pinned_notifications_use_non_resizing_inline_strip():
@@ -1165,16 +1246,6 @@ def test_switching_a_full_notification_inline_discards_the_old_snapshot():
     assert "island.persistentSnapshot = null;" in inline_branch
 
 
-def test_timer_completion_pushes_the_frozen_snapshot_into_transient_content():
-    shell = text(".config/quickshell/shell.qml")
-    island = text(".config/quickshell/modules/island/DynamicIsland.qml")
-    assert "id: timerIslandContentComp" in shell
-    assert "function onTimerCompleted(timer)" in shell
-    assert "contentComponent: timerIslandContentComp" in shell
-    assert "completedTimer: timer" in shell
-    assert "item.completedTimer = data.completedTimer ?? null;" in island
-
-
 def test_preview_screen_ownership_combines_drag_pin_and_persistent_owner():
     shell = text(".config/quickshell/shell.qml")
     island_screen = shell.split("readonly property var islandScreen:", 1)[1].split(
@@ -1203,9 +1274,8 @@ def test_live_preview_drag_cannot_be_preempted_by_a_new_activity():
 def test_activity_text_uses_jetbrains_and_native_rendering():
     for name in (
         "NotificationActivity.qml", "OsdBurstActivity.qml",
-        "TimerIslandContent.qml", "ScreenshotActivity.qml",
-        "RecordingActivity.qml", "RecordPickerActivity.qml",
-        "IslandInlineActivity.qml",
+        "ScreenshotActivity.qml", "RecordingActivity.qml",
+        "RecordPickerActivity.qml", "IslandInlineActivity.qml",
     ):
         source = text(f".config/quickshell/modules/island/{name}")
         assert 'font.family: "sans-serif"' not in source
@@ -1315,27 +1385,11 @@ def test_island_window_ignores_bar_exclusive_zone_without_zone_override():
     assert not re.search(r"^\s*exclusiveZone\s*:", shell, re.MULTILINE)
 
 
-def test_island_pill_stroke_arcs_follow_counterclockwise_outline():
-    """Catch the lower-corner stroke bulging outside the silhouette.
-
-    The stroke path traverses the outline counterclockwise (down the left
-    edge, along the bottom, up the right edge). With the default Clockwise
-    arc direction, the SVG endpoint conversion picks the circle center at the
-    outer corner point, so the border scoops below the bottom edge instead of
-    rounding it. The fill path traverses clockwise and must keep the default.
-    """
+def test_island_pill_border_follows_native_rounded_rectangle():
     shape = text(".config/quickshell/modules/island/IslandPillShape.qml")
-    paths = qml_blocks(shape, "ShapePath")
-    assert len(paths) == 2
-    fill, stroke = paths
-    assert "strokeWidth: 0" in fill
-    assert "strokeWidth: root.strokeWidth" in stroke
-    for arc in qml_blocks(fill, "PathArc"):
-        assert "direction:" not in arc
-    stroke_arcs = qml_blocks(stroke, "PathArc")
-    assert len(stroke_arcs) == 2
-    for arc in stroke_arcs:
-        assert "direction: PathArc.Counterclockwise" in arc
+    assert "border.width: root.strokeWidth" in shape
+    assert "border.color: root.strokeColor" in shape
+    assert qml_blocks(shape, "PathArc") == []
 
 
 def test_island_page_frame_forces_injected_content_to_fill_slots():
@@ -1390,6 +1444,8 @@ def test_island_page_frame_runtime_geometry_fills_slots():
             ".config/quickshell/IslandLayoutRuntimeTest.qml",
         ],
         cwd=ROOT,
+        env={**os.environ, "QT_QPA_PLATFORM": os.environ.get(
+            "QT_QPA_PLATFORM", "offscreen")},
         capture_output=True,
         text=True,
         timeout=20,
@@ -1399,3 +1455,230 @@ def test_island_page_frame_runtime_geometry_fills_slots():
     assert result.returncode == 0, output
     assert "TASK12_ISLAND_LAYOUT_FAIL" not in output, output
     assert "TASK12_ISLAND_LAYOUT_PASS" in output, output
+
+
+# ── Dynamic integration registry contracts ───────────────────────────────────
+
+
+def test_registry_is_registered_and_exposes_observable_contract():
+    qmldir = text(".config/quickshell/modules/island/qmldir")
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistry.qml"
+    )
+    assert "singleton IslandIntegrationRegistry 1.0 IslandIntegrationRegistry.qml" in qmldir
+    assert "IslandIntegrationRegistryModel 1.0 IslandIntegrationRegistryModel.qml" in qmldir
+    assert "IslandRestingPill 1.0 IslandRestingPill.qml" in qmldir
+    for token in (
+        "property alias integrations:",
+        "property alias availablePages:",
+        "property alias availablePageIds:",
+        "property alias activeRestingSummary:",
+        "property alias revision:",
+        "property alias settingsError:",
+        "function integrationById(id)",
+        "function isPageAvailable(id)",
+        "function reloadSettings()",
+    ):
+        assert token in registry
+
+
+def test_registry_adapters_follow_provider_backed_page_and_resting_semantics():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistry.qml"
+    )
+    model = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    for adapter_id in ("notifications", "timer", "media", "agents"):
+        assert f'id: "{adapter_id}"' in model
+    for component in (
+        "NotificationsPage", "MediaPage", "AgentsPage"
+    ):
+        assert f"{component} {{" in registry
+    assert "TimerPage {" not in registry
+
+    for binding in (
+        "notificationService: QuickNotifPanel.NotifPanelService",
+        "timerService: QuickTimer.TimerService",
+        "mprisFocus: QuickIsland.MprisFocus",
+        "agentsService: QuickIsland.AgentsService",
+        "dynamicIslandService: QuickIsland.DynamicIslandService",
+        "mediaPlayingState: MprisPlaybackState.Playing",
+    ):
+        assert binding in registry
+    assert "root.notificationService.unreadCount > 0" in model
+    assert "root.timerService.timers.count > 0" in model
+    assert "root.timerService.nearestCountdown" in model
+    assert "root.mprisFocus.activePlayer !== null" in model
+    assert "player.playbackState === root.mediaPlayingState" in model
+    assert "const hasAgents = root.agentsService.hasData;" in model
+    assert "hasData: hasAgents" in model
+    assert "root.agentsService.oldestSession" in model
+    assert "providerError" not in model
+
+
+def test_registry_resting_selection_ignores_page_enablement_and_keeps_priority():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    selection = registry.split("function _selectRestingSummary", 1)[1].split(
+        "function publish", 1
+    )[0]
+    publish = registry.split("function publish", 1)[1].split(
+        "function applySettings", 1
+    )[0]
+    assert "root.dynamicIslandService.recordingActive" in selection
+    assert "Policy.highestRestingSummary(summaries)" in selection
+    assert 'kind: "neutral"' in selection
+    assert "root._settings" not in selection
+    assert "enabled" not in selection
+    assert "Policy.availablePageIds(root._settings, nextIntegrations)" in publish
+    assert "root._selectRestingSummary(nextIntegrations)" in publish
+
+
+def test_registry_watches_exact_settings_path_and_retains_last_valid_state():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistry.qml"
+    )
+    model = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    assert 'Quickshell.env("XDG_CONFIG_HOME")' in registry
+    assert 'Quickshell.env("HOME")' in registry
+    assert '"/cloud-center/settings/quickshell/island-integrations.json"' in registry
+    file_view = registry.split("FileView {", 1)[1]
+    assert "watchChanges: true" in file_view
+    assert "onFileChanged: root.reloadSettings()" in file_view
+    assert "onLoaded: registry.applySettings(text())" in file_view
+    assert "onLoadFailed: registry.settingsLoadFailed()" in file_view
+
+    apply_settings = model.split("function applySettings(raw)", 1)[1].split(
+        "function settingsLoadFailed", 1
+    )[0]
+    assert "JSON.parse(raw)" in apply_settings
+    assert "Policy.validSettings(parsed)" in apply_settings
+    assert "root._settings = Policy.normalizeSettings(parsed, root._settings);" in apply_settings
+    assert apply_settings.index("Policy.validSettings(parsed)") < apply_settings.index(
+        "root._settings = Policy.normalizeSettings(parsed, root._settings);"
+    )
+    assert "root._settings =" not in model.split(
+        "function settingsLoadFailed", 1
+    )[1].split("Connections {", 1)[0]
+
+
+def test_registry_publishes_fresh_arrays_and_revision_on_observed_changes():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    publish = registry.split("function publish", 1)[1].split(
+        "function applySettings", 1
+    )[0]
+    for token in (
+        "root.integrations = nextIntegrations.slice();",
+        "root.availablePageIds = nextPageIds.slice();",
+        "root.availablePages = nextPages.slice();",
+        "root.revision++;",
+    ):
+        assert token in publish
+    for target in (
+        "root.notificationService",
+        "root.timerService",
+        "root.timerService.timers",
+        "root.mprisFocus",
+        "root.mprisFocus.activePlayer",
+        "root.agentsService",
+        "root.dynamicIslandService",
+    ):
+        assert f"target: {target}" in registry
+    assert registry.count("root.publish();") >= 10
+
+
+def test_registry_publishes_integrations_in_normalized_settings_order():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    publish = registry.split("function publish", 1)[1].split(
+        "function applySettings", 1
+    )[0]
+    assert "root._settings.order" in publish
+    assert "nextIntegrations.push(integrationsById[id]);" in publish
+
+
+def test_carousel_runtime_survives_data_ticks_and_inflight_page_removal():
+    runtime = text(".config/quickshell/IslandCarouselRuntimeTest.qml")
+    for forbidden in (
+        "DynamicIslandService", "TimerService", "AgentsService", "MprisFocus",
+        "Wayland",
+    ):
+        assert forbidden not in runtime
+    result = subprocess.run(
+        [
+            "timeout", "15s", "qs", "--no-color", "-p",
+            ".config/quickshell/IslandCarouselRuntimeTest.qml",
+        ],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "QT_QPA_PLATFORM": "offscreen",
+            "CLOUDYY_LIGHTWEIGHT": "0",
+            "CLOUDYY_REDUCED_MOTION": "0",
+            "QS_REDUCED_MOTION": "0",
+        },
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "TASK4_CAROUSEL_RUNTIME_FAIL" not in output, output
+    assert "TASK4_CAROUSEL_RUNTIME_PASS" in output, output
+
+
+def test_registry_observes_active_media_without_media_page_instantiation():
+    registry = text(
+        ".config/quickshell/modules/island/IslandIntegrationRegistryModel.qml"
+    )
+    assert "target: root.mprisFocus.activePlayer" in registry
+    for signal in (
+        "onTrackTitleChanged", "onTrackArtistChanged", "onPlaybackStateChanged"
+    ):
+        assert f"function {signal}()" in registry
+    assert "function onActivePlayerChanged()" in registry
+
+
+def test_registry_runtime_publication_contract():
+    runtime = text(".config/quickshell/IslandRegistryRuntimeTest.qml")
+    for forbidden in ("cloudyy-timer", "cloudyy-agents", "Hyprland", "Mpris.players"):
+        assert forbidden not in runtime
+    result = subprocess.run(
+        [
+            "timeout", "15s", "qs", "--no-color", "-p",
+            ".config/quickshell/IslandRegistryRuntimeTest.qml",
+        ],
+        cwd=ROOT,
+        env={**os.environ, "QT_QPA_PLATFORM": os.environ.get(
+            "QT_QPA_PLATFORM", "offscreen")},
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "TASK3_REGISTRY_RUNTIME_FAIL" not in output, output
+    assert "TASK3_REGISTRY_RUNTIME_PASS" in output, output
+
+
+def test_resting_pill_renders_every_safe_summary_kind():
+    pill = text(".config/quickshell/modules/island/IslandRestingPill.qml")
+    for kind in (
+        "recording", "countdown", "media", "agent", "notification", "neutral"
+    ):
+        assert f'kind === "{kind}"' in pill
+    assert "property var summary:" in pill
+    assert 'font.family: "JetBrainsMono Nerd Font"' in pill
+    assert pill.count("Text {") == pill.count("renderType: Text.NativeRendering")
+    assert pill.count("textFormat: Text.PlainText") == 2
+    for unsafe in ("providerError", "settingsError", "raw", "stderr", "stdout"):
+        assert unsafe not in pill

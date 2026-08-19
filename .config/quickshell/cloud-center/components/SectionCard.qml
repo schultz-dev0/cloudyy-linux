@@ -20,10 +20,10 @@ Column {
         id: body
         width: card.width
         height: inner.implicitHeight + 8
-        radius: 12
+        radius: 0
         clip: true
         color: Theme.surface_container_lowest
-        border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+        border { width: 1; color: Theme.hairline }
 
         Column {
             id: inner

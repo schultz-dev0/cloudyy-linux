@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import "../.."
@@ -41,7 +42,8 @@ PanelWindow {
         return type === "screenshot" || type === "recording" || type === "recordPicker";
     }
     readonly property int persistentWidth: QuickIsland.IslandState.mode === "resting"
-        ? (timerPill.active ? Theme.islandTimerRestWidth : Theme.islandRestWidth)
+        ? (QuickIsland.IslandIntegrationRegistry.activeRestingSummary?.kind === "neutral"
+            ? Theme.islandRestWidth : Theme.islandTimerRestWidth)
         : Theme.islandCarouselWidth
     readonly property int persistentHeight: {
         if (QuickIsland.IslandState.expanded)
@@ -113,8 +115,13 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:island"
+    // Exclusive, not OnDemand: on_demand only grants focus in response to an
+    // actual click, so a keybind-driven pin() (no click involved) never
+    // actually received keyboard input — arrows/enter/escape went wherever
+    // focus already was. Matches Spotlight/PowerMenu, which use Exclusive
+    // for the same reason.
     WlrLayershell.keyboardFocus: QuickIsland.IslandState.keyboardRequested
-        ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     Behavior on implicitWidth {
         NumberAnimation {
@@ -185,6 +192,13 @@ PanelWindow {
     }
 
     Connections {
+        target: QuickIsland.IslandState
+        function onClosingRequested() {
+            QuickIsland.DynamicIslandService.clearAllNotifications();
+        }
+    }
+
+    Connections {
         target: contentLoader.item
         ignoreUnknownSignals: true
 
@@ -233,6 +247,28 @@ PanelWindow {
             strokeWidth: 1
             strokeColor: Theme.islandBorder
             fillColor: Theme.islandSurface
+            // Usable as islandDots' MultiEffect maskSource below — a mask
+            // source needs its own layer enabled to be sampled as a texture.
+            layer.enabled: true
+        }
+
+        // Subtle dot texture over the always-black island surface — the
+        // "Dots" material, kept faint since this covers the whole shell
+        // rather than a small control. Masked to pillShape's own rounded
+        // corners — a plain rectangular texture would otherwise poke past
+        // the pill's curve now that the lower corners are rounded again.
+        DotTexture {
+            id: islandDots
+            anchors.fill: parent
+            tint: Theme.islandOnSurfaceVariant
+            dotAlpha: 0.16
+            cell: 8
+            dotRadius: 0.8
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: pillShape
+            }
         }
 
         Item {
@@ -243,12 +279,30 @@ PanelWindow {
 
             QuickIsland.IslandCarousel {
                 anchors.fill: parent
-                visible: QuickIsland.IslandState.mode !== "resting"
+                registry: QuickIsland.IslandIntegrationRegistry
+                navigationState: QuickIsland.IslandState
+                opacity: QuickIsland.IslandState.mode !== "resting" ? 1 : 0
+                enabled: QuickIsland.IslandState.mode !== "resting"
                 inlineActivity: island.inlineNotification
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Perf.opacityMs(Theme.islandOpacityDuration)
+                        easing.type: Easing.OutQuad
+                    }
+                }
             }
 
-            QuickIsland.TimerRestingPill {
-                id: timerPill
+            QuickIsland.IslandRestingPill {
+                summary: QuickIsland.IslandIntegrationRegistry.activeRestingSummary
+                opacity: QuickIsland.IslandState.mode === "resting" ? 1 : 0
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Perf.opacityMs(Theme.islandOpacityDuration)
+                        easing.type: Easing.OutQuad
+                    }
+                }
             }
 
             Behavior on opacity {
@@ -340,10 +394,7 @@ PanelWindow {
         const snapshot = island.persistentSnapshot;
         if (!snapshot)
             return;
-        QuickIsland.IslandState.mode = snapshot.mode;
-        QuickIsland.IslandState.currentPage = snapshot.currentPage;
-        QuickIsland.IslandState.rememberedPage = snapshot.rememberedPage;
-        QuickIsland.IslandState.openingScreenName = snapshot.openingScreenName;
+        QuickIsland.IslandState.restorePersistentSnapshot(snapshot);
         island.persistentSnapshot = null;
     }
 

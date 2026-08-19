@@ -257,7 +257,7 @@ Item {
                         id: closeBtn
                         Layout.preferredWidth:  28
                         Layout.preferredHeight: 28
-                        radius: 8
+                        radius: 2
                         scale:  closeBtnArea.pressed ? 0.95 : 1.0
                         color:  closeBtnArea.containsMouse ? root._btnFillHover : root._btnFill
                         border.width: 1
@@ -288,19 +288,35 @@ Item {
                     }
                 }
 
-                Rectangle {
+                // Targeting-reticle brackets flare in while a drag is live,
+                // replacing the old full-border highlight — matches the
+                // bracket-readout corner accents used on the island shell
+                // and the rest of the app chrome.
+                Item {
+                    id: dragReticle
                     z: 3
                     anchors.fill: parent
-                    radius: root.thumbRadius
-                    color:  "transparent"
-                    border.width: dragHandler.active ? 1 : 0
-                    border.color: Qt.rgba(
-                        Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.5)
+                    opacity: dragHandler.active ? 1 : 0
 
-                    Behavior on border.width {
+                    readonly property int len: 10
+                    readonly property real weight: 1.5
+                    readonly property int inset: 3
+                    readonly property color tint: Qt.rgba(
+                        Theme.islandAccent.r, Theme.islandAccent.g, Theme.islandAccent.b, 0.85)
+
+                    Behavior on opacity {
                         enabled: Perf.animationsEnabled
                         NumberAnimation { duration: Perf.msHalf(80) }
                     }
+
+                    Rectangle { x: dragReticle.inset; y: dragReticle.inset; width: dragReticle.len; height: dragReticle.weight; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.inset; y: dragReticle.inset; width: dragReticle.weight; height: dragReticle.len; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.width - dragReticle.inset - dragReticle.len; y: dragReticle.inset; width: dragReticle.len; height: dragReticle.weight; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.width - dragReticle.inset - dragReticle.weight; y: dragReticle.inset; width: dragReticle.weight; height: dragReticle.len; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.inset; y: dragReticle.height - dragReticle.inset - dragReticle.weight; width: dragReticle.len; height: dragReticle.weight; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.inset; y: dragReticle.height - dragReticle.inset - dragReticle.len; width: dragReticle.weight; height: dragReticle.len; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.width - dragReticle.inset - dragReticle.len; y: dragReticle.height - dragReticle.inset - dragReticle.weight; width: dragReticle.len; height: dragReticle.weight; color: dragReticle.tint }
+                    Rectangle { x: dragReticle.width - dragReticle.inset - dragReticle.weight; y: dragReticle.height - dragReticle.inset - dragReticle.len; width: dragReticle.weight; height: dragReticle.len; color: dragReticle.tint }
                 }
 
                 DragHandler {

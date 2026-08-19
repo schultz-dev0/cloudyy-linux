@@ -107,6 +107,8 @@ class IdleLockContractTests(unittest.TestCase):
         self.assertIn("key: idle/scene_minutes", source)
         self.assertIn("key: idle/lock_minutes", source)
         self.assertIn("key: idle/lock_enabled", source)
+        self.assertIn("key: idle/suspend_enabled", source)
+        self.assertIn("key: idle/suspend_minutes", source)
         self.assertIn("key: idle/lid_sleep", source)
         self.assertIn("default: true", source)
         self.assertIn("default: 15", source)
@@ -117,6 +119,9 @@ class IdleLockContractTests(unittest.TestCase):
         self.assertIn("python3 -m lib.hypridle_persist lock off", source)
         self.assertIn("python3 -m lib.hypridle_persist apply scene {value_i}", source)
         self.assertIn("python3 -m lib.hypridle_persist apply lock {value_i}", source)
+        self.assertIn("python3 -m lib.hypridle_persist suspend on", source)
+        self.assertIn("python3 -m lib.hypridle_persist suspend off", source)
+        self.assertIn("python3 -m lib.hypridle_persist apply suspend {value_i}", source)
         self.assertIn("python3 -m lib.lid_sleep_persist on", source)
         self.assertIn("python3 -m lib.lid_sleep_persist off", source)
         self.assertIn('"idle"', model)
@@ -129,23 +134,24 @@ class IdleLockContractTests(unittest.TestCase):
             item["properties"]["key"]: item
             for item in items
             if item["properties"].get("key")
-            in {"idle/scene_minutes", "idle/lock_minutes"}
+            in {"idle/scene_minutes", "idle/lock_minutes", "idle/suspend_minutes"}
         }
 
         expected_controls = {
-            "idle/scene_minutes": (15, "scene"),
-            "idle/lock_minutes": (45, "lock"),
+            "idle/scene_minutes": (15, 120, "scene"),
+            "idle/lock_minutes": (45, 120, "lock"),
+            "idle/suspend_minutes": (60, 240, "suspend"),
         }
         self.assertEqual(set(controls), set(expected_controls))
 
-        for key, (default, action) in expected_controls.items():
+        for key, (default, maximum, action) in expected_controls.items():
             control = controls[key]
             properties = control["properties"]
 
             self.assertEqual(control["type"], "slider")
             self.assertEqual(properties.get("presentation"), "editable_dropdown")
             self.assertEqual(properties["preset_min"], 15)
-            self.assertEqual(properties["preset_max"], 120)
+            self.assertEqual(properties["preset_max"], maximum)
             self.assertEqual(properties["preset_step"], 15)
             self.assertEqual(properties["default"], default)
             self.assertNotIn("min", properties)

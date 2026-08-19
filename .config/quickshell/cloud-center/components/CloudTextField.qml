@@ -18,15 +18,15 @@ FocusScope {
 
     Rectangle {
         anchors.fill: parent
-        radius: field.compact ? 8 : 10
+        radius: 2
         color: field.activeFocus
-            ? Theme.glass(Theme.surface_container_lowest, 0.96)
+            ? Theme.surface_container_lowest
             : inputHover.hovered
-                ? Theme.glass(Theme.surface_container_high, 0.86)
-                : Theme.glass(Theme.surface_container_low, 0.82)
+                ? Theme.surface_container_high
+                : Theme.surface_container_low
         border {
             width: field.activeFocus ? 1.5 : 1
-            color: field.activeFocus ? Theme.primary : Theme.glass(Theme.outline_variant, 0.56)
+            color: field.activeFocus ? Theme.primary : Theme.hairline
         }
 
         Text {

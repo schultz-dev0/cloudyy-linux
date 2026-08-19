@@ -54,17 +54,21 @@ echo "  (shell.qml skipped — known qmllint exit-255 crash)"
 echo "2) backend suite…"
 (cd "$CC_ROOT" && python3 -m pytest tests/ -q) || fail=1
 
-echo "3) fake-sidecar smoke (5s render)…"
+echo "3) island QML policy suite…"
+QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+  /usr/lib/qt6/bin/qmltestrunner -input "$CC_ROOT/tests/qml" || fail=1
+
+echo "4) fake-sidecar smoke (5s render)…"
 CC_BACKEND_CMD="python3 $CC_ROOT/scripts/fake-ccd.py" \
   timeout 5 qs -p "$QML_DIR" >/dev/null 2>&1
 [[ $? -eq 124 ]] || { echo "  smoke run exited early"; fail=1; }
 # timeout kills the process group leader but qs's own child processes can
-# linger a moment; make sure nothing of ours survives before section 4.
+# linger a moment; make sure nothing of ours survives before section 5.
 pid=$(cc_instance_pid)
 [[ -n "$pid" ]] && kill "$pid" 2>/dev/null
 sleep 1
 
-echo "4) open-RSS/PSS check…"
+echo "5) open-RSS/PSS check…"
 qs -p "$QML_DIR" >/dev/null 2>&1 &
 qs_bg=$!
 sleep 4
@@ -81,7 +85,7 @@ fi
 # Belt and suspenders: kill the backgrounded job even if pid lookup failed.
 kill "$qs_bg" 2>/dev/null; qs_bg=""
 
-echo "5) zero survivors…"
+echo "6) zero survivors…"
 qs_survivor=$(cc_instance_pid)
 ccd_survivor=$(pgrep -f "python3 -m lib.ccd")
 if [[ -n "$qs_survivor" || -n "$ccd_survivor" ]]; then
@@ -89,7 +93,7 @@ if [[ -n "$qs_survivor" || -n "$ccd_survivor" ]]; then
   fail=1
 fi
 
-echo "6) resident daemon untouched…"
+echo "7) resident daemon untouched…"
 daemon_pid=$(pgrep -xf "/usr/bin/qs -n" | head -1)
 if [[ -n "$daemon_pid" ]]; then
   awk '/VmRSS/{print "  main qs daemon: " int($2/1024) "MB"}' "/proc/$daemon_pid/status"

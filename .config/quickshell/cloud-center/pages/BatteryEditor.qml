@@ -264,7 +264,7 @@ Flickable {
                             }
                             height: 8
                             radius: 4
-                            color: Theme.glass(Theme.outline_variant, 0.55)
+                            color: Theme.hairline
                             Rectangle {
                                 width: parent.width * Math.max(
                                     0, Math.min(1, BatteryState.percentage(batteryPage.snapshot) / 100)
@@ -280,7 +280,7 @@ Flickable {
                         width: parent.width - 20
                         x: 10
                         height: 1
-                        color: Theme.glass(Theme.outline_variant, 0.35)
+                        color: Theme.hairline
                     }
 
                     Repeater {
@@ -348,7 +348,7 @@ Flickable {
                                     bottom: parent.bottom
                                 }
                                 height: 1
-                                color: Theme.glass(Theme.outline_variant, 0.35)
+                                color: Theme.hairline
                             }
                         }
                     }
@@ -433,7 +433,7 @@ Flickable {
                                     bottom: parent.bottom
                                 }
                                 height: 1
-                                color: Theme.glass(Theme.outline_variant, 0.35)
+                                color: Theme.hairline
                             }
                         }
                     }
@@ -645,7 +645,7 @@ Flickable {
                                     bottom: parent.bottom
                                 }
                                 height: 1
-                                color: Theme.glass(Theme.outline_variant, 0.35)
+                                color: Theme.hairline
                             }
                         }
                     }

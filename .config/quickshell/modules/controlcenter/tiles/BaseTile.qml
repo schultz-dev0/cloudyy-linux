@@ -18,24 +18,39 @@ Rectangle {
 
     implicitHeight: 68
     implicitWidth: 170
-    radius: 12
-    color: active
-        ? Qt.tint(Theme.glassSection, Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18))
-        : Theme.glassSection
-    border.color: active
-        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
-        : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
-    border.width: 1
+    radius: 2
+    color: hover.containsMouse ? Theme.hairline : "transparent"
+    border.width: 0
+    Behavior on color { ColorAnimation { duration: 90 } }
 
     ColumnLayout {
         anchors { fill: parent; margins: 10 }
         spacing: 2
 
-        Text {
-            text:        root.icon
-            color:       root.active ? Theme.primary : Theme.on_surface
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 18
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            Text {
+                text:        root.icon
+                color:       Theme.on_surface
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 18
+            }
+
+            Item { Layout.fillWidth: true }
+
+            // LED indicator — state lives here, not in the tile's fill, so
+            // the label stays legible in both states instead of flashing
+            // the whole card a solid color.
+            Rectangle {
+                width: 7
+                height: 7
+                radius: 0
+                color: root.active ? Theme.accent : "transparent"
+                border.width: 1
+                border.color: Theme.accent
+            }
         }
 
         Text {
@@ -44,15 +59,15 @@ Rectangle {
             font.family:    "JetBrainsMono Nerd Font"
             font.pixelSize: 10
             font.weight:    Font.Bold
+            font.capitalization: Font.AllUppercase
+            font.letterSpacing: 0.6
             Layout.fillWidth: true
             elide:          Text.ElideRight
         }
 
         Text {
             text:           root.statusText
-            color:          root.active
-                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
-                : Theme.on_surface_variant
+            color:          Theme.on_surface_variant
             font.family:    "JetBrainsMono Nerd Font"
             font.pixelSize: 9
             visible:        root.statusText !== ""
@@ -60,7 +75,9 @@ Rectangle {
     }
 
     MouseArea {
+        id: hover
         anchors.fill:    parent
+        hoverEnabled:    true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton)

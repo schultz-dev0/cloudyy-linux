@@ -3,18 +3,7 @@
 
 vim.o.winborder = "none"
 
--- tokyonight transparent=true covers Normal/NormalNC/NormalFloat/SignColumn/EndOfBuffer.
--- These extra groups are not included in its transparent mode, so clear them here.
--- Light mode gets these set properly via on_highlights_light in autocmds.lua.
-vim.api.nvim_create_autocmd("ColorScheme", {
-  pattern = "*",
-  callback = function()
-    if vim.o.background ~= "light" then
-      for _, g in ipairs({
-        "StatusLine", "StatusLineNC", "WinBar", "WinBarNC", "WinSeparator",
-      }) do
-        vim.api.nvim_set_hl(0, g, { bg = "none", ctermbg = "none" })
-      end
-    end
-  end,
-})
+-- (Used to force-clear StatusLine/WinBar/etc. to bg=none here, to patch gaps
+-- in tokyonight's old transparent=true mode. Removed along with transparent
+-- mode itself — autocmds.lua now sets transparent=false, so tokyonight
+-- handles these groups' backgrounds properly on its own.)

@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import "../.."
 import "../systemmonitor"
 
-Rectangle {
+Item {
     id: sectionRoot
 
     readonly property var bat: BatteryService
@@ -16,18 +16,11 @@ Rectangle {
     property int sparklineHeight: 36
 
     visible: bat.available
-    implicitHeight: visible ? sectionCol.implicitHeight + 28 : 0
-    radius: 14
-    color: Theme.glassSection
-    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-    border.width: 1
+    implicitHeight: visible ? sectionCol.implicitHeight : 0
 
     ColumnLayout {
         id: sectionCol
-        anchors {
-            fill: parent
-            margins: 14
-        }
+        anchors { left: parent.left; right: parent.right }
         spacing: 8
 
         RowLayout {
@@ -38,6 +31,8 @@ Rectangle {
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.labelFont
                 font.weight: Font.Bold
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.6
                 Layout.fillWidth: true
             }
             Text {

@@ -3,19 +3,21 @@ IslandPillShape 1.0 IslandPillShape.qml
 IslandPageFrame 1.0 IslandPageFrame.qml
 IslandCarousel 1.0 IslandCarousel.qml
 IslandInlineActivity 1.0 IslandInlineActivity.qml
+IslandIntegrationRegistryModel 1.0 IslandIntegrationRegistryModel.qml
+IslandNavigationState 1.0 IslandNavigationState.qml
+IslandRestingPill 1.0 IslandRestingPill.qml
 NotificationsPage 1.0 NotificationsPage.qml
-CalendarPage 1.0 CalendarPage.qml
-TimerPage 1.0 TimerPage.qml
 MediaPage 1.0 MediaPage.qml
+AgentsPage 1.0 AgentsPage.qml
 SystemOverviewPage 1.0 SystemOverviewPage.qml
 OsdBurstActivity 1.0 OsdBurstActivity.qml
-TimerIslandContent 1.0 TimerIslandContent.qml
 NotificationActivity 1.0 NotificationActivity.qml
 ScreenshotActivity 1.0 ScreenshotActivity.qml
 RecordingActivity 1.0 RecordingActivity.qml
 RecordPickerActivity 1.0 RecordPickerActivity.qml
 singleton MprisFocus 1.0 MprisFocus.qml
+singleton AgentsService 1.0 AgentsService.qml
+singleton IslandIntegrationRegistry 1.0 IslandIntegrationRegistry.qml
 singleton DynamicIslandService 1.0 DynamicIslandService.qml
 singleton IslandState 1.0 IslandState.qml
-TimerRestingPill 1.0 TimerRestingPill.qml
 DynamicIsland 1.0 DynamicIsland.qml

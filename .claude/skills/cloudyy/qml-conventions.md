@@ -70,9 +70,25 @@ IpcHandler {
 
 ## Font / rendering
 
-- Standard font family: `"JetBrainsMono Nerd Font"` everywhere.
-- Every `Text`/`TextInput` sets `renderType: Text.NativeRendering` (or `TextInput.NativeRendering`) — no exceptions found repo-wide.
-- Often paired with `font.hintingPreference: Font.PreferVerticalHinting`.
+- Standard font family: `"JetBrainsMono Nerd Font"` everywhere (500+ occurrences repo-wide, no exceptions found — this one really is universal).
+- `renderType: Text.NativeRendering` is common (heaviest in `cloud-center/components`, `modules/island`) but **not universal** — `Bar.qml` and most of `modules/controlcenter`/`modules/calendar` don't use it. Don't assume it's required; match whatever the file you're editing already does.
+- Often paired with `font.hintingPreference: Font.PreferVerticalHinting` where it is used.
+
+## Visual language (2026-08-14 redesign, in progress)
+
+Moving off "liquid glass" (blur, translucency, 16-24px radii, soft rim highlights) toward a flatter, lighter language — see `docs/superpowers/specs/2026-08-14-visual-theme-system-design.md` for the full design. Piloted end-to-end on the Control Center (`NotifPanel.qml` + `modules/controlcenter/**` + `modules/calendar/CalendarMiniSection.qml`); not yet rolled out elsewhere, so most of the codebase still uses the old glass tokens (`Theme.glassShell`, `Theme.glassSection`, `Theme.glassPanelRadius`, `Theme.glass()`) — that's still correct to use in un-migrated files, don't mix languages within one surface.
+
+Validated rules, for when migrating a new surface:
+
+- **Panel radius:** 0. **Tile/interactive radius:** 0-2px (not a pill unless it already was one for a real reason — see island/dock exception below).
+- **Panel fill:** flat, ~92-95% opaque, no blur, no translucency.
+- **Panel edge:** no full border. Either nothing, or four small corner-bracket marks (`Theme.accent`, ~9px long, 1.5px weight, ~5px inset from the corner) — see `NotifPanel.qml`'s `panelShell` for the pattern (8 `Rectangle`s, no `Shape`/`Canvas` needed).
+- **Group separation:** a 1px `Theme.hairline` `Rectangle` between logical groups, not a border around every tile.
+- **State indicators** (on/off, active/inactive): a small square LED (7x7, 1px border in `Theme.accent`, filled when active) next to the label — never recolor the whole element. Keeps the label legible in both states.
+- **Sliders:** tick-gauge, not pill-and-dot — a `Repeater` of thin ticks across the track, `Theme.accent` up to the value, `Theme.hairline` past it; thin flat-bar handle (2px wide), not a circle.
+- **Nameplate-style labels** (section headers, tile labels): `font.capitalization: Font.AllUppercase`, `font.letterSpacing: 0.6`.
+- **Exception — don't touch:** the island's shape (square top / round bottom) and the dock's rounded pill tray. Both already fit this language; they were never glass-pill shapes to begin with.
+- `Theme.hairline` (`Qt.rgba(outline_variant, 0.4)`) is the shared divider-color token — use it instead of inlining a new `Qt.rgba(Theme.outline_variant...)` per file.
 
 ## Style
 

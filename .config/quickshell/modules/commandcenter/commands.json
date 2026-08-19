@@ -663,6 +663,163 @@
     }
   },
   {
+    "id": "trigger.timer",
+    "label": "Timer",
+    "icon": "󰥔",
+    "keywords": [
+      "timer",
+      "countdown",
+      "stopwatch"
+    ],
+    "parent": "trigger",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "trigger.timer.300",
+    "label": "5 minutes",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "300"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.600",
+    "label": "10 minutes",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "600"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.900",
+    "label": "15 minutes",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "900"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.1500",
+    "label": "25 minutes",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "1500"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.1800",
+    "label": "30 minutes",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "1800"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.3600",
+    "label": "1 hour",
+    "icon": "󰄉",
+    "parent": "trigger.timer",
+    "action": {
+      "type": "exec",
+      "command": [
+        "cloudyy-timer", "create", "--label", "Timer", "--duration", "3600"
+      ]
+    }
+  },
+  {
+    "id": "trigger.timer.custom",
+    "label": "Custom duration...",
+    "icon": "✏",
+    "keywords": [
+      "custom",
+      "duration"
+    ],
+    "parent": "trigger.timer",
+    "action": {
+      "type": "script",
+      "path": "_timer_create_custom"
+    }
+  },
+  {
+    "id": "trigger.timer.stopwatch",
+    "label": "Start Stopwatch",
+    "icon": "󱎫",
+    "keywords": [
+      "stopwatch",
+      "start"
+    ],
+    "parent": "trigger.timer",
+    "action": {
+      "type": "script",
+      "path": "_timer_stopwatch_start"
+    }
+  },
+  {
+    "id": "trigger.timer.pause",
+    "label": "Pause / Resume",
+    "icon": "󰏤",
+    "keywords": [
+      "pause",
+      "resume",
+      "timer"
+    ],
+    "parent": "trigger.timer",
+    "action": {
+      "type": "script",
+      "path": "_timer_pause_resume"
+    }
+  },
+  {
+    "id": "trigger.timer.reset",
+    "label": "Reset",
+    "icon": "󰑐",
+    "keywords": [
+      "reset",
+      "timer"
+    ],
+    "parent": "trigger.timer",
+    "action": {
+      "type": "script",
+      "path": "_timer_reset"
+    }
+  },
+  {
+    "id": "trigger.timer.stop",
+    "label": "Stop",
+    "icon": "󰓛",
+    "keywords": [
+      "stop",
+      "timer"
+    ],
+    "parent": "trigger.timer",
+    "action": {
+      "type": "script",
+      "path": "_timer_stop"
+    }
+  },
+  {
     "id": "settings",
     "label": "Settings",
     "icon": "",

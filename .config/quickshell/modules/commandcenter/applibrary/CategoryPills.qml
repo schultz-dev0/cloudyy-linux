@@ -50,12 +50,10 @@ Item {
                     required property int index
                     height: 28
                     width: pillText.width + 24
-                    radius: 14
+                    radius: 999
                     readonly property bool isActive: modelData === root.activeLabel
                     readonly property bool isKeyboardFocused: root.keyboardFocusIndex === index
-                    color: isActive
-                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
-                        : Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.25)
+                    color: isActive ? Theme.primary_container : Theme.surface_container_high
                     border.color: isKeyboardFocused
                         ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
                         : (isActive

@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 // modules/dock/Dock.qml
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -1507,13 +1508,44 @@ PanelWindow {
             }
         }
 
-        // Glass pill background
+        // Pill background — Resin material, independent of the bar's own
+        // solid/transparent toggle. See Theme.qml's resin() comment.
         Rectangle {
+            id: dockPill
             width: parent.width
             height: dock.pillHeight
             anchors.bottom: parent.bottom
             radius: dock.paddingV + dock.iconSize * 0.22
-            color: Theme.glassShell
+            color: Theme.resin(Theme.resinFillAlpha)
+            border.width: 1
+            border.color: Theme.resinBorder
+            clip: true
+
+            // Gloss — light catching the material's upper edge.
+            Rectangle {
+                anchors { top: parent.top; left: parent.left; right: parent.right }
+                height: parent.height * 0.45
+                radius: dockPill.radius
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.resinGloss }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            // Inner glow — a hint of structure beneath the material.
+            // Actually blurred, not just low-opacity, so it reads as soft
+            // light rather than a defined shape.
+            Rectangle {
+                width: parent.height * 1.4
+                height: width
+                radius: width / 2
+                x: parent.width * 0.06
+                y: (parent.height - height) / 2
+                color: Theme.resinGlow
+                opacity: 0.4
+                layer.enabled: true
+                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+            }
         }
 
         // Icon row (search button pinned left + app icons)

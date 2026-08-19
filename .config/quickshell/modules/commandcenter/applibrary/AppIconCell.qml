@@ -45,11 +45,20 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 10
+                radius: 2
+                clip: true
                 visible: root.selected
                 color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
                 border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
                 border.width: 1.5
+
+                DotTexture {
+                    anchors.fill: parent
+                    tint: Theme.primary
+                    dotAlpha: 0.18
+                    cell: 5
+                    dotRadius: 0.7
+                }
             }
 
             AppIcon {
@@ -65,7 +74,8 @@ Item {
                 visible: root.running && cellMouse.containsMouse
                 width: 18
                 height: 18
-                radius: 9
+                radius: 2
+                clip: true
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.topMargin: -2
@@ -74,6 +84,14 @@ Item {
                 border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.55)
                 border.width: 1
                 z: 2
+
+                DotTexture {
+                    anchors.fill: parent
+                    tint: Theme.on_primary_container
+                    dotAlpha: 0.16
+                    cell: 4
+                    dotRadius: 0.6
+                }
 
                 Text {
                     anchors.centerIn: parent

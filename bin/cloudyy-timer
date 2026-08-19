@@ -1,0 +1,832 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Manage persistent Cloudyy countdowns and stopwatches
+
+set -euo pipefail
+
+readonly EXIT_USAGE=2
+readonly EXIT_UNKNOWN_ID=3
+readonly EXIT_INVALID_TRANSITION=4
+readonly EXIT_CORRUPT_STATE=5
+readonly EXIT_PERSISTENCE=6
+readonly EXIT_SYSTEMD=7
+readonly EXIT_DEPENDENCY=8
+readonly EXIT_MIGRATION=9
+
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/cloudyy/timers"
+readonly STATE_FILE="${STATE_DIR}/state.json"
+readonly LOCK_FILE="${STATE_DIR}/state.lock"
+readonly MIGRATION_FILE="${STATE_DIR}/migration-v1.json"
+readonly LEGACY_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/quickshell/timer/active.json"
+readonly SYSTEMD_RUN="${CLOUDYY_TIMER_SYSTEMD_RUN:-systemd-run}"
+readonly SYSTEMCTL="${CLOUDYY_TIMER_SYSTEMCTL:-systemctl}"
+readonly NOTIFY_SEND="${CLOUDYY_TIMER_NOTIFY_SEND:-notify-send}"
+readonly PROVIDER_PATH="$(readlink -f "$0")"
+WRITE_COUNT=0
+PENDING_SCHEDULE_ID=''
+
+usage() {
+  printf '%s\n' \
+    'Usage: cloudyy-timer list [--json]' \
+    '       cloudyy-timer create --label LABEL --duration SECONDS [--json]' \
+    '       cloudyy-timer <pause|resume|reset|delete> ID' \
+    '       cloudyy-timer <stop|complete> ID [--json]' \
+    '       cloudyy-timer rename ID LABEL' \
+    '       cloudyy-timer stopwatch-start --label LABEL [--json]' \
+    '       cloudyy-timer <stopwatch-pause|stopwatch-reset> ID' >&2
+  exit "$EXIT_USAGE"
+}
+
+die() {
+  printf 'cloudyy-timer: %s\n' "$2" >&2
+  exit "$1"
+}
+
+now() {
+  if [[ -n "${CLOUDYY_TIMER_NOW:-}" ]]; then
+    printf '%s\n' "$CLOUDYY_TIMER_NOW"
+  else
+    date +%s
+  fi
+}
+
+validate_dependencies() {
+  command -v jq >/dev/null 2>&1 || die "$EXIT_DEPENDENCY" 'jq is required'
+  command -v flock >/dev/null 2>&1 || die "$EXIT_DEPENDENCY" 'flock is required'
+}
+
+validate_state() {
+  jq -e '
+    def integer: type == "number" and floor == .;
+    def nonnegative_integer: integer and . >= 0;
+    def provenance:
+      ([has("migration_source"),has("migration_source_sha256"),
+        has("migration_record_index"),has("migration_result")] | all) and
+      (.migration_source | type == "string" and length > 0) and
+      (.migration_source_sha256 | type == "string" and test("^[0-9a-f]{64}$")) and
+      (.migration_record_index | nonnegative_integer) and
+      (.migration_result == "imported" or .migration_result == "completed");
+    def record:
+      type == "object" and
+      (.id | type == "string" and length > 0) and
+      (.label | type == "string" and length > 0) and
+      (.mode == "countdown" or .mode == "stopwatch") and
+      (.state == "running" or .state == "paused" or .state == "completed") and
+      (.created_at | nonnegative_integer) and
+      (.transitioned_at | nonnegative_integer) and
+      (.accumulated_seconds | nonnegative_integer) and
+      (has("elapsed_seconds") | not) and (has("remaining_seconds") | not) and
+      (if has("migration_source") or has("migration_source_sha256") or
+          has("migration_record_index") or has("migration_result")
+       then provenance else true end) and
+      if .mode == "stopwatch" then
+        .state != "completed" and .duration_seconds == null and
+        .paused_remaining_seconds == null and .deadline_at == null and
+        (has("completed_at") | not) and (has("history_logged") | not) and
+        (has("completion_notified") | not)
+      else
+        (.duration_seconds | nonnegative_integer and . > 0) and
+        (.duration_seconds as $duration |
+          .paused_remaining_seconds | nonnegative_integer and . <= $duration) and
+        if .state == "running" then
+          (.transitioned_at as $transitioned |
+            .deadline_at | nonnegative_integer and . >= $transitioned) and
+          (has("completed_at") | not) and (has("history_logged") | not) and
+          (has("completion_notified") | not)
+        elif .state == "paused" then
+          .deadline_at == null and (has("completed_at") | not) and
+          (has("history_logged") | not) and (has("completion_notified") | not)
+        else
+          .deadline_at == null and .paused_remaining_seconds == 0 and
+          (.completed_at | nonnegative_integer) and
+          (.history_logged | type == "boolean") and
+          (.completion_notified | type == "boolean")
+        end
+      end;
+    type == "object" and
+    .version == 1 and
+    (.updated_at | nonnegative_integer) and
+    (.timers | type == "array" and all(record)) and
+    ([.timers[].id] | length == (unique | length))
+  ' "$STATE_FILE" >/dev/null 2>&1 || die "$EXIT_CORRUPT_STATE" 'state is corrupt'
+}
+
+initialize_state() {
+  [[ -f "$STATE_FILE" ]] && return
+
+  local temporary
+  temporary="$(mktemp "${STATE_DIR}/.state.XXXXXX")" || \
+    die "$EXIT_PERSISTENCE" 'could not create temporary state'
+  if ! jq -cn --argjson now "$(now)" \
+      '{version:1,updated_at:$now,timers:[]}' >"$temporary"; then
+    rm -f "$temporary"
+    die "$EXIT_PERSISTENCE" 'could not write state'
+  fi
+  if ! jq -e '.version == 1 and (.timers | type == "array")' "$temporary" >/dev/null; then
+    rm -f "$temporary"
+    die "$EXIT_PERSISTENCE" 'could not validate state'
+  fi
+  chmod 600 "$temporary" || {
+    rm -f "$temporary"
+    die "$EXIT_PERSISTENCE" 'could not secure state'
+  }
+  mv "$temporary" "$STATE_FILE" || {
+    rm -f "$temporary"
+    die "$EXIT_PERSISTENCE" 'could not persist state'
+  }
+}
+
+write_migration_marker() {
+  local source_sha256="$1"
+  local status="$2"
+  local imported="$3"
+  local completed="$4"
+  local skipped="$5"
+  [[ ${CLOUDYY_TIMER_FAIL_MIGRATION_MARKER_WRITE:-0} != 1 ]] || \
+    die "$EXIT_MIGRATION" 'could not persist migration marker'
+  local temporary
+  temporary="$(mktemp "${STATE_DIR}/.migration-v1.XXXXXX")" || \
+    die "$EXIT_MIGRATION" 'could not create migration marker'
+  if ! jq -cn --argjson now "$(now)" --arg source "$LEGACY_FILE" \
+      --arg source_sha256 "$source_sha256" --arg status "$status" \
+      --argjson imported "$imported" --argjson completed "$completed" \
+      --argjson skipped "$skipped" \
+      '{version:1,migrated_at:$now,source:$source,
+        source_sha256:(if $source_sha256 == "" then null else $source_sha256 end),
+        status:$status,imported:$imported,completed:$completed,skipped:$skipped}' \
+      >"$temporary"; then
+    rm -f "$temporary"
+    die "$EXIT_MIGRATION" 'could not write migration marker'
+  fi
+  chmod 600 "$temporary" || {
+    rm -f "$temporary"
+    die "$EXIT_MIGRATION" 'could not secure migration marker'
+  }
+  mv "$temporary" "$MIGRATION_FILE" || {
+    rm -f "$temporary"
+    die "$EXIT_MIGRATION" 'could not persist migration marker'
+  }
+}
+
+migrate_legacy_state() {
+  [[ -e $MIGRATION_FILE ]] && return
+  if [[ ! -e $LEGACY_FILE ]]; then
+    write_migration_marker '' 'no-source' 0 0 0
+    return
+  fi
+  [[ -r $LEGACY_FILE ]] || die "$EXIT_MIGRATION" 'legacy timer state is not readable'
+  jq -e '
+    type == "object" and .version == 1 and
+    (.savedAt | type == "number") and (.timers | type == "array")
+  ' "$LEGACY_FILE" >/dev/null 2>&1 || \
+    die "$EXIT_MIGRATION" 'legacy timer state is corrupt'
+
+  local source_sha256 migration
+  source_sha256="$(sha256sum "$LEGACY_FILE" | cut -d ' ' -f 1)" || \
+    die "$EXIT_MIGRATION" 'could not hash legacy timer state'
+  migration="$(jq -c --argjson now "$(now)" --arg source "$LEGACY_FILE" \
+      --arg source_sha256 "$source_sha256" --slurpfile state "$STATE_FILE" '
+    def valid:
+      type == "object" and
+      (.timerId | type == "string" and length > 0) and
+      (.label | type == "string") and
+      (.mode == "countdown" or .mode == "stopwatch") and
+      (.timerState == "running" or .timerState == "paused") and
+      (.elapsedSeconds | type == "number" and . >= 0) and
+      (.targetSeconds | type == "number" and . >= 0) and
+      (if .mode == "countdown" then .targetSeconds > 0 else true end);
+    .savedAt as $saved | .timers as $records |
+    ([($state[0].timers[] | .id)] | unique) as $existing |
+    reduce range(0; $records | length) as $index
+      ({timers:[],pending_completed:[],seen:$existing,imported:0,completed:0,skipped:0};
+       $records[$index] as $raw |
+       if ($raw | valid) and ((.seen | index($raw.timerId)) == null) then
+         ($raw.elapsedSeconds +
+           (if $raw.timerState == "running" then [$now - $saved, 0] | max else 0 end)) as $elapsed |
+         .seen += [$raw.timerId] |
+         if $raw.mode == "countdown" then
+           ([$raw.targetSeconds - $elapsed, 0] | max) as $remaining |
+           if $raw.timerState == "running" and $remaining == 0 then
+             .timers += [{
+               id:$raw.timerId,label:(if ($raw.label | length) > 0 then $raw.label else "Timer" end),
+               mode:"countdown",state:"completed",duration_seconds:$raw.targetSeconds,
+                accumulated_seconds:0,paused_remaining_seconds:0,created_at:$saved,
+                transitioned_at:$now,deadline_at:null,completed_at:$now,
+                history_logged:false,completion_notified:false,
+                migration_source:$source,migration_source_sha256:$source_sha256,
+                migration_record_index:$index,migration_result:"completed"
+              }] | .completed += 1
+           else
+             .timers += [{
+               id:$raw.timerId,label:(if ($raw.label | length) > 0 then $raw.label else "Timer" end),
+               mode:"countdown",state:$raw.timerState,duration_seconds:$raw.targetSeconds,
+                accumulated_seconds:0,paused_remaining_seconds:$remaining,created_at:$saved,
+                transitioned_at:$now,
+                deadline_at:(if $raw.timerState == "running" then $now + $remaining else null end),
+                migration_source:$source,migration_source_sha256:$source_sha256,
+                migration_record_index:$index,migration_result:"imported"
+              }] | .imported += 1
+           end
+         else
+           .timers += [{
+             id:$raw.timerId,label:(if ($raw.label | length) > 0 then $raw.label else "Timer" end),
+             mode:"stopwatch",state:$raw.timerState,duration_seconds:null,
+              accumulated_seconds:$elapsed,paused_remaining_seconds:null,created_at:$saved,
+              transitioned_at:$now,deadline_at:null,
+              migration_source:$source,migration_source_sha256:$source_sha256,
+              migration_record_index:$index,migration_result:"imported"
+            }] | .imported += 1
+          end
+       elif ($raw | valid) and
+           ([$state[0].timers[] | select(
+             .id == $raw.timerId and .migration_source == $source and
+             .migration_source_sha256 == $source_sha256 and
+             .migration_record_index == $index
+           )] | length == 1) then
+         ([$state[0].timers[] | select(
+           .id == $raw.timerId and .migration_source == $source and
+           .migration_source_sha256 == $source_sha256 and
+           .migration_record_index == $index
+         )][0]) as $prior |
+         if $prior.migration_result == "completed" then
+           .pending_completed += [$raw.timerId] | .completed += 1
+         elif $prior.migration_result == "imported" then
+           .imported += 1
+         else .skipped += 1 end
+       else .skipped += 1 end) |
+    del(.seen)
+  ' "$LEGACY_FILE")" || die "$EXIT_MIGRATION" 'could not convert legacy timer state'
+
+  local scheduled=()
+  local id remaining
+  while IFS=$'\t' read -r id remaining; do
+    [[ -n $id ]] || continue
+    if ! schedule_countdown "$id" "$(( $(now) + remaining ))"; then
+      local scheduled_id
+      for scheduled_id in "${scheduled[@]}"; do
+        "$SYSTEMCTL" --user stop "cloudyy-timer-${scheduled_id}.timer" \
+          "cloudyy-timer-${scheduled_id}.service" >/dev/null 2>&1 || true
+      done
+      die "$EXIT_MIGRATION" "could not schedule migrated timer: $id"
+    fi
+    scheduled+=("$id")
+  done < <(jq -r '.timers[] | select(.mode == "countdown" and .state == "running") |
+    [.id,.paused_remaining_seconds] | @tsv' <<<"$migration")
+
+  if [[ ${CLOUDYY_TIMER_FAIL_MIGRATION_STATE_WRITE:-0} == 1 ]] || \
+      ! (write_state '.timers += $timers' \
+        --argjson timers "$(jq -c '.timers' <<<"$migration")"); then
+    local scheduled_id
+    for scheduled_id in "${scheduled[@]}"; do
+      "$SYSTEMCTL" --user stop "cloudyy-timer-${scheduled_id}.timer" \
+        "cloudyy-timer-${scheduled_id}.service" >/dev/null 2>&1 || true
+    done
+    die "$EXIT_MIGRATION" 'could not persist migrated timer state'
+  fi
+
+  while IFS=$'\t' read -r id; do
+    [[ -n $id ]] || continue
+    local label duration completed_at history_logged completion_notified
+    label="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .label' "$STATE_FILE")"
+    duration="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .duration_seconds' "$STATE_FILE")"
+    completed_at="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .completed_at' "$STATE_FILE")"
+    history_logged="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .history_logged' "$STATE_FILE")"
+    completion_notified="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .completion_notified' "$STATE_FILE")"
+    if [[ $history_logged != true ]]; then
+      append_history "$id" "$label" "$duration" "$completed_at" countdown
+      write_state '(.timers[] | select(.id == $id) | .history_logged) = true' --arg id "$id"
+    fi
+    if [[ $completion_notified != true ]]; then
+      "$NOTIFY_SEND" --app-name=Cloudyy --urgency=normal 'Timer complete' "$label" || \
+        die "$EXIT_MIGRATION" "could not notify migrated timer completion: $id"
+      write_state '(.timers[] | select(.id == $id) | .completion_notified) = true' --arg id "$id"
+    fi
+  done < <(jq -r '([.timers[] | select(.state == "completed") | .id] +
+    .pending_completed)[]' <<<"$migration")
+
+  write_migration_marker "$source_sha256" 'migrated' \
+    "$(jq -r '.imported' <<<"$migration")" \
+    "$(jq -r '.completed' <<<"$migration")" \
+    "$(jq -r '.skipped' <<<"$migration")"
+}
+
+open_state() {
+  validate_dependencies
+  umask 077
+  mkdir -p "$STATE_DIR" || die "$EXIT_PERSISTENCE" 'could not create state directory'
+  chmod 700 "$STATE_DIR" || die "$EXIT_PERSISTENCE" 'could not secure state directory'
+  if ! exec {LOCK_FD}>"$LOCK_FILE"; then
+    die "$EXIT_PERSISTENCE" 'could not open state lock'
+  fi
+  flock -x "$LOCK_FD" || die "$EXIT_PERSISTENCE" 'could not lock state'
+  initialize_state
+  validate_state
+  migrate_legacy_state
+  reconcile_completions
+}
+
+write_state() {
+  WRITE_COUNT=$((WRITE_COUNT + 1))
+  [[ ${CLOUDYY_TIMER_FAIL_STATE_WRITE_AT:-0} != "$WRITE_COUNT" ]] || return 1
+  local filter="$1"
+  shift
+  local temporary
+  temporary="$(mktemp "${STATE_DIR}/.state.XXXXXX")" || \
+    persist_failure 'could not create temporary state'
+  if ! jq -c --argjson now "$(now)" "$@" \
+      "$filter | .updated_at = \$now" "$STATE_FILE" >"$temporary"; then
+    rm -f "$temporary"
+    persist_failure 'could not write state'
+  fi
+  if ! jq -e '.version == 1 and (.timers | type == "array")' "$temporary" >/dev/null; then
+    rm -f "$temporary"
+    persist_failure 'could not validate state'
+  fi
+  chmod 600 "$temporary" || {
+    rm -f "$temporary"
+    persist_failure 'could not secure state'
+  }
+  mv "$temporary" "$STATE_FILE" || {
+    rm -f "$temporary"
+    persist_failure 'could not persist state'
+  }
+}
+
+persist_failure() {
+  local message="$1"
+  if [[ -n $PENDING_SCHEDULE_ID ]]; then
+    stop_countdown_units "$PENDING_SCHEDULE_ID"
+  fi
+  die "$EXIT_PERSISTENCE" "$message"
+}
+
+normalized_timer() {
+  local id="$1"
+  jq -c --arg id "$id" --argjson now "$(now)" '
+    .timers[] | select(.id == $id) |
+    if .mode == "stopwatch" then
+      . + {
+        elapsed_seconds: (
+          .accumulated_seconds +
+          (if .state == "running" then [$now - .transitioned_at, 0] | max else 0 end)
+        ),
+        remaining_seconds: null
+      }
+    else
+      . + {
+        elapsed_seconds: (
+          .duration_seconds -
+          (if .state == "running" then [.deadline_at - $now, 0] | max
+           else .paused_remaining_seconds end)
+        ),
+        remaining_seconds: (
+          if .state == "running" then [.deadline_at - $now, 0] | max
+          else .paused_remaining_seconds end
+        )
+      }
+    end |
+    {
+      id, label, mode, state, duration_seconds, elapsed_seconds,
+      remaining_seconds, created_at, transitioned_at, deadline_at
+    }
+  ' "$STATE_FILE"
+}
+
+timer_exists() {
+  jq -e --arg id "$1" '.timers[] | select(.id == $id)' "$STATE_FILE" >/dev/null
+}
+
+generate_id() {
+  local prefix="$1"
+  local nanoseconds random
+  nanoseconds="$(date +%s%N)"
+  random="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+  printf '%s-%s-%s\n' "$prefix" "$nanoseconds" "$random"
+}
+
+schedule_countdown() {
+  local id="$1"
+  local deadline="$2"
+  "$SYSTEMD_RUN" --user --quiet --collect \
+    "--unit=cloudyy-timer-${id}" "--on-calendar=@${deadline}" \
+    --timer-property=Persistent=true --property=Type=oneshot \
+    --property=Restart=on-failure --property=RestartSec=5s \
+    --property=StartLimitIntervalSec=5min --property=StartLimitBurst=5 \
+    -- "$PROVIDER_PATH" complete "$id"
+}
+
+stop_countdown_units() {
+  local id="$1"
+  local output
+  if output="$("$SYSTEMCTL" --user stop \
+      "cloudyy-timer-${id}.timer" "cloudyy-timer-${id}.service" 2>&1)"; then
+    return
+  fi
+
+  local line
+  while IFS= read -r line; do
+    case "$line" in
+    *' not loaded.' | *' not found.' | *' could not be found.' | *' not active.' | *' is inactive.')
+      ;;
+    *)
+      printf '%s\n' "$output" >&2
+      die "$EXIT_SYSTEMD" "could not stop timer: $id"
+      ;;
+    esac
+  done <<<"$output"
+}
+
+format_duration() {
+  local seconds="$1"
+  local hours=$((seconds / 3600))
+  local minutes=$(((seconds % 3600) / 60))
+  local remainder=$((seconds % 60))
+  if [[ $hours -gt 0 ]]; then
+    printf '%dh %02dm' "$hours" "$minutes"
+  elif [[ $minutes -gt 0 ]]; then
+    printf '%dm %02ds' "$minutes" "$remainder"
+  else
+    printf '%ds' "$remainder"
+  fi
+}
+
+append_history() {
+  local id="$1"
+  local label="${2//|/-}"
+  local duration="$3"
+  local completed_at="$4"
+  local mode="$5"
+  local record_dir="$HOME/Desktop/timer_record"
+  local month_file
+  month_file="$record_dir/$(date -d "@$completed_at" '+%Y-%m').md"
+  local today
+  today="$(date -d "@$completed_at" '+%Y-%m-%d')"
+  local completed_time
+  completed_time="$(date -d "@$completed_at" '+%H:%M')"
+  local formatted_duration
+  formatted_duration="$(format_duration "$duration")"
+  local marker="<!-- cloudyy-timer-completion:${id} -->"
+
+  mkdir -p "$record_dir" || die "$EXIT_PERSISTENCE" 'could not create history directory'
+  if [[ ! -f $month_file ]]; then
+    printf '# Timer Log — %s\n\n' "$(date -d "@$completed_at" '+%B %Y')" >"$month_file" || \
+      die "$EXIT_PERSISTENCE" 'could not initialize timer history'
+  fi
+  if ! grep -qF "## $today" "$month_file" 2>/dev/null; then
+    printf '\n## %s\n\n| Started | Project | Duration | Mode |\n|---------|---------|----------|------|\n' \
+      "$today" >>"$month_file" || die "$EXIT_PERSISTENCE" 'could not add history day'
+  fi
+  grep -qF "$marker" "$month_file" 2>/dev/null && return
+  local mode_label="$mode"
+  [[ $mode != countdown ]] || mode_label="countdown ($formatted_duration)"
+  printf '%s\n| %s | %s | %s | %s |\n' \
+    "$marker" "$completed_time" "$label" "$formatted_duration" "$mode_label" \
+    >>"$month_file" || die "$EXIT_PERSISTENCE" 'could not append timer history'
+}
+
+finish_countdown() {
+  local id="$1"
+  local state
+  state="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .state' "$STATE_FILE")"
+  if [[ $state != completed ]]; then
+    [[ $state == running ]] || return "$EXIT_INVALID_TRANSITION"
+    write_state '(.timers[] | select(.id == $id)) |=
+      (.state = "completed" | .paused_remaining_seconds = 0 | .deadline_at = null |
+       .transitioned_at = $now | .completed_at = $now |
+       .history_logged = false | .completion_notified = false)' --arg id "$id" || \
+      die "$EXIT_PERSISTENCE" 'could not persist timer completion'
+  fi
+
+  local label duration completed_at history_logged completion_notified
+  label="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .label' "$STATE_FILE")"
+  duration="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .duration_seconds' "$STATE_FILE")"
+  completed_at="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .completed_at' "$STATE_FILE")"
+  history_logged="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .history_logged' "$STATE_FILE")"
+  completion_notified="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .completion_notified' "$STATE_FILE")"
+  if [[ $history_logged != true ]]; then
+    append_history "$id" "$label" "$duration" "$completed_at" countdown
+    write_state '(.timers[] | select(.id == $id) | .history_logged) = true' --arg id "$id" || \
+      die "$EXIT_PERSISTENCE" 'could not acknowledge timer history'
+  fi
+  if [[ $completion_notified != true ]]; then
+    "$NOTIFY_SEND" --app-name=Cloudyy --urgency=normal 'Timer complete' "$label" || \
+      die "$EXIT_DEPENDENCY" "could not notify timer completion: $id"
+    write_state '(.timers[] | select(.id == $id) | .completion_notified) = true' --arg id "$id" || \
+      die "$EXIT_PERSISTENCE" 'could not acknowledge timer notification'
+  fi
+}
+
+reconcile_completions() {
+  local id
+  while IFS= read -r id; do
+    [[ -n $id ]] || continue
+    finish_countdown "$id"
+  done < <(jq -r --argjson now "$(now)" '.timers[] |
+    select(.mode == "countdown" and
+      ((.state == "running" and .deadline_at <= $now) or
+       (.state == "completed" and
+        (.history_logged != true or .completion_notified != true)))) | .id' "$STATE_FILE")
+}
+
+list_timers() {
+  [[ $# -le 1 ]] || usage
+  [[ $# -eq 0 || $1 == '--json' ]] || usage
+  open_state
+  if [[ $# -eq 1 ]]; then
+    jq -c --argjson now "$(now)" \
+      '{version:.version,generated_at:$now,timers:[.timers[] |
+        if .mode == "stopwatch" then
+          . + {
+            elapsed_seconds: (.accumulated_seconds +
+              (if .state == "running" then [$now - .transitioned_at, 0] | max else 0 end)),
+            remaining_seconds: null
+          }
+        else
+          . + {
+            elapsed_seconds: (.duration_seconds -
+              (if .state == "running" then [.deadline_at - $now, 0] | max
+               else .paused_remaining_seconds end)),
+            remaining_seconds: (if .state == "running" then [.deadline_at - $now, 0] | max
+              else .paused_remaining_seconds end)
+          }
+        end |
+        {id,label,mode,state,duration_seconds,elapsed_seconds,remaining_seconds,
+         created_at,transitioned_at,deadline_at}]}' "$STATE_FILE"
+  elif jq -e '.timers | length == 0' "$STATE_FILE" >/dev/null; then
+    printf 'No timers.\n'
+  else
+    jq -r --argjson now "$(now)" '.timers[] |
+      if .mode == "stopwatch" then
+        "\(.label) | \(.mode) | \(.state) | \(
+          .accumulated_seconds +
+          (if .state == "running" then [$now - .transitioned_at, 0] | max else 0 end)
+        )s elapsed"
+      else
+        "\(.label) | \(.mode) | \(.state) | \(
+          if .state == "running" then [.deadline_at - $now, 0] | max
+          else .paused_remaining_seconds end
+        )s remaining"
+      end' "$STATE_FILE"
+  fi
+}
+
+create_timer() {
+  local label=''
+  local duration=''
+  local label_seen=0
+  local duration_seen=0
+  local json_seen=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --label)
+      [[ $label_seen -eq 0 && $# -ge 2 && -n $2 && $2 != --* ]] || usage
+      label="$2"
+      label_seen=1
+      shift 2
+      ;;
+    --duration)
+      [[ $duration_seen -eq 0 && $# -ge 2 ]] || usage
+      duration="$2"
+      duration_seen=1
+      shift 2
+      ;;
+    --json)
+      [[ $json_seen -eq 0 ]] || usage
+      json_seen=1
+      shift
+      ;;
+    *)
+      usage
+      ;;
+    esac
+  done
+  [[ $label_seen -eq 1 && -n $label ]] || usage
+  [[ $duration_seen -eq 1 && $duration =~ ^[1-9][0-9]*$ ]] || usage
+  open_state
+  local id
+  id="$(generate_id ct)"
+  local deadline=$(( $(now) + duration ))
+  schedule_countdown "$id" "$deadline" || die "$EXIT_SYSTEMD" "could not schedule timer: $id"
+  PENDING_SCHEDULE_ID="$id"
+  if ! write_state '.timers += [{
+    id:$id,label:$label,mode:"countdown",state:"running",
+    duration_seconds:$duration,accumulated_seconds:0,paused_remaining_seconds:$duration,
+    created_at:$now,transitioned_at:$now,deadline_at:($now + $duration)
+  }]' --arg id "$id" --arg label "$label" --argjson duration "$duration"; then
+    stop_countdown_units "$id"
+    die "$EXIT_PERSISTENCE" 'could not persist timer'
+  fi
+  PENDING_SCHEDULE_ID=''
+  normalized_timer "$id"
+}
+
+start_stopwatch() {
+  local label=''
+  local label_seen=0
+  local json_seen=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --label)
+      [[ $label_seen -eq 0 && $# -ge 2 && -n $2 && $2 != --* ]] || usage
+      label="$2"
+      label_seen=1
+      shift 2
+      ;;
+    --json)
+      [[ $json_seen -eq 0 ]] || usage
+      json_seen=1
+      shift
+      ;;
+    *)
+      usage
+      ;;
+    esac
+  done
+  [[ $label_seen -eq 1 && -n $label ]] || usage
+  open_state
+  local id
+  id="$(generate_id sw)"
+  write_state '.timers += [{
+    id:$id,label:$label,mode:"stopwatch",state:"running",
+    duration_seconds:null,accumulated_seconds:0,paused_remaining_seconds:null,
+    created_at:$now,transitioned_at:$now,deadline_at:null
+  }]' --arg id "$id" --arg label "$label"
+  normalized_timer "$id"
+}
+
+transition_timer() {
+  local command="$1"
+  shift
+  [[ $# -eq 1 ]] || usage
+  open_state
+  local id="$1"
+  timer_exists "$id" || \
+    die "$EXIT_UNKNOWN_ID" "unknown timer ID: $1"
+
+  local mode state
+  mode="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .mode' "$STATE_FILE")"
+  state="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .state' "$STATE_FILE")"
+  case "$command:$mode:$state" in
+  pause:countdown:running)
+    stop_countdown_units "$id"
+    write_state '(.timers[] | select(.id == $id)) |=
+      (.paused_remaining_seconds = ([.deadline_at - $now, 0] | max) |
+       .state = "paused" | .transitioned_at = $now | .deadline_at = null)' --arg id "$id"
+    ;;
+  stopwatch-pause:stopwatch:running)
+    write_state '(.timers[] | select(.id == $id)) |=
+      (.accumulated_seconds += ([$now - .transitioned_at, 0] | max) |
+       .state = "paused" | .transitioned_at = $now)' --arg id "$id"
+    ;;
+  resume:countdown:paused)
+    local remaining
+    remaining="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .paused_remaining_seconds' "$STATE_FILE")"
+    local deadline=$(( $(now) + remaining ))
+    schedule_countdown "$id" "$deadline" || die "$EXIT_SYSTEMD" "could not schedule timer: $id"
+    PENDING_SCHEDULE_ID="$id"
+    if ! write_state '(.timers[] | select(.id == $id)) |=
+      (.state = "running" | .transitioned_at = $now |
+       .deadline_at = ($now + .paused_remaining_seconds))' --arg id "$id"; then
+      stop_countdown_units "$id"
+      die "$EXIT_PERSISTENCE" 'could not persist resumed timer'
+    fi
+    PENDING_SCHEDULE_ID=''
+    ;;
+  resume:stopwatch:paused)
+    write_state '(.timers[] | select(.id == $id)) |=
+      (.state = "running" | .transitioned_at = $now)' --arg id "$id"
+    ;;
+  reset:countdown:*)
+    stop_countdown_units "$id"
+    if [[ $state == running ]]; then
+      write_state '(.timers[] | select(.id == $id)) |=
+        (.paused_remaining_seconds = ([.deadline_at - $now, 0] | max) |
+         .state = "paused" | .transitioned_at = $now | .deadline_at = null)' --arg id "$id"
+    fi
+    local duration
+    duration="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .duration_seconds' "$STATE_FILE")"
+    local deadline=$(( $(now) + duration ))
+    schedule_countdown "$id" "$deadline" || die "$EXIT_SYSTEMD" "could not schedule timer: $id"
+    PENDING_SCHEDULE_ID="$id"
+    if ! write_state '(.timers[] | select(.id == $id)) |=
+      (.state = "running" | .paused_remaining_seconds = .duration_seconds |
+       .transitioned_at = $now | .deadline_at = ($now + .duration_seconds))' --arg id "$id"; then
+      stop_countdown_units "$id"
+      die "$EXIT_PERSISTENCE" 'could not persist reset timer'
+    fi
+    PENDING_SCHEDULE_ID=''
+    ;;
+  stopwatch-reset:stopwatch:*)
+    write_state '(.timers[] | select(.id == $id)) |=
+      (.state = "running" | .accumulated_seconds = 0 | .transitioned_at = $now)' --arg id "$id"
+    ;;
+  pause:countdown:paused | stopwatch-pause:stopwatch:paused | resume:*:running)
+    ;;
+  *)
+    die "$EXIT_INVALID_TRANSITION" "invalid $command transition for $mode timer"
+    ;;
+  esac
+  normalized_timer "$id"
+}
+
+delete_timer() {
+  [[ $# -eq 1 ]] || usage
+  open_state
+  timer_exists "$1" || die "$EXIT_UNKNOWN_ID" "unknown timer ID: $1"
+  local timer
+  timer="$(normalized_timer "$1")"
+  local mode
+  mode="$(jq -r --arg id "$1" '.timers[] | select(.id == $id) | .mode' "$STATE_FILE")"
+  if [[ $mode == countdown ]]; then
+    stop_countdown_units "$1"
+  fi
+  write_state '.timers |= map(select(.id != $id))' --arg id "$1"
+  printf '%s\n' "$timer"
+}
+
+complete_timer() {
+  [[ $# -ge 1 && $# -le 2 ]] || usage
+  [[ $# -eq 1 || $2 == '--json' ]] || usage
+  open_state
+  local id="$1"
+  timer_exists "$id" || die "$EXIT_UNKNOWN_ID" "unknown timer ID: $id"
+
+  local mode
+  mode="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .mode' "$STATE_FILE")"
+  [[ $mode == countdown ]] || \
+    die "$EXIT_INVALID_TRANSITION" 'invalid complete transition for stopwatch timer'
+  finish_countdown "$id" || die "$EXIT_INVALID_TRANSITION" 'invalid complete transition for countdown timer'
+  normalized_timer "$id"
+}
+
+stop_timer() {
+  [[ $# -ge 1 && $# -le 2 ]] || usage
+  [[ $# -eq 1 || $2 == '--json' ]] || usage
+  open_state
+  local id="$1"
+  timer_exists "$id" || die "$EXIT_UNKNOWN_ID" "unknown timer ID: $id"
+  local mode
+  mode="$(jq -r --arg id "$id" '.timers[] | select(.id == $id) | .mode' "$STATE_FILE")"
+  if [[ $mode == countdown ]]; then
+    finish_countdown "$id" || die "$EXIT_INVALID_TRANSITION" 'invalid stop transition for countdown timer'
+    normalized_timer "$id"
+    return
+  fi
+  local timer label elapsed
+  timer="$(normalized_timer "$id")"
+  label="$(jq -r '.label' <<<"$timer")"
+  elapsed="$(jq -r '.elapsed_seconds' <<<"$timer")"
+  append_history "$id" "$label" "$elapsed" "$(now)" stopwatch
+  write_state '.timers |= map(select(.id != $id))' --arg id "$id" || \
+    die "$EXIT_PERSISTENCE" 'could not remove stopped stopwatch'
+  printf '%s\n' "$timer"
+}
+
+rename_timer() {
+  [[ $# -eq 2 && -n $2 && $2 != --* ]] || usage
+  open_state
+  timer_exists "$1" || die "$EXIT_UNKNOWN_ID" "unknown timer ID: $1"
+  write_state '(.timers[] | select(.id == $id) | .label) = $label' \
+    --arg id "$1" --arg label "$2"
+  normalized_timer "$1"
+}
+
+case "${1:-}" in
+list)
+  shift
+  list_timers "$@"
+  ;;
+create)
+  shift
+  create_timer "$@"
+  ;;
+pause | resume | reset | stopwatch-pause | stopwatch-reset)
+  command="$1"
+  shift
+  transition_timer "$command" "$@"
+  ;;
+delete)
+  shift
+  delete_timer "$@"
+  ;;
+complete)
+  shift
+  complete_timer "$@"
+  ;;
+stop)
+  shift
+  stop_timer "$@"
+  ;;
+rename)
+  shift
+  rename_timer "$@"
+  ;;
+stopwatch-start)
+  shift
+  start_stopwatch "$@"
+  ;;
+*)
+  usage
+  ;;
+esac

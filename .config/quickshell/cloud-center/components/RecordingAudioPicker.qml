@@ -28,9 +28,9 @@ Column {
 
         width: parent ? parent.width : 0
         height: content.implicitHeight + 20
-        radius: 10
-        color: Theme.glass(Theme.surface_container, 0.55)
-        border { width: 1; color: Theme.glass(Theme.outline_variant, 0.45) }
+        radius: 0
+        color: Theme.surface_container
+        border { width: 1; color: Theme.hairline }
 
         Column {
             id: content

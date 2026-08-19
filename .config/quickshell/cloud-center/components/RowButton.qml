@@ -7,7 +7,7 @@ RowBase {
     id: buttonRow
 
     Rectangle {
-        width: buttonText.implicitWidth + 24; height: 26; radius: 7
+        width: buttonText.implicitWidth + 24; height: 26; radius: 2
         color: btnHover.hovered ? Theme.glass(Theme.primary, 0.14) : Theme.glass(Theme.primary, 0.08)
         Behavior on color { ColorAnimation { duration: 120 } }
         Text { id: buttonText; anchors.centerIn: parent

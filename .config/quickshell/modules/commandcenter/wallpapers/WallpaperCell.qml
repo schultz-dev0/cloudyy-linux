@@ -14,7 +14,7 @@ Item {
     signal activated()
 
     readonly property int boxPadding: 14
-    readonly property int boxRadius: 16
+    readonly property int boxRadius: 2
     readonly property int imageSize: Math.min(root.cellWidth - 36, 148)
     readonly property int slotSize: root.imageSize + root.boxPadding * 2
 
@@ -59,7 +59,7 @@ Item {
             anchors.margins: 8
             width: currentLabel.width + 8
             height: 16
-            radius: 8
+            radius: 2
             visible: root.isCurrent
             color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
             z: 1

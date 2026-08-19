@@ -196,9 +196,9 @@ CloudDialog {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 12
-                    color: Theme.glass(Theme.surface_container_lowest, 0.9)
-                    border { width: 1; color: Theme.glass(Theme.outline_variant, 0.5) }
+                    radius: 0
+                    color: Theme.surface_container_lowest
+                    border { width: 1; color: Theme.hairline }
 
                     Canvas {
                         id: canvas
@@ -364,9 +364,9 @@ CloudDialog {
             Rectangle {
                 width: parent.width
                 height: 34
-                radius: 8
-                color: Theme.glass(Theme.surface_container_low, 0.75)
-                border { width: 1; color: Theme.glass(Theme.outline_variant, 0.45) }
+                radius: 2
+                color: Theme.surface_container_low
+                border { width: 1; color: Theme.hairline }
 
                 Text {
                     anchors {
@@ -391,7 +391,7 @@ CloudDialog {
                     }
                     height: 4
                     radius: 2
-                    color: Theme.glass(Theme.outline_variant, 0.45)
+                    color: Theme.hairline
                     Rectangle {
                         width: 12
                         height: 12
@@ -419,13 +419,12 @@ CloudDialog {
                         radius: 999
                         width: chipLabel.implicitWidth + 20
                         color: dialog.selectedChip === modelData.id
-                            ? Theme.glass(Theme.primary, 0.18)
-                            : Theme.glass(Theme.surface_container_high, 0.7)
+                            ? Theme.primary_container
+                            : Theme.surface_container_high
                         border {
                             width: 1
                             color: dialog.selectedChip === modelData.id
-                                ? Theme.primary
-                                : Theme.glass(Theme.outline_variant, 0.5)
+                                ? Theme.primary : Theme.hairline
                         }
                         Text {
                             id: chipLabel
@@ -448,8 +447,8 @@ CloudDialog {
                     height: 28
                     radius: 999
                     width: moreLabel.implicitWidth + 20
-                    color: Theme.glass(Theme.surface_container_high, 0.7)
-                    border { width: 1; color: Theme.glass(Theme.outline_variant, 0.5) }
+                    color: Theme.surface_container_high
+                    border { width: 1; color: Theme.hairline }
                     Text {
                         id: moreLabel
                         anchors.centerIn: parent
@@ -619,9 +618,9 @@ CloudDialog {
         padding: 12
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {
-            radius: 14
-            color: Theme.glass(Theme.surface_container, 0.96)
-            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+            radius: 0
+            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95)
+            border { width: 1; color: Theme.hairline }
         }
 
         Column {

@@ -218,15 +218,9 @@ Flickable {
             visible: recordingPage.bannerVisible
             width: content.width
             height: bannerText.implicitHeight + 20
-            radius: 10
-            color: recordingPage.hasError
-                ? Theme.glass(Theme.error_container, 0.55)
-                : Theme.glass(Theme.primary_container, 0.45)
-            border {
-                width: 1
-                color: recordingPage.hasError
-                    ? Theme.glass(Theme.error, 0.4) : Theme.glass(Theme.primary, 0.4)
-            }
+            radius: 2
+            color: recordingPage.hasError ? Theme.error_container : Theme.primary_container
+            border { width: 1; color: Theme.hairline }
 
             Row {
                 anchors { left: parent.left; leftMargin: 12; right: parent.right; rightMargin: 12

@@ -8,17 +8,16 @@ import "../.."
 Rectangle {
     id: root
 
-    implicitHeight: innerCol.implicitHeight + 24
-    radius: 16
-    color: Theme.glassSection
-    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.22)
-    border.width: 1
+    implicitHeight: innerCol.implicitHeight + 16
+    radius: 0
+    color: "transparent"
+    border.width: 0
 
     readonly property var _upcoming: CalendarService.upcomingEvents(3)
 
     ColumnLayout {
         id: innerCol
-        anchors { fill: parent; margins: 12 }
+        anchors { fill: parent; margins: 8 }
         spacing: 8
 
         // ── Today header ──────────────────────────────────────────────────────

@@ -30,6 +30,8 @@ install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-unlocked.target" "${unit_
 # Lid-suspend inhibitor unit — installed but not enabled; Cloud Center's
 # "Sleep when lid is closed" toggle (lib/lid_sleep_persist.py) enables it.
 install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-lid-inhibit.service" "${unit_dir}/cloudyy-lid-inhibit.service"
+install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-agent-usage.service" "${unit_dir}/cloudyy-agent-usage.service"
+install -m 0644 "${INSTALL_DIR}/assets/systemd/cloudyy-agent-usage.timer" "${unit_dir}/cloudyy-agent-usage.timer"
 
 bash "${SCRIPT_DIR}/desktop-entries.sh" "$REPO_DIR"
 bash "${SCRIPT_DIR}/quickshell-service.sh" ||
@@ -37,6 +39,10 @@ bash "${SCRIPT_DIR}/quickshell-service.sh" ||
 audio_service_script="${SCRIPT_DIR}/audio-autoswitch.sh"
 bash "$audio_service_script" \
       || log_warn "Audio auto-switch service setup encountered issues (non-fatal)."
+systemctl --user daemon-reload 2>/dev/null ||
+  log_warn "Could not reload user services for agent usage collection (non-fatal)."
+systemctl --user enable --now cloudyy-agent-usage.timer 2>/dev/null ||
+  log_warn "Could not enable agent usage collection (non-fatal)."
 
 for service in bluetooth.service NetworkManager.service power-profiles-daemon.service; do
   sudo systemctl enable --now "$service" 2>/dev/null ||

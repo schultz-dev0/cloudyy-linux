@@ -99,8 +99,8 @@ Flickable {
 
             Rectangle {
                 anchors { left: parent.left; right: addBtn.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                height: 30; radius: 8
-                color: Theme.glass(Theme.surface_container_high, 0.7)
+                height: 30; radius: 2
+                color: Theme.surface_container_high
                 TextInput {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     verticalAlignment: TextInput.AlignVCenter
@@ -115,10 +115,11 @@ Flickable {
             Rectangle {
                 id: addBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                width: addText.implicitWidth + 20; height: 30; radius: 8
-                color: addHover.hovered ? Theme.glass(Theme.primary, 0.2) : Theme.glass(Theme.primary, 0.12)
+                width: addText.implicitWidth + 20; height: 30; radius: 2
+                color: addHover.hovered ? Theme.primary : Theme.primary_container
                 Text { id: addText; anchors.centerIn: parent; text: "\u{f0415} Add"
-                       color: Theme.accent; font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
+                       color: addHover.hovered ? Theme.on_primary : Theme.on_primary_container
+                       font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                 HoverHandler { id: addHover }
                 TapHandler { onTapped: kbPage.openAdd() }
             }
@@ -145,9 +146,9 @@ Flickable {
                 Rectangle {
                     width: catBlock.width
                     height: rowsCol.implicitHeight
-                    radius: 12
+                    radius: 0
                     color: Theme.surface_container_lowest
-                    border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+                    border { width: 1; color: Theme.hairline }
                     Column {
                         id: rowsCol
                         width: parent.width
@@ -169,7 +170,7 @@ Flickable {
                                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 9 }
                                 }
                                 Rectangle {
-                                    width: 24; height: 24; radius: 6
+                                    width: 24; height: 24; radius: 2
                                     color: editHover.hovered ? Theme.glass(Theme.primary, 0.14) : "transparent"
                                     Text { anchors.centerIn: parent; text: "\u{f03eb}"; color: Theme.accent
                                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 12 } }
@@ -178,7 +179,7 @@ Flickable {
                                 }
                                 Rectangle {
                                     visible: modelData.owned
-                                    width: 24; height: 24; radius: 6
+                                    width: 24; height: 24; radius: 2
                                     color: delHover.hovered ? Theme.glass(Theme.error, 0.14) : "transparent"
                                     Text { anchors.centerIn: parent; text: "\u{f0a79}"; color: Theme.error
                                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -205,8 +206,8 @@ Flickable {
         onClosed: kbPage.dialogOpen = false
         enter: null; exit: null   // motion budget: no popup fade, matches RowSelect's combo popup
 
-        background: Rectangle { radius: 14; color: Theme.surface_container
-                                 border { width: 1; color: Theme.outline_variant } }
+        background: Rectangle { radius: 0; color: Theme.surface_container
+                                 border { width: 1; color: Theme.hairline } }
 
         contentItem: Column {
             spacing: 12
@@ -220,8 +221,8 @@ Flickable {
                 Text { text: "Key combo"; color: Theme.textMuted
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
-                    width: parent.width; height: 30; radius: 8
-                    color: Theme.glass(Theme.surface_container_high, 0.7)
+                    width: parent.width; height: 30; radius: 2
+                    color: Theme.surface_container_high
                     TextInput {
                         id: keysInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
@@ -240,8 +241,8 @@ Flickable {
                 Text { text: "Dispatcher (raw Lua)"; color: Theme.textMuted
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
-                    width: parent.width; height: 30; radius: 8
-                    color: Theme.glass(Theme.surface_container_high, 0.7)
+                    width: parent.width; height: 30; radius: 2
+                    color: Theme.surface_container_high
                     TextInput {
                         id: dispatcherInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
@@ -260,8 +261,8 @@ Flickable {
                 Text { text: "Description (optional)"; color: Theme.textMuted
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
-                    width: parent.width; height: 30; radius: 8
-                    color: Theme.glass(Theme.surface_container_high, 0.7)
+                    width: parent.width; height: 30; radius: 2
+                    color: Theme.surface_container_high
                     TextInput {
                         id: descInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
@@ -290,15 +291,15 @@ Flickable {
             Row {
                 spacing: 8
                 Rectangle {
-                    width: cancelText.implicitWidth + 20; height: 28; radius: 8
-                    color: Theme.glass(Theme.outline_variant, 0.3)
+                    width: cancelText.implicitWidth + 20; height: 28; radius: 2
+                    color: Theme.surface_container_high
                     Text { id: cancelText; anchors.centerIn: parent; text: "Cancel"
                            color: Theme.textMuted; font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                     TapHandler { onTapped: kbPage.dialogOpen = false }
                 }
                 Rectangle {
-                    width: saveText.implicitWidth + 20; height: 28; radius: 8
-                    color: Theme.glass(Theme.primary, 0.18)
+                    width: saveText.implicitWidth + 20; height: 28; radius: 2
+                    color: Theme.primary_container
                     Text { id: saveText; anchors.centerIn: parent; text: "Save"
                            color: Theme.accent; font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                     TapHandler { onTapped: kbPage.save() }

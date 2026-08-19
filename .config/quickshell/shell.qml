@@ -13,10 +13,10 @@ import "modules/spotlight" as QuickSpotlight
 import "modules/commandcenter/applibrary" as QuickAppLibrary
 import "modules/commandcenter/powermenu" as QuickPowerMenu
 import "modules/commandcenter/wallpapers" as QuickWallpapers
-import "modules/timer" as QuickTimer
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/island" as QuickIsland
 import "modules/notifpanel" as QuickNotifPanel
+import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "overview/modules/overview" as QuickOverview
 
@@ -37,6 +37,12 @@ ShellRoot {
     // ── Global state ────────────────────────────────────────────────────────
     property bool notifOpen: false
     property bool dnd: false
+    property var externalPanelScreen: null
+
+    onNotifOpenChanged: {
+        if (!root.notifOpen && !QuickSystemMonitor.SystemMonitorService.open)
+            root.externalPanelScreen = null;
+    }
 
     // ── Multi-monitor shell layout (Cloud Center → quickshell.json) ─────────
     property bool barOnAllScreens: false
@@ -90,6 +96,14 @@ ShellRoot {
             } else {
                 root.islandScreenPin = null;
             }
+        }
+    }
+
+    Connections {
+        target: QuickSystemMonitor.SystemMonitorService
+        function onOpenChanged() {
+            if (!QuickSystemMonitor.SystemMonitorService.open && !root.notifOpen)
+                root.externalPanelScreen = null;
         }
     }
 
@@ -172,11 +186,6 @@ ShellRoot {
     Component {
         id: osdBurstActivityComp
         QuickIsland.OsdBurstActivity {}
-    }
-
-    Component {
-        id: timerIslandContentComp
-        QuickIsland.TimerIslandContent {}
     }
 
     // Polls the first kbd_backlight LED device found in /sys/class/leds every 200 ms.
@@ -325,7 +334,14 @@ ShellRoot {
     Process {
         id: recordingStateRestore
         running: false
-        command: ["sh", "-c", "grep '^OUT_FILE=' /tmp/cloudyy-recording.state 2>/dev/null | cut -d= -f2-"]
+        command: ["sh", "-c",
+            "state=/tmp/cloudyy-recording.state; "
+            + "grep -qx 'RECORDING=1' \"$state\" 2>/dev/null || exit 0; "
+            + "pidfile=${XDG_RUNTIME_DIR:-/run}/hyprcap_rec.pid; "
+            + "pid=$(cat \"$pidfile\" 2>/dev/null) || exit 0; "
+            + "kill -0 \"$pid\" 2>/dev/null || exit 0; "
+            + "grep '^OUT_FILE=' \"$state\" | cut -d= -f2-"
+        ]
         stdout: SplitParser {
             onRead: line => {
                 const path = line.trim();
@@ -353,21 +369,6 @@ ShellRoot {
         target: Mpris.players
         function onValuesChanged() {
             QuickIsland.MprisFocus.refresh();
-        }
-    }
-
-    Connections {
-        target: QuickTimer.TimerService
-        function onTimerCompleted(timer) {
-            QuickIsland.DynamicIslandService.push({
-                contentComponent: timerIslandContentComp,
-                priority: 80,
-                durationMs: QuickIsland.DynamicIslandService.notificationIslandDefaultMs,
-                data: {
-                    activityType: "timer",
-                    completedTimer: timer
-                }
-            });
         }
     }
 
@@ -426,10 +427,12 @@ ShellRoot {
     Connections {
         target: QuickIsland.IslandState
         function onControlCenterRequested() {
+            root.externalPanelScreen = root.islandScreen;
             root.notifOpen = true;
             QuickIsland.IslandState.completeExternalActivation("controlCenter", root.notifOpen);
         }
         function onSystemOverviewRequested() {
+            root.externalPanelScreen = root.islandScreen;
             try {
                 QuickSystemMonitor.SystemMonitorService.open = true;
             } catch (error) {
@@ -540,15 +543,6 @@ ShellRoot {
     // Overview owns its own IPC ("overview") inside QuickOverview.Overview.
 
     // ── Components ───────────────────────────────────────────────────────────
-    Variants {
-        id: barVignetteVariants
-        model: root.barScreens
-
-        BarVignette {
-            required property var modelData
-            assignedScreen: modelData
-        }
-    }
 
     Variants {
         id: barVariants
@@ -569,6 +563,7 @@ ShellRoot {
 
     NotifPanel {
         id: notifPanel
+        screen: root.externalPanelScreen ?? root.islandScreen
         open: root.notifOpen
         dnd: root.dnd
         notifServer: notifServer
@@ -612,7 +607,10 @@ ShellRoot {
 
     QuickWallpapers.WallpaperPicker {}
 
+    QuickCalendar.CalendarPanel {}
+
     QuickSystemMonitor.SystemOverviewPanel {
+        screen: root.externalPanelScreen ?? root.islandScreen
         notifOpen: root.notifOpen
     }
 }

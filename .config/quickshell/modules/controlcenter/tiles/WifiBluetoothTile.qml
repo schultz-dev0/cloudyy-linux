@@ -24,7 +24,7 @@ Rectangle {
     }
 
     // ── Tunables ──────────────────────────────────────────────────────────
-    readonly property int tileRadius: 12
+    readonly property int tileRadius: 2
 
     // ── Layout ────────────────────────────────────────────────────────────
     // Height matches two BaseTiles plus one row gap: 68 + 6 + 68 = 142.
@@ -33,9 +33,8 @@ Rectangle {
     Layout.fillWidth: true
 
     radius:       tileRadius
-    color:        Theme.glassSection
-    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
-    border.width: 1
+    color:        "transparent"
+    border.width: 0
 
     // ── Content ───────────────────────────────────────────────────────────
     ColumnLayout {
@@ -82,20 +81,27 @@ Rectangle {
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.weight:    Font.Bold
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.6
                     }
 
                     Text {
                         text:             root.networkName
-                        color:            root.wifiActive
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.9)
-                            : Theme.on_surface_variant
+                        color:            Theme.on_surface_variant
                         font.family:      "JetBrainsMono Nerd Font"
                         font.pixelSize:   9
                         elide:            Text.ElideRight
                         Layout.fillWidth: true
-
-                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+                }
+
+                Rectangle {
+                    width: 7
+                    height: 7
+                    radius: 0
+                    color: root.wifiActive ? Theme.accent : "transparent"
+                    border.width: 1
+                    border.color: Theme.accent
                 }
             }
 
@@ -111,7 +117,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             height:           1
-            color:            Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+            color:            Theme.hairline
         }
 
         // ── Bluetooth row ─────────────────────────────────────────────────
@@ -154,18 +160,25 @@ Rectangle {
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.weight:    Font.Bold
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.6
                     }
 
                     Text {
                         text:           root.btStatusText
-                        color:          root.btActive
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.9)
-                            : Theme.on_surface_variant
+                        color:          Theme.on_surface_variant
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 9
-
-                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+                }
+
+                Rectangle {
+                    width: 7
+                    height: 7
+                    radius: 0
+                    color: root.btActive ? Theme.accent : "transparent"
+                    border.width: 1
+                    border.color: Theme.accent
                 }
             }
 

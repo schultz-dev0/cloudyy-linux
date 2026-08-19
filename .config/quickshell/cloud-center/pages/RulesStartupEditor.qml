@@ -310,7 +310,7 @@ Flickable {
             Row {
                 id: headerActions; spacing: 8
                 Rectangle {
-                    width: discardLabel.implicitWidth + 20; height: 30; radius: 8
+                    width: discardLabel.implicitWidth + 20; height: 30; radius: 2
                     opacity: drafts.dirty ? 1 : 0.4
                     color: discardHover.hovered && drafts.dirty ? Theme.surface_container_high : Theme.surface_container
                     Text { id: discardLabel; anchors.centerIn: parent; text: "Discard"; color: Theme.textMuted
@@ -320,7 +320,7 @@ Flickable {
                     TapHandler { enabled: drafts.dirty; onTapped: { drafts.discard(); statusMessage = "Draft changes discarded"; } }
                 }
                 Rectangle {
-                    width: applyLabel.implicitWidth + 22; height: 30; radius: 8
+                    width: applyLabel.implicitWidth + 22; height: 30; radius: 2
                     opacity: drafts.dirty ? 1 : 0.4
                     color: applyHover.hovered && drafts.dirty ? Theme.primary : Theme.primary_container
                     Text { id: applyLabel; anchors.centerIn: parent; text: "Apply"; color: Theme.on_primary_container
@@ -334,9 +334,9 @@ Flickable {
         }
 
         Rectangle {
-            width: parent.width; height: 38; radius: 10
+            width: parent.width; height: 38; radius: 0
             color: Theme.surface_container_lowest
-            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+            border { width: 1; color: Theme.hairline }
             Row {
                 anchors.fill: parent; anchors.margins: 4; spacing: 4
                 Repeater {
@@ -344,7 +344,7 @@ Flickable {
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
-                        width: (content.width - 8 - 12) / 4; height: 30; radius: 7
+                        width: (content.width - 8 - 12) / 4; height: 30; radius: 2
                         color: rulesPage.activeTab === index ? Theme.primary_container
                             : tabHover.hovered ? Theme.surface_container_high : "transparent"
                         Text { anchors.centerIn: parent; text: modelData.label
@@ -402,9 +402,9 @@ Flickable {
         Column {
             width: parent.width; spacing: 6
             Rectangle {
-                width: parent.width; height: 44; radius: 11
+                width: parent.width; height: 44; radius: 2
                 color: lockedHover.hovered ? Theme.surface_container : Theme.surface_container_lowest
-                border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+                border { width: 1; color: Theme.hairline }
                 Row {
                     anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
                     Text { anchors.verticalCenter: parent.verticalCenter
@@ -421,9 +421,9 @@ Flickable {
             }
             Rectangle {
                 visible: rulesPage.showLocked
-                width: parent.width; height: lockedColumn.implicitHeight; radius: 11
+                width: parent.width; height: lockedColumn.implicitHeight; radius: 0
                 color: Theme.surface_container_lowest
-                border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+                border { width: 1; color: Theme.hairline }
                 Column {
                     id: lockedColumn; width: parent.width
                     Repeater {
@@ -464,7 +464,7 @@ Flickable {
             }
             Rectangle {
                 id: conflictReload; visible: rulesPage.conflict
-                width: reloadLabel.implicitWidth + 18; height: 28; radius: 7
+                width: reloadLabel.implicitWidth + 18; height: 28; radius: 2
                 color: Theme.error_container
                 Text { id: reloadLabel; anchors.centerIn: parent; text: "Reload from disk"; color: Theme.on_error_container
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
@@ -547,9 +547,9 @@ Flickable {
                         Rectangle {
                             width: parent.width
                             height: Math.max(48, matcherColumn.implicitHeight)
-                            radius: 14
-                            color: Theme.glass(Theme.surface_container_lowest, 0.74)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.48) }
+                            radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Column {
                                 id: matcherColumn; width: parent.width
                                 Repeater {
@@ -604,7 +604,7 @@ Flickable {
                                         Rectangle {
                                             visible: matcherRow.index < rulesPage.formMatchers.length - 1
                                             anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 10; rightMargin: 10 }
-                                            height: 1; color: Theme.glass(Theme.outline_variant, 0.34)
+                                            height: 1; color: Theme.hairline
                                         }
                                     }
                                 }
@@ -642,9 +642,9 @@ Flickable {
                                           onClicked: rulesPage.pickerLayers() }
                         }
                         Rectangle {
-                            width: parent.width; height: 50; radius: 14
-                            color: Theme.glass(Theme.surface_container_lowest, 0.74)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.48) }
+                            width: parent.width; height: 50; radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Row {
                                 anchors { fill: parent; margins: 8 }
                                 spacing: 7
@@ -685,9 +685,9 @@ Flickable {
                             }
                         }
                         Rectangle {
-                            width: parent.width; height: effectsColumn.implicitHeight; radius: 14
-                            color: Theme.glass(Theme.surface_container_lowest, 0.74)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.48) }
+                            width: parent.width; height: effectsColumn.implicitHeight; radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Column {
                                 id: effectsColumn; width: parent.width
                                 Repeater {
@@ -708,9 +708,9 @@ Flickable {
                         }
                         Rectangle {
                             visible: rulesPage.showAdvanced
-                            width: parent.width; height: 50; radius: 14
-                            color: Theme.glass(Theme.surface_container_lowest, 0.74)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.48) }
+                            width: parent.width; height: 50; radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Row {
                                 anchors { fill: parent; margins: 8 }
                                 spacing: 7
@@ -739,13 +739,13 @@ Flickable {
                         CloudTextField { width: parent.width; placeholderText: "Command and arguments"; leadingGlyph: "\u{f0489}"
                                          text: rulesPage.formCommand; onTextEdited: value => rulesPage.formCommand = value }
                         Rectangle {
-                            width: parent.width; height: 58; radius: 14
-                            color: Theme.glass(Theme.surface_container_lowest, 0.74)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.48) }
+                            width: parent.width; height: 58; radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Row {
                                 anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
                                 spacing: 10
-                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 28; height: 28; radius: 9
+                                Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 28; height: 28; radius: 2
                                             color: Theme.glass(Theme.primary, 0.13)
                                     Text { anchors.centerIn: parent; text: "\u{f033e}"; color: Theme.accent
                                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -787,10 +787,10 @@ Flickable {
                         visible: rulesPage.editorKind === "window" || rulesPage.editorKind === "layer"
                         width: parent.width; spacing: 7
                         Rectangle {
-                            width: parent.width; height: 44; radius: 12
+                            width: parent.width; height: 44; radius: 2
                             color: luaHover.hovered ? Theme.glass(Theme.primary, 0.07)
-                                : Theme.glass(Theme.surface_container_lowest, 0.62)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.42) }
+                                : Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             Row {
                                 anchors { fill: parent; leftMargin: 13; rightMargin: 13 }
                                 Text { width: parent.width - luaChevron.width; anchors.verticalCenter: parent.verticalCenter
@@ -806,9 +806,9 @@ Flickable {
                         }
                         Rectangle {
                             visible: rulesPage.showLuaPreview
-                            width: parent.width; height: Math.max(96, preview.implicitHeight + 24); radius: 12
-                            color: Theme.glass(Theme.surface_container_lowest, 0.82)
-                            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.44) }
+                            width: parent.width; height: Math.max(96, preview.implicitHeight + 24); radius: 0
+                            color: Theme.surface_container_lowest
+                            border { width: 1; color: Theme.hairline }
                             TextEdit { id: preview; anchors { fill: parent; margins: 12 }
                                        text: rulesPage.previewText
                                        readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; color: Theme.textMuted
@@ -845,7 +845,7 @@ Flickable {
                 model: rulesPage.pickerItems
                 delegate: Rectangle {
                     required property var modelData
-                    width: ListView.view.width; height: 54; radius: 8
+                    width: ListView.view.width; height: 54; radius: 2
                     color: pickHover.hovered ? Theme.glass(Theme.primary, 0.09) : "transparent"
                     Column { anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 10 }
                         Text { width: parent.width; elide: Text.ElideRight; color: Theme.textPrimary
@@ -890,7 +890,7 @@ Flickable {
                 anchors { fill: parent; margins: 20 }
                 spacing: 14
                 Rectangle {
-                    width: 38; height: 38; radius: 12
+                    width: 38; height: 38; radius: 2
                     color: Theme.glass(Theme.tertiary, 0.14)
                     Text { anchors.centerIn: parent; text: "\u{f0026}"; color: Theme.tertiary
                            renderType: Text.NativeRendering

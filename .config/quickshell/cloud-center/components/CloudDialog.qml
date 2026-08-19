@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import ".."
 
 Popup {
@@ -32,15 +33,41 @@ Popup {
     }
 
     background: Rectangle {
-        radius: 20
-        color: Theme.glass(Theme.surface_container, Theme.isLightTheme ? 0.96 : 0.94)
-        border { width: 1; color: Theme.glass(Theme.outline_variant, 0.62) }
+        id: dialogShell
+        radius: 0
+        color: Theme.resin(Theme.resinFillAlpha)
+        border { width: 1; color: Theme.resinBorder }
+        clip: true
 
+        // Gloss — light catching the material's upper edge.
         Rectangle {
-            anchors { fill: parent; margins: 1 }
-            radius: 19
-            color: "transparent"
-            border { width: 1; color: Theme.glass(Theme.glassHighlight, Theme.isLightTheme ? 0.55 : 0.12) }
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: parent.height * 0.3
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.resinGloss }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
+        // Inner glow — a hint of structure beneath the material. Actually
+        // blurred, not just low-opacity, so it reads as soft light rather
+        // than a defined shape. Corner-anchored with the center pushed past
+        // the edge (clipped by dialogShell) instead of a percentage-of-
+        // height position, so it never lands under the dialog's body text.
+        Rectangle {
+            width: parent.width * 0.28
+            height: width
+            radius: width / 2
+            anchors {
+                left: parent.left
+                bottom: parent.bottom
+                leftMargin: -width * 0.5
+                bottomMargin: -height * 0.5
+            }
+            color: Theme.resinGlow
+            opacity: 0.5
+            layer.enabled: true
+            layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
         }
     }
 
@@ -80,9 +107,9 @@ Popup {
                 id: closeButton
                 visible: dialog.showClose
                 anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                width: 28; height: 28; radius: 14
+                width: 28; height: 28; radius: 2
                 color: closeHover.hovered ? Theme.glass(Theme.primary, 0.12)
-                    : Theme.glass(Theme.surface_container_high, 0.70)
+                    : Theme.surface_container_high
                 Text {
                     anchors.centerIn: parent
                     text: "×"
@@ -98,7 +125,7 @@ Popup {
 
         Rectangle {
             width: parent.width; height: 1
-            color: Theme.glass(Theme.outline_variant, 0.46)
+            color: Theme.hairline
         }
 
         Item {
@@ -111,11 +138,11 @@ Popup {
         Rectangle {
             visible: dialog.showFooter
             width: parent.width; height: 59
-            color: Theme.glass(Theme.surface_container_low, 0.68)
+            color: Theme.surface_container_low
             Rectangle {
                 anchors.top: parent.top
                 width: parent.width; height: 1
-                color: Theme.glass(Theme.outline_variant, 0.46)
+                color: Theme.hairline
             }
             Row {
                 anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }

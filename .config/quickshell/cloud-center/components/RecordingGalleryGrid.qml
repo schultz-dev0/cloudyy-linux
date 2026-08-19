@@ -34,7 +34,7 @@ Item {
         property color glyphColor: "white"
         signal activated(string action)
 
-        width: 24; height: 24; radius: 7
+        width: 24; height: 24; radius: 2
         color: buttonHover.hovered ? Theme.glass(Theme.primary, 0.55) : Theme.glass(Theme.scrim, 0.55)
         Text {
             anchors.centerIn: parent
@@ -80,10 +80,10 @@ Item {
                 id: card
                 anchors.fill: parent
                 anchors.margins: 6
-                radius: 10
+                radius: 2
                 clip: true
                 color: Theme.surface_container
-                border { width: 1; color: Theme.glass(Theme.outline_variant, 0.5) }
+                border { width: 1; color: Theme.hairline }
 
                 Rectangle {
                     id: imageMask
@@ -132,7 +132,7 @@ Item {
 
                 Rectangle {
                     anchors { left: parent.left; top: parent.top; margins: 6 }
-                    width: 18; height: 18; radius: 5
+                    width: 18; height: 18; radius: 2
                     color: Theme.glass(Theme.scrim, 0.55)
                     visible: tile.isVideo
                     Text {

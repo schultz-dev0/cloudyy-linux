@@ -25,12 +25,12 @@ FloatingWindow {
     property string currentPageId: ""
     readonly property int sidebarStripWidth: 240
 
-    // Near-transparent glass strip; Hyprland blurs the desktop behind it.
+    // Resin-tinted strip framing the inset GlassPanel below.
     Rectangle {
         id: glassStrip
         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
         width: root.sidebarStripWidth
-        color: Theme.glass(Theme.surface_container, 0.30)
+        color: Theme.resin(Theme.resinFillAlpha * 0.6)
 
         GlassPanel {
             anchors { fill: parent; margins: 10 }
@@ -43,7 +43,7 @@ FloatingWindow {
                 Rectangle {
                     width: parent.width - 16; height: 30
                     anchors.horizontalCenter: parent.horizontalCenter
-                    radius: 8; color: Theme.glass(Theme.surface_container_high, 0.7)
+                    radius: 2; color: Theme.surface_container_high
                     TextInput {
                         id: searchInput
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }

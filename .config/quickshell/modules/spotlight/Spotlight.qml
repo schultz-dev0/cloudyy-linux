@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 // modules/spotlight/Spotlight.qml — overlay UI (Spotlight search + Command Center browse)
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
@@ -33,6 +34,15 @@ PanelWindow {
     readonly property string currencyFetchScript: Qt.resolvedUrl("../currency/backend/fetch_rate.sh").toString().replace("file://", "")
     readonly property string webSearchUrl: "https://duckduckgo.com/?q="
     readonly property int screenHeight: screen?.height ?? 0
+
+    readonly property var categories: [
+        { sigil: ">", cat: "apps", label: "apps" },
+        { sigil: ";", cat: "clipboard", label: "clipboard" },
+        { sigil: ":", cat: "emoji", label: "emoji" },
+        { sigil: "!", cat: "calculator", label: "calc" },
+        { sigil: "$", cat: "currency", label: "currency" },
+        { sigil: "?", cat: "web", label: "web" }
+    ]
 
     anchors {
         top: svc.anchor === "top" || svc.anchor === "left" || svc.anchor === "right"
@@ -197,6 +207,7 @@ PanelWindow {
             return;
 
         svc.results = next.concat(withoutInline);
+        svc.applyCategoryFilter();
     }
 
     function upsertCurrencyEntry(entry) {
@@ -343,7 +354,7 @@ PanelWindow {
     Item {
         id: contentPanel
         width: svc.overlayWidth
-        implicitHeight: searchBar.height + bodyCol.listBodyHeight
+        implicitHeight: searchBar.height + catBar.height + bodyCol.listBodyHeight
         opacity: svc.closing ? 0 : 1
 
         Behavior on opacity {
@@ -366,13 +377,49 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
+        // Resin material — real theme-hue tint, not neutral glass. See
+        // Theme.qml's resin() comment for the keycap reasoning.
         Rectangle {
+            id: panelShell
             anchors.fill: parent
-            radius: Theme.glassPanelRadius
-            color: Theme.glassShell
-            border.color: Theme.glassPanelBorder
+            radius: 0
+            color: Theme.resin(Theme.resinFillAlpha)
             border.width: 1
+            border.color: Theme.resinBorder
             antialiasing: true
+            clip: true
+
+            // Gloss — light catching the material's upper edge.
+            Rectangle {
+                anchors { top: parent.top; left: parent.left; right: parent.right }
+                height: parent.height * 0.4
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.resinGloss }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            // Inner glow — a hint of structure beneath the material.
+            // Actually blurred, not just low-opacity, so it reads as soft
+            // light rather than a defined shape. Corner-anchored with the
+            // center pushed past the edge (clipped by panelShell) instead
+            // of a percentage-of-height position, so it never lands under
+            // a list row regardless of how many results are showing.
+            Rectangle {
+                width: parent.width * 0.3
+                height: width
+                radius: width / 2
+                anchors {
+                    left: parent.left
+                    bottom: parent.bottom
+                    leftMargin: -width * 0.5
+                    bottomMargin: -height * 0.5
+                }
+                color: Theme.resinGlow
+                opacity: 0.5
+                layer.enabled: true
+                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+            }
         }
 
         Column {
@@ -415,8 +462,21 @@ PanelWindow {
                     bottomPadding: topPadding
                     selectByMouse: true
                         onTextChanged: {
+                            if (svc.mode === "spotlight" && svc.query === ""
+                                    && text.length === 1 && svc.categorySigils[text]) {
+                                const cat = svc.categorySigils[text];
+                                searchInput.text = "";
+                                svc.setCategory(cat);
+                                return;
+                            }
                             if (svc.query !== text)
                                 svc.query = text;
+                        }
+                        Keys.onPressed: event => {
+                            if (event.key === Qt.Key_Backspace && text.length === 0 && svc.activeCategory !== "") {
+                                svc.setCategory(svc.activeCategory);
+                                event.accepted = true;
+                            }
                         }
                         Keys.onEscapePressed: {
                             if (!svc.browseBack())
@@ -443,7 +503,73 @@ PanelWindow {
                     width: parent.width
                     height: 1
                     visible: svc.query.length > 0 || svc.results.length > 0
-                    color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
+                    color: Theme.hairline
+                }
+            }
+
+            Item {
+                id: catBar
+                width: parent.width
+                height: visible ? 34 : 0
+                visible: svc.mode === "spotlight"
+
+                Row {
+                    anchors {
+                        left: parent.left
+                        leftMargin: 16
+                        verticalCenter: parent.verticalCenter
+                    }
+                    spacing: 6
+
+                    Repeater {
+                        model: root.categories
+                        delegate: Rectangle {
+                            id: pill
+                            required property var modelData
+                            readonly property bool active: svc.activeCategory === modelData.cat
+                            width: pillRow.implicitWidth + 16
+                            height: 24
+                            radius: 2
+                            color: active
+                                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
+                                : Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.08)
+                            border.width: 1
+                            border.color: active ? Theme.primary : Theme.hairline
+
+                            Row {
+                                id: pillRow
+                                anchors.centerIn: parent
+                                spacing: 5
+
+                                Text {
+                                    text: pill.modelData.sigil
+                                    color: pill.active ? Theme.primary : Theme.textMuted
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    text: pill.modelData.label
+                                    color: pill.active ? Theme.textPrimary : Theme.textMuted
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 11
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: svc.setCategory(pill.modelData.cat)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    visible: svc.query.length > 0 || svc.results.length > 0
+                    color: Theme.hairline
                 }
             }
 
@@ -471,7 +597,9 @@ PanelWindow {
                 if (isBrowseMode)
                     return Math.max(svc.results.length, 1);
                 let n = svc.results.length;
-                if ((svc.mode === "spotlight" || svc.mode === "command") && svc.query.length > 0)
+                const webRowVisible = (svc.mode === "spotlight" || svc.mode === "command") && svc.query.length > 0
+                    && (svc.activeCategory === "" || svc.activeCategory === "web");
+                if (webRowVisible)
                     n += 1;
                 return Math.max(n, 1);
             }
@@ -514,7 +642,7 @@ PanelWindow {
                                     icon: modelData.icon,
                                     isActive: modelData.isActive === true
                                 }
-                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action"
+                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action" || modelData.type === "clipboard_entry" || modelData.type === "emoji"
                                     ? {
                                         type: "command",
                                         name: modelData.label || modelData.name,
@@ -531,6 +659,7 @@ PanelWindow {
 
                     SpotlightRow {
                         visible: (svc.mode === "spotlight" || svc.mode === "command") && svc.query.length > 0
+                            && (svc.activeCategory === "" || svc.activeCategory === "web")
                         resultData: ({ type: "web", query: svc.query })
                         isSelected: svc.selectedIndex >= 0 && svc.selectedIndex === svc.results.length
                         rowWidth: svc.overlayWidth

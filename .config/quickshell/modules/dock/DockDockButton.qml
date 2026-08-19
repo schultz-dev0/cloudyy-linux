@@ -107,7 +107,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: 8
+            radius: 2
             color: "transparent"
             border.color: Theme.primary
             border.width: root.dropHighlight ? 2 : 0

@@ -385,10 +385,10 @@ Flickable {
         }
 
         Rectangle {
-            width: content.width; height: 52; radius: 12
+            width: content.width; height: 52; radius: 2
             color: magnifyHover.hovered ? Theme.glass(Theme.primary, 0.07)
                 : Theme.surface_container_lowest
-            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+            border { width: 1; color: Theme.hairline }
             Row {
                 anchors { fill: parent; leftMargin: 15; rightMargin: 15 }
                 spacing: 11
@@ -432,10 +432,10 @@ Flickable {
         }
 
         Rectangle {
-            width: content.width; height: 52; radius: 12
+            width: content.width; height: 52; radius: 2
             color: advancedHover.hovered ? Theme.glass(Theme.primary, 0.07)
                 : Theme.surface_container_lowest
-            border { width: 1; color: Theme.glass(Theme.outline_variant, 0.55) }
+            border { width: 1; color: Theme.hairline }
             Row {
                 anchors { fill: parent; leftMargin: 15; rightMargin: 15 }
                 spacing: 11
@@ -518,7 +518,7 @@ Flickable {
                 anchors { fill: parent; margins: 20 }
                 spacing: 14
                 Rectangle {
-                    width: 42; height: 42; radius: 13
+                    width: 42; height: 42; radius: 2
                     color: Theme.glass(Theme.error, 0.13)
                     Text { anchors.centerIn: parent; text: "󰈈"; color: Theme.error
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 18 } }

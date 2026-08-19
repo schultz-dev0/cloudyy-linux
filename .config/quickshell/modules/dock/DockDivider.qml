@@ -14,6 +14,6 @@ Item {
         width: 1
         height: iconSize * 0.55
         radius: 0.5
-        color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.45)
+        color: Theme.hairline
     }
 }

@@ -7,8 +7,8 @@ Rectangle {
     function show(text) { message = text; opacity = 1; hideTimer.restart(); }
 
     anchors { bottom: parent.bottom; bottomMargin: 24; horizontalCenter: parent.horizontalCenter }
-    width: label.implicitWidth + 32; height: 34; radius: 17
-    color: Theme.glass(Theme.inverse_surface, 0.92)
+    width: label.implicitWidth + 32; height: 34; radius: 2
+    color: Theme.inverse_surface
     opacity: 0
     visible: opacity > 0
     Behavior on opacity { NumberAnimation { duration: 150 } }
