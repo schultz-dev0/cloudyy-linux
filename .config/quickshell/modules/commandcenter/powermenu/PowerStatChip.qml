@@ -16,9 +16,9 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 12
-        color: Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.28)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.2)
+        radius: 2
+        color: Theme.surface_container_high
+        border.color: Theme.hairline
         border.width: 1
     }
 

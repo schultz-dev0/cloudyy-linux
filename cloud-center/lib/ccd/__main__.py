@@ -18,6 +18,7 @@ from lib.ccd import (  # noqa: F401
     battery,
     bluetooth,
     cursor,
+    island_integrations,
     keybinds,
     model,
     monitors,

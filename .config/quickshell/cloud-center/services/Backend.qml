@@ -55,6 +55,14 @@ Singleton {
         proc.write(line + "\n");
     }
 
+    function getIslandIntegrations(callback, errorCallback) {
+        request("get_island_integrations", {}, callback, errorCallback);
+    }
+
+    function saveIslandIntegrations(settings, callback, errorCallback) {
+        request("save_island_integrations", { settings: settings }, callback, errorCallback);
+    }
+
     function normalizeError(error) {
         if (error && typeof error === "object") {
             const normalized = {};

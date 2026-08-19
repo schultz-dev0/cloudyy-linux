@@ -22,9 +22,9 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 8
+        radius: 2
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.94)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+        border.color: Theme.hairline
         border.width: 1
     }
 

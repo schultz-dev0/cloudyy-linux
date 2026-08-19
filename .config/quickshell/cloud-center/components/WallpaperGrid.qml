@@ -68,10 +68,9 @@ Column {
             model: wallGrid.wallpapers
             delegate: Rectangle {
                 required property var modelData
-                width: wallGrid.thumb; height: wallGrid.thumbH; radius: 10
+                width: wallGrid.thumb; height: wallGrid.thumbH; radius: 2
                 border.width: wallGrid.current === modelData.path ? 2 : 1
-                border.color: wallGrid.current === modelData.path ? Theme.primary
-                                                                   : Theme.glass(Theme.outline_variant, 0.5)
+                border.color: wallGrid.current === modelData.path ? Theme.primary : Theme.hairline
                 color: Theme.surface_container
 
                 // `clip: true` only clips to the bounding box, not to `radius` —
@@ -81,7 +80,7 @@ Column {
                 Rectangle {
                     id: imageMask
                     anchors.fill: parent; anchors.margins: 2
-                    radius: 8
+                    radius: 1
                     color: "white"
                     opacity: 0
                     layer.enabled: true

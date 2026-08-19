@@ -15,12 +15,15 @@ Item {
     readonly property bool controlsActive: root.player !== null
         && QuickIsland.IslandState.currentPage === "media"
         && !QuickIsland.IslandState.expanded
-    readonly property real progressFraction: {
+    readonly property real currentPosition: {
         const _ = root.playerRevision;
+        return root.player ? root.player.position : 0;
+    }
+    readonly property real progressFraction: {
         if (!root.player || !root.player.positionSupported
                 || !root.player.lengthSupported || root.player.length <= 0)
             return 0;
-        return Math.max(0, Math.min(1, root.player.position / root.player.length));
+        return Math.max(0, Math.min(1, root.currentPosition / root.player.length));
     }
 
     function formatTime(seconds) {
@@ -59,7 +62,7 @@ Item {
                 Rectangle {
                     width: 68
                     height: 68
-                    radius: 10
+                    radius: 2
                     color: Theme.islandHover
                     clip: true
 
@@ -128,25 +131,32 @@ Item {
                     spacing: 7
 
                     Text {
-                        text: root.formatTime(root.player ? root.player.position : 0)
+                        text: root.formatTime(root.currentPosition)
                         color: Theme.islandOnSurfaceVariant
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 9
                         renderType: Text.NativeRendering
                     }
 
-                    Rectangle {
+                    Row {
+                        id: gauge
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 82
-                        height: 3
-                        radius: 2
-                        color: Theme.islandBorder
+                        spacing: 2
 
-                        Rectangle {
-                            width: parent.width * root.progressFraction
-                            height: parent.height
-                            radius: parent.radius
-                            color: Theme.islandAccent
+                        readonly property int tickCount: Math.max(6, Math.floor(width / 6))
+                        readonly property real tickWidth:
+                            (width - (tickCount - 1) * spacing) / tickCount
+
+                        Repeater {
+                            model: gauge.tickCount
+                            delegate: Rectangle {
+                                required property int index
+                                width: gauge.tickWidth
+                                height: 10
+                                color: (index / gauge.tickCount) <= root.progressFraction
+                                    ? Theme.islandAccent : Theme.islandBorder
+                            }
                         }
                     }
 
@@ -190,14 +200,25 @@ Item {
                                 && control.actionEnabled
 
                             Rectangle {
+                                id: controlFill
                                 anchors.fill: parent
-                                radius: 7
+                                radius: 2
+                                clip: true
                                 color: control.activeFocus ? Theme.islandFocus
                                     : controlTap.pressed ? Theme.islandPressed
                                         : controlHover.hovered ? Theme.islandHover
                                             : "transparent"
                                 border.width: control.activeFocus ? 1 : 0
                                 border.color: Theme.islandFocus
+
+                                DotTexture {
+                                    anchors.fill: parent
+                                    visible: controlHover.hovered || controlTap.pressed || control.activeFocus
+                                    tint: Theme.islandOnSurface
+                                    dotAlpha: 0.16
+                                    cell: 4
+                                    dotRadius: 0.6
+                                }
                             }
 
                             Text {

@@ -25,7 +25,7 @@ Item {
     Rectangle {
         id: highlight
         anchors.fill: parent
-        radius: 8
+        radius: 2
         color: root.selected
             ? Theme.glass(Theme.primary, 0.20)
             : (rowHover.hovered ? Theme.glass(Theme.primary, 0.08) : "transparent")
@@ -107,7 +107,7 @@ Item {
             bottom: parent.bottom
         }
         height: 1
-        color: Theme.glass(Theme.outline_variant, 0.35)
+        color: Theme.hairline
     }
 
     HoverHandler { id: rowHover; cursorShape: Qt.PointingHandCursor }

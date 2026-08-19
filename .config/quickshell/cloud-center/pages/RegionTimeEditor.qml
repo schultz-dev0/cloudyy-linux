@@ -349,7 +349,7 @@ Flickable {
                     width: parent.width - 16
                     x: 8
                     height: 1
-                    color: Theme.glass(Theme.outline_variant, 0.35)
+                    color: Theme.hairline
                 }
 
                 ListView {

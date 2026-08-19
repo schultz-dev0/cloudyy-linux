@@ -27,9 +27,9 @@ Rectangle {
 
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: 28; height: 28; radius: 9
+            width: 28; height: 28; radius: 2
             color: row.active ? Theme.glass(Theme.primary, 0.14)
-                : Theme.glass(Theme.surface_container_high, 0.72)
+                : Theme.surface_container_high
             Text {
                 anchors.centerIn: parent
                 text: row.field.type === "bool" ? "\u{f0493}"
@@ -107,7 +107,7 @@ Rectangle {
         visible: !row.last
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 51 }
         height: 1
-        color: Theme.glass(Theme.outline_variant, 0.34)
+        color: Theme.hairline
     }
     HoverHandler { id: rowHover }
 }

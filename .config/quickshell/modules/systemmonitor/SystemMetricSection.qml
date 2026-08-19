@@ -4,7 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../.."
 
-Rectangle {
+Item {
     id: sectionRoot
 
     property string title: ""
@@ -17,18 +17,11 @@ Rectangle {
     property int bodyFont: 11
     property int sparklineHeight: 36
 
-    implicitHeight: sectionCol.implicitHeight + 28
-    radius: 14
-    color: Theme.glassSection
-    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-    border.width: 1
+    implicitHeight: sectionCol.implicitHeight
 
     ColumnLayout {
         id: sectionCol
-        anchors {
-            fill: parent
-            margins: 14
-        }
+        anchors { left: parent.left; right: parent.right }
         spacing: 8
 
         RowLayout {
@@ -39,6 +32,8 @@ Rectangle {
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.labelFont
                 font.weight: Font.Bold
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 0.6
                 Layout.fillWidth: true
             }
             Text {

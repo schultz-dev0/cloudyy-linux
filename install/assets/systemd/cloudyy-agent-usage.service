@@ -1,0 +1,6 @@
+[Unit]
+Description=Collect Cloudyy agent usage
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -lc 'exec "%h/cloudyy-linux/bin/cloudyy-agents" collect'

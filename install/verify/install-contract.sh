@@ -92,6 +92,9 @@ run_test "install.sh is executable"           "[ -x './install.sh' ]"
 run_test "packages/install.sh is executable"  "[ -x './packages/install.sh' ]"
 run_test "config/deploy.sh is executable"     "[ -x './config/deploy.sh' ]"
 run_test "Audio service setup executable"     "[ -x './user/audio-autoswitch.sh' ]"
+run_test "cloudyy-timer is executable"        "[ -x '../bin/cloudyy-timer' ]"
+run_test "cloudyy command install glob covers cloudyy-timer" \
+    "grep -Fq '\"\${REPO_DIR}\"/bin/cloudyy-*' ./user/all.sh"
 
 # =============================================================================
 # TEST GROUP 3: Bash Syntax Validation

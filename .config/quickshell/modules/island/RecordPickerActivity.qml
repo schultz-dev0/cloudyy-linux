@@ -60,7 +60,7 @@ Item {
             Rectangle {
                 Layout.preferredWidth:  22
                 Layout.preferredHeight: 22
-                radius: 6
+                radius: 2
                 color:  closeArea.containsMouse ? root._btnFillHover : root._btnFill
 
                 Text {
@@ -113,7 +113,7 @@ Item {
 
         Layout.fillWidth: true
         Layout.preferredHeight: root.optionHeight
-        radius: 10
+        radius: 2
         color:  optArea.containsMouse ? root._btnFillHover : root._btnFill
 
         RowLayout {

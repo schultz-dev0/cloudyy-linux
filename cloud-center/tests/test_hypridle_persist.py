@@ -60,6 +60,34 @@ class HypridlePersistTest(unittest.TestCase):
         self.assertIn("timeout = 900\n    on-timeout = true\n    on-resume = cloudyy-idle dismiss", source)
         self.assertIn("timeout = 2700\n    on-timeout = cloudyy-lock", source)
 
+    def test_apply_suspend_adds_disabled_listener_to_existing_config(self):
+        seconds = hypridle_persist.apply("suspend", "75", restart=False)
+
+        self.assertEqual(seconds, 4500)
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 4500\n    on-timeout = true # systemctl suspend", source)
+
+    def test_suspend_can_be_enabled_in_existing_config(self):
+        enabled = hypridle_persist.set_suspend_enabled(True, restart=False)
+
+        self.assertIs(enabled, True)
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 3600\n    on-timeout = systemctl suspend", source)
+
+    def test_suspend_can_be_disabled_after_being_enabled(self):
+        hypridle_persist.set_suspend_enabled(True, restart=False)
+        enabled = hypridle_persist.set_suspend_enabled(False, restart=False)
+
+        self.assertIs(enabled, False)
+        source = self.config.read_text(encoding="utf-8")
+        self.assertIn("timeout = 3600\n    on-timeout = true # systemctl suspend", source)
+
+    def test_suspend_migration_rejects_unclosed_listener(self):
+        self.config.write_text("listener {\n    timeout = 900\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "unclosed listener block"):
+            hypridle_persist.set_suspend_enabled(True, restart=False)
+
     def test_scene_can_be_reenabled_after_being_disabled(self):
         hypridle_persist.set_scene_enabled(False, restart=False)
         enabled = hypridle_persist.set_scene_enabled(True, restart=False)

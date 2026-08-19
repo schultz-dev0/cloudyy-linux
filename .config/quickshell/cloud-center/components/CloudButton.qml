@@ -19,19 +19,31 @@ FocusScope {
 
     Rectangle {
         anchors.fill: parent
-        radius: button.compact ? 8 : 10
+        radius: 2
+        clip: true
         color: {
             if (button.primary)
                 return hover.hovered ? Theme.primary : Theme.primary_container;
             if (button.danger)
-                return hover.hovered ? Theme.glass(Theme.error, 0.20) : Theme.glass(Theme.error_container, 0.55);
+                return hover.hovered ? Theme.glass(Theme.error, 0.20) : Theme.error_container;
             if (button.subtle)
                 return hover.hovered ? Theme.glass(Theme.primary, 0.11) : "transparent";
-            return hover.hovered ? Theme.surface_container_high : Theme.glass(Theme.surface_container_high, 0.72);
+            return hover.hovered ? Theme.surface_container_high : Theme.surface_container;
         }
         border {
             width: button.primary || button.subtle ? 0 : 1
-            color: Theme.glass(Theme.outline_variant, 0.52)
+            color: Theme.hairline
+        }
+
+        // Dots material — faint texture on the fill, text stays fully opaque.
+        DotTexture {
+            anchors.fill: parent
+            visible: !button.subtle || hover.hovered
+            tint: button.danger ? Theme.error
+                : button.primary ? Theme.on_primary_container : Theme.accent
+            dotAlpha: 0.16
+            cell: 5
+            dotRadius: 0.7
         }
 
         Row {

@@ -19,17 +19,16 @@ Rectangle {
     property bool active: true
 
     visible: root.title !== ""
-    implicitHeight: visible ? cardCol.implicitHeight + 24 : 0
-    radius: 12
-    color: Theme.glassSection
-    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-    border.width: 1
+    implicitHeight: visible ? cardCol.implicitHeight + 16 : 0
+    radius: 0
+    color: "transparent"
+    border.width: 0
 
     ColumnLayout {
         id: cardCol
         anchors {
             fill: parent
-            margins: 12
+            margins: 8
         }
         spacing: 8
 
@@ -42,7 +41,7 @@ Rectangle {
                 id: artContainer
                 width: 44
                 height: 44
-                radius: 8
+                radius: 2
                 layer.enabled: true
                 gradient: Gradient {
                     GradientStop {
@@ -109,14 +108,14 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             height: 3
-            radius: 999
-            color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+            radius: 0
+            color: Theme.hairline
 
             Rectangle {
                 width: parent.width * root.progressFraction
                 height: parent.height
-                radius: parent.radius
-                color: Theme.primary
+                radius: 0
+                color: Theme.accent
             }
         }
 

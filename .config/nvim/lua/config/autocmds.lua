@@ -44,21 +44,24 @@ local function on_highlights_light(hl, _)
   local N = "NONE"
 
   -- ── Base UI ──────────────────────────────────────────────────────────
-  hl.Normal        = { fg = lm.text,     bg = N }
-  hl.NormalNC      = { fg = lm.text,     bg = N }
-  hl.NormalFloat   = { fg = lm.text,     bg = N }
+  -- bg = N ("NONE") means transparent to the terminal, not "inherit Normal's
+  -- bg" — every surface group needs its own explicit fill to read as opaque.
+  -- Border/separator groups keep N on purpose; a border doesn't need a fill.
+  hl.Normal        = { fg = lm.text,     bg = lm.float_bg }
+  hl.NormalNC      = { fg = lm.text,     bg = lm.float_bg }
+  hl.NormalFloat   = { fg = lm.text,     bg = lm.float_bg }
   hl.CursorLine    = { bg = lm.cursor_line }
-  hl.LineNr        = { fg = lm.punct,    bg = N }
+  hl.LineNr        = { fg = lm.punct,    bg = lm.float_bg }
   hl.CursorLineNr  = { fg = lm.text,     bg = N, bold = true }
-  hl.SignColumn    = { bg = N }
-  hl.EndOfBuffer   = { fg = lm.punct,    bg = N }
+  hl.SignColumn    = { bg = lm.float_bg }
+  hl.EndOfBuffer   = { fg = lm.punct,    bg = lm.float_bg }
   hl.Visual        = { bg = lm.visual }
   hl.Search        = { fg = lm.text,     bg = lm.search_bg, bold = true }
   hl.IncSearch     = { fg = lm.text,     bg = lm.search_bg, bold = true }
-  hl.StatusLine    = { fg = lm.text,     bg = N }
-  hl.StatusLineNC  = { fg = lm.comment,  bg = N }
-  hl.WinBar        = { fg = lm.text,     bg = N }
-  hl.WinBarNC      = { fg = lm.comment,  bg = N }
+  hl.StatusLine    = { fg = lm.text,     bg = lm.float_bg }
+  hl.StatusLineNC  = { fg = lm.comment,  bg = lm.float_bg }
+  hl.WinBar        = { fg = lm.text,     bg = lm.float_bg }
+  hl.WinBarNC      = { fg = lm.comment,  bg = lm.float_bg }
   hl.WinSeparator  = { fg = lm.punct,    bg = N }
   hl.Pmenu         = { fg = lm.text,     bg = lm.pmenu_bg }
   hl.PmenuSel      = { fg = "#ffffff",   bg = lm.pmenu_sel, bold = true }
@@ -68,7 +71,7 @@ local function on_highlights_light(hl, _)
   hl.Whitespace    = { fg = "#c0c0c0" }
   hl.SpecialKey    = { fg = lm.punct }
   hl.Folded        = { fg = lm.text,     bg = lm.cursor_line }
-  hl.FoldColumn    = { fg = lm.punct,    bg = N }
+  hl.FoldColumn    = { fg = lm.punct,    bg = lm.float_bg }
   hl.FloatBorder   = { fg = lm.punct,    bg = N }
   hl.Directory     = { fg = lm.property, bold = true }
   hl.Title         = { fg = lm.text,     bold = true }
@@ -229,18 +232,18 @@ local function on_highlights_light(hl, _)
   hl.DiagnosticVirtualTextHint  = { fg = lm.hint,  italic = true }
 
   -- ── Telescope ─────────────────────────────────────────────────────────
-  hl.TelescopeNormal        = { fg = lm.text,     bg = N }
+  hl.TelescopeNormal        = { fg = lm.text,     bg = lm.float_bg }
   hl.TelescopeBorder        = { fg = lm.punct,    bg = N }
-  hl.TelescopePromptNormal  = { fg = lm.text,     bg = N }
+  hl.TelescopePromptNormal  = { fg = lm.text,     bg = lm.float_bg }
   hl.TelescopePromptBorder  = { fg = lm.punct,    bg = N }
-  hl.TelescopeResultsNormal = { fg = lm.variable, bg = N }
-  hl.TelescopePreviewNormal = { fg = lm.variable, bg = N }
+  hl.TelescopeResultsNormal = { fg = lm.variable, bg = lm.float_bg }
+  hl.TelescopePreviewNormal = { fg = lm.variable, bg = lm.float_bg }
   hl.TelescopeMatching      = { fg = lm.keyword,  bold = true }
   hl.TelescopeSelection     = { fg = lm.text,     bg = lm.cursor_line, bold = true }
 
   -- ── Which-key ─────────────────────────────────────────────────────────
-  hl.WhichKeyNormal    = { fg = lm.text,     bg = N }
-  hl.WhichKeyFloat     = { fg = lm.text,     bg = N }
+  hl.WhichKeyNormal    = { fg = lm.text,     bg = lm.float_bg }
+  hl.WhichKeyFloat     = { fg = lm.text,     bg = lm.float_bg }
   hl.WhichKeyBorder    = { fg = lm.punct,    bg = N }
   hl.WhichKey          = { fg = lm.keyword,  bold = true }
   hl.WhichKeyGroup     = { fg = lm.property, bold = true }
@@ -250,7 +253,7 @@ local function on_highlights_light(hl, _)
   hl.WhichKeyTitle     = { fg = lm.text,     bold = true }
 
   -- ── Snacks (dashboard + UI) ───────────────────────────────────────────
-  hl.SnacksDashboardNormal  = { fg = lm.text,     bg = N }
+  hl.SnacksDashboardNormal  = { fg = lm.text,     bg = lm.float_bg }
   hl.SnacksDashboardHeader  = { fg = lm.property, bold = true }
   hl.SnacksDashboardFooter  = { fg = lm.comment,  italic = true }
   hl.SnacksDashboardTitle   = { fg = lm.text,     bold = true }
@@ -260,7 +263,7 @@ local function on_highlights_light(hl, _)
   hl.SnacksDashboardDir     = { fg = lm.comment }
   hl.SnacksDashboardFile    = { fg = lm.text }
   hl.SnacksDashboardSpecial = { fg = lm.special }
-  hl.SnacksNormal           = { fg = lm.text,     bg = N }
+  hl.SnacksNormal           = { fg = lm.text,     bg = lm.float_bg }
   hl.SnacksBorder           = { fg = lm.punct,    bg = N }
 
   -- ── Noice (cmdline / notification floats) ────────────────────────────
@@ -274,7 +277,7 @@ local function on_highlights_light(hl, _)
   hl.NoiceMini               = { fg = lm.text, bg = lm.float_bg }
 
   -- ── Lazy / Mason ──────────────────────────────────────────────────────
-  hl.LazyNormal       = { fg = lm.text,    bg = N }
+  hl.LazyNormal       = { fg = lm.text,    bg = lm.float_bg }
   hl.LazyTitle        = { fg = lm.text,    bold = true }
   hl.LazyH1           = { fg = "#ffffff",  bg = lm.property, bold = true }
   hl.LazyButton       = { fg = lm.text,    bg = lm.cursor_line }
@@ -286,7 +289,7 @@ local function on_highlights_light(hl, _)
   hl.LazyProp         = { fg = lm.comment }
   hl.LazyReasonStart  = { fg = lm.hint }
   hl.LazyReasonPlugin = { fg = lm.warn }
-  hl.MasonNormal      = { fg = lm.text,    bg = N }
+  hl.MasonNormal      = { fg = lm.text,    bg = lm.float_bg }
   hl.MasonHeader      = { fg = "#ffffff",  bg = lm.property, bold = true }
 end
 
@@ -300,11 +303,7 @@ local function apply_mode_and_theme(notify)
   if ok then
     tokyonight.setup({
       style = is_light and "day" or "moon",
-      transparent = true,
-      styles = {
-        sidebars = "transparent",
-        floats = "transparent",
-      },
+      transparent = false,
       -- on_highlights is the last step before highlights are applied —
       -- guaranteed to win over tokyonight's own defaults.
       on_highlights = is_light and on_highlights_light or nil,

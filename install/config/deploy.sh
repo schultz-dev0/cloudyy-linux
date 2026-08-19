@@ -347,7 +347,7 @@ setup_shell() {
     log "Installing oh-my-zsh..."
     if ZSH="$omz_dir" RUNZSH=no CHSH=no \
        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
-       "" --unattended 2>/dev/null; then
+       "" --unattended --keep-zshrc 2>/dev/null; then
       log_ok "oh-my-zsh installed."
     else
       log_warn "oh-my-zsh install failed (non-fatal — run manually later)."

@@ -136,7 +136,7 @@ Item {
         Rectangle {
             width: parent.width
             height: 1
-            color: Theme.glass(Theme.outline_variant, 0.58)
+            color: Theme.hairline
             visible: panel.selectedDevice !== null
         }
 

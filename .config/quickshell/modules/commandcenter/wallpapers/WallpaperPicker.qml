@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -51,13 +52,46 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
+        // Resin material — real theme-hue tint, not neutral glass. See
+        // Theme.qml's resin() comment for the keycap reasoning.
         Rectangle {
+            id: panelShell
             anchors.fill: parent
-            radius: Theme.glassPanelRadius
-            color: Theme.glassShell
-            border.color: Theme.glassPanelBorder
+            radius: 0
+            color: Theme.resin(Theme.resinFillAlpha)
             border.width: 1
+            border.color: Theme.resinBorder
             antialiasing: true
+            clip: true
+
+            // Gloss — light catching the material's upper edge.
+            Rectangle {
+                anchors { top: parent.top; left: parent.left; right: parent.right }
+                height: parent.height * 0.4
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.resinGloss }
+                    GradientStop { position: 1.0; color: "transparent" }
+                }
+            }
+
+            // Inner glow — a hint of structure beneath the material.
+            // Corner-anchored with the center pushed past the edge (clipped
+            // by panelShell) so it never lands under a grid row.
+            Rectangle {
+                width: parent.width * 0.3
+                height: width
+                radius: width / 2
+                anchors {
+                    left: parent.left
+                    bottom: parent.bottom
+                    leftMargin: -width * 0.5
+                    bottomMargin: -height * 0.5
+                }
+                color: Theme.resinGlow
+                opacity: 0.5
+                layer.enabled: true
+                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+            }
         }
 
         FocusScope {
@@ -149,34 +183,17 @@ PanelWindow {
                 Rectangle {
                     width: parent.width
                     height: 1
-                    color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.18)
+                    color: Theme.hairline
                 }
 
                 Item {
                     width: parent.width
                     height: 40
 
-                    Rectangle {
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            verticalCenter: parent.verticalCenter
-                            leftMargin: 14
-                            rightMargin: 14
-                        }
-                        height: 30
-                        radius: 15
-                        color: Qt.rgba(Theme.surface_variant.r, Theme.surface_variant.g, Theme.surface_variant.b, 0.28)
-                        border.color: root.focusZone === "search"
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
-                            : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.2)
-                        border.width: 1
-                    }
-
                     Text {
                         anchors {
                             left: parent.left
-                            leftMargin: 26
+                            leftMargin: 16
                             verticalCenter: parent.verticalCenter
                         }
                         text: "󰍉"
@@ -191,7 +208,7 @@ PanelWindow {
                             left: parent.left
                             right: parent.right
                             verticalCenter: parent.verticalCenter
-                            leftMargin: 44
+                            leftMargin: 36
                             rightMargin: 16
                         }
                         text: svc.query

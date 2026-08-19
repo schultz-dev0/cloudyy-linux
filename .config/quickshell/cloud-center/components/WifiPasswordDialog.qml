@@ -82,14 +82,13 @@ CloudDialog {
                 height: 36
                 Rectangle {
                     anchors.fill: parent
-                    radius: 10
+                    radius: 2
                     color: passwordField.activeFocus
-                        ? Theme.glass(Theme.surface_container_lowest, 0.96)
-                        : Theme.glass(Theme.surface_container_low, 0.82)
+                        ? Theme.surface_container_lowest
+                        : Theme.surface_container_low
                     border {
                         width: passwordField.activeFocus ? 1.5 : 1
-                        color: passwordField.activeFocus
-                            ? Theme.primary : Theme.glass(Theme.outline_variant, 0.56)
+                        color: passwordField.activeFocus ? Theme.primary : Theme.hairline
                     }
                     TextInput {
                         id: passwordField
@@ -125,7 +124,7 @@ CloudDialog {
                     Rectangle {
                         id: revealButton
                         anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
-                        width: 28; height: 28; radius: 8
+                        width: 28; height: 28; radius: 2
                         color: revealHover.hovered
                             ? Theme.glass(Theme.primary, 0.12) : "transparent"
                         Text {

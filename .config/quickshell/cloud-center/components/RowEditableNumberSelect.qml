@@ -64,6 +64,7 @@ RowBase {
         width: 160
         options: numberSelectRow.presetValues()
         value: numberSelectRow.lastSavedDisplayValue
+        popupHint: "Type any whole number"
         backgroundColor: Theme.surface_container
         hoverColor: Theme.surface_container_high
         borderColor: Theme.outline_variant

@@ -39,14 +39,14 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true
         height: 6
-        radius: 3
-        color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+        radius: 0
+        color: Theme.hairline
 
         Rectangle {
             height: parent.height
             width: parent.width * Math.min(1, root.percent / 100)
-            radius: 3
-            color: root.percent >= 85 ? Theme.error : Theme.primary
+            radius: 0
+            color: root.percent >= 85 ? Theme.error : Theme.accent
         }
     }
 }

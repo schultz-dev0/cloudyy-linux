@@ -101,8 +101,8 @@ Column {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 8
-                color: Theme.glass(Theme.surface_container_high, 0.7)
+                radius: 2
+                color: Theme.surface_container_high
                 TextInput {
                     id: searchInput
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
@@ -136,9 +136,9 @@ Column {
                         model: [{ id: "hot", label: "Hot" }, { id: "toplist", label: "Top" }]
                         delegate: Rectangle {
                             required property var modelData
-                            width: sortText.implicitWidth + 18; height: 30; radius: 8
+                            width: sortText.implicitWidth + 18; height: 30; radius: 999
                             color: browser.sort === modelData.id ? Theme.primary
-                                                                  : Theme.glass(Theme.surface_container_high, 0.7)
+                                                                  : Theme.surface_container_high
                             Text { id: sortText; anchors.centerIn: parent; text: modelData.label
                                    color: browser.sort === modelData.id ? Theme.background : Theme.textMuted
                                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -150,60 +150,17 @@ Column {
                 // Resolution filter — Wallhaven's own "atleast" search param, not
                 // an invented category. Always visible (unlike Hot/Top, it composes
                 // with a text query on Wallhaven's side rather than being
-                // overridden by it). Same ComboBox styling as RowSelect.qml.
-                ComboBox {
+                // overridden by it).
+                CloudSelect {
                     id: resCombo
                     width: 100
                     readonly property var resValues: ["", "1920x1080", "2560x1440", "3840x2160"]
-                    model: ["Any", "1080p+", "1440p+", "4K+"]
+                    compact: true
+                    options: ["Any", "1080p+", "1440p+", "4K+"]
                     currentIndex: Math.max(0, resValues.indexOf(browser.minRes))
-                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
                     onActivated: index => {
                         browser.minRes = resValues[index];
                         browser.doSearch(true);
-                    }
-
-                    contentItem: Text {
-                        leftPadding: 8
-                        text: resCombo.displayText
-                        color: Theme.textPrimary
-                        verticalAlignment: Text.AlignVCenter
-                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
-                    }
-                    background: Rectangle {
-                        implicitWidth: 100; implicitHeight: 30; radius: 8
-                        color: Theme.glass(Theme.surface_container_high, 0.7)
-                        border { width: 1; color: Theme.outline_variant }
-                    }
-                    delegate: ItemDelegate {
-                        width: resCombo.width
-                        highlighted: resCombo.highlightedIndex === index
-                        contentItem: Text {
-                            text: modelData
-                            color: Theme.textPrimary
-                            verticalAlignment: Text.AlignVCenter
-                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
-                        }
-                        background: Rectangle {
-                            color: highlighted ? Theme.glass(Theme.primary, 0.14) : "transparent"
-                        }
-                    }
-                    popup: Popup {
-                        y: resCombo.height
-                        width: resCombo.width
-                        padding: 4
-                        enter: null; exit: null
-                        contentItem: ListView {
-                            clip: true
-                            implicitHeight: contentHeight
-                            model: resCombo.popup.visible ? resCombo.delegateModel : null
-                            currentIndex: resCombo.highlightedIndex
-                        }
-                        background: Rectangle {
-                            radius: 8
-                            color: Theme.surface_container
-                            border { width: 1; color: Theme.outline_variant }
-                        }
                     }
                 }
             }
@@ -216,9 +173,9 @@ Column {
                     model: [{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }]
                     delegate: Rectangle {
                         required property var modelData
-                        width: modeText.implicitWidth + 18; height: 30; radius: 8
+                        width: modeText.implicitWidth + 18; height: 30; radius: 999
                         color: browser.targetMode === modelData.id ? Theme.primary
-                                                                    : Theme.glass(Theme.surface_container_high, 0.7)
+                                                                    : Theme.surface_container_high
                         Text { id: modeText; anchors.centerIn: parent; text: modelData.label
                                color: browser.targetMode === modelData.id ? Theme.background : Theme.textMuted
                                font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -250,16 +207,16 @@ Column {
             delegate: Rectangle {
                 id: tile
                 required property var modelData
-                width: (gridWrap.width / browser.columns) - 10; height: 96; radius: 10
+                width: (gridWrap.width / browser.columns) - 10; height: 96; radius: 2
                 color: Theme.surface_container
-                border { width: 1; color: Theme.glass(Theme.outline_variant, 0.5) }
+                border { width: 1; color: Theme.hairline }
 
                 // Same rounded-mask idiom as WallpaperGrid.qml / island/ScreenshotActivity.qml —
                 // `clip: true` alone only clips to the bounding box, not to `radius`.
                 Rectangle {
                     id: imageMask
                     anchors.fill: parent; anchors.margins: 2
-                    radius: 8
+                    radius: 1
                     color: "white"
                     opacity: 0
                     layer.enabled: true
@@ -330,8 +287,8 @@ Column {
         dim: false
         padding: 4
         enter: null; exit: null   // motion budget: no popup fade, matches RowSelect/KeybindManager
-        background: Rectangle { radius: 8; color: Theme.surface_container
-                                 border { width: 1; color: Theme.outline_variant } }
+        background: Rectangle { radius: 2; color: Theme.surface_container
+                                 border { width: 1; color: Theme.hairline } }
         contentItem: Column {
             spacing: 2
             Repeater {
@@ -342,7 +299,7 @@ Column {
                 ]
                 delegate: Rectangle {
                     required property var modelData
-                    width: 160; height: 26; radius: 6
+                    width: 160; height: 26; radius: 2
                     color: menuHover.hovered ? Theme.glass(Theme.primary, 0.14) : "transparent"
                     Text { anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
                            text: modelData.label; color: Theme.textPrimary
@@ -382,8 +339,8 @@ Column {
         padding: 4
         enter: null; exit: null
         onClosed: visible = false
-        background: Rectangle { radius: 14; color: Theme.surface_container
-                                 border { width: 1; color: Theme.outline_variant } }
+        background: Rectangle { radius: 0; color: Theme.surface_container
+                                 border { width: 1; color: Theme.hairline } }
         contentItem: Image {
             source: browser.contextItem && browser.contextItem.thumb ? "file://" + browser.contextItem.thumb : ""
             fillMode: Image.PreserveAspectFit

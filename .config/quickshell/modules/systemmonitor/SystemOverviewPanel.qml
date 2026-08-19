@@ -15,11 +15,11 @@ PanelWindow {
 
     // Larger layout for high-DPI / big monitors (34").
     readonly property int panelWidth: 560
-    readonly property int panelRadius: 24
+    readonly property int panelRadius: 0
     readonly property int padding: 20
     readonly property int topGap: 10
     readonly property int rightGap: 20
-    readonly property int sectionRadius: 14
+    readonly property int sectionRadius: 0
     readonly property int bodyFont: 11
     readonly property int labelFont: 14
     readonly property int titleFont: 18
@@ -104,8 +104,8 @@ PanelWindow {
         implicitHeight: contentCol.implicitHeight + panel.padding * 2
         radius: panel.panelRadius
         color: Theme.glassShell
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
         border.width: 1
+        border.color: Theme.glassPanelBorder
         focus: false
 
         Keys.onEscapePressed: svc.open = false
@@ -147,6 +147,8 @@ PanelWindow {
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: panel.titleFont
                     font.weight: Font.Bold
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 0.6
                     Layout.fillWidth: true
                 }
 
@@ -189,6 +191,8 @@ PanelWindow {
                         history: svc.cpuHistory
                     }
 
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
                     // RAM
                     SystemMetricSection {
                         Layout.fillWidth: true
@@ -203,6 +207,8 @@ PanelWindow {
                         history: svc.ramHistory
                     }
 
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
                     QuickBattery.BatterySection {
                         Layout.fillWidth: true
                         labelFont: panel.labelFont
@@ -210,6 +216,8 @@ PanelWindow {
                         bodyFont: panel.bodyFont
                         sparklineHeight: panel.sparklineHeight
                     }
+
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
 
                     // GPU
                     SystemMetricSection {
@@ -228,21 +236,16 @@ PanelWindow {
                         history: svc.gpuHistory
                     }
 
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
                     // Storage
-                    Rectangle {
+                    Item {
                         Layout.fillWidth: true
-                        radius: panel.sectionRadius
-                        color: Theme.glassSection
-                        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-                        border.width: 1
-                        implicitHeight: storageCol.implicitHeight + 28
+                        implicitHeight: storageCol.implicitHeight
 
                         ColumnLayout {
                             id: storageCol
-                            anchors {
-                                fill: parent
-                                margins: 14
-                            }
+                            anchors { left: parent.left; right: parent.right }
                             spacing: 8
 
                             RowLayout {
@@ -253,6 +256,8 @@ PanelWindow {
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 0.6
                                     Layout.fillWidth: true
                                 }
                                 Text {
@@ -283,26 +288,21 @@ PanelWindow {
                         }
                     }
 
+                    Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+
                     // Network + temps row
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: 14
 
-                        Rectangle {
+                        Item {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
-                            radius: panel.sectionRadius
-                            color: Theme.glassSection
-                            border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-                            border.width: 1
-                            implicitHeight: netCol.implicitHeight + 28
+                            implicitHeight: netCol.implicitHeight
 
                             ColumnLayout {
                                 id: netCol
-                                anchors {
-                                    fill: parent
-                                    margins: 14
-                                }
+                                anchors { left: parent.left; right: parent.right }
                                 spacing: 6
 
                                 Text {
@@ -311,6 +311,8 @@ PanelWindow {
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 0.6
                                 }
                                 Text {
                                     text: "↓ " + svc.formatRate(svc.networkRxBps)
@@ -333,21 +335,16 @@ PanelWindow {
                             }
                         }
 
-                        Rectangle {
+                        Rectangle { Layout.fillWidth: false; Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.hairline }
+
+                        Item {
                             Layout.fillWidth: true
                             Layout.preferredWidth: 1
-                            radius: panel.sectionRadius
-                            color: Theme.glassSection
-                            border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.25)
-                            border.width: 1
-                            implicitHeight: tempCol.implicitHeight + 28
+                            implicitHeight: tempCol.implicitHeight
 
                             ColumnLayout {
                                 id: tempCol
-                                anchors {
-                                    fill: parent
-                                    margins: 14
-                                }
+                                anchors { left: parent.left; right: parent.right }
                                 spacing: 6
 
                                 Text {
@@ -356,6 +353,8 @@ PanelWindow {
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
+                                    font.capitalization: Font.AllUppercase
+                                    font.letterSpacing: 0.6
                                 }
 
                                 Flow {
@@ -365,8 +364,10 @@ PanelWindow {
                                         model: svc.sensors.slice(0, 6)
                                         delegate: Rectangle {
                                             required property var modelData
-                                            radius: 8
-                                            color: Theme.surface
+                                            radius: 2
+                                            color: "transparent"
+                                            border.width: 1
+                                            border.color: Theme.hairline
                                             implicitWidth: chipText.implicitWidth + 16
                                             implicitHeight: 24
                                             Text {
@@ -404,9 +405,9 @@ PanelWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 38
-                    radius: 12
-                    color: Theme.glassSection
-                    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+                    radius: 2
+                    color: "transparent"
+                    border.color: Theme.hairline
                     border.width: 1
 
                     Text {
@@ -426,9 +427,9 @@ PanelWindow {
                 Rectangle {
                     Layout.fillWidth: true
                     implicitHeight: 38
-                    radius: 12
-                    color: Theme.glassSection
-                    border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+                    radius: 2
+                    color: "transparent"
+                    border.color: Theme.hairline
                     border.width: 1
 
                     Text {

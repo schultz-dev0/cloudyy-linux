@@ -138,12 +138,47 @@ QtObject {
     readonly property color glassSection:     glass(surface_container, glassSectionAlpha)
     readonly property color glassSectionHigh: glass(surface_container_high, glassSectionHighAlpha)
 
+    // Resin material — a real theme-hue tint at real saturation, not a
+    // neutral glass tint. Inspired by translucent resin keycaps: color
+    // deepens with the material's own thickness, and a faint inner shape
+    // suggests structure underneath rather than showing the desktop behind
+    // it. Clamped to BOTH a floor and a ceiling — unlike islandAccent's
+    // floor-only clamp, this fill sits directly behind existing light-toned
+    // text (on_surface etc.), so a naturally pale/pastel accent (light
+    // wallpapers) needs pulling back down into "deep resin" range just as
+    // much as a too-dark one needs lifting up. Used sparingly — hero
+    // surfaces only, not every panel.
+    //
+    // The clamp range itself is mode-aware, not just the accent: light
+    // mode's dark text reads fine against a medium-toned fill, but dark
+    // mode's light text needs the fill pulled meaningfully darker for the
+    // same contrast — same lightness range read as "fine" in one mode and
+    // "rough" in the other.
+    function _clampLightness(c, min, max) {
+        const l = Math.min(max, Math.max(min, c.hslLightness))
+        return Qt.hsla(c.hslHue, c.hslSaturation, l, c.a)
+    }
+    readonly property color resinTint: isLightTheme
+        ? _clampLightness(accent, 0.24, 0.42)
+        : _clampLightness(accent, 0.14, 0.22)
+    readonly property real resinFillAlpha: 0.34
+    function resin(alpha) {
+        return Qt.rgba(resinTint.r, resinTint.g, resinTint.b, alpha)
+    }
+    readonly property color resinBorder: Qt.rgba(resinTint.r, resinTint.g, resinTint.b, 0.55)
+    readonly property color resinGloss:  Qt.rgba(1, 1, 1, 0.16)
+    readonly property color resinGlow:   Qt.rgba(1, 1, 1, 0.14)
+
     // Floating panel chrome (macOS-style light rim on dark, outline on light).
     readonly property bool isLightTheme: mode === "light"
     readonly property int glassPanelRadius: 20
     readonly property color glassPanelBorder: isLightTheme
         ? Qt.rgba(outline.r, outline.g, outline.b, 0.38)
         : Qt.rgba(1, 1, 1, 0.22)
+
+    // Flat instrument-panel divider — thin low-contrast rule used to separate
+    // groups instead of boxing every tile in its own bordered card.
+    readonly property color hairline: Qt.rgba(outline_variant.r, outline_variant.g, outline_variant.b, 0.4)
 
     // Persistent top-attached island chrome and motion.
     readonly property int islandRestWidth: 176
@@ -152,9 +187,10 @@ QtObject {
     readonly property int islandCarouselWidth: 610
     readonly property int islandCarouselHeight: 142
     readonly property int islandExpandedMaxHeight: 536
-    // 0 = corners are perfectly square where the island meets the screen
-    // edge; only the lower corners (islandRestLowerRadius/islandOpenLowerRadius)
-    // are rounded, so the shell reads as attached to the bezel, not floating.
+    // Top stays square/flush where the island meets the screen edge — "
+    // attached to the bezel," not floating — but the lower corners are
+    // rounded again, comfortable/capsule-like the way the dock's pill is,
+    // after the square-cornered bracket-readout experiment didn't land.
     readonly property int islandShoulderRadius: 0
     readonly property int islandRestLowerRadius: 12
     readonly property int islandOpenLowerRadius: 26
@@ -163,7 +199,10 @@ QtObject {
     readonly property int islandCloseDuration: 180
     readonly property int islandOpacityDuration: 120
     // Island chrome is always black, independent of light/dark theme mode.
-    readonly property color islandSurface: Qt.rgba(0, 0, 0, 0.97)
+    // Fully opaque (no wallpaper bleed-through) so it reads as a distinctly
+    // darker surface than the bar, which follows the live theme's surface
+    // tone instead of a fixed black.
+    readonly property color islandSurface: Qt.rgba(0, 0, 0, 1.0)
     readonly property color islandBorder: Qt.rgba(1, 1, 1, 0.10)
     readonly property color islandOnSurface: Qt.rgba(1, 1, 1, 1)
     readonly property color islandOnSurfaceVariant: Qt.rgba(1, 1, 1, 0.6)

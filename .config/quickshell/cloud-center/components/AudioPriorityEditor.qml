@@ -187,7 +187,7 @@ Item {
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Theme.glass(Theme.outline_variant, 0.46) }
+        Rectangle { width: parent.width; height: 1; color: Theme.hairline }
 
         Item {
             width: parent.width
@@ -221,7 +221,7 @@ Item {
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Theme.glass(Theme.outline_variant, 0.46) }
+        Rectangle { width: parent.width; height: 1; color: Theme.hairline }
 
         Item {
             width: parent.width
@@ -245,9 +245,9 @@ Item {
                 height: 40
                 Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10; topMargin: 2; bottomMargin: 2 }
-                    radius: 7
+                    radius: 2
                     color: Theme.surface_container_low
-                    border { width: 1; color: Theme.glass(Theme.outline_variant, 0.50) }
+                    border { width: 1; color: Theme.hairline }
                 }
                 Text {
                     anchors { left: parent.left; leftMargin: 18; right: actionRow.left; rightMargin: 8
@@ -331,11 +331,9 @@ Item {
             height: root.serviceActive ? 40 : 66
             Rectangle {
                 anchors { fill: parent; margins: 10 }
-                radius: 8
-                color: root.serviceActive ? Theme.glass(Theme.primary, 0.10)
-                    : Theme.glass(Theme.error_container, 0.44)
-                border { width: 1; color: root.serviceActive
-                    ? Theme.glass(Theme.primary, 0.30) : Theme.glass(Theme.error, 0.36) }
+                radius: 2
+                color: root.serviceActive ? Theme.primary_container : Theme.error_container
+                border { width: 1; color: Theme.hairline }
             }
             Text {
                 anchors { left: parent.left; leftMargin: 18; right: serviceButton.left; rightMargin: 10

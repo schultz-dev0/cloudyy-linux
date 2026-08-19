@@ -1,5 +1,2 @@
 module QuickTimer
 singleton TimerService 1.0 TimerService.qml
-TimerContent 1.0 TimerContent.qml
-TimerCard 1.0 TimerCard.qml
-NewTimerForm 1.0 NewTimerForm.qml

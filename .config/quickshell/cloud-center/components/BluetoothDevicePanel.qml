@@ -127,7 +127,7 @@ Item {
                 width: parent.width - 20
                 x: 10
                 height: 1
-                color: Theme.glass(Theme.outline_variant, 0.35)
+                color: Theme.hairline
             }
 
             Item {

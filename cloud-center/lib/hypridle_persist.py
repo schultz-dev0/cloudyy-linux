@@ -1,8 +1,7 @@
 """
 Cloud Center — lib/hypridle_persist.py
 Persists idle timing controls into ~/.config/hypr/hypridle.conf, then restarts
-hypridle so the new scene/lock timeouts take effect immediately. The rain
-scene and the secure-lock listener can each be disabled independently.
+hypridle so scene, lock, and optional suspend timeouts take effect immediately.
 """
 from __future__ import annotations
 
@@ -29,10 +28,14 @@ _LOCK_COMMAND = "cloudyy-lock"
 # trailing comment — _find_listener does substring matching, so the listener
 # stays findable (and sh treats it as a comment if hypridle execs it).
 _LOCK_DISABLED_COMMAND = "true # cloudyy-lock"
+_SUSPEND_COMMAND = "systemctl suspend"
+_SUSPEND_DISABLED_COMMAND = "true # systemctl suspend"
+_SUSPEND_DEFAULT_SECONDS = 3600
 
 _TARGET_MARKERS = {
     "scene": (_SCENE_COMMAND, _SCENE_RESUME_COMMAND),
     "lock": (_LOCK_COMMAND,),
+    "suspend": (_SUSPEND_COMMAND,),
 }
 _TIMEOUT_RE = re.compile(r"^(?P<indent>\s*)timeout\s*=")
 _ON_TIMEOUT_RE = re.compile(r"^(?P<indent>\s*)on-timeout\s*=")
@@ -92,6 +95,26 @@ def _set_timeout(lines: list[str], target: str, seconds: int) -> list[str]:
     raise ValueError(f"hypridle listener for {markers[0]} has no timeout line")
 
 
+def _ensure_suspend_listener(lines: list[str]) -> None:
+    try:
+        _find_listener(lines, _TARGET_MARKERS["suspend"])
+        return
+    except ValueError as exc:
+        if "no hypridle listener found" not in str(exc):
+            raise
+
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.extend(
+        [
+            "listener {",
+            f"    timeout = {_SUSPEND_DEFAULT_SECONDS}",
+            f"    on-timeout = {_SUSPEND_DISABLED_COMMAND}",
+            "}",
+        ]
+    )
+
+
 def _set_on_timeout_command(lines: list[str], target: str, command: str) -> list[str]:
     start, end = _find_listener(lines, _TARGET_MARKERS[target])
     for idx in range(start, end + 1):
@@ -128,6 +151,8 @@ def apply(target: str, minutes: str, *, restart: bool = True) -> int:
     seconds = _seconds(minutes)
     path = HYPRIDLE_CONF
     lines = path.read_text(encoding="utf-8").splitlines()
+    if target == "suspend":
+        _ensure_suspend_listener(lines)
     updated = _set_timeout(lines, target, seconds)
     _atomic_write(path, "\n".join(updated).rstrip("\n") + "\n")
 
@@ -160,6 +185,19 @@ def set_lock_enabled(enabled: bool, *, restart: bool = True) -> bool:
     return enabled
 
 
+def set_suspend_enabled(enabled: bool, *, restart: bool = True) -> bool:
+    command = _SUSPEND_COMMAND if enabled else _SUSPEND_DISABLED_COMMAND
+    path = HYPRIDLE_CONF
+    lines = path.read_text(encoding="utf-8").splitlines()
+    _ensure_suspend_listener(lines)
+    updated = _set_on_timeout_command(lines, "suspend", command)
+    _atomic_write(path, "\n".join(updated).rstrip("\n") + "\n")
+
+    if restart:
+        _restart_hypridle()
+    return enabled
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hypridle_persist")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -174,6 +212,9 @@ def main(argv: list[str] | None = None) -> int:
     p_lock = sub.add_parser("lock")
     p_lock.add_argument("state", choices=["on", "off"])
 
+    p_suspend = sub.add_parser("suspend")
+    p_suspend.add_argument("state", choices=["on", "off"])
+
     args = parser.parse_args(argv)
 
     try:
@@ -181,8 +222,10 @@ def main(argv: list[str] | None = None) -> int:
             payload = {"ok": True, "seconds": apply(args.target, args.minutes)}
         elif args.cmd == "scene":
             payload = {"ok": True, "enabled": set_scene_enabled(args.state == "on")}
-        else:
+        elif args.cmd == "lock":
             payload = {"ok": True, "enabled": set_lock_enabled(args.state == "on")}
+        else:
+            payload = {"ok": True, "enabled": set_suspend_enabled(args.state == "on")}
     except Exception as exc:
         print(json.dumps({"ok": False, "message": str(exc)}))
         return 1

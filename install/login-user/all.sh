@@ -25,7 +25,10 @@ if [[ -n "$zsh_path" && ! -d "$omz_dir" ]]; then
   installer="$(mktemp)"
   if curl -fsSL --connect-timeout 10 --max-time 30 \
     https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$installer"; then
-    ZSH="$omz_dir" RUNZSH=no CHSH=no sh "$installer" '' --unattended 2>/dev/null ||
+    # --keep-zshrc: the installer resolves its target as ${ZDOTDIR:-$HOME}/.zshrc,
+    # not $ZSH, so without this it moves a live config to .zshrc.pre-oh-my-zsh and
+    # drops in its stock template — even when $omz_dir points somewhere else.
+    ZSH="$omz_dir" RUNZSH=no CHSH=no sh "$installer" '' --unattended --keep-zshrc 2>/dev/null ||
       printf '[!] oh-my-zsh install failed (non-fatal).\n' >&2
   fi
   rm -f "$installer"

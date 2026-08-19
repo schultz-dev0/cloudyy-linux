@@ -18,7 +18,7 @@ Rectangle {
 
     width: parent ? parent.width : 0
     height: Math.max(46, contentColumn.implicitHeight + 18)
-    radius: 8
+    radius: 2
     color: hover.hovered ? Theme.glass(Theme.primary, 0.08) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -56,7 +56,7 @@ Rectangle {
             bottom: parent.bottom
         }
         height: 1
-        color: Theme.glass(Theme.outline_variant, 0.35)
+        color: Theme.hairline
     }
 
     HoverHandler { id: hover }

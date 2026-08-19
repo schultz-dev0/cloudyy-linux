@@ -27,6 +27,17 @@ Singleton {
     readonly property string ollamaServiceScript: "cloudyy-quickshell-ollama-service"
     readonly property string openWebuiMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/open-webui-mgmt.sh").toString().replace("file://", "")
     readonly property string packagesCtlScript: Qt.resolvedUrl("../commandcenter/scripts/packages-ctl.sh").toString().replace("file://", "")
+    readonly property string timerMgmtScript: Qt.resolvedUrl("../commandcenter/scripts/timer-mgmt.sh").toString().replace("file://", "")
+    readonly property string emojiDataScript: Qt.resolvedUrl("../commandcenter/scripts/emoji-data.sh").toString().replace("file://", "")
+
+    // Spotlight-only category filter bar. Sigil typed as the first character
+    // of an empty query switches category, same as clicking its pill.
+    readonly property var categorySigils: ({
+            ">": "apps", ";": "clipboard", ":": "emoji", "!": "calculator", "$": "currency", "?": "web"
+        })
+    property string activeCategory: ""
+    property var clipboardRows: []
+    property var emojiRows: []
 
     property bool visible: false
     property bool keyboardGrab: false
@@ -114,6 +125,16 @@ Singleton {
             return ["kitty", "-e", "sh", "-c", "fastfetch 2>/dev/null || neofetch 2>/dev/null || echo 'No system info tool'; read -p 'Press Enter...'"];
         if (path === "_ollama_pull_custom")
             return ["bash", ollamaMgmtScript, "pull-custom"];
+        if (path === "_timer_create_custom")
+            return ["bash", timerMgmtScript, "create-custom"];
+        if (path === "_timer_stopwatch_start")
+            return ["bash", timerMgmtScript, "stopwatch-start"];
+        if (path === "_timer_pause_resume")
+            return ["bash", timerMgmtScript, "pause-resume"];
+        if (path === "_timer_reset")
+            return ["bash", timerMgmtScript, "reset"];
+        if (path === "_timer_stop")
+            return ["bash", timerMgmtScript, "stop"];
         return ["bash", "-lc", path];
     }
 
@@ -509,8 +530,108 @@ Singleton {
             results = calc.concat(apps).concat(files).concat(commands);
         else
             results = calc.concat(commands).concat(apps).concat(files);
+        applyCategoryFilter();
         if (selectedIndex >= results.length)
             selectedIndex = results.length > 0 ? 0 : -1;
+    }
+
+    // Post-filters `results` down to the active Spotlight category pill.
+    // clipboard/emoji own `results` outright (see filterClipboardRows/
+    // filterEmojiRows) so they're left alone here.
+    function applyCategoryFilter() {
+        if (mode !== "spotlight" || activeCategory === "")
+            return;
+        let filtered = results;
+        if (activeCategory === "apps")
+            filtered = results.filter(r => r.type === "app");
+        else if (activeCategory === "calculator")
+            filtered = results.filter(r => r.type === "calculator" || r.type === "time");
+        else if (activeCategory === "currency")
+            filtered = results.filter(r => r.type === "currency");
+        else if (activeCategory === "web")
+            filtered = [];
+        if (filtered.length !== results.length)
+            results = filtered;
+    }
+
+    function setCategory(cat) {
+        if (mode !== "spotlight" || !cat)
+            return;
+        activeCategory = (activeCategory === cat) ? "" : cat;
+        selectedIndex = -1;
+        if (activeCategory === "clipboard")
+            loadClipboardList();
+        else if (activeCategory === "emoji")
+            loadEmojiData();
+        else
+            refreshDisplay();
+    }
+
+    function loadClipboardList() {
+        results = [{ type: "command", label: "Loading clipboard…", subtitle: "", icon: "📋", entry: null }];
+        clipboardListProc.running = false;
+        clipboardListProc.running = true;
+    }
+
+    function clipboardRowsToResults(rows) {
+        return rows.map(r => ({
+                type: "clipboard_entry",
+                entryId: r.id,
+                label: r.preview,
+                icon: "📋"
+            }));
+    }
+
+    function filterClipboardRows() {
+        const q = normalizeText(query);
+        let rows = clipboardRows;
+        if (q.length > 0)
+            rows = clipboardRows.filter(r => normalizeText(r.preview).indexOf(q) >= 0);
+        results = clipboardRowsToResults(rows);
+        if (results.length === 0) {
+            results = [{
+                    type: "command",
+                    label: q.length > 0 ? "No matching clipboard entries" : "Clipboard is empty",
+                    subtitle: "",
+                    icon: "📋",
+                    entry: null
+                }];
+        }
+        selectedIndex = -1;
+    }
+
+    function loadEmojiData() {
+        if (emojiRows.length > 0) {
+            filterEmojiRows();
+            return;
+        }
+        results = [{ type: "command", label: "Loading emoji…", subtitle: "", icon: "😀", entry: null }];
+        emojiDataProc.running = false;
+        emojiDataProc.running = true;
+    }
+
+    function emojiRowsToResults(rows) {
+        return rows.slice(0, 150).map(r => ({
+                type: "emoji",
+                char: r.char,
+                label: r.name,
+                subtitle: r.keywords || "",
+                icon: r.char
+            }));
+    }
+
+    function filterEmojiRows() {
+        const q = normalizeText(query);
+        let rows = emojiRows;
+        if (q.length > 0) {
+            rows = emojiRows.filter(r =>
+                normalizeText(r.name).indexOf(q) >= 0 || normalizeText(r.keywords || "").indexOf(q) >= 0);
+        }
+        results = emojiRowsToResults(rows);
+        if (results.length === 0) {
+            results = [{ type: "command", label: "No matching emoji", subtitle: "", icon: "😀", entry: null }];
+        }
+        selectedIndex = -1;
     }
 
     function closeSubPanels() {
@@ -541,6 +662,7 @@ Singleton {
         selectedIndex = -1;
         keybindRows = [];
         showingKeybinds = false;
+        activeCategory = "";
         svc.showPanel();
         if (m === "command")
             loadCommandsRegistry();
@@ -591,6 +713,8 @@ Singleton {
         ollamaListOp = "";
         pendingOllamaModel = "";
         ollamaModelRows = [];
+        activeCategory = "";
+        clipboardRows = [];
     }
 
     function close() {
@@ -700,6 +824,14 @@ Singleton {
             filterPackageRows();
             return;
         }
+        if (activeCategory === "clipboard") {
+            filterClipboardRows();
+            return;
+        }
+        if (activeCategory === "emoji") {
+            filterEmojiRows();
+            return;
+        }
         if (query.trim().length > 0) {
             runSearch();
             return;
@@ -773,6 +905,12 @@ Singleton {
             close();
         } else if (r.type === "calculator" || r.type === "currency" || r.type === "time") {
             launch(["wl-copy", r.result]);
+            close();
+        } else if (r.type === "clipboard_entry") {
+            launch(["bash", "-c", "cliphist decode \"$1\" | wl-copy", "_", r.entryId]);
+            close();
+        } else if (r.type === "emoji") {
+            launch(["wl-copy", r.char]);
             close();
         } else if (r.type === "ollama_model") {
             if (ollamaListMode === "delete") {
@@ -1387,6 +1525,52 @@ Singleton {
     }
 
     Process {
+        id: clipboardListProc
+        running: false
+        command: ["cliphist", "list"]
+        stdout: StdioCollector {
+            id: clipboardListCollector
+            onStreamFinished: {
+                const lines = clipboardListCollector.text.split("\n");
+                const rows = [];
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const tab = line.indexOf("\t");
+                    if (tab < 0)
+                        continue;
+                    const id = line.slice(0, tab).trim();
+                    if (!id)
+                        continue;
+                    rows.push({ id: id, preview: line.slice(tab + 1) });
+                }
+                svc.clipboardRows = rows;
+                if (svc.activeCategory === "clipboard")
+                    svc.filterClipboardRows();
+            }
+        }
+    }
+
+    Process {
+        id: emojiDataProc
+        running: false
+        command: ["bash", svc.emojiDataScript]
+        stdout: SplitParser {
+            onRead: line => {
+                const text = line.trim();
+                if (!text)
+                    return;
+                try {
+                    svc.emojiRows = svc.emojiRows.concat([JSON.parse(text)]);
+                } catch (e) {}
+            }
+        }
+        onRunningChanged: {
+            if (!running && svc.activeCategory === "emoji")
+                svc.filterEmojiRows();
+        }
+    }
+
+    Process {
         id: ollamaMgmtProc
         running: false
         onRunningChanged: {
@@ -1495,6 +1679,14 @@ Singleton {
         if (packagesListMode) {
             if (packagesListMode !== "confirm")
                 filterPackageRows();
+            return;
+        }
+        if (activeCategory === "clipboard") {
+            filterClipboardRows();
+            return;
+        }
+        if (activeCategory === "emoji") {
+            filterEmojiRows();
             return;
         }
         if (query.trim().length === 0)

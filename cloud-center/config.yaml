@@ -294,6 +294,16 @@ pages:
 
       - type: section
         properties:
+          title: Dynamic Island
+          description: Choose which detected integrations appear and their order
+        items:
+          - type: island_integrations
+            properties:
+              title: Carousel integrations
+              description: Enable and reorder the pages shown in the Dynamic Island
+
+      - type: section
+        properties:
           title: Performance
           description: Lighter animations for weaker GPUs — restarts the shell when changed
         items:
@@ -387,6 +397,39 @@ pages:
                 command: >-
                   cd ~/cloudyy-linux/cloud-center &&
                   python3 -m lib.hypridle_persist lock off
+
+          - type: toggle
+            properties:
+              title: Suspend when idle
+              description: Automatically suspend the system after inactivity
+              icon: 󰒲
+              key: idle/suspend_enabled
+              default: false
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist suspend on
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.hypridle_persist suspend off
+
+          - type: slider
+            properties:
+              title: Suspend after
+              description: Total minutes of inactivity before the system suspends
+              icon: 󰒲
+              key: idle/suspend_minutes
+              presentation: editable_dropdown
+              preset_min: 15
+              preset_max: 240
+              preset_step: 15
+              default: 60
+            on_change:
+              command: >-
+                cd ~/cloudyy-linux/cloud-center &&
+                python3 -m lib.hypridle_persist apply suspend {value_i}
 
       - type: section
         properties:

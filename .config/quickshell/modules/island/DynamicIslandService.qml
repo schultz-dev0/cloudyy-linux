@@ -97,6 +97,12 @@ QtObject {
 
     property string _recordingOutFile: ""
     property string _recordingPickerId: ""
+    property bool recordingStarting: false
+    property var _recordingLaunchProc: null
+    property var _recordingStartWaitProc: null
+    property int _recordingLaunchSerial: 0
+    property string _recordingLaunchPidFile: ""
+    property var _recordingStateProc: null
     // Epoch ms when the current capture began (0 when idle). Used by the bar
     // recording pill for elapsed time; restore after qs restart uses Date.now().
     property real recordingStartedAt: 0
@@ -449,7 +455,7 @@ QtObject {
     }
 
     function toggleRecording() {
-        if (root._recordingOutFile)
+        if (root.recordingStarting || root._recordingOutFile)
             root.stopRecording();
         else if (root._recordingPickerId
                  && (root.currentActivity?.id === root._recordingPickerId
@@ -514,6 +520,9 @@ QtObject {
 
         const fname = root._nextRecordingFilename();
         const outFile = root.recordingsDir.replace(/\/$/, "") + "/" + fname;
+        const launchSerial = ++root._recordingLaunchSerial;
+        const launchPidFile = "/tmp/cloudyy-recording-launch." + launchSerial + ".pid";
+        root._recordingLaunchPidFile = launchPidFile;
 
         // cloudyy-recording-args prints "<front args> [-- <wf-recorder passthrough>]"
         // (audio only ever appears after `--` — hyprcap's own `-a` is unrelated,
@@ -530,21 +539,54 @@ QtObject {
                     + "for tok in \"${arr[@]}\"; do\n"
                     + "    if [ \"$dd\" -eq 0 ] && [ \"$tok\" = \"--\" ]; then dd=1; continue; fi\n"
                     + "    if [ \"$dd\" -eq 0 ]; then front+=(\"$tok\"); else rest+=(\"$tok\"); fi\n"
-                    + "done\n"
-                    + "mkdir -p " + root._shellQuote(root.recordingsDir) + "\n"
-                    + "if [ \"$dd\" -eq 1 ]; then\n"
-                    + "    ( hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
-                    + " -- \"${rest[@]}\" </dev/null >/dev/null 2>&1 & )\n"
-                    + "else\n"
-                    + "    ( hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
-                    + " </dev/null >/dev/null 2>&1 & )\n"
-                    + "fi\n";
+                     + "done\n"
+                     + "mkdir -p " + root._shellQuote(root.recordingsDir) + "\n"
+                     + "printf '%s' \"$$\" > " + root._shellQuote(launchPidFile) + "\n"
+                     + "if [ \"$dd\" -eq 1 ]; then\n"
+                     + "    exec hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
+                     + " -- \"${rest[@]}\" </dev/null >/dev/null 2>&1\n"
+                     + "else\n"
+                     + "    exec hyprcap \"${front[@]}\" -N rec-start " + root._shellQuote(sel)
+                     + " </dev/null >/dev/null 2>&1\n"
+                     + "fi\n";
 
-        root._runShell(cmd, exitCode => {
+        root.recordingStarting = true;
+        root._recordingLaunchProc = root._runShell(cmd, exitCode => {
+            if (launchSerial !== root._recordingLaunchSerial)
+                return;
+            root._recordingLaunchProc = null;
+            root._recordingLaunchPidFile = "";
+            root._runShell("rm -f " + root._shellQuote(launchPidFile));
+            if (!root.recordingStarting && !root.recordingActive)
+                return;
+            const wasActive = root.recordingActive;
+            root.recordingStarting = false;
+            root._recordingOutFile = "";
+            root.recordingStartedAt = 0;
+            root._clearRecordingState();
+            root.showOsdBurst("record-error", "",
+                              wasActive ? "Recording stopped unexpectedly" : "Recording cancelled", 0);
+        });
+
+        const runtimeDir = Quickshell.env("XDG_RUNTIME_DIR") || "/run";
+        const pidFile = runtimeDir.replace(/\/$/, "") + "/hyprcap_rec.pid";
+        const waitCmd = "for i in $(seq 1 6000); do "
+                        + "pid=$(cat " + root._shellQuote(pidFile) + " 2>/dev/null || true); "
+                        + "[ -n \"$pid\" ] && kill -0 \"$pid\" 2>/dev/null && exit 0; "
+                        + "sleep 0.1; done; exit 1";
+        root._recordingStartWaitProc = root._runShell(waitCmd, exitCode => {
+            if (launchSerial !== root._recordingLaunchSerial)
+                return;
+            root._recordingStartWaitProc = null;
+            if (!root.recordingStarting)
+                return;
             if (exitCode !== 0) {
-                root.showOsdBurst("record-error", "", "Audio unavailable", 0);
+                root.recordingStarting = false;
+                root._cancelRecordingLaunch();
+                root.showOsdBurst("record-error", "", "Recording selection timed out", 0);
                 return;
             }
+            root.recordingStarting = false;
             root._recordingOutFile = outFile;
             root.recordingStartedAt = Date.now();
             root._writeRecordingState(outFile, sel);
@@ -555,11 +597,17 @@ QtObject {
         const outFile = root._recordingOutFile;
         const previewComp = root.recordingPreviewComponent;
 
+        root.recordingStarting = false;
         root._recordingOutFile = "";
         root.recordingStartedAt = 0;
         root._clearRecordingState();
 
-        if (!outFile || !previewComp) {
+        if (!outFile) {
+            root._cancelRecordingLaunch();
+            return;
+        }
+
+        if (!previewComp) {
             root._runShell("hyprcap rec-stop -N 2>/dev/null || true");
             return;
         }
@@ -585,12 +633,44 @@ QtObject {
 
     function _writeRecordingState(outFile, selection) {
         const body = "RECORDING=1\nOUT_FILE=" + outFile + "\nSELECTION=" + selection + "\n";
-        root._runShell("printf %s > " + root._shellQuote(root._recordingStateFile) + " "
-                       + root._shellQuote(body));
+        const tmp = root._recordingStateFile + ".tmp";
+        const proc = root._runShell("printf %s " + root._shellQuote(body)
+                       + " > " + root._shellQuote(tmp)
+                       + " && mv -f " + root._shellQuote(tmp) + " "
+                       + root._shellQuote(root._recordingStateFile), () => {
+            if (root._recordingStateProc === proc)
+                root._recordingStateProc = null;
+        });
+        root._recordingStateProc = proc;
+    }
+
+    function _cancelRecordingLaunch() {
+        const proc = root._recordingLaunchProc;
+        const waiter = root._recordingStartWaitProc;
+        const launchPidFile = root._recordingLaunchPidFile;
+        root._recordingLaunchSerial++;
+        root._recordingLaunchProc = null;
+        root._recordingStartWaitProc = null;
+        root._recordingLaunchPidFile = "";
+        const pidFile = root._shellQuote(launchPidFile);
+        root._runShell("pid=$(cat " + pidFile + " 2>/dev/null || true); "
+                       + "if [ -n \"$pid\" ]; then "
+                       + "pkill -TERM -P \"$pid\" 2>/dev/null || true; "
+                       + "kill -TERM \"$pid\" 2>/dev/null || true; fi; "
+                       + "rm -f " + pidFile);
+        if (proc)
+            proc.signal(15);
+        if (waiter)
+            waiter.signal(15);
     }
 
     function _clearRecordingState() {
-        root._runShell("rm -f " + root._shellQuote(root._recordingStateFile));
+        if (root._recordingStateProc) {
+            root._recordingStateProc.signal(15);
+            root._recordingStateProc = null;
+        }
+        root._runShell("rm -f " + root._shellQuote(root._recordingStateFile)
+                       + " " + root._shellQuote(root._recordingStateFile + ".tmp"));
     }
 
     function showRecordingPreview(videoPath, contentComponent) {
@@ -652,7 +732,7 @@ QtObject {
 
     function _runShell(cmd, onDone) {
         if (!root.procFactory)
-            return;
+            return null;
         const proc = root.procFactory.createObject(root, {
             command: ["sh", "-c", cmd]
         });
@@ -662,5 +742,6 @@ QtObject {
             proc.destroy();
         });
         proc.running = true;
+        return proc;
     }
 }

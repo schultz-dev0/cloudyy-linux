@@ -107,7 +107,7 @@ Rectangle {
                 ] : []
                 delegate: Rectangle {
                     required property var modelData
-                    width: 26; height: 26; radius: 6
+                    width: 26; height: 26; radius: 2
                     opacity: modelData.enabled ? 1 : 0.28
                     color: actionHover.hovered && modelData.enabled
                         ? Theme.glass(modelData.action === "remove" ? Theme.error : Theme.primary, 0.15)

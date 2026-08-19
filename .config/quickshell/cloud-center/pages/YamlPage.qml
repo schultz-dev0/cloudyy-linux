@@ -62,6 +62,7 @@ Flickable {
                             case "wallpaper_picker": return wallpaperComp;
                             case "online_wallpaper_browser": return onlineWallpaperComp;
                             case "extension_browser": return extensionBrowserComp;
+                            case "island_integrations": return islandIntegrationsComp;
                             default:                 return unsupportedComp;
                             }
                         }
@@ -80,6 +81,9 @@ Flickable {
                         property Component wallpaperComp: Component { WallpaperGrid { item: modelData } }
                         property Component onlineWallpaperComp: Component { OnlineWallpaperBrowser { item: modelData } }
                         property Component extensionBrowserComp: Component { ExtensionBrowser { item: modelData } }
+                        property Component islandIntegrationsComp: Component {
+                            IslandIntegrationsEditor { item: modelData }
+                        }
                         property Component unsupportedComp: Component {
                             RowBase { item: modelData
                                 Text { text: modelData.type; color: Theme.textMuted

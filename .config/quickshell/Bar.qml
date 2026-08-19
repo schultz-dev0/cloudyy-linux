@@ -14,6 +14,7 @@ import "overview/services"
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/battery" as QuickBattery
 import "modules/island" as QuickIsland
+import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 
 PanelWindow {
@@ -41,21 +42,31 @@ PanelWindow {
     visible: QuickIdle.IdleService.state !== "scene"
 
     // ── Tunables ─────────────────────────────────────
-    readonly property int barHeight: 10          // shrink the size a bit
-    readonly property int topGap: 5             // create a larger gap to accomodate for the shrink ^
+    // barHeight/topGap/bgOpacity come from BarStyleService — double-click
+    // the bar to switch between solid (Omarchy-style) and the old floating
+    // transparent+vignette look. Keeping bar.* as the read interface here
+    // so the rest of this file doesn't need to change.
+    readonly property int barHeight: BarStyleService.barHeight
+    readonly property int topGap: BarStyleService.topGap
     readonly property int sideGap: 0
     readonly property int radius: 0
-    readonly property int pillRadius: 6
+    readonly property int pillRadius: 2
     readonly property int pillPadH: 6
     readonly property int pillPadV: 3
     readonly property int pillGap: 10
-    readonly property real bgOpacity: 0.0
+    readonly property real bgOpacity: BarStyleService.bgOpacity
 
-    // ── Bar colors (macOS floating style) ─────────────────────────────────────
-    // Basic colors for the bar
-    readonly property color barFg: Qt.rgba(1, 1, 1, 0.92)
-    readonly property color barFgStrong: Qt.rgba(1, 1, 1, 0.98)
-    readonly property color barFgMuted: Qt.rgba(1, 1, 1, 0.98) //0.58)
+    // ── Bar colors ─────────────────────────────────────
+    // Theme-derived, not hardcoded white — on_surface is guaranteed to
+    // contrast against surface in both light and dark mode, which fixed
+    // white text never was (invisible on a light-mode solid bar). Used in
+    // both bar states now, not just solid — no vignette to lean on anymore.
+    readonly property color barFgStrong: Theme.on_surface
+    readonly property color barFg: Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.85)
+    readonly property color barFgMuted: Theme.on_surface_variant
+    // Charging is a semantic status color, not a legibility token — themes'
+    // tertiary roles aren't reliably green (Nord/Gruvbox/Catppuccin are all
+    // purple), so tokenizing this would break the "green = charging" meaning.
     readonly property color barFgCharging: Qt.rgba(0.65, 0.95, 0.72, 0.98)
 
     // ── Props ─────────────────────────────────────────────────────────────────
@@ -75,7 +86,10 @@ PanelWindow {
     }
     implicitHeight: barHeight + topGap
     exclusiveZone: barHeight + topGap
-    color: "transparent"
+    // Frost material — neutral Theme.surface tint, no resin saturation or
+    // dot texture. Opacity is still owned by BarStyleService's solid/
+    // transparent toggle, not the material itself.
+    color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, bar.bgOpacity)
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     // ── One-shot command launcher ─────────────────────────────────────────────
@@ -193,6 +207,15 @@ PanelWindow {
         }
     }
 
+    // Double-click empty bar space to switch solid <-> transparent+vignette.
+    // Declared before the zones/pills below so their own MouseAreas still
+    // win on direct hits — this only catches clicks that land on nothing.
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton
+        onDoubleClicked: BarStyleService.toggle()
+    }
+
     Item {
         id: islandReserve
         anchors.horizontalCenter: parent.horizontalCenter
@@ -229,10 +252,8 @@ PanelWindow {
         anchors {
             left: parent.left
             leftMargin: 4
-            top: parent.top
-            topMargin: bar.topGap
+            verticalCenter: parent.verticalCenter
         }
-        height: bar.barHeight
         spacing: bar.pillGap
 
         Pill {
@@ -381,7 +402,7 @@ PanelWindow {
                 id: clockMouse
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: QuickIsland.IslandState.showPage("calendar", bar.screen?.name ?? "")
+                onClicked: QuickCalendar.CalendarPanelService.toggle()
             }
         }
 
@@ -418,10 +439,8 @@ PanelWindow {
         anchors {
             right: parent.right
             rightMargin: 4
-            top: parent.top
-            topMargin: bar.topGap
+            verticalCenter: parent.verticalCenter
         }
-        height: bar.barHeight
         spacing: bar.pillGap
 
         // Live screen-recording indicator (macOS-style): red dot while capturing;

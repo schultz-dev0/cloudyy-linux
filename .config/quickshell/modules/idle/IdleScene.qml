@@ -60,6 +60,48 @@ PanelWindow {
             const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
             return value - Math.floor(value);
         }
+
+        // Where the ground starts. Single source of truth -- the ground rect and
+        // the bolt's strike length both derive from it.
+        readonly property real groundTop: scene.height * 0.81
+
+        // Bolt is generated per strike rather than drawn as fixed art: walk down
+        // one row at a time picking from "| / \", and let the glyph decide the
+        // sideways step. The zigzag falls out of the glyph choice for free.
+        property var boltSegments: []
+        property int boltGrown: 0
+        property real boltFade: 0
+        property real sparkProgress: 0
+        property int strikeSeed: 0
+        property real boltTipX: 0
+        property real boltTipY: 0
+        readonly property real boltPixelSize: Math.max(18, scene.width / 96)
+        readonly property real boltColumnStep: boltPixelSize * 0.6
+        readonly property real boltRowStep: boltPixelSize * 0.76
+
+        function growBolt(segments, column, row, lastRow, canBranch) {
+            while (row < lastRow) {
+                const roll = Math.random();
+                const glyph = roll < 0.34 ? "|" : roll < 0.67 ? "/" : "\\";
+                segments.push({ column: column, row: row, glyph: glyph });
+                column += glyph === "\\" ? 1 : glyph === "/" ? -1 : 0;
+                row += 1;
+                if (canBranch && Math.random() < 0.14)
+                    growBolt(segments, column, row, Math.min(lastRow, row + 4 + Math.floor(Math.random() * 5)), false);
+            }
+        }
+
+        function buildBolt() {
+            const segments = [];
+            const startY = scene.height * scene.lightningY;
+            const rows = Math.max(6, Math.round((scene.groundTop - startY) / scene.boltRowStep));
+            growBolt(segments, 0, 0, rows, true);
+            const tip = segments[segments.length - 1];
+            scene.boltTipX = scene.width * scene.lightningX + tip.column * scene.boltColumnStep;
+            scene.boltTipY = scene.height * scene.lightningY + tip.row * scene.boltRowStep;
+            scene.strikeSeed = scene.strikeSeed + 1;
+            scene.boltSegments = segments;
+        }
         property real rainClock: 0
         property real cloudClock: 0
         property real lightningOpacity: 0
@@ -67,12 +109,12 @@ PanelWindow {
         property real lightningY: 0.16
         property int thunderDelay: 12000
 
-        Timer {
-            interval: 16
+        // Vsync-locked instead of a fixed 16ms Timer, which beats against any
+        // refresh rate that isn't exactly 62.5Hz.
+        FrameAnimation {
             running: root.visible
-            repeat: true
             onTriggered: {
-                scene.rainClock = Date.now();
+                scene.rainClock = elapsedTime * 1000;
                 scene.cloudClock = scene.rainClock;
             }
         }
@@ -83,7 +125,7 @@ PanelWindow {
             repeat: true
             onTriggered: {
                 scene.lightningX = 0.18 + Math.random() * 0.64;
-                scene.lightningY = 0.05 + Math.random() * 0.30;
+                scene.lightningY = Math.random() * 0.03;
                 thunderFlash.restart();
                 scene.thunderDelay = 12000 + Math.floor(Math.random() * 18000);
             }
@@ -91,13 +133,38 @@ PanelWindow {
 
         SequentialAnimation {
             id: thunderFlash
-            PropertyAction { target: scene; property: "lightningOpacity"; value: 0.14 }
-            PauseAnimation { duration: 55 }
-            NumberAnimation { target: scene; property: "lightningOpacity"; to: 0; duration: 120 }
-            PauseAnimation { duration: 110 }
-            PropertyAction { target: scene; property: "lightningOpacity"; value: 0.12 }
-            PauseAnimation { duration: 35 }
-            NumberAnimation { target: scene; property: "lightningOpacity"; to: 0; duration: 170 }
+
+            // `to` is assigned imperatively, not bound -- binding it to
+            // boltSegments.length makes Qt cry binding loop.
+            ScriptAction {
+                script: {
+                    scene.buildBolt();
+                    boltGrowth.to = scene.boltSegments.length;
+                }
+            }
+            PropertyAction { target: scene; property: "boltFade"; value: 1 }
+            PropertyAction { target: scene; property: "sparkProgress"; value: 0 }
+
+            ParallelAnimation {
+                NumberAnimation { id: boltGrowth; target: scene; property: "boltGrown"; from: 0; duration: 170 }
+                SequentialAnimation {
+                    PropertyAction { target: scene; property: "lightningOpacity"; value: 0.14 }
+                    PauseAnimation { duration: 55 }
+                    NumberAnimation { target: scene; property: "lightningOpacity"; to: 0; duration: 120 }
+                    PauseAnimation { duration: 110 }
+                    PropertyAction { target: scene; property: "lightningOpacity"; value: 0.12 }
+                    PauseAnimation { duration: 35 }
+                    NumberAnimation { target: scene; property: "lightningOpacity"; to: 0; duration: 170 }
+                }
+            }
+
+            ParallelAnimation {
+                NumberAnimation { target: scene; property: "sparkProgress"; to: 1; duration: 620 }
+                SequentialAnimation {
+                    PauseAnimation { duration: 90 }
+                    NumberAnimation { target: scene; property: "boltFade"; to: 0; duration: 320 }
+                }
+            }
         }
 
         Keys.onPressed: event => {
@@ -107,7 +174,7 @@ PanelWindow {
 
         Rectangle {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            height: parent.height * 0.19
+            height: scene.height - scene.groundTop
             color: "#0a1011"
         }
 
@@ -188,21 +255,42 @@ PanelWindow {
             font.pixelSize: 13
         }
 
-        Text {
-            x: scene.width * scene.lightningX - width / 2
-            y: scene.height * scene.lightningY
-            text: "       /\\\n"
-                + "      /  \\\n"
-                + "        /  \\\n"
-                + "       /  \\\n"
-                + "      /  \\\n"
-                + "       \\/"
-            color: "#e0fbff"
-            opacity: Math.min(1, scene.lightningOpacity * 4)
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: Math.max(18, scene.width / 96)
-            lineHeight: 0.76
-            z: 2
+        Repeater {
+            model: scene.boltSegments
+            delegate: Text {
+                required property var modelData
+                required property int index
+                x: scene.width * scene.lightningX + modelData.column * scene.boltColumnStep
+                y: scene.height * scene.lightningY + modelData.row * scene.boltRowStep
+                text: modelData.glyph
+                color: "#e0fbff"
+                opacity: index < scene.boltGrown ? scene.boltFade : 0
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: scene.boltPixelSize
+                renderType: Text.NativeRendering
+                z: 2
+            }
+        }
+
+        // Sparks off the strike point: one parabola per particle, driven by the
+        // shared sparkProgress. ponytail: no per-spark animators, no Bezier paths.
+        Repeater {
+            model: 14
+            delegate: Text {
+                required property int index
+                readonly property real angle: Math.PI * (1.15 + scene.noise(index, scene.strikeSeed) * 0.7)
+                readonly property real speed: scene.boltPixelSize * (2.2 + scene.noise(index, scene.strikeSeed + 40) * 3.4)
+                readonly property real t: scene.sparkProgress
+                x: scene.boltTipX + Math.cos(angle) * speed * t
+                y: scene.boltTipY + Math.sin(angle) * speed * t + scene.boltPixelSize * 9 * t * t
+                text: index % 2 === 0 ? "*" : "."
+                color: "#cdf3ff"
+                opacity: t > 0 && t < 1 ? (1 - t) * 0.9 : 0
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: scene.boltPixelSize * (0.4 + scene.noise(index, scene.strikeSeed + 80) * 0.3)
+                renderType: Text.NativeRendering
+                z: 2
+            }
         }
 
         Rectangle {

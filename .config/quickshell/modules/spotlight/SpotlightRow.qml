@@ -30,7 +30,7 @@ Item {
             leftMargin: 10
             rightMargin: 10
         }
-        radius: 8
+        radius: 2
         color: root.isSelected
             ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18)
             : "transparent"

@@ -550,11 +550,11 @@ Flickable {
         exit: null
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {
-            radius: 8
+            radius: 2
             color: Theme.surface_container
             border {
                 width: 1
-                color: Theme.outline_variant
+                color: Theme.hairline
             }
         }
         contentItem: FocusScope {
@@ -568,7 +568,7 @@ Flickable {
                         required property var modelData
                         width: 168
                         height: 28
-                        radius: 6
+                        radius: 2
                         color: menuHover.hovered
                             ? Theme.glass(Theme.primary, 0.14)
                             : "transparent"
