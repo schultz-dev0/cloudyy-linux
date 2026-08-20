@@ -44,7 +44,7 @@ Item {
         if (kind === "media") return root.summary.title || "Media";
         if (kind === "agent") return root.summary.agentName || "Agent";
         if (kind === "notification") return root.summary.unreadCount + " unread";
-        return "Cloudyy";
+        return "";
     }
 
     function _secondaryText() {
@@ -56,7 +56,7 @@ Item {
         if (kind === "media") return root.summary.artist || "";
         if (kind === "agent") return root.summary.projectName || "Running";
         if (kind === "notification") return root.summary.summary || "Notifications";
-        return "Ready";
+        return "";
     }
 
     anchors {
@@ -78,6 +78,7 @@ Item {
         anchors.centerIn: parent
         width: parent.width
         spacing: 6
+        visible: (root.summary?.kind ?? "neutral") !== "neutral"
 
         Text {
             text: root._icon()
