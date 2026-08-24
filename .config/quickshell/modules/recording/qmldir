@@ -1,0 +1,2 @@
+module QuickRecording
+singleton RecordingService 1.0 RecordingService.qml

@@ -1,0 +1,2 @@
+module QuickMpris
+singleton MprisFocus 1.0 MprisFocus.qml

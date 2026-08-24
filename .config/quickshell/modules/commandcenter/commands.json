@@ -613,19 +613,52 @@
   },
   {
     "id": "trigger.record",
-    "label": "Screen Recording",
-    "icon": "",
+    "label": "Record Screen",
+    "icon": "󰃚",
     "keywords": [
       "record",
       "recording",
-      "screencast"
+      "screen",
+      "capture"
     ],
     "parent": "trigger",
     "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "trigger.record.region",
+    "label": "Record — Area",
+    "icon": "󱇗",
+    "parent": "trigger.record",
+    "action": {
       "type": "exec",
       "command": [
-        "cloudyy-screenshot-capture",
-        "--record"
+        "qs", "ipc", "call", "record", "start", "region"
+      ]
+    }
+  },
+  {
+    "id": "trigger.record.active-monitor",
+    "label": "Record — Active Monitor",
+    "icon": "󰃚",
+    "parent": "trigger.record",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs", "ipc", "call", "record", "start", "monitor:active"
+      ]
+    }
+  },
+  {
+    "id": "trigger.record.choose-monitor",
+    "label": "Record — Choose Monitor",
+    "icon": "󰃚",
+    "parent": "trigger.record",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs", "ipc", "call", "record", "start", "monitor"
       ]
     }
   },

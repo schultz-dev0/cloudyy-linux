@@ -14,7 +14,10 @@ import "modules/commandcenter/applibrary" as QuickAppLibrary
 import "modules/commandcenter/powermenu" as QuickPowerMenu
 import "modules/commandcenter/wallpapers" as QuickWallpapers
 import "modules/systemmonitor" as QuickSystemMonitor
-import "modules/island" as QuickIsland
+import "modules/mpris" as QuickMpris
+import "modules/recording" as QuickRecording
+import "modules/toast" as QuickToast
+import "modules/shelf" as QuickShelf
 import "modules/notifpanel" as QuickNotifPanel
 import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
@@ -68,35 +71,10 @@ ShellRoot {
         const _fm = Hyprland.focusedMonitor; // register as dep so binding re-evaluates on monitor focus change
         return root.targetScreens(root.dockOnAllScreens);
     }
-    // Pin the island to its current screen while a preview drag is live so
-    // monitor-focus changes (common when dragging to another app) don't
-    // remount the layer and free the QMimeData mid-transfer.
-    property var islandScreenPin: null
     readonly property var islandScreen: {
-        if (root.islandScreenPin)
-            return root.islandScreenPin;
-        const owner = QuickIsland.IslandState.openingScreenName;
-        if (owner) {
-            const screens = Quickshell.screens;
-            for (let i = 0; i < screens.length; i++) {
-                if (screens[i].name === owner)
-                    return screens[i];
-            }
-        }
-        const _fm = Hyprland.focusedMonitor; // keep the island on the focused monitor
+        const _fm = Hyprland.focusedMonitor; // keep panels on the focused monitor
         const screens = root.targetScreens(false);
         return screens.length ? screens[0] : null;
-    }
-
-    Connections {
-        target: QuickIsland.DynamicIslandService
-        function onPreviewDragActiveChanged() {
-            if (QuickIsland.DynamicIslandService.previewDragActive) {
-                root.islandScreenPin = root.islandScreen;
-            } else {
-                root.islandScreenPin = null;
-            }
-        }
     }
 
     Connections {
@@ -168,26 +146,6 @@ ShellRoot {
     readonly property string screenshotPendingPathFile: "/tmp/cloudyy-screenshot.path"
     readonly property string recordingPendingPathFile: "/tmp/cloudyy-recording.path"
 
-    Component {
-        id: screenshotActivityComp
-        QuickIsland.ScreenshotActivity {}
-    }
-
-    Component {
-        id: recordingActivityComp
-        QuickIsland.RecordingActivity {}
-    }
-
-    Component {
-        id: recordPickerActivityComp
-        QuickIsland.RecordPickerActivity {}
-    }
-
-    Component {
-        id: osdBurstActivityComp
-        QuickIsland.OsdBurstActivity {}
-    }
-
     // Polls the first kbd_backlight LED device found in /sys/class/leds every 200 ms.
     // Uses a glob so it works on ASUS, ThinkPad, Dell, Samsung, etc.
     // sysfs does not emit inotify events on kernel-driven writes, so polling is required.
@@ -245,10 +203,10 @@ ShellRoot {
         onFileChanged: reload()
         onLoaded: {
             const v = text().trim();
-            QuickIsland.DynamicIslandService.recordingsDir = v || root.recordingsDir;
+            QuickRecording.RecordingService.recordingsDir = v || root.recordingsDir;
         }
         onLoadFailed: error => {
-            QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
+            QuickRecording.RecordingService.recordingsDir = root.recordingsDir;
         }
     }
 
@@ -259,9 +217,9 @@ ShellRoot {
         onFileChanged: reload()
         onLoaded: {
             const v = text().trim();
-            QuickIsland.DynamicIslandService.recFiletype = v || "mp4";
+            QuickRecording.RecordingService.recFiletype = v || "mp4";
         }
-        onLoadFailed: error => { QuickIsland.DynamicIslandService.recFiletype = "mp4"; }
+        onLoadFailed: error => { QuickRecording.RecordingService.recFiletype = "mp4"; }
     }
 
     FileView {
@@ -269,20 +227,8 @@ ShellRoot {
         path: root._recordingSettingsDir + "/rec_filename_pattern"
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: { QuickIsland.DynamicIslandService.recFilenamePattern = text().trim(); }
-        onLoadFailed: error => { QuickIsland.DynamicIslandService.recFilenamePattern = ""; }
-    }
-
-    FileView {
-        id: islandPreviewMsFile
-        path: root._recordingSettingsDir + "/island_preview_ms"
-        watchChanges: true
-        onFileChanged: reload()
-        onLoaded: {
-            const n = parseInt(text().trim(), 10);
-            QuickIsland.DynamicIslandService.islandPreviewMs = (Number.isFinite(n) && n > 0) ? n : 0;
-        }
-        onLoadFailed: error => { QuickIsland.DynamicIslandService.islandPreviewMs = 0; }
+        onLoaded: { QuickRecording.RecordingService.recFilenamePattern = text().trim(); }
+        onLoadFailed: error => { QuickRecording.RecordingService.recFilenamePattern = ""; }
     }
 
     readonly property string playSoundScript: {
@@ -302,7 +248,7 @@ ShellRoot {
             onRead: line => {
                 const path = line.trim();
                 if (path)
-                    QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp);
+                    QuickShelf.PreviewShelfService.addScreenshot(path);
             }
         }
     }
@@ -314,7 +260,7 @@ ShellRoot {
             onRead: line => {
                 const path = line.trim();
                 if (path)
-                    QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp, true);
+                    QuickShelf.PreviewShelfService.addScreenshot(path);
             }
         }
     }
@@ -326,7 +272,7 @@ ShellRoot {
             onRead: line => {
                 const path = line.trim();
                 if (path)
-                    QuickIsland.DynamicIslandService.showRecordingPreview(path, recordingActivityComp);
+                    QuickRecording.RecordingService.showRecordingPreview(path);
             }
         }
     }
@@ -346,29 +292,29 @@ ShellRoot {
             onRead: line => {
                 const path = line.trim();
                 if (path) {
-                    QuickIsland.DynamicIslandService._recordingOutFile = path;
-                    QuickIsland.DynamicIslandService.recordingStartedAt = Date.now();
+                    QuickRecording.RecordingService._recordingOutFile = path;
+                    QuickRecording.RecordingService.recordingStartedAt = Date.now();
                 }
             }
         }
     }
 
     Component.onCompleted: {
-        QuickIsland.DynamicIslandService.procFactory = shellProcProto;
-        QuickIsland.DynamicIslandService.recordPickerComponent = recordPickerActivityComp;
-        QuickIsland.DynamicIslandService.recordingPreviewComponent = recordingActivityComp;
-        QuickIsland.DynamicIslandService.recordingsDir = root.recordingsDir;
-        QuickIsland.DynamicIslandService.playSoundScript = root.playSoundScript;
-        QuickIsland.DynamicIslandService.osdBurstComponent = osdBurstActivityComp;
+        QuickToast.ToastQueueService.procFactory = shellProcProto;
+        QuickToast.ToastQueueService.playSoundScript = root.playSoundScript;
+        QuickShelf.PreviewShelfService.procFactory = shellProcProto;
+        QuickRecording.RecordingService.procFactory = shellProcProto;
+        QuickRecording.RecordingService.recordingsDir = root.recordingsDir;
+        QuickRecording.RecordingService.playSoundScript = root.playSoundScript;
         recordingStateRestore.running = true;
         loadShellSettings.running = true;
-        QuickIsland.MprisFocus.refresh();
+        QuickMpris.MprisFocus.refresh();
     }
 
     Connections {
         target: Mpris.players
         function onValuesChanged() {
-            QuickIsland.MprisFocus.refresh();
+            QuickMpris.MprisFocus.refresh();
         }
     }
 
@@ -379,7 +325,7 @@ ShellRoot {
             target: modelData
             ignoreUnknownSignals: true
             function onPlaybackStateChanged() {
-                QuickIsland.MprisFocus.refresh();
+                QuickMpris.MprisFocus.refresh();
             }
         }
     }
@@ -400,11 +346,11 @@ ShellRoot {
             if (notif.lastGeneration)
                 return;
 
-            QuickIsland.DynamicIslandService.playNotifSound();
+            QuickToast.ToastQueueService.playNotifSound();
 
-            QuickIsland.DynamicIslandService.push({
+            QuickToast.ToastQueueService.push({
                 priority:   10,
-                durationMs: QuickIsland.DynamicIslandService.notificationIslandDurationMs(
+                durationMs: QuickToast.ToastQueueService.notificationDurationMs(
                                   notif.expireTimeout),
                 data: {
                     activityType:   "notification",
@@ -417,51 +363,14 @@ ShellRoot {
                 }
             });
 
-            // Island timeout is visual-only; panel keeps the notification until dismiss/clearAll.
+            // Toast timeout is visual-only; panel keeps the notification until dismiss/clearAll.
             notif.closed.connect(() => {
-                QuickIsland.DynamicIslandService.removeForNotification(notif.id);
-            });
-        }
-    }
-
-    Connections {
-        target: QuickIsland.IslandState
-        function onControlCenterRequested() {
-            root.externalPanelScreen = root.islandScreen;
-            root.notifOpen = true;
-            QuickIsland.IslandState.completeExternalActivation("controlCenter", root.notifOpen);
-        }
-        function onSystemOverviewRequested() {
-            root.externalPanelScreen = root.islandScreen;
-            try {
-                QuickSystemMonitor.SystemMonitorService.open = true;
-            } catch (error) {
-                QuickIsland.IslandState.completeExternalActivation(
-                    "systemOverview", false);
-                return;
-            }
-            Qt.callLater(() => {
-                let opened = false;
-                try {
-                    opened = QuickSystemMonitor.SystemMonitorService.open === true;
-                } catch (error) {
-                    opened = false;
-                }
-                QuickIsland.IslandState.completeExternalActivation(
-                    "systemOverview", opened);
+                QuickToast.ToastQueueService.removeForNotification(notif.id);
             });
         }
     }
 
     // ── IPC — called by bindings.conf ────────────────────────────────────────
-    IpcHandler {
-        target: "island"
-        function toggle(): void { QuickIsland.IslandState.toggle(Hyprland.focusedMonitor?.name ?? ""); }
-        function show(): void { QuickIsland.IslandState.show(Hyprland.focusedMonitor?.name ?? ""); }
-        function hide(): void { QuickIsland.IslandState.hide(); }
-        function page(id: string): void { QuickIsland.IslandState.showPage(id, Hyprland.focusedMonitor?.name ?? ""); }
-    }
-
     IpcHandler {
         target: "notifs"
         function toggle() {
@@ -476,7 +385,7 @@ ShellRoot {
                 list[list.length - 1].dismiss();
         }
         function clearAll() {
-            QuickIsland.DynamicIslandService.clearAllNotifications();
+            QuickToast.ToastQueueService.clearAllNotifications();
             notifPanel.snapNotificationsEmpty();
             const list = notifServer.trackedNotifications.values.slice();
             for (const notif of list)
@@ -512,20 +421,22 @@ ShellRoot {
             screenshotSavedPathReader.running = true;
         }
         function show(path: string) {
-            QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp);
+            QuickShelf.PreviewShelfService.addScreenshot(path);
         }
         function showPersistent(path: string) {
-            QuickIsland.DynamicIslandService.showScreenshotPreview(path, screenshotActivityComp, true);
+            QuickShelf.PreviewShelfService.addScreenshot(path);
         }
         function dismiss() {
-            QuickIsland.DynamicIslandService.dismissCurrentScreenshot();
+            const latest = QuickShelf.PreviewShelfService.pendingCaptures.slice(-1)[0];
+            if (latest)
+                QuickShelf.PreviewShelfService.dismiss(latest.id);
         }
     }
 
     IpcHandler {
         target: "record"
         function toggle() {
-            QuickIsland.DynamicIslandService.toggleRecording();
+            QuickRecording.RecordingService.toggleRecording();
         }
         function showLatest() {
             recordingPathReader.running = false;
@@ -533,10 +444,15 @@ ShellRoot {
             recordingPathReader.running = true;
         }
         function show(path: string) {
-            QuickIsland.DynamicIslandService.showRecordingPreview(path, recordingActivityComp);
+            QuickRecording.RecordingService.showRecordingPreview(path);
         }
         function dismiss() {
-            QuickIsland.DynamicIslandService.dismissCurrentRecording();
+            const latest = QuickShelf.PreviewShelfService.pendingCaptures.filter(c => c.kind === "recording").slice(-1)[0];
+            if (latest)
+                QuickShelf.PreviewShelfService.dismiss(latest.id);
+        }
+        function start(selection: string) {
+            QuickRecording.RecordingService.beginRecording(selection, "");
         }
     }
 
@@ -572,8 +488,12 @@ ShellRoot {
         onDndToggle: root.dnd = !root.dnd
     }
 
-    QuickIsland.DynamicIsland {
-        assignedScreen: root.islandScreen
+    QuickToast.ToastPanel {
+        screen: root.islandScreen
+    }
+
+    QuickShelf.PreviewShelf {
+        screen: root.islandScreen
     }
 
     Variants {
