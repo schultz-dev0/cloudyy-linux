@@ -58,9 +58,9 @@ hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("qs ipc call calendar toggle")
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
-hl.bind("SHIFT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot-save"), { desc = "Screenshot region, save, island preview" })
-hl.bind("Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"), { desc = "Screenshot popup (island)" })
-hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), { desc = "Screen record (island)" })
+hl.bind("SHIFT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot-save"), { desc = "Screenshot region, save, shelf preview" })
+hl.bind("Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"), { desc = "Screenshot popup (shelf)" })
+hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), { desc = "Screen record (shelf)" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("cloudyy-theme random"), { desc = "Random wallpaper" })
 
@@ -131,16 +131,6 @@ hl.bind(
 	mainMod .. " + CTRL + M",
 	hl.dsp.exec_cmd("qs ipc call system toggle"),
 	{ desc = "Toggle system stats overlay" }
-)
-hl.bind(
-	mainMod .. " + SHIFT + Space",
-	hl.dsp.exec_cmd("qs ipc call island toggle"),
-	{ desc = "Toggle utility island" }
-)
-hl.bind(
-	mainMod .. " + apostrophe",
-	hl.dsp.exec_cmd("qs ipc call island toggle"),
-	{ desc = "Toggle utility island (pull out and focus)" }
 )
 
 -- ── Window Management ─────────────────────────────────────────────────────────

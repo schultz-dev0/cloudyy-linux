@@ -8,7 +8,7 @@ import Quickshell
 import Quickshell.Io
 import "../.."
 import "../../overview/services"
-import "../island" as QuickIsland
+import "../toast" as QuickToast
 
 Scope {
     id: sliders
@@ -221,7 +221,7 @@ Scope {
     }
 
     function _pushOsdBurst() {
-        QuickIsland.DynamicIslandService.showOsdBurst(
+        QuickToast.ToastQueueService.showOsdBurst(
             osdKind, osdIcon, osdValueLabel, osdProgress);
     }
 

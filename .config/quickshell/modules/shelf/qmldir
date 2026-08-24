@@ -1,0 +1,4 @@
+module QuickShelf
+singleton PreviewShelfService 1.0 PreviewShelfService.qml
+PreviewShelf 1.0 PreviewShelf.qml
+PreviewCard 1.0 PreviewCard.qml

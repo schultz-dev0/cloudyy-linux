@@ -13,9 +13,11 @@ import Quickshell.Wayland
 import "overview/services"
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/battery" as QuickBattery
-import "modules/island" as QuickIsland
+import "modules/mpris" as QuickMpris
+import "modules/recording" as QuickRecording
 import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
+import "modules/notifpanel" as QuickNotifPanel
 
 PanelWindow {
     id: bar
@@ -217,10 +219,100 @@ PanelWindow {
     }
 
     Item {
-        id: islandReserve
+        id: wsZone
         anchors.horizontalCenter: parent.horizontalCenter
-        width: 200
+        width: wsRowCentered.implicitWidth
         height: parent.height
+    }
+
+    // Workspaces
+    Row {
+        id: wsRowCentered
+        parent: wsZone
+        anchors.centerIn: parent
+        spacing: 4
+
+        Repeater {
+            model: Array.from({ length: 5 }, (_, i) => i + 1)
+
+            delegate: Item {
+                required property int modelData
+                readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
+                readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
+                readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
+                readonly property bool empty: workspaceWindow === null
+
+                width: 20
+                // Icon cell matches pill height so icons share the bar
+                // baseline; the keyline sits below it instead of clipping
+                // through the icon.
+                height: workspaceIconCell.height + workspaceKeyline.height + 2
+
+                Item {
+                    id: workspaceIconCell
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                    }
+                    height: bar.barHeight - bar.pillPadV * 2
+
+                    Image {
+                        id: workspaceIcon
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: !empty
+                        width: focused ? 14 : 12
+                        height: focused ? 14 : 12
+                        property var currentIconSources: workspaceIconSources
+                        property int sourceIndex: 0
+                        onCurrentIconSourcesChanged: sourceIndex = 0
+                        sourceSize: Qt.size(28, 28)
+                        smooth: true
+                        source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
+                        layer.enabled: visible && !Perf.lightweight
+                        layer.smooth: !Perf.lightweight
+                        layer.effect: MultiEffect {
+                            colorization: 1.0
+                            colorizationColor: focused ? bar.barFgStrong : bar.barFgMuted
+                        }
+                        onStatusChanged: {
+                            if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
+                                Qt.callLater(() => sourceIndex++);
+                        }
+                    }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: empty
+                        text: String(modelData)
+                        color: focused ? bar.barFgStrong : bar.barFgMuted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: focused ? 11 : 10
+                        font.weight: Font.DemiBold
+                    }
+                }
+
+                Rectangle {
+                    id: workspaceKeyline
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        bottom: parent.bottom
+                    }
+                    height: 2
+                    color: bar.barFgStrong
+                    visible: focused
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: HyprDispatch.focusWorkspace(modelData)
+                    onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
+                }
+            }
+        }
     }
 
     Item {
@@ -229,7 +321,7 @@ PanelWindow {
             top: parent.top
             bottom: parent.bottom
             left: parent.left
-            right: islandReserve.left
+            right: wsZone.left
         }
         clip: true
     }
@@ -239,7 +331,7 @@ PanelWindow {
         anchors {
             top: parent.top
             bottom: parent.bottom
-            left: islandReserve.right
+            left: wsZone.right
             right: parent.right
         }
         clip: true
@@ -263,94 +355,6 @@ PanelWindow {
             fg: bar.barFgStrong
             bg: Qt.rgba(0, 0, 0, 0)
             onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "spotlight", "command"])
-        }
-
-        // Workspaces
-        Row {
-            id: wsRow
-            spacing: 4
-
-            Repeater {
-                model: Array.from({ length: 5 }, (_, i) => i + 1)
-
-                delegate: Item {
-                    required property int modelData
-                    readonly property var workspaceWindow: HyprlandData.mostRecentWindowForWorkspace(modelData)
-                    readonly property var workspaceIconSources: workspaceWindow ? HyprlandData.iconSourcesForWindow(workspaceWindow) : []
-                    readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === modelData
-                    readonly property bool empty: workspaceWindow === null
-
-                    width: 20
-                    // Icon cell matches pill height so icons share the bar
-                    // baseline; the keyline sits below it instead of clipping
-                    // through the icon.
-                    height: workspaceIconCell.height + workspaceKeyline.height + 2
-
-                    Item {
-                        id: workspaceIconCell
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            top: parent.top
-                        }
-                        height: bar.barHeight - bar.pillPadV * 2
-
-                        Image {
-                            id: workspaceIcon
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: !empty
-                            width: focused ? 14 : 12
-                            height: focused ? 14 : 12
-                            property var currentIconSources: workspaceIconSources
-                            property int sourceIndex: 0
-                            onCurrentIconSourcesChanged: sourceIndex = 0
-                            sourceSize: Qt.size(28, 28)
-                            smooth: true
-                            source: currentIconSources[sourceIndex] ?? HyprlandData.genericIconSource
-                            layer.enabled: visible && !Perf.lightweight
-                            layer.smooth: !Perf.lightweight
-                            layer.effect: MultiEffect {
-                                colorization: 1.0
-                                colorizationColor: focused ? bar.barFgStrong : bar.barFgMuted
-                            }
-                            onStatusChanged: {
-                                if (status === Image.Error && sourceIndex < currentIconSources.length - 1)
-                                    Qt.callLater(() => sourceIndex++);
-                            }
-                        }
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: empty
-                            text: String(modelData)
-                            color: focused ? bar.barFgStrong : bar.barFgMuted
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: focused ? 11 : 10
-                            font.weight: Font.DemiBold
-                        }
-                    }
-
-                    Rectangle {
-                        id: workspaceKeyline
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            bottom: parent.bottom
-                        }
-                        height: 2
-                        color: bar.barFgStrong
-                        visible: focused
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: HyprDispatch.focusWorkspace(modelData)
-                        onWheel: e => HyprDispatch.focusWorkspaceRelative(e.angleDelta.y > 0 ? "e-1" : "e+1")
-                    }
-                }
-            }
         }
 
         Item {
@@ -449,7 +453,7 @@ PanelWindow {
         // tiny barHeight box the same way the rest of the tray does.
         Item {
             id: recordingControl
-            readonly property var svc: QuickIsland.DynamicIslandService
+            readonly property var svc: QuickRecording.RecordingService
             readonly property bool active: svc.recordingActive
             readonly property color recRed: Qt.rgba(1, 0.27, 0.23, 1)
             readonly property int collapsedW: 18
@@ -595,10 +599,10 @@ PanelWindow {
         // Mpris
         Pill {
             id: mprisPill
-            readonly property var player: QuickIsland.MprisFocus.activePlayer
+            readonly property var player: QuickMpris.MprisFocus.activePlayer
             visible: player !== null && (player.playbackState === MprisPlaybackState.Playing || player.playbackState === MprisPlaybackState.Paused)
             label: {
-                const _ = QuickIsland.MprisFocus.revision;
+                const _ = QuickMpris.MprisFocus.revision;
                 if (!player) return "";
                 const icon = player.playbackState === MprisPlaybackState.Playing ? "▶ " : "⏸ ";
                 return icon + (player.trackTitle ?? "").substring(0, 16);
@@ -676,11 +680,21 @@ PanelWindow {
                     }
                 }
             }
-            onClicked: bar.notifToggle()
             onScrollUp: bar.launch(["bash", "-lc", "cloudyy-slider-volume up"])
             onScrollDown: bar.launch(["bash", "-lc", "cloudyy-slider-volume down"])
         }
-        
+
+        // Notification Bell
+        Pill {
+            id: bellPill
+            readonly property int unread: QuickNotifPanel.NotifPanelService.unreadCount
+            label: "󰂚" + (unread > 0 ? (" " + unread) : "")
+            width: implicitWidth + bar.pillPadH * 2
+            fg: bar.barFg
+            bg: Qt.rgba(0, 0, 0, 0)
+            onClicked: bar.notifToggle()
+        }
+
         // commenting out to clean up the bar, leaving optional for later when I implement bar customisation
 
         // CPU
