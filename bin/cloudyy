@@ -4,7 +4,7 @@
 set -euo pipefail
 
 declare -A GROUP_DESCRIPTIONS=(
-  [boot]="Boot-time system optimizations"
+  [boot]="UEFI boot targets and boot-time optimizations"
   [center]="Cloud Center system settings app"
   [clipboard]="Clipboard copy/paste and OCR"
   [code]="Editor theme sync"

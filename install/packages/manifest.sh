@@ -194,9 +194,13 @@ STANDARD_INSTALL_OFFICIAL=(
 
   # Notes
   "obsidian"
+  
+  # replace vesktop with discord
+  "discord" 
 
   # Editor (pinned in dock by default)
-  "zed"
+  "zed" # ANOTHER TO-DO!!!! 
+  # Remove zed, remove from dock default, zed not being used anymore in favour of nvim standard. 
 
   # System tools
   "btrfs-progs" "snapper" "ntfs-3g" "efibootmgr" "usbutils"
@@ -205,7 +209,7 @@ STANDARD_INSTALL_OFFICIAL=(
 
 STANDARD_INSTALL_AUR=(
   "zen-browser-bin"
-  "vesktop"
+  # "vesktop" # Not being used anymore due to wayland related streaming issues
   "spotify"
   "localsend"
 )
