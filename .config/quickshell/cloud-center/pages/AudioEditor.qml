@@ -296,7 +296,7 @@ Flickable {
                 spacing: 2
                 Text {
                     text: audioPage.page.title
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; weight: Font.Bold
                            hintingPreference: Font.PreferVerticalHinting }
@@ -333,7 +333,7 @@ Flickable {
                         verticalCenter: parent.verticalCenter
                     }
                     text: "Show"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"
@@ -418,7 +418,7 @@ Flickable {
                 leftPadding: 14
                 verticalAlignment: Text.AlignVCenter
                 text: "Applications"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -464,7 +464,7 @@ Flickable {
                 Text {
                     anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                     text: "Hardware"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                            hintingPreference: Font.PreferVerticalHinting }
@@ -527,7 +527,7 @@ Flickable {
                 Text {
                     anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                     text: "Automatic Switching"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                            hintingPreference: Font.PreferVerticalHinting }

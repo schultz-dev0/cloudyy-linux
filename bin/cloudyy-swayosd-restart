@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Restart the SwayOSD on-screen-display daemon
 # Restart swayosd-server.
-# Use as matugen post_command:
-#   post_command = 'cloudyy-swayosd-restart'
+# Used by the curated theme reload orchestrator.
 
 set -euo pipefail
 

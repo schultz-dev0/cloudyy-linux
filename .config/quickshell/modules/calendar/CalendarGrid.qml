@@ -124,7 +124,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "󰍞"
-                color: prevButton.activeFocus ? Theme.on_primary : Theme.islandOnSurfaceVariant
+                color: prevButton.activeFocus ? Theme.accentText : Theme.islandOnSurfaceVariant
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 16
                 renderType: Text.NativeRendering
@@ -174,7 +174,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "󰍟"
-                color: nextButton.activeFocus ? Theme.on_primary : Theme.islandOnSurfaceVariant
+                color: nextButton.activeFocus ? Theme.accentText : Theme.islandOnSurfaceVariant
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 16
                 renderType: Text.NativeRendering

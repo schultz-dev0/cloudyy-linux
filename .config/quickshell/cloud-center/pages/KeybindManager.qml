@@ -90,7 +90,7 @@ Flickable {
         spacing: 16
         topPadding: 24
 
-        Text { text: kbPage.page.title; color: Theme.textPrimary
+        Text { text: kbPage.page.title; color: Theme.text
                font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; bold: true } }
 
         Item {
@@ -100,11 +100,11 @@ Flickable {
             Rectangle {
                 anchors { left: parent.left; right: addBtn.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
                 height: 30; radius: 2
-                color: Theme.surface_container_high
+                color: Theme.surfaceOverlay
                 TextInput {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     verticalAlignment: TextInput.AlignVCenter
-                    color: Theme.textPrimary
+                    color: Theme.text
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 12 }
                     onTextChanged: kbPage.query = text
                     Text { visible: !parent.text; text: "⌕ Search keybinds…"
@@ -116,9 +116,9 @@ Flickable {
                 id: addBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 width: addText.implicitWidth + 20; height: 30; radius: 2
-                color: addHover.hovered ? Theme.primary : Theme.primary_container
+                color: addHover.hovered ? Theme.accent : Theme.accentMuted
                 Text { id: addText; anchors.centerIn: parent; text: "\u{f0415} Add"
-                       color: addHover.hovered ? Theme.on_primary : Theme.on_primary_container
+                       color: addHover.hovered ? Theme.accentText : Theme.accentText
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                 HoverHandler { id: addHover }
                 TapHandler { onTapped: kbPage.openAdd() }
@@ -147,7 +147,7 @@ Flickable {
                     width: catBlock.width
                     height: rowsCol.implicitHeight
                     radius: 0
-                    color: Theme.surface_container_lowest
+                    color: Theme.background
                     border { width: 1; color: Theme.hairline }
                     Column {
                         id: rowsCol
@@ -171,7 +171,7 @@ Flickable {
                                 }
                                 Rectangle {
                                     width: 24; height: 24; radius: 2
-                                    color: editHover.hovered ? Theme.glass(Theme.primary, 0.14) : "transparent"
+                                    color: editHover.hovered ? Theme.glass(Theme.accent, 0.14) : "transparent"
                                     Text { anchors.centerIn: parent; text: "\u{f03eb}"; color: Theme.accent
                                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 12 } }
                                     HoverHandler { id: editHover }
@@ -206,14 +206,14 @@ Flickable {
         onClosed: kbPage.dialogOpen = false
         enter: null; exit: null   // motion budget: no popup fade, matches RowSelect's combo popup
 
-        background: Rectangle { radius: 0; color: Theme.surface_container
+        background: Rectangle { radius: 0; color: Theme.surfaceRaised
                                  border { width: 1; color: Theme.hairline } }
 
         contentItem: Column {
             spacing: 12
 
             Text { text: kbPage.editingKeys === "" ? "Add Keybind" : "Edit Keybind"
-                   color: Theme.textPrimary
+                   color: Theme.text
                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 15; bold: true } }
 
             Column {
@@ -222,12 +222,12 @@ Flickable {
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
                     width: parent.width; height: 30; radius: 2
-                    color: Theme.surface_container_high
+                    color: Theme.surfaceOverlay
                     TextInput {
                         id: keysInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.textPrimary
+                        color: Theme.text
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12 }
                         onTextChanged: kbPage.formKeys = text
                         Text { visible: !parent.text; text: "e.g. SUPER + Q"
@@ -242,12 +242,12 @@ Flickable {
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
                     width: parent.width; height: 30; radius: 2
-                    color: Theme.surface_container_high
+                    color: Theme.surfaceOverlay
                     TextInput {
                         id: dispatcherInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.textPrimary
+                        color: Theme.text
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
                         onTextChanged: kbPage.formDispatcher = text
                         Text { visible: !parent.text; text: 'e.g. hl.dsp.exec_cmd("firefox")'
@@ -262,12 +262,12 @@ Flickable {
                        font { family: "JetBrainsMono Nerd Font"; pixelSize: 10 } }
                 Rectangle {
                     width: parent.width; height: 30; radius: 2
-                    color: Theme.surface_container_high
+                    color: Theme.surfaceOverlay
                     TextInput {
                         id: descInput
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.textPrimary
+                        color: Theme.text
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 }
                         onTextChanged: kbPage.formDesc = text
                     }
@@ -292,14 +292,14 @@ Flickable {
                 spacing: 8
                 Rectangle {
                     width: cancelText.implicitWidth + 20; height: 28; radius: 2
-                    color: Theme.surface_container_high
+                    color: Theme.surfaceOverlay
                     Text { id: cancelText; anchors.centerIn: parent; text: "Cancel"
                            color: Theme.textMuted; font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                     TapHandler { onTapped: kbPage.dialogOpen = false }
                 }
                 Rectangle {
                     width: saveText.implicitWidth + 20; height: 28; radius: 2
-                    color: Theme.primary_container
+                    color: Theme.accentMuted
                     Text { id: saveText; anchors.centerIn: parent; text: "Save"
                            color: Theme.accent; font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                     TapHandler { onTapped: kbPage.save() }

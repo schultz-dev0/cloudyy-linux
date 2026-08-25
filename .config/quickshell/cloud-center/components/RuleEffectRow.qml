@@ -14,7 +14,7 @@ Rectangle {
 
     width: parent ? parent.width : 680
     height: 58
-    color: rowHover.hovered ? Theme.glass(Theme.primary, 0.045) : "transparent"
+    color: rowHover.hovered ? Theme.glass(Theme.accent, 0.045) : "transparent"
 
     function choiceOptions() {
         if (field.type === "bool") return ["On", "Off"];
@@ -28,8 +28,8 @@ Rectangle {
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: 28; height: 28; radius: 2
-            color: row.active ? Theme.glass(Theme.primary, 0.14)
-                : Theme.surface_container_high
+            color: row.active ? Theme.glass(Theme.accent, 0.14)
+                : Theme.surfaceOverlay
             Text {
                 anchors.centerIn: parent
                 text: row.field.type === "bool" ? "\u{f0493}"
@@ -49,7 +49,7 @@ Rectangle {
                 width: parent.width
                 text: row.field.label
                 elide: Text.ElideRight
-                color: row.active ? Theme.textPrimary : Theme.textMuted
+                color: row.active ? Theme.text : Theme.textMuted
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }

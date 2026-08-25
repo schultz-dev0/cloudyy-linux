@@ -36,11 +36,11 @@ FocusScope {
         anchors.fill: parent
         radius: 2
         color: disclosureHover.hovered || menu.opened
-            ? Theme.surface_container_highest
-            : Theme.surface_container_high
+            ? Theme.surfaceOverlay
+            : Theme.surfaceOverlay
         border {
             width: menu.opened || select.activeFocus ? 2 : 1
-            color: menu.opened || select.activeFocus ? Theme.primary : Theme.hairline
+            color: menu.opened || select.activeFocus ? Theme.accent : Theme.hairline
         }
 
         Rectangle {
@@ -48,8 +48,8 @@ FocusScope {
                       margins: 1; rightMargin: 0 }
             radius: 1
             color: selectHover.hovered
-                ? Theme.surface_container
-                : Theme.surface_container_lowest
+                ? Theme.surfaceRaised
+                : Theme.background
 
             Rectangle {
                 anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
@@ -64,7 +64,7 @@ FocusScope {
             text: select.currentIndex >= 0 && select.currentIndex < select.options.length
                 ? select.labelFor(select.options[select.currentIndex]) : select.placeholderText
             elide: Text.ElideRight
-            color: select.currentIndex >= 0 ? Theme.textPrimary : Theme.textMuted
+            color: select.currentIndex >= 0 ? Theme.text : Theme.textMuted
             renderType: Text.NativeRendering
             font { family: "JetBrainsMono Nerd Font"; pixelSize: select.compact ? 10 : 11
                    hintingPreference: Font.PreferVerticalHinting }
@@ -97,7 +97,7 @@ FocusScope {
             visible: menu.opened || select.activeFocus
             radius: 1
             color: "transparent"
-            border { width: 1; color: Theme.glass(Theme.primary, 0.22) }
+            border { width: 1; color: Theme.glass(Theme.accent, 0.22) }
         }
         HoverHandler { id: selectHover }
         TapHandler {
@@ -119,7 +119,7 @@ FocusScope {
 
         background: Rectangle {
             radius: 2
-            color: Theme.surface_container_high
+            color: Theme.surfaceOverlay
             border { width: 1; color: Theme.hairline }
         }
         contentItem: ListView {
@@ -134,13 +134,13 @@ FocusScope {
                 required property int index
                 width: optionList.width; height: 31; radius: 2
                 color: optionHover.hovered || index === select.currentIndex
-                    ? Theme.glass(Theme.primary, 0.12) : "transparent"
+                    ? Theme.glass(Theme.accent, 0.12) : "transparent"
                 Text {
                     anchors { left: parent.left; leftMargin: 9; right: selectedMark.left; rightMargin: 8
                               verticalCenter: parent.verticalCenter }
                     text: select.labelFor(optionRow.modelData)
                     elide: Text.ElideRight
-                    color: index === select.currentIndex ? Theme.accent : Theme.textPrimary
+                    color: index === select.currentIndex ? Theme.accent : Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 10
                            weight: index === select.currentIndex ? Font.Medium : Font.Normal

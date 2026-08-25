@@ -213,7 +213,7 @@ Item {
                 height: 16
                 radius: 2
                 clip: true
-                color: Theme.primary
+                color: Theme.accent
                 anchors {
                     top: parent.top
                     right: parent.right
@@ -223,7 +223,7 @@ Item {
 
                 DotTexture {
                     anchors.fill: parent
-                    tint: Theme.on_primary
+                    tint: Theme.accentText
                     dotAlpha: 0.18
                     cell: 4
                     dotRadius: 0.6
@@ -235,7 +235,7 @@ Item {
                     text: root.showInstanceControls
                         ? `${root.instanceIndex + 1}/${root.windowCount}`
                         : `${root.windowCount}`
-                    color: Theme.on_primary
+                    color: Theme.accentText
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 9
                     font.weight: Font.Bold
@@ -255,7 +255,7 @@ Item {
             width: 4
             height: 4
             radius: 2
-            color: Theme.primary
+            color: Theme.accent
 
             anchors {
                 bottom: parent.bottom

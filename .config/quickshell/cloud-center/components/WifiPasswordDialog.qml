@@ -84,11 +84,11 @@ CloudDialog {
                     anchors.fill: parent
                     radius: 2
                     color: passwordField.activeFocus
-                        ? Theme.surface_container_lowest
-                        : Theme.surface_container_low
+                        ? Theme.background
+                        : Theme.surface
                     border {
                         width: passwordField.activeFocus ? 1.5 : 1
-                        color: passwordField.activeFocus ? Theme.primary : Theme.hairline
+                        color: passwordField.activeFocus ? Theme.accent : Theme.hairline
                     }
                     TextInput {
                         id: passwordField
@@ -102,7 +102,7 @@ CloudDialog {
                         selectByMouse: true
                         clip: true
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: TextInput.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                hintingPreference: Font.PreferVerticalHinting }
@@ -126,7 +126,7 @@ CloudDialog {
                         anchors { right: parent.right; rightMargin: 6; verticalCenter: parent.verticalCenter }
                         width: 28; height: 28; radius: 2
                         color: revealHover.hovered
-                            ? Theme.glass(Theme.primary, 0.12) : "transparent"
+                            ? Theme.glass(Theme.accent, 0.12) : "transparent"
                         Text {
                             anchors.centerIn: parent
                             text: dialog.showPassword ? "󰈉" : "󰈈"

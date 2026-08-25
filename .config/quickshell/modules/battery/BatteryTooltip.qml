@@ -66,8 +66,8 @@ PopupWindow {
         id: tipBody
         anchors.fill: parent
         radius: 12
-        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.96)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+        color: Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.96)
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.35)
         border.width: 1
 
         ColumnLayout {
@@ -80,7 +80,7 @@ PopupWindow {
 
             Text {
                 text: "󰁹  " + Math.round(bat.percent) + "% · " + bat.statusLabel
-                color: Theme.on_surface
+                color: Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
                 font.weight: Font.Bold
@@ -89,7 +89,7 @@ PopupWindow {
 
             Text {
                 text: bat.rateEtaLabel
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
                 Layout.fillWidth: true

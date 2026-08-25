@@ -5,8 +5,8 @@ local colors = require("colors")
 hl.config({
 	general = {
 		col = {
-			active_border = colors.primary,
-			inactive_border = colors.inverse_on_surface,
+			active_border = colors.accent,
+			inactive_border = colors.border,
 		},
 		allow_tearing = true,
 	},

@@ -172,23 +172,6 @@
     }
   },
   {
-    "id": "appearance.toggle",
-    "label": "Toggle Mode",
-    "icon": "󰔎",
-    "keywords": [
-      "dark",
-      "light",
-      "mode",
-      "toggle",
-      "theme"
-    ],
-    "parent": "appearance",
-    "action": {
-      "type": "script",
-      "path": "_theme_toggle"
-    }
-  },
-  {
     "id": "appearance.wallpaper",
     "label": "Select Wallpaper",
     "icon": "󰸉",
@@ -218,11 +201,11 @@
   },
   {
     "id": "appearance.cycle",
-    "label": "Theme Cycle",
+    "label": "Wallpaper Cycle",
     "icon": "󱫬",
     "keywords": [
       "cycle",
-      "automode"
+      "wallpaper"
     ],
     "parent": "appearance",
     "action": {
@@ -264,21 +247,6 @@
       "order",
       "cycle",
       "random"
-    ],
-    "parent": "appearance.cycle",
-    "action": {
-      "type": "navigate"
-    }
-  },
-  {
-    "id": "cycle.automode",
-    "label": "Auto Light/Dark",
-    "icon": "󰸘",
-    "keywords": [
-      "automode",
-      "auto",
-      "light",
-      "dark"
     ],
     "parent": "appearance.cycle",
     "action": {
@@ -382,144 +350,6 @@
       "type": "cycle",
       "op": "set-order",
       "value": "sequential"
-    }
-  },
-  {
-    "id": "cycle.automode.toggle",
-    "label": "Toggle Auto Switch",
-    "icon": "󰨙",
-    "parent": "cycle.automode",
-    "action": {
-      "type": "cycle",
-      "op": "toggle-automode"
-    }
-  },
-  {
-    "id": "cycle.automode.light",
-    "label": "Light Mode Start",
-    "icon": "󰖙",
-    "parent": "cycle.automode",
-    "action": {
-      "type": "navigate"
-    }
-  },
-  {
-    "id": "cycle.automode.dark",
-    "label": "Dark Mode Start",
-    "icon": "󰖔",
-    "parent": "cycle.automode",
-    "action": {
-      "type": "navigate"
-    }
-  },
-  {
-    "id": "cycle.automode.light.5",
-    "label": "05:00",
-    "parent": "cycle.automode.light",
-    "action": {
-      "type": "cycle",
-      "op": "set-light-hour",
-      "value": "5"
-    }
-  },
-  {
-    "id": "cycle.automode.light.6",
-    "label": "06:00",
-    "parent": "cycle.automode.light",
-    "action": {
-      "type": "cycle",
-      "op": "set-light-hour",
-      "value": "6"
-    }
-  },
-  {
-    "id": "cycle.automode.light.7",
-    "label": "07:00",
-    "parent": "cycle.automode.light",
-    "action": {
-      "type": "cycle",
-      "op": "set-light-hour",
-      "value": "7"
-    }
-  },
-  {
-    "id": "cycle.automode.light.8",
-    "label": "08:00",
-    "parent": "cycle.automode.light",
-    "action": {
-      "type": "cycle",
-      "op": "set-light-hour",
-      "value": "8"
-    }
-  },
-  {
-    "id": "cycle.automode.light.9",
-    "label": "09:00",
-    "parent": "cycle.automode.light",
-    "action": {
-      "type": "cycle",
-      "op": "set-light-hour",
-      "value": "9"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.17",
-    "label": "17:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "17"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.18",
-    "label": "18:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "18"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.19",
-    "label": "19:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "19"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.20",
-    "label": "20:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "20"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.21",
-    "label": "21:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "21"
-    }
-  },
-  {
-    "id": "cycle.automode.dark.22",
-    "label": "22:00",
-    "parent": "cycle.automode.dark",
-    "action": {
-      "type": "cycle",
-      "op": "set-dark-hour",
-      "value": "22"
     }
   },
   {

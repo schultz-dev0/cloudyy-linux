@@ -46,11 +46,11 @@ Rectangle {
                 gradient: Gradient {
                     GradientStop {
                         position: 0.0
-                        color: Theme.primary_container
+                        color: Theme.accentMuted
                     }
                     GradientStop {
                         position: 1.0
-                        color: Theme.tertiary_container
+                        color: Theme.accentAlt
                     }
                 }
 
@@ -66,7 +66,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: "♪"
                     font.pixelSize: 20
-                    color: Theme.on_primary_container
+                    color: Theme.accentText
                     visible: artImage.status !== Image.Ready
                 }
             }
@@ -78,7 +78,7 @@ Rectangle {
                 Text {
                     Layout.fillWidth: true
                     text: root.title
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -88,7 +88,7 @@ Rectangle {
                 Text {
                     Layout.fillWidth: true
                     text: root.artist
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 10
                     elide: Text.ElideRight
@@ -96,7 +96,7 @@ Rectangle {
 
                 Text {
                     text: root.playerName
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.6)
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 8
                     visible: root.playerName !== ""
@@ -127,7 +127,7 @@ Rectangle {
 
             Text {
                 text: ""
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.pixelSize: 16
                 MouseArea {
                     anchors.fill: parent
@@ -137,7 +137,7 @@ Rectangle {
 
             Text {
                 text: root.playing ? "⏸" : "⏵"
-                color: Theme.primary
+                color: Theme.accent
                 font.pixelSize: 22
                 MouseArea {
                     anchors.fill: parent
@@ -147,7 +147,7 @@ Rectangle {
 
             Text {
                 text: ""
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.pixelSize: 16
                 MouseArea {
                     anchors.fill: parent

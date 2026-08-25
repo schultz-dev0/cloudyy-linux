@@ -1,0 +1,4 @@
+module QuickThemePicker
+singleton ThemePickerService 1.0 ThemePickerService.qml
+ThemePicker 1.0 ThemePicker.qml
+ThemeRow 1.0 ThemeRow.qml

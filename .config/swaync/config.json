@@ -55,10 +55,6 @@
           "command": "hyprpicker"
         },
         {
-          "label": "󱩌",
-          "command": "cloudyy-theme toggle"
-        },
-        {
           "label": "󰘴",
           "command": "uwsm-app -- cloudyy-center"
         },

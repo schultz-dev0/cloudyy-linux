@@ -94,9 +94,9 @@ Item {
     property string _selectedColor: "primary"
 
     readonly property var _colorOptions: [
-        { tag: "primary",   color: Theme.primary   },
-        { tag: "secondary", color: Theme.secondary  },
-        { tag: "tertiary",  color: Theme.tertiary   },
+        { tag: "primary",   color: Theme.accent   },
+        { tag: "secondary", color: Theme.accentAlt  },
+        { tag: "tertiary",  color: Theme.info   },
         { tag: "error",     color: Theme.error      }
     ]
 
@@ -142,7 +142,7 @@ Item {
         height: sheetContent.implicitHeight + 32
         radius: 20
         color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.97)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.3)
         border.width: 1
 
         y: root.open ? 0 : height
@@ -165,7 +165,7 @@ Item {
 
                 Text {
                     text: root.editId ? "Edit Event" : "New Event"
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 15
                     font.weight: Font.Bold
@@ -175,7 +175,7 @@ Item {
 
                 Text {
                     text: "󰅖"
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 18
                     renderType: Text.NativeRendering
@@ -212,7 +212,7 @@ Item {
                     spacing: 6
                     Text {
                         text: "All day"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         renderType: Text.NativeRendering
@@ -223,12 +223,12 @@ Item {
                         implicitWidth: 22; implicitHeight: 22
                         radius: 6
                         color: checked
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
-                            : Theme.surface_container
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
+                            : Theme.surfaceRaised
                         border.color: activeFocus ? Theme.islandFocus
-                            : checked ? Theme.primary
-                            : Qt.rgba(Theme.outline_variant.r,
-                                Theme.outline_variant.g, Theme.outline_variant.b, 0.5)
+                            : checked ? Theme.accent
+                            : Qt.rgba(Theme.border.r,
+                                Theme.border.g, Theme.border.b, 0.5)
                         border.width: activeFocus ? 2 : 1.5
                         activeFocusOnTab: true
 
@@ -236,7 +236,7 @@ Item {
                             anchors.centerIn: parent
                             visible: _allDayCheck.checked
                             text: "󰄬"
-                            color: Theme.primary
+                            color: Theme.accent
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 13
                             renderType: Text.NativeRendering
@@ -279,7 +279,7 @@ Item {
 
                 Text {
                     text: "–"
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     renderType: Text.NativeRendering
@@ -300,7 +300,7 @@ Item {
 
                 Text {
                     text: "Color"
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
                     renderType: Text.NativeRendering
@@ -325,7 +325,7 @@ Item {
                             radius: width / 2
                             color: "transparent"
                             border.width: parent.activeFocus ? 2 : 0
-                            border.color: Theme.on_surface
+                            border.color: Theme.text
                         }
 
                         Keys.onReturnPressed: event => {
@@ -357,27 +357,27 @@ Item {
                 Layout.fillWidth: true
                 implicitHeight: 72
                 radius: 10
-                color: Theme.surface_container
-                border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+                color: Theme.surfaceRaised
+                border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.35)
                 border.width: 1
 
                 TextEdit {
                     id: _descField
                     anchors { fill: parent; margins: 10 }
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     renderType: TextEdit.NativeRendering
                     activeFocusOnTab: true
                     wrapMode: TextEdit.WordWrap
-                    selectedTextColor: Theme.on_primary
-                    selectionColor: Theme.primary
+                    selectedTextColor: Theme.accentText
+                    selectionColor: Theme.accent
 
                     Text {
                         visible: _descField.text.length === 0
                         anchors.fill: parent
                         text: "Description (optional)"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font: _descField.font
                         opacity: 0.6
                         renderType: Text.NativeRendering
@@ -397,10 +397,10 @@ Item {
                     implicitWidth: cancelText.implicitWidth + 24
                     implicitHeight: 34
                     radius: 10
-                    color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.2)
+                    color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.2)
                     border.color: activeFocus ? Theme.islandFocus
-                        : Qt.rgba(Theme.outline_variant.r,
-                            Theme.outline_variant.g, Theme.outline_variant.b, 0.4)
+                        : Qt.rgba(Theme.border.r,
+                            Theme.border.g, Theme.border.b, 0.4)
                     border.width: activeFocus ? 2 : 1
                     activeFocusOnTab: true
 
@@ -408,7 +408,7 @@ Item {
                         id: cancelText
                         anchors.centerIn: parent
                         text: "Cancel"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                         renderType: Text.NativeRendering
@@ -439,9 +439,9 @@ Item {
                     implicitWidth: saveText.implicitWidth + 24
                     implicitHeight: 34
                     radius: 10
-                    color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.25)
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
                     border.color: activeFocus ? Theme.islandFocus
-                        : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                        : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
                     border.width: activeFocus ? 2 : 1
                     activeFocusOnTab: true
 
@@ -449,7 +449,7 @@ Item {
                         id: saveText
                         anchors.centerIn: parent
                         text: root.editId ? "Save" : "Add"
-                        color: Theme.primary
+                        color: Theme.accent
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                         font.weight: Font.Medium
@@ -493,10 +493,10 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: 10
-            color: Theme.surface_container
+            color: Theme.surfaceRaised
             border.color: sfRoot.activeFocus
-                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.6)
-                : Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.6)
+                : Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.35)
             border.width: sfRoot.activeFocus ? 1.5 : 1
         }
 
@@ -505,12 +505,12 @@ Item {
             focus: true
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             verticalAlignment: TextInput.AlignVCenter
-            color: Theme.on_surface
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
             renderType: TextInput.NativeRendering
-            selectedTextColor: Theme.on_primary
-            selectionColor: Theme.primary
+            selectedTextColor: Theme.accentText
+            selectionColor: Theme.accent
             onAccepted: sfRoot.accepted()
 
             Text {
@@ -518,7 +518,7 @@ Item {
                 visible: sfInput.text.length === 0
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font: sfInput.font
                 opacity: 0.6
                 renderType: Text.NativeRendering

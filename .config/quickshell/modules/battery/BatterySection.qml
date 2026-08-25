@@ -27,7 +27,7 @@ Item {
             Layout.fillWidth: true
             Text {
                 text: "󰁹 Battery"
-                color: Theme.on_surface
+                color: Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.labelFont
                 font.weight: Font.Bold
@@ -37,14 +37,14 @@ Item {
             }
             Text {
                 text: Math.round(bat.percent) + "%"
-                color: bat.charging || bat.full ? Theme.tertiary : Theme.primary
+                color: bat.charging || bat.full ? Theme.info : Theme.accent
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.valueFont
                 font.weight: Font.Bold
             }
             Text {
                 text: bat.usageLabel
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
             }
@@ -64,13 +64,13 @@ Item {
 
             Text {
                 text: "Status"
-                color: Theme.outline_variant
+                color: Theme.border
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
             }
             Text {
                 text: bat.statusLabel
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
                 horizontalAlignment: Text.AlignRight
@@ -79,13 +79,13 @@ Item {
 
             Text {
                 text: bat.charging ? "Time to full" : "Time to empty"
-                color: Theme.outline_variant
+                color: Theme.border
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
             }
             Text {
                 text: bat.full ? "—" : bat.formatDuration(bat.charging ? bat.timeToFullSec : bat.timeToEmptySec)
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
                 horizontalAlignment: Text.AlignRight
@@ -95,14 +95,14 @@ Item {
             Text {
                 visible: bat.healthPercent > 0
                 text: "Health"
-                color: Theme.outline_variant
+                color: Theme.border
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
             }
             Text {
                 visible: bat.healthPercent > 0
                 text: Math.round(bat.healthPercent) + "%"
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
                 horizontalAlignment: Text.AlignRight

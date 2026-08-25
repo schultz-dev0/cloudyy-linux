@@ -1,0 +1,24 @@
+{
+  "name": "Nord",
+  "slug": "nord",
+  "mode": "dark",
+  "colors": {
+    "background": "#2E3440",
+    "surface": "#3B4252",
+    "surfaceRaised": "#434C5E",
+    "surfaceOverlay": "#4C566A",
+    "text": "#ECEFF4",
+    "textMuted": "#E5E9F0",
+    "accent": "#88C0D0",
+    "accentMuted": "#5E81AC",
+    "accentAlt": "#8FBCBB",
+    "onAccent": "#2E3440",
+    "border": "#4C566A",
+    "selection": "#434C5E",
+    "success": "#A3BE8C",
+    "warning": "#EBCB8B",
+    "error": "#BF616A",
+    "info": "#81A1C1",
+    "shadow": "#2E3440"
+  }
+}

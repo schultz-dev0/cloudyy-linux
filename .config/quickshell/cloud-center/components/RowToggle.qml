@@ -8,13 +8,13 @@ RowBase {
 
     Rectangle {
         width: 40; height: 22; radius: 11
-        color: toggleRow.checked ? Theme.primary : Theme.outline_variant
+        color: toggleRow.checked ? Theme.accent : Theme.border
         Behavior on color { ColorAnimation { duration: 150 } }
         Rectangle {
             x: toggleRow.checked ? parent.width - width - 3 : 3
             anchors.verticalCenter: parent.verticalCenter
             width: 16; height: 16; radius: 8
-            color: Theme.surface_container_lowest
+            color: Theme.background
             Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
         }
         TapHandler {

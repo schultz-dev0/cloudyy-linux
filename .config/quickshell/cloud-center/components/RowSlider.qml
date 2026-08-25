@@ -32,16 +32,16 @@ RowBase {
             background: Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width; height: 4; radius: 2
-                color: Theme.outline_variant
+                color: Theme.border
                 Rectangle { width: slider.visualPosition * parent.width; height: parent.height
-                            radius: 2; color: Theme.primary }
+                            radius: 2; color: Theme.accent }
             }
             handle: Rectangle {
                 x: slider.visualPosition * (slider.width - width)
                 anchors.verticalCenter: parent.verticalCenter
                 width: 14; height: 14; radius: 7
-                color: Theme.surface_container_lowest
-                border { width: 1; color: Theme.outline }
+                color: Theme.background
+                border { width: 1; color: Theme.border }
             }
         }
     }

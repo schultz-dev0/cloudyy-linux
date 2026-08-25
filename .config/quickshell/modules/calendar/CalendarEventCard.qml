@@ -186,8 +186,8 @@ Item {
         x: root.mapToItem(parent, root.width - width - 4, 4).x
         y: root.mapToItem(parent, root.width - width - 4, 4).y
         radius: 10
-        color: Theme.surface_container_highest
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.5)
+        color: Theme.surfaceOverlay
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.5)
         border.width: 1
 
         function open() { ctxMenu.visible = true }
@@ -202,7 +202,7 @@ Item {
                 implicitHeight: 30
                 radius: 6
                 color: editHover.containsMouse || ctxMenu.currentIndex === 0
-                    ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.12)
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
                     : "transparent"
 
                 RowLayout {
@@ -211,7 +211,7 @@ Item {
 
                     Text {
                         text: "󰏫"
-                        color: Theme.primary
+                        color: Theme.accent
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         renderType: Text.NativeRendering

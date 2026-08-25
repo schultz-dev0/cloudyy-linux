@@ -3,7 +3,7 @@ pragma Singleton
 import QtQuick
 
 // Two coordinated bar states — solid (Omarchy-style) and transparent
-// (floating). Legibility comes from Theme.on_surface in both states now,
+// (floating). Legibility comes from Theme.text in both states now,
 // not a vignette — see Bar.qml's barFg* tokens. Single source of truth so
 // nothing can drift out of sync. Double-click the bar to toggle.
 QtObject {

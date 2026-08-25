@@ -26,18 +26,6 @@ pages:
         items:
           - type: toggle
             properties:
-              title: Dark Mode
-              description: Switch between dark and light Matugen theme
-              icon: 󰖔
-              key: theme/dark_mode
-            on_toggle:
-              enabled:
-                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode dark
-              disabled:
-                command: ~/cloudyy-linux/bin/cloudyy-theme set --mode light
-
-          - type: toggle
-            properties:
               title: Bluetooth
               description: Bluetooth adapter power
               icon: 󰂯
@@ -147,61 +135,6 @@ pages:
     layout:
       - type: section
         properties:
-          title: Theme
-        items:
-          - type: selection
-            properties:
-              title: Color Scheme
-              description: Matugen color variant
-              icon: 󰏘
-              key: theme/scheme
-              options:
-                - neutral
-                - vibrant
-                - monochrome
-                - rainbow
-                - expressive
-                - fruit-salad
-                - tonal-spot
-                - fidelity
-                - content
-              options_map:
-                neutral: scheme-neutral
-                vibrant: scheme-vibrant
-                monochrome: scheme-monochrome
-                rainbow: scheme-rainbow
-                expressive: scheme-expressive
-                fruit-salad: scheme-fruit-salad
-                tonal-spot: scheme-tonal-spot
-                fidelity: scheme-fidelity
-                content: scheme-content
-            on_change:
-              command: ~/cloudyy-linux/bin/cloudyy-theme refresh {value} $(cat ~/.config/cloud-center/settings/theme/contrast 2>/dev/null || echo 0)
-
-          - type: slider
-            properties:
-              title: Contrast
-              description: "Matugen contrast adjustment (-1.0 to +1.0)"
-              icon: 󰆗
-              key: theme/contrast
-              min: -10
-              max: 10
-              step: 1
-              default: 0
-            on_change:
-              command: ~/cloudyy-linux/bin/cloudyy-theme refresh $(cat ~/.config/cloud-center/settings/theme/scheme 2>/dev/null || echo neutral) $(awk 'BEGIN { printf "%.1f", {value}/10 }')
-
-          - type: button
-            properties:
-              title: Apply Theme
-              description: Re-run Matugen with current settings
-              icon: 󰑐
-              button_text: Apply
-            on_press:
-              command: ~/cloudyy-linux/bin/cloudyy-theme refresh
-
-      - type: section
-        properties:
           title: Wallpaper
         items:
           - type: wallpaper_picker
@@ -213,11 +146,9 @@ pages:
               directory: ~/Wallpapers
               thumbnail_size: 120
               columns: 4
-              # theme_mode() is a tiny local file read, not a subprocess like
-              # most other watched items — cheap enough to poll much faster
-              # than the generic 5s default, so a light/dark flip elsewhere
-              # (keybind, waybar) shows up here quickly.
-              interval: 1
+              # The selected theme's declared mode filters the transitional
+              # Light/Dark wallpaper pools; wallpaper selection never changes it.
+              interval: 5
             on_select:
               command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path}
 
@@ -251,7 +182,7 @@ pages:
               dark_directory: ~/Wallpapers/user_wallpapers/Dark
               per_page: 60
               height: 700
-              apply_command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path} --mode {mode}
+              apply_command: ~/cloudyy-linux/bin/cloudyy-theme set-image {path}
 
   - id: quickshell
     title: Shell

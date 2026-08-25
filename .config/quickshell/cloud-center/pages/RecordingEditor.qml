@@ -199,7 +199,7 @@ Flickable {
             Text {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text: recordingPage.page.title || "Recording"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; weight: Font.Bold
                        hintingPreference: Font.PreferVerticalHinting }
@@ -219,7 +219,7 @@ Flickable {
             width: content.width
             height: bannerText.implicitHeight + 20
             radius: 2
-            color: recordingPage.hasError ? Theme.error_container : Theme.primary_container
+            color: recordingPage.hasError ? Theme.glass(Theme.error, 0.12) : Theme.accentMuted
             border { width: 1; color: Theme.hairline }
 
             Row {
@@ -246,7 +246,7 @@ Flickable {
                         : "Recording… " + (recordingPage.recordingStatus.selection
                             || recordingPage.recordingStatus.out_file || "")
                     wrapMode: Text.WordWrap
-                    color: recordingPage.hasError ? Theme.error : Theme.textPrimary
+                    color: recordingPage.hasError ? Theme.error : Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                            hintingPreference: Font.PreferVerticalHinting }
@@ -304,7 +304,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Screenshots Directory"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }
@@ -329,7 +329,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Recordings Directory"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }
@@ -374,7 +374,7 @@ Flickable {
                     Text {
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         text: "Frame Rate"
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12
                                hintingPreference: Font.PreferVerticalHinting }
@@ -395,7 +395,7 @@ Flickable {
                     Text {
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         text: "File Type"
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12
                                hintingPreference: Font.PreferVerticalHinting }
@@ -418,7 +418,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Codec"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }
@@ -443,7 +443,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Filename Pattern"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }
@@ -478,7 +478,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Island Preview Duration (ms)"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }
@@ -500,7 +500,7 @@ Flickable {
                     Text {
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         text: "Auto-Copy After Capture"
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12
                                hintingPreference: Font.PreferVerticalHinting }
@@ -520,7 +520,7 @@ Flickable {
                         spacing: 4
                         Text {
                             text: "Edit Command"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                                    hintingPreference: Font.PreferVerticalHinting }

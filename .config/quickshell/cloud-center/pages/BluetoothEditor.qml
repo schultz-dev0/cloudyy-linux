@@ -314,7 +314,7 @@ Flickable {
                 spacing: 2
                 Text {
                     text: bluetoothPage.page.title
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"
@@ -373,7 +373,7 @@ Flickable {
                         verticalCenter: parent.verticalCenter
                     }
                     text: "Bluetooth"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"
@@ -551,7 +551,7 @@ Flickable {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {
             radius: 2
-            color: Theme.surface_container
+            color: Theme.surfaceRaised
             border {
                 width: 1
                 color: Theme.hairline
@@ -570,7 +570,7 @@ Flickable {
                         height: 28
                         radius: 2
                         color: menuHover.hovered
-                            ? Theme.glass(Theme.primary, 0.14)
+                            ? Theme.glass(Theme.accent, 0.14)
                             : "transparent"
                         Text {
                             anchors {
@@ -579,7 +579,7 @@ Flickable {
                                 verticalCenter: parent.verticalCenter
                             }
                             text: modelData.label
-                            color: modelData.id === "remove" ? Theme.error : Theme.textPrimary
+                            color: modelData.id === "remove" ? Theme.error : Theme.text
                             renderType: Text.NativeRendering
                             font {
                                 family: "JetBrainsMono Nerd Font"

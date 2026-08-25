@@ -43,12 +43,12 @@ FloatingWindow {
                 Rectangle {
                     width: parent.width - 16; height: 30
                     anchors.horizontalCenter: parent.horizontalCenter
-                    radius: 2; color: Theme.surface_container_high
+                    radius: 2; color: Theme.surfaceOverlay
                     TextInput {
                         id: searchInput
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                         verticalAlignment: TextInput.AlignVCenter
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: TextInput.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 13
                                hintingPreference: Font.PreferVerticalHinting }

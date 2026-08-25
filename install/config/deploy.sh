@@ -15,6 +15,7 @@ set -euo pipefail -E
 readonly REPO_URL="https://github.com/schultz-dev0/cloudyy-linux"
 readonly REPO_DIR="${HOME}/cloudyy-linux"
 readonly BACKUP_DIR="${HOME}/.config/cloudyy-backups/$(date +%Y%m%d_%H%M%S)"
+readonly DEPLOY_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Colors (TTY-aware) ------------------------------------------------------
 if [[ -t 1 ]]; then
@@ -245,8 +246,9 @@ link_config_dirs() {
     local dirname
     dirname="$(basename "$dir")"
 
-    # Skip legacy shell directories - quickshell is the only active shell
-    if [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]]; then
+    # Matugen is no longer Cloudyy-owned. A verified old repository link is
+    # detached separately; a user-owned directory is always preserved.
+    if [[ "$dirname" == "waybar" || "$dirname" == "swaync" || "$dirname" == "matugen" ]]; then
       continue
     fi
 
@@ -283,12 +285,6 @@ link_extra_dirs() {
       true
   fi
 
-  # pywalfox native messaging host — symlink only this file, not the whole zen dir
-  local pywalfox_src="${REPO_DIR}/zen/native-messaging-hosts/pywalfox.json"
-  if [[ -f "$pywalfox_src" ]]; then
-    mkdir -p "${HOME}/.config/zen/native-messaging-hosts"
-    safe_symlink "$pywalfox_src" "${HOME}/.config/zen/native-messaging-hosts/pywalfox.json"
-  fi
 }
 
 # Ensure ZDOTDIR is set so zsh reads from ~/.config/zsh/.zshrc
@@ -371,31 +367,11 @@ setup_shell() {
 # =============================================================================
 # STEP 4.5: Deploy First-Boot Defaults
 # =============================================================================
-# Copies distro defaults for files that are gitignored (generated at runtime).
+# Seeds distro defaults for user-owned state files.
 # Only runs if the target doesn't already exist — never overwrites user files.
 
 deploy_defaults() {
   log_section "First-Boot Defaults"
-
-  local defaults_dir="${REPO_DIR}/install/assets/default-theme"
-
-  # matugen generated colors — gitignored; deploy so Hyprland + rofi have colors
-  local generated_dir="${HOME}/.config/matugen/generated"
-  mkdir -p "$generated_dir"
-  local deployed=0
-  for src in "${defaults_dir}/matugen/"*; do
-    [[ -f "$src" ]] || continue
-    local dst="${generated_dir}/$(basename "$src")"
-    if [[ ! -f "$dst" ]]; then
-      cp "$src" "$dst"
-      (( ++deployed )) || true
-    fi
-  done
-  if (( deployed > 0 )); then
-    log_ok "${deployed} default color file(s) deployed (incl. starship.toml, quickshell-colors.json)."
-  else
-    log_skip "matugen generated colors"
-  fi
 
   # Cloud Center terminal settings — seed defaults so .zshrc can load plugins
   # and respects show_mascot on first boot before Cloud Center runs.
@@ -552,25 +528,6 @@ verify_deployment() {
 
 reapply_skip_worktree() {
   local -a state_files=(
-    ".config/matugen/generated/colors.css"
-    ".config/matugen/generated/colors-glass.rasi"
-    ".config/matugen/generated/colors-swayosd.css"
-    ".config/matugen/generated/gtk-3.css"
-    ".config/matugen/generated/gtk-4.css"
-    ".config/matugen/generated/hyprcolors.conf"
-    ".config/matugen/generated/kitty-colors.conf"
-    ".config/matugen/generated/matugen_colors.lua"
-    ".config/matugen/generated/pywalfox-colors.json"
-    ".config/matugen/generated/quickshell-colors.json"
-    ".config/matugen/generated/vscode.json"
-    ".config/kitty/kitty-colors.conf"
-    ".config/btop/themes/matugen.theme"
-    ".config/nvim/lua/current_mode.lua"
-    ".config/hypr/theme_state/state"
-    ".config/hypr/theme_state/state.conf"
-    ".config/hypr/theme_state/dark_last"
-    ".config/hypr/theme_state/light_last"
-    "bin/cloudyy-theme"
     ".config/hypr/theme_state/current_wallpaper/current.jpg"
     ".config/hypr/.cloud-center-state.json"
     ".config/hypr/cloudyy-launch.sh"
@@ -584,26 +541,6 @@ reapply_skip_worktree() {
     git -C "$REPO_DIR" update-index --skip-worktree "$f" 2>/dev/null && ((++applied)) || true
   done
   log_ok "State files frozen — ${applied}/${#state_files[@]} flagged (changes won't appear in git)."
-}
-
-# =============================================================================
-# STEP 6: Setup System Theme Integration
-# =============================================================================
-
-setup_system_theme() {
-  log_section "System Theme Integration"
-
-  local setup_script="${REPO_DIR}/install/config/system-theme.sh"
-  if [[ ! -f "$setup_script" ]]; then
-    log_warn "Theme setup script not found: ${setup_script}"
-    return 0
-  fi
-
-  if bash "$setup_script"; then
-    log_ok "System theme integration configured."
-  else
-    log_warn "System theme setup encountered issues (non-fatal)."
-  fi
 }
 
 # =============================================================================
@@ -650,7 +587,7 @@ preflight_conflicts() {
       [[ -d "$dir" ]] || continue
       local dirname
       dirname="$(basename "$dir")"
-      [[ "$dirname" == "waybar" || "$dirname" == "swaync" ]] && continue
+      [[ "$dirname" == "waybar" || "$dirname" == "swaync" || "$dirname" == "matugen" ]] && continue
       local dst="${HOME}/.config/${dirname}"
       [[ -e "$dst" || -L "$dst" ]] || continue
       _is_our_link "$dst" && continue
@@ -713,6 +650,7 @@ main() {
     }
   fi
 
+  bash "${DEPLOY_SCRIPT_DIR}/retire-legacy-matugen-link.sh" "$REPO_DIR" "$BACKUP_DIR"
   sync_repo
   reapply_skip_worktree
   preflight_conflicts
@@ -725,8 +663,7 @@ main() {
   deploy_defaults
   ensure_zdotdir
   verify_deployment
-  setup_system_theme
-  # Run schema settings (XDG portal + pywalfox) — only in standalone mode;
+  # Run schema settings (XDG portal) — only in standalone mode;
   # install.sh has a dedicated phase_schema for this.
   if [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]]; then
     local _schema_script
@@ -740,13 +677,12 @@ main() {
   fi
 
   # Skip when orchestrated by install.sh: its dedicated theme_init phase runs
-  # later (after packages/matugen are installed) and seeds the default
-  # wallpaper properly. Running restore here too, before packages exist,
-  # only produces a guaranteed-failed no-op.
+  # after packages are installed. Standalone deployment performs the same
+  # headless bootstrap without contacting the graphical session.
   if [[ "${CLOUDYY_INSTALL_ORCHESTRATED:-0}" != "1" ]]; then
     if command -v cloudyy-theme >/dev/null 2>&1; then
-      cloudyy-theme restore >/dev/null 2>&1 || \
-        log_warn "cloudyy-theme restore failed (non-fatal)"
+      cloudyy-theme bootstrap nord >/dev/null 2>&1 || \
+        log_warn "cloudyy-theme bootstrap nord failed (non-fatal)"
     fi
   fi
 

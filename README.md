@@ -33,9 +33,8 @@ New video soon with the latest feature set.
 
 ![Preview](extras/Previewpics/general/fast_fetch.png)
 
-- **Vscode/vscodium theming via matugen**
+- **Vscode/vscodium curated theme integration**
 
 ![Preview](extras/Previewpics/general/vscode_theming.png)
-
 
 

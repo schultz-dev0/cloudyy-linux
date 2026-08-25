@@ -139,7 +139,6 @@ MANDATORY_OFFICIAL_THEMING=(
   "ttf-jetbrains-mono-nerd" # Primary font (icons, kitty, quickshell)
   "noto-fonts"              # Base Unicode font coverage
   "noto-fonts-emoji"        # Emoji rendering
-  "matugen"                 # Material You colour generator (core to dotfiles)
   "sassc"                   # SCSS → CSS compiler (theme build scripts)
   "webp-pixbuf-loader"      # WebP image support in GTK apps
   "libcanberra"             # GTK sound events
@@ -147,7 +146,6 @@ MANDATORY_OFFICIAL_THEMING=(
 )
 MANDATORY_AUR_THEMING=(
   "fluent-icon-theme-git"             # Icon theme referenced in dotfiles
-  "python-pywalfox"                   # Firefox colour theming via pywal
   "bibata-cursor-git"                 # Default Hyprcursor and XCursor theme family
   "apple_hyprcursor"                  # Optional macOS-style Hyprcursor themes
   "apple_cursor"                      # Matching macOS-style XCursor themes

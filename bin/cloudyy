@@ -18,7 +18,7 @@ declare -A GROUP_DESCRIPTIONS=(
   [slider]="Volume, brightness, and nightlight sliders"
   [swayosd]="On-screen display control"
   [terminal]="Terminal and file-manager helpers"
-  [theme]="Theme, wallpaper, and light/dark mode"
+  [theme]="Curated themes and wallpapers"
   [update]="System and repo updates"
   [wlogout]="Logout/power menu"
 )
@@ -67,9 +67,8 @@ if [[ -x "$target" ]]; then
   exec "$target" "$@"
 fi
 
-# Fall back to a single-token command (e.g. `cloudyy theme toggle` ->
-# cloudyy-theme toggle) for commands that aren't split by group-action,
-# such as cloudyy-theme's own internal subcommand dispatch.
+# Commands that implement their own subcommand dispatch can omit group-action
+# metadata and are passed through unchanged (for example, `cloudyy theme use nord`).
 single_target="${bin_dir}/cloudyy-${group}"
 if [[ -x "$single_target" ]]; then
   exec "$single_target" "$action" "$@"

@@ -196,7 +196,7 @@ phase_post_install() {
 phase_schema() {
   local schema_script="${SCRIPT_DIR}/config/schema.sh"
   if [[ ! -f "$schema_script" ]]; then
-    log_warn "schema_settings.sh not found — skipping XDG portal + pywalfox setup."
+    log_warn "schema_settings.sh not found — skipping XDG portal setup."
     return 0
   fi
   bash "$schema_script"
@@ -274,39 +274,18 @@ phase_services() {
 }
 
 # --- Phase: Theme Bootstrap --------------------------------------------------
-# Runs after packages so matugen is available to generate hyprcolors.conf.
+# Runs after packages and dotfiles are in place. Bootstrap is headless: it
+# prepares Nord and seeds wallpaper 1 without contacting the graphical session.
 phase_theme_init() {
-  local state_conf="${HOME}/.config/hypr/theme_state/state.conf"
-  local default_wall="${HOME}/Wallpapers/Dark/cloudyy.jpg"
-  local current_wall="${HOME}/.config/hypr/theme_state/current_wallpaper/current.jpg"
-
   if ! command -v cloudyy-theme >/dev/null 2>&1; then
     log_warn "cloudyy-theme not found on PATH — skipping theme bootstrap."
     return 0
   fi
 
-  # Seed state.conf with the default wallpaper so restore has something to run matugen against.
-  # Only seeds if no wallpaper is already saved.
-  if [[ -f "$state_conf" ]] && grep -q 'CURRENT_WALL="[^"]' "$state_conf" 2>/dev/null; then
-    log "Existing theme state found — preserving."
-  elif [[ -f "$default_wall" ]]; then
-    mkdir -p "$(dirname "$state_conf")"
-    printf 'THEME_MODE="dark"\nCURRENT_WALL="%s"\n' "$default_wall" >"$state_conf"
-    log "Default wallpaper seeded into theme state."
-  fi
-
-  # The lockscreen reads this snapshot directly, including before the wallpaper
-  # daemon or theme controller has had a chance to run on first login.
-  if [[ ! -f "$current_wall" && -f "$default_wall" ]]; then
-    mkdir -p "$(dirname "$current_wall")"
-    cp "$default_wall" "$current_wall"
-    log "Default wallpaper seeded into lockscreen snapshot."
-  fi
-
-  if cloudyy-theme restore >/dev/null 2>&1; then
-    log_ok "Theme colours generated."
+  if cloudyy-theme bootstrap nord >/dev/null 2>&1; then
+    log_ok "Nord theme prepared for first login."
   else
-    log_warn "Theme bootstrap failed (non-fatal — run 'cloudyy-theme restore' later)."
+    log_warn "Theme bootstrap failed (non-fatal — run 'cloudyy-theme bootstrap nord' later)."
   fi
 
   # Generate thumbs during install time instead of on first request on first boot. Reuse thumb_cache.sh

@@ -29,7 +29,7 @@ Popup {
     exit: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 90 } }
 
     Overlay.modal: Rectangle {
-        color: Theme.glass(Theme.scrim, Theme.isLightTheme ? 0.22 : 0.38)
+        color: Theme.glass(Theme.shadow, Theme.isLightTheme ? 0.22 : 0.38)
     }
 
     background: Rectangle {
@@ -85,7 +85,7 @@ Popup {
                 Text {
                     width: parent.width
                     text: dialog.heading
-                    color: Theme.textPrimary
+                    color: Theme.text
                     elide: Text.ElideRight
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 16; weight: Font.Bold
@@ -108,8 +108,8 @@ Popup {
                 visible: dialog.showClose
                 anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
                 width: 28; height: 28; radius: 2
-                color: closeHover.hovered ? Theme.glass(Theme.primary, 0.12)
-                    : Theme.surface_container_high
+                color: closeHover.hovered ? Theme.glass(Theme.accent, 0.12)
+                    : Theme.surfaceOverlay
                 Text {
                     anchors.centerIn: parent
                     text: "×"
@@ -138,7 +138,7 @@ Popup {
         Rectangle {
             visible: dialog.showFooter
             width: parent.width; height: 59
-            color: Theme.surface_container_low
+            color: Theme.surface
             Rectangle {
                 anchors.top: parent.top
                 width: parent.width; height: 1

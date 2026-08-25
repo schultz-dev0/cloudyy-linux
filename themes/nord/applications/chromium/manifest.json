@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Nord",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [59, 66, 82],
+      "background_tab_inactive": [59, 66, 82],
+      "background_tab_incognito": [59, 66, 82],
+      "background_tab_incognito_inactive": [59, 66, 82],
+      "bookmark_text": [236, 239, 244],
+      "button_background": [59, 66, 82],
+      "frame": [46, 52, 64],
+      "frame_inactive": [46, 52, 64],
+      "frame_incognito": [46, 52, 64],
+      "frame_incognito_inactive": [46, 52, 64],
+      "ntp_background": [46, 52, 64],
+      "ntp_header": [59, 66, 82],
+      "ntp_link": [136, 192, 208],
+      "ntp_text": [236, 239, 244],
+      "omnibox_background": [46, 52, 64],
+      "omnibox_text": [236, 239, 244],
+      "tab_background_text": [229, 233, 240],
+      "tab_background_text_inactive": [229, 233, 240],
+      "tab_background_text_incognito": [229, 233, 240],
+      "tab_background_text_incognito_inactive": [229, 233, 240],
+      "tab_text": [236, 239, 244],
+      "toolbar": [59, 66, 82],
+      "toolbar_button_icon": [229, 233, 240],
+      "toolbar_text": [236, 239, 244]
+    }
+  }
+}

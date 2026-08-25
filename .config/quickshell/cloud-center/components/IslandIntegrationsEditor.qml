@@ -147,7 +147,7 @@ Column {
 
             width: root.width
             height: 58
-            color: rowHover.hovered ? Theme.glass(Theme.primary, 0.08) : "transparent"
+            color: rowHover.hovered ? Theme.glass(Theme.accent, 0.08) : "transparent"
 
             Row {
                 anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
@@ -198,7 +198,7 @@ Column {
                     Text {
                         width: parent.width
                         text: integrationRow.displayName
-                        color: Theme.textPrimary
+                        color: Theme.text
                         elide: Text.ElideRight
                         renderType: Text.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 13

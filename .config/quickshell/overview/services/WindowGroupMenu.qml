@@ -94,7 +94,7 @@ Item {
         visible: root.open && root.windows.length > 0
         radius: 12
         color: Theme.glassShell
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.35)
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.35)
         border.width: 1
 
         ColumnLayout {
@@ -116,7 +116,7 @@ Item {
                     Layout.preferredHeight: 36
                     radius: 8
                     color: rowHover.hovered
-                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
+                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
                         : "transparent"
 
                     RowLayout {
@@ -127,7 +127,7 @@ Item {
 
                         Text {
                             text: `${index + 1}`
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
                             Layout.preferredWidth: 18
@@ -137,7 +137,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.maximumWidth: root.menuWidth - 52
                             text: root.rowLabel(modelData)
-                            color: Theme.on_surface
+                            color: Theme.text
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
                             elide: Text.ElideRight

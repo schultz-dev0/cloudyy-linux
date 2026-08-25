@@ -34,13 +34,13 @@ Item {
                 radius: 2
                 clip: true
                 visible: root.selected
-                color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
-                border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
                 border.width: 1.5
 
                 DotTexture {
                     anchors.fill: parent
-                    tint: Theme.primary
+                    tint: Theme.accent
                     dotAlpha: 0.18
                     cell: 5
                     dotRadius: 0.7
@@ -52,7 +52,7 @@ Item {
                 text: root.icon
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 26
-                color: root.selected ? Theme.primary : Theme.textPrimary
+                color: root.selected ? Theme.accent : Theme.text
             }
         }
 
@@ -61,7 +61,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter
             text: root.label
-            color: Theme.textPrimary
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 9
             lineHeight: 1.2

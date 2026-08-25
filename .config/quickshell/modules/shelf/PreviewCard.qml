@@ -48,7 +48,7 @@ Rectangle {
                 visible: root.capture.kind === "recording"
                 anchors.centerIn: parent
                 text: "▶"
-                color: Theme.primary
+                color: Theme.accent
                 font.pixelSize: 14
             }
 
@@ -107,7 +107,7 @@ Rectangle {
             Text {
                 width: parent.width
                 text: root.capture.path.split("/").pop()
-                color: Theme.textPrimary
+                color: Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
                 elide: Text.ElideMiddle

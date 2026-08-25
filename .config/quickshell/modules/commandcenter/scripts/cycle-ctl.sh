@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
-# Theme cycle / auto mode control for Command Center (replaces rofi/cycle.sh menus).
+# Wallpaper cycle control for Command Center.
 set -euo pipefail
 
-HOME="${HOME:-$(printf '%s' ~)}"
-CYCLE_CONF="${HOME}/.config/hypr/theme_state/cycle.conf"
-SVC_DIR="${HOME}/.config/systemd/user"
-THEME_CTL="${HOME}/cloudyy-linux/bin/cloudyy-theme"
-AUTOMODE_HELPER="${HOME}/cloudyy-linux/bin/cloudyy-quickshell-automode-switch"
+USER_HOME="${HOME:-$(printf '%s' ~)}"
+CYCLE_CONF="${USER_HOME}/.config/hypr/theme_state/cycle.conf"
+SVC_DIR="${USER_HOME}/.config/systemd/user"
+THEME_CTL="${USER_HOME}/cloudyy-linux/bin/cloudyy-theme"
 
 CYCLE_ENABLED="false"
 CYCLE_INTERVAL="1800"
 CYCLE_ORDER="random"
-AUTOMODE_ENABLED="false"
-AUTOMODE_LIGHT_HOUR="7"
-AUTOMODE_DARK_HOUR="20"
 LOCK_FD=9
 
 acquire_cycle_lock() {
@@ -37,9 +33,6 @@ read_cycle_conf() {
       CYCLE_ENABLED) CYCLE_ENABLED="$value" ;;
       CYCLE_INTERVAL) CYCLE_INTERVAL="$value" ;;
       CYCLE_ORDER) CYCLE_ORDER="$value" ;;
-      AUTOMODE_ENABLED) AUTOMODE_ENABLED="$value" ;;
-      AUTOMODE_LIGHT_HOUR) AUTOMODE_LIGHT_HOUR="$value" ;;
-      AUTOMODE_DARK_HOUR) AUTOMODE_DARK_HOUR="$value" ;;
     esac
   done < "$CYCLE_CONF"
 }
@@ -50,9 +43,6 @@ save_cycle_conf() {
 CYCLE_ENABLED="$CYCLE_ENABLED"
 CYCLE_INTERVAL="$CYCLE_INTERVAL"
 CYCLE_ORDER="$CYCLE_ORDER"
-AUTOMODE_ENABLED="$AUTOMODE_ENABLED"
-AUTOMODE_LIGHT_HOUR="$AUTOMODE_LIGHT_HOUR"
-AUTOMODE_DARK_HOUR="$AUTOMODE_DARK_HOUR"
 EOF
 }
 
@@ -91,30 +81,6 @@ WantedBy=timers.target
 EOF
 }
 
-write_automode_units() {
-  mkdir -p "$SVC_DIR"
-  cat >"${SVC_DIR}/theme-automode.service" <<EOF
-[Unit]
-Description=Cloudyy — auto light/dark mode switcher
-After=graphical-session.target
-
-[Service]
-Type=oneshot
-ExecStart=${AUTOMODE_HELPER}
-EOF
-  cat >"${SVC_DIR}/theme-automode.timer" <<EOF
-[Unit]
-Description=Cloudyy — auto mode check timer
-
-[Timer]
-OnCalendar=*:0/5
-AccuracySec=30s
-
-[Install]
-WantedBy=timers.target
-EOF
-}
-
 apply_cycle() {
   write_cycle_units
   systemctl --user daemon-reload
@@ -123,18 +89,6 @@ apply_cycle() {
   else
     systemctl --user disable --now theme-cycle.timer 2>/dev/null || true
     systemctl --user stop theme-cycle.timer 2>/dev/null || true
-  fi
-}
-
-apply_automode() {
-  write_automode_units
-  systemctl --user daemon-reload
-  if [[ "$AUTOMODE_ENABLED" == "true" ]]; then
-    systemctl --user enable --now theme-automode.timer
-    systemctl --user start theme-automode.service 2>/dev/null || true
-  else
-    systemctl --user disable --now theme-automode.timer 2>/dev/null || true
-    systemctl --user stop theme-automode.timer 2>/dev/null || true
   fi
 }
 
@@ -162,27 +116,16 @@ case "$cmd" in
       --arg ce "$CYCLE_ENABLED" \
       --arg ci "$CYCLE_INTERVAL" \
       --arg co "$CYCLE_ORDER" \
-      --arg ae "$AUTOMODE_ENABLED" \
-      --arg lh "$AUTOMODE_LIGHT_HOUR" \
-      --arg dh "$AUTOMODE_DARK_HOUR" \
       '{
         cycle_enabled: ($ce == "true"),
         cycle_interval: ($ci | tonumber),
-        cycle_order: $co,
-        automode_enabled: ($ae == "true"),
-        automode_light_hour: ($lh | tonumber),
-        automode_dark_hour: ($dh | tonumber)
+        cycle_order: $co
       }'
     ;;
   toggle-cycle)
     [[ "$CYCLE_ENABLED" == "true" ]] && CYCLE_ENABLED="false" || CYCLE_ENABLED="true"
     save_cycle_conf
     apply_cycle
-    ;;
-  toggle-automode)
-    [[ "$AUTOMODE_ENABLED" == "true" ]] && AUTOMODE_ENABLED="false" || AUTOMODE_ENABLED="true"
-    save_cycle_conf
-    apply_automode
     ;;
   set-interval)
     CYCLE_INTERVAL="${2:-1800}"
@@ -194,18 +137,8 @@ case "$cmd" in
     save_cycle_conf
     [[ "$CYCLE_ENABLED" == "true" ]] && apply_cycle
     ;;
-  set-light-hour)
-    AUTOMODE_LIGHT_HOUR="${2:-7}"
-    save_cycle_conf
-    [[ "$AUTOMODE_ENABLED" == "true" ]] && apply_automode
-    ;;
-  set-dark-hour)
-    AUTOMODE_DARK_HOUR="${2:-20}"
-    save_cycle_conf
-    [[ "$AUTOMODE_ENABLED" == "true" ]] && apply_automode
-    ;;
   *)
-    echo "usage: cycle-ctl.sh {state|toggle-cycle|toggle-automode|set-interval|set-order|set-light-hour|set-dark-hour}" >&2
+    echo "usage: cycle-ctl.sh {state|toggle-cycle|set-interval|set-order}" >&2
     exit 1
     ;;
 esac

@@ -1,79 +1,125 @@
 #!/usr/bin/env python3
-# cloudyy:summary=Sync matugen theme colors into VS Code/VSCodium/Cursor settings
+# cloudyy:summary=Merge curated theme colors into VS Code-family settings
+"""Merge the active curated VS Code colors without replacing user settings."""
+
+from __future__ import annotations
+
 import json
 import os
+import shutil
+import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
-# Define the source path
-MATUGEN_OUTPUT = Path.home() / ".config/matugen/generated/vscode.json"
 
-# Define all target paths (VS Code, Arch VSCodium, Standard VSCodium)
-TARGET_SETTINGS = [
-    Path.home() / ".config/Code/User/settings.json",
-    Path.home() / ".config/Code - OSS/User/settings.json",
-    Path.home() / ".config/VSCodium/User/settings.json",
-    Path.home() / ".config/Cursor/User/settings.json",
-]
+TARGET_DIRECTORIES = ("Code", "Code - OSS", "VSCodium", "Cursor")
 
 
-def update_settings():
-    # 1. Load the new colors
-    try:
-        with open(MATUGEN_OUTPUT, "r") as f:
-            new_colors = json.load(f)
-    except FileNotFoundError:
-        print("Matugen output not found.")
+def _error(message: str) -> None:
+    print(f"cloudyy-code-update-vscodium: {message}", file=sys.stderr)
+
+
+def _load_curated_colors(path: Path) -> dict[str, object]:
+    with path.open(encoding="utf-8") as stream:
+        payload = json.load(stream)
+    if not isinstance(payload, dict) or set(payload) != {"workbench.colorCustomizations"}:
+        raise ValueError("theme payload must contain only workbench.colorCustomizations")
+    colors = payload["workbench.colorCustomizations"]
+    if not isinstance(colors, dict) or not colors:
+        raise ValueError("workbench.colorCustomizations must be a non-empty object")
+    return colors
+
+
+def _backup_invalid(path: Path) -> None:
+    backup = Path(f"{path}.cloudyy-invalid-backup")
+    if backup.exists() or backup.is_symlink():
         return
+    shutil.copy2(path, backup)
 
-    # 2. Iterate through each IDE's configuration path
-    for settings_path in TARGET_SETTINGS:
-        # Skip this iteration if the IDE's config folder doesn't exist
-        if not settings_path.parent.exists():
-            continue
 
-        # Load existing settings
-        try:
-            with open(settings_path, "r") as f:
-                current_settings = json.load(f)
-        except FileNotFoundError:
-            current_settings = {}
-        except json.JSONDecodeError:
-            backup_path = settings_path.with_suffix(
-                settings_path.suffix
-                + f".invalid-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            )
-            try:
-                os.replace(settings_path, backup_path)
-                print(
-                    f"JSON syntax error in: {settings_path} (backed up to {backup_path})"
-                )
-            except OSError:
-                print(
-                    f"JSON syntax error in: {settings_path} (could not create backup, rewriting anyway)"
-                )
-            current_settings = {}
-
-        # 3. Merge the theme data
-        if "workbench.colorCustomizations" not in current_settings:
-            current_settings["workbench.colorCustomizations"] = {}
-        if "editor.tokenColorCustomizations" not in current_settings:
-            current_settings["editor.tokenColorCustomizations"] = {}
-
-        current_settings.update(new_colors)
-
-        # 4. Save atomically to avoid partial writes on interruption
+def _write_atomic(path: Path, settings: dict[str, object]) -> None:
+    temporary_name = ""
+    try:
         with tempfile.NamedTemporaryFile(
-            "w", dir=settings_path.parent, delete=False, suffix=".tmp"
-        ) as tf:
-            json.dump(current_settings, tf, indent=4)
-            tmp_name = tf.name
-        os.replace(tmp_name, settings_path)
+            "w", dir=path.parent, delete=False, prefix=f".{path.name}.", suffix=".tmp",
+            encoding="utf-8",
+        ) as stream:
+            json.dump(settings, stream, indent=4)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary_name = stream.name
+        if path.exists():
+            os.chmod(temporary_name, path.stat().st_mode & 0o777)
+        os.replace(temporary_name, path)
+    finally:
+        if temporary_name and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
-        print(f"Injected theme into: {settings_path}")
+
+def _update_one(path: Path, colors: dict[str, object]) -> bool:
+    if path.is_symlink():
+        _error(f"settings path is a symbolic link; preserved: {path}")
+        return False
+    try:
+        if path.exists():
+            with path.open(encoding="utf-8") as stream:
+                settings = json.load(stream)
+        else:
+            settings = {}
+    except json.JSONDecodeError:
+        try:
+            _backup_invalid(path)
+        except OSError as backup_error:
+            _error(f"invalid JSON in {path}; backup failed: {backup_error}")
+            return False
+        _error(f"invalid JSON preserved in {path}; backup: {path}.cloudyy-invalid-backup")
+        return False
+    except OSError as error:
+        _error(f"could not read {path}: {error}")
+        return False
+
+    if not isinstance(settings, dict):
+        _error(f"settings root is not an object; preserved: {path}")
+        return False
+    existing_colors = settings.get("workbench.colorCustomizations", {})
+    if not isinstance(existing_colors, dict):
+        _error(f"workbench.colorCustomizations is not an object; preserved: {path}")
+        return False
+
+    settings["workbench.colorCustomizations"] = existing_colors | colors
+    try:
+        _write_atomic(path, settings)
+    except OSError as error:
+        _error(f"could not atomically write {path}: {error}")
+        return False
+    print(f"Injected curated theme into: {path}")
+    return True
+
+
+def update_settings(source: Path) -> bool:
+    try:
+        colors = _load_curated_colors(source)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        _error(f"invalid curated theme payload {source}: {error}")
+        return False
+
+    config_root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    success = True
+    for directory in TARGET_DIRECTORIES:
+        user_directory = config_root / directory / "User"
+        if not user_directory.is_dir():
+            continue
+        success = _update_one(user_directory / "settings.json", colors) and success
+    return success
+
+
+def main(arguments: list[str]) -> int:
+    if len(arguments) != 1:
+        _error("usage: cloudyy-code-update-vscodium <active-vscode.json>")
+        return 2
+    return 0 if update_settings(Path(arguments[0])) else 1
 
 
 if __name__ == "__main__":
-    update_settings()
-
+    raise SystemExit(main(sys.argv[1:]))

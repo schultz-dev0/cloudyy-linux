@@ -23,12 +23,12 @@ FocusScope {
         clip: true
         color: {
             if (button.primary)
-                return hover.hovered ? Theme.primary : Theme.primary_container;
+                return hover.hovered ? Theme.accent : Theme.accentMuted;
             if (button.danger)
-                return hover.hovered ? Theme.glass(Theme.error, 0.20) : Theme.error_container;
+                return Theme.glass(Theme.error, hover.hovered ? 0.20 : 0.12);
             if (button.subtle)
-                return hover.hovered ? Theme.glass(Theme.primary, 0.11) : "transparent";
-            return hover.hovered ? Theme.surface_container_high : Theme.surface_container;
+                return hover.hovered ? Theme.glass(Theme.accent, 0.11) : "transparent";
+            return hover.hovered ? Theme.surfaceOverlay : Theme.surfaceRaised;
         }
         border {
             width: button.primary || button.subtle ? 0 : 1
@@ -40,7 +40,7 @@ FocusScope {
             anchors.fill: parent
             visible: !button.subtle || hover.hovered
             tint: button.danger ? Theme.error
-                : button.primary ? Theme.on_primary_container : Theme.accent
+                : button.primary ? Theme.accentText : Theme.accent
             dotAlpha: 0.16
             cell: 5
             dotRadius: 0.7
@@ -54,7 +54,7 @@ FocusScope {
                 visible: button.glyph !== ""
                 text: button.glyph
                 color: button.danger ? Theme.error
-                    : button.primary ? Theme.on_primary_container : Theme.accent
+                    : button.primary ? Theme.accentText : Theme.accent
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: button.compact ? 11 : 12
                        hintingPreference: Font.PreferVerticalHinting }
@@ -62,8 +62,8 @@ FocusScope {
             Text {
                 text: button.text
                 color: button.danger ? Theme.error
-                    : button.primary ? Theme.on_primary_container
-                    : button.subtle ? Theme.accent : Theme.textPrimary
+                    : button.primary ? Theme.accentText
+                    : button.subtle ? Theme.accent : Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: button.compact ? 10 : 11
                        weight: button.primary ? Font.Medium : Font.Normal
@@ -76,7 +76,7 @@ FocusScope {
             anchors.margins: 2
             radius: Math.max(0, parent.radius - 2)
             color: "transparent"
-            border { width: button.activeFocus ? 1 : 0; color: Theme.primary }
+            border { width: button.activeFocus ? 1 : 0; color: Theme.accent }
         }
         HoverHandler { id: hover }
         TapHandler { enabled: button.enabled; onTapped: button.clicked() }

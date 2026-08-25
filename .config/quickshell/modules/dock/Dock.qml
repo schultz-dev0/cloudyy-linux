@@ -1710,7 +1710,7 @@ PanelWindow {
                 width: 4
                 height: 4
                 radius: 2
-                color: Theme.primary
+                color: Theme.accent
                 anchors {
                     bottom: parent.bottom
                     horizontalCenter: parent.horizontalCenter

@@ -97,18 +97,18 @@ RowBase {
                 background: Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width; height: 4; radius: 2
-                    color: Theme.outline_variant
+                    color: Theme.border
                     Rectangle {
                         width: numberSlider.visualPosition * parent.width
-                        height: parent.height; radius: 2; color: Theme.primary
+                        height: parent.height; radius: 2; color: Theme.accent
                     }
                 }
                 handle: Rectangle {
                     x: numberSlider.visualPosition * (numberSlider.width - width)
                     anchors.verticalCenter: parent.verticalCenter
                     width: 14; height: 14; radius: 7
-                    color: Theme.surface_container_lowest
-                    border { width: 1; color: Theme.outline }
+                    color: Theme.background
+                    border { width: 1; color: Theme.border }
                 }
             }
 
@@ -116,13 +116,13 @@ RowBase {
                 id: numberField
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 width: 62; height: 30; radius: 8
-                color: Theme.surface_container
-                border { width: 1; color: exactInput.activeFocus ? Theme.primary : Theme.outline_variant }
+                color: Theme.surfaceRaised
+                border { width: 1; color: exactInput.activeFocus ? Theme.accent : Theme.border }
                 TextInput {
                     id: exactInput
                     anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                     text: Number(settingRow.currentValue).toFixed(settingRow.setting.type === "int" ? 0 : 1)
-                    color: Theme.textPrimary
+                    color: Theme.text
                     selectByMouse: true
                     verticalAlignment: TextInput.AlignVCenter
                     horizontalAlignment: TextInput.AlignHCenter

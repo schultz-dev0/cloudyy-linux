@@ -13,7 +13,7 @@ set -euo pipefail
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wlogout"
 readonly LAYOUT_FILE="${CONFIG_DIR}/layout"
 readonly ICONS_DIR="$HOME/.config/wlogout/icons"
-readonly MATUGEN_COLORS="${XDG_CONFIG_HOME:-$HOME/.config}/matugen/generated/colors.css"
+readonly THEME_COLORS="${CONFIG_DIR}/cloudyy-theme.css"
 readonly TMP_CSS="/tmp/wlogout-${UID}.css"
 
 # Scaling Settings (1080p Reference)
@@ -33,9 +33,9 @@ if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
   exit 1
 fi
 
-# Check if Matugen colors exist
-if [[ ! -f "$MATUGEN_COLORS" ]]; then
-  echo "ERROR: Mutagen colors not found at $MATUGEN_COLORS" >&2
+# Check if curated colors exist
+if [[ ! -f "$THEME_COLORS" ]]; then
+  echo "ERROR: Cloudyy theme colors not found at $THEME_COLORS" >&2
   exit 1
 fi
 
@@ -85,19 +85,18 @@ HOVER_MARGIN=$((MARGIN - HOVER_OFFSET))
 # 4. CSS Generation (With PNG Icons)
 # ──────────────────────────────────────────────────────────────
 cat >"$TMP_CSS" <<EOF
-/* Import Mutagen Colors */
-@import url("file://${MATUGEN_COLORS}");
+/* Import the stable curated Cloudyy color fragment. */
+@import url("file://${THEME_COLORS}");
 
 window {
     background-color: rgba(0, 0, 0, 0.6);
 }
 
 button {
-    /* Matugen Colors */
-    background-color: @secondary_container;
-    color: @on_secondary_container;
+    background-color: @surface_raised;
+    color: @text;
     
-    border: 2px solid @outline;
+    border: 2px solid @border;
     border-radius: ${BTN_RAD}px;
     outline-style: none;
     
@@ -116,13 +115,13 @@ button {
 }
 
 button:focus {
-    background-color: @tertiary_container;
-    color: @on_tertiary_container;
+    background-color: @selection;
+    color: @text;
 }
 
 button:hover {
-    background-color: @primary;
-    color: @on_primary;
+    background-color: @accent;
+    color: @on_accent;
     border-radius: ${ACT_RAD}px;
 }
 

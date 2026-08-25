@@ -27,8 +27,8 @@ Item {
         anchors.fill: parent
         radius: 2
         color: root.selected
-            ? Theme.glass(Theme.primary, 0.20)
-            : (rowHover.hovered ? Theme.glass(Theme.primary, 0.08) : "transparent")
+            ? Theme.glass(Theme.accent, 0.20)
+            : (rowHover.hovered ? Theme.glass(Theme.accent, 0.08) : "transparent")
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 
@@ -65,7 +65,7 @@ Item {
                 width: parent.width
                 text: root.title
                 elide: Text.ElideRight
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font {
                     family: "JetBrainsMono Nerd Font"

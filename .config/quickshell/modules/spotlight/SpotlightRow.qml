@@ -32,7 +32,7 @@ Item {
         }
         radius: 2
         color: root.isSelected
-            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.18)
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
             : "transparent"
         Behavior on color { ColorAnimation { duration: 80 } }
     }
@@ -66,7 +66,7 @@ Item {
                 verticalAlignment:   Text.AlignVCenter
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 20
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 text: {
                     if (root.resultData.type === "file") return "󰈔";
                     if (root.resultData.type === "calculator") return "󰃬";
@@ -98,15 +98,15 @@ Item {
                 }
                 color: {
                     if (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time")
-                        return Theme.on_surface;
+                        return Theme.text;
                     if (root.resultData.type === "command" || root.resultData.type === "keybind") {
                         if (root.resultData.isActive)
-                            return Theme.primary;
-                        return Theme.textPrimary;
+                            return Theme.accent;
+                        return Theme.text;
                     }
                     if (root.resultData.type === "web")
                         return Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.6);
-                    return Theme.textPrimary;
+                    return Theme.text;
                 }
                 font.pixelSize: (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time") ? 15 : 13
                 font.weight: (root.resultData.type === "calculator" || root.resultData.type === "currency" || root.resultData.type === "time")
@@ -134,7 +134,7 @@ Item {
                         return root.resultData.subtitle ?? "";
                     return root.resultData.path ?? "";
                 }
-                color: root.resultData.type === "keybind" ? Theme.on_surface_variant : Theme.textMuted
+                color: root.resultData.type === "keybind" ? Theme.textMuted : Theme.textMuted
                 font.pixelSize: root.resultData.type === "keybind" ? 12 : 11
                 font.family:    "JetBrainsMono Nerd Font"
                 elide: Text.ElideMiddle

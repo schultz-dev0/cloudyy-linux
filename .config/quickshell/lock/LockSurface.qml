@@ -78,7 +78,7 @@ WlSessionLockSurface {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatTime(root.lockService.now, "HH:mm")
-            color: Theme.textPrimary
+            color: Theme.text
             renderType: Text.NativeRendering
             font { family: "JetBrainsMono Nerd Font"; pixelSize: Math.max(38, root.width * 0.052)
                    hintingPreference: Font.PreferVerticalHinting }
@@ -113,21 +113,21 @@ WlSessionLockSurface {
             height: 40
             radius: 10
             color: passwordInput.activeFocus
-                ? Theme.glass(Theme.surface_container_lowest, 0.96)
-                : Theme.glass(Theme.surface_container_low, 0.82)
+                ? Theme.glass(Theme.background, 0.96)
+                : Theme.glass(Theme.surface, 0.82)
             border {
                 width: passwordInput.activeFocus ? 1.5 : 1
                 color: passwordInput.activeFocus
-                    ? Theme.primary : Theme.glass(Theme.outline_variant, 0.56)
+                    ? Theme.accent : Theme.glass(Theme.border, 0.56)
             }
 
             TextInput {
                 id: passwordInput
                 anchors { fill: parent; leftMargin: 11; rightMargin: 11 }
                 verticalAlignment: TextInput.AlignVCenter
-                color: Theme.textPrimary
-                selectionColor: Theme.glass(Theme.primary, 0.24)
-                selectedTextColor: Theme.on_primary
+                color: Theme.text
+                selectionColor: Theme.glass(Theme.accent, 0.24)
+                selectedTextColor: Theme.accentText
                 renderType: Text.NativeRendering
                 echoMode: TextInput.Password
                 inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText

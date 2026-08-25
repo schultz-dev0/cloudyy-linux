@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# schema_settings.sh — XDG Settings Portal & pywalfox Integration Setup
+# schema_settings.sh — XDG Settings Portal Integration Setup
 # =============================================================================
-# Fixes three gaps that make Firefox and pywalfox see the global dark/light
-# mode set by theme_controller.sh:
+# Configures the schema and portal paths that let applications observe the
+# active curated theme's declared system color-scheme preference:
 #
 #   1. gsettings-desktop-schemas — provides the org.gnome.desktop.interface
-#      schema that theme_controller.sh writes to via gsettings.
+#      schema that cloudyy-theme writes to via gsettings.
 #
 #   2. xdg-desktop-portal config — routes the org.freedesktop.portal.Settings
 #      interface to xdg-desktop-portal-gtk (Hyprland does not implement it).
 #      Firefox reads this portal live to detect color-scheme changes.
-#
-#   3. pywalfox native-install — registers the native messaging host that
-#      lets pywalfox communicate with the Firefox extension.
 #
 # Safe to re-run: all steps are idempotent.
 # =============================================================================
@@ -94,7 +91,7 @@ EOF
 
   # --- portals.conf ---
   # Generic fallback config; sets a sane default color-scheme hint used before
-  # gsettings has been written by theme_controller.sh for the first time.
+  # cloudyy-theme has reconciled the active package for the first time.
   local portals_conf="${portal_dir}/portals.conf"
   if [[ -f "$portals_conf" ]]; then
     log_skip "portals.conf already exists"
@@ -110,44 +107,7 @@ EOF
 }
 
 # =============================================================================
-# STEP 3: pywalfox native messaging host
-# =============================================================================
-
-setup_pywalfox() {
-  log_section "pywalfox Native Messaging Host"
-
-  if ! command -v pywalfox &>/dev/null; then
-    log_warn "pywalfox not found — skipping (install python-pywalfox first)"
-    return 0
-  fi
-
-  # Check all known native messaging host locations for both native and Flatpak Firefox + Zen.
-  local -a host_dirs=(
-    "${HOME}/.config/zen/native-messaging-hosts"
-    "${HOME}/.mozilla/native-messaging-hosts"
-    "${HOME}/.var/app/org.mozilla.firefox/.mozilla/native-messaging-hosts"
-  )
-  local already_installed=0
-  for dir in "${host_dirs[@]}"; do
-    [[ -f "${dir}/pywalfox.json" ]] && { already_installed=1; break; }
-  done
-
-  if ((already_installed)); then
-    log_skip "pywalfox native messaging host already registered"
-    return 0
-  fi
-
-  log "Running pywalfox native-install..."
-  if pywalfox native-install; then
-    log_ok "pywalfox native messaging host registered"
-  else
-    log_error "pywalfox native-install failed — you may need to run it manually"
-    return 1
-  fi
-}
-
-# =============================================================================
-# STEP 4: system font
+# STEP 3: system font
 # =============================================================================
 
 setup_system_font() {
@@ -166,7 +126,7 @@ setup_system_font() {
 }
 
 # =============================================================================
-# STEP 5: restart xdg-desktop-portal (optional, non-fatal)
+# STEP 4: restart xdg-desktop-portal (optional, non-fatal)
 # =============================================================================
 
 restart_portal() {
@@ -223,13 +183,12 @@ setup_thunar_full_path_title() {
 # =============================================================================
 
 main() {
-  printf '\n%s%s── XDG Settings Portal & pywalfox Setup ──%s\n\n' "$BOLD" "$CYAN" "$RESET"
+  printf '\n%s%s── XDG Settings Portal Setup ──%s\n\n' "$BOLD" "$CYAN" "$RESET"
 
   local errors=0
 
   setup_gsettings_schemas       || ((++errors))
   setup_portal_config           || ((++errors))
-  setup_pywalfox                || ((++errors))
   setup_system_font             || ((++errors))
   setup_thunar_full_path_title  || ((++errors))
   restart_portal                || true  # non-fatal; re-login is an acceptable fallback
@@ -240,7 +199,7 @@ main() {
     return 1
   fi
 
-  log_ok "All done. Zen / Firefox will now pick up dark/light mode changes from theme_controller.sh."
+  log_ok "All done. Applications can now observe the active theme's declared color scheme."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

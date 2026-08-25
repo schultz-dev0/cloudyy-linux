@@ -1,749 +1,235 @@
 #!/usr/bin/env bash
-# cloudyy:summary=Manage theme, wallpaper, and light/dark mode
-# cloudyy:args={toggle|random|next|set-image <path>|restore|refresh|set|get-mode|tag|untag|debug}
-# cloudyy:examples=cloudyy theme toggle | cloudyy theme random
-# ==============================================================================
-# THEME CONTROLLER
-# Manages wallpaper + matugen. All app restarts are handled by matugen
-# post_hooks in config.toml — this script does not touch running processes.
-# ==============================================================================
+# cloudyy:summary=Activate curated Cloudyy themes and manage wallpapers
+# cloudyy:args={list [--json]|current|get-mode|prepare <slug>|bootstrap <slug>|use <slug>|reconcile [--apply-theme-wallpaper]|recover-previous|next|random|set-image <path>|restore|tag <image> <dark|light>|untag <image> <dark|light>}
 
 set -euo pipefail
 
-# --- CONFIGURATION ---
-readonly WALL_DIR="${HOME}/Wallpapers"
-readonly STATE_DIR="${HOME}/.config/hypr/theme_state"
-readonly STATE_FILE="${STATE_DIR}/state.conf"
-readonly PUBLIC_STATE="${STATE_DIR}/state"
-readonly CURRENT_WALLPAPER_DIR="${STATE_DIR}/current_wallpaper"
-readonly CURRENT_WALLPAPER_FILE="${CURRENT_WALLPAPER_DIR}/current.jpg"
-readonly DARK_LAST="${STATE_DIR}/dark_last"
-readonly LIGHT_LAST="${STATE_DIR}/light_last"
+SCRIPT_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/cloudyy-theme/common.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/common.sh"
+# shellcheck source=lib/cloudyy-theme/package.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/package.sh"
+# shellcheck source=lib/cloudyy-theme/wallpaper.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/wallpaper.sh"
+# shellcheck source=lib/cloudyy-theme/adapters.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/adapters.sh"
+# shellcheck source=lib/cloudyy-theme/reload.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/reload.sh"
+# shellcheck source=lib/cloudyy-theme/reconcile.sh
+source "$SCRIPT_DIR/../lib/cloudyy-theme/reconcile.sh"
 
-WALLPAPER_CMD=()
-WALLPAPER_DAEMON_CMD=()
+usage() {
+  cat <<'EOF'
+Usage: cloudyy-theme <command> [arguments]
 
-# --- CONFIGURATION (cont.) ---
-readonly SYSTEM_THEME_ENV="${HOME}/.config/hypr/theme_state/system_theme.env"
-WIDGETS_BRIDGE="${HOME}/cloudyy_scripts/bridge_scripts/bridge_quickshell.sh"
-readonly QT_THEME_CONF="${HOME}/.config/qt6ct/qt6ct.conf"
-readonly GTK_SETTINGS_SCHEMA="org.gnome.desktop.interface"
-readonly FIREFOX_PROFILES_INI_NATIVE="${HOME}/.mozilla/firefox/profiles.ini"
-readonly FIREFOX_PROFILES_INI_FLATPAK="${HOME}/.var/app/org.mozilla.firefox/.mozilla/firefox/profiles.ini"
-readonly ZEN_PROFILES_INI="${HOME}/.config/zen/profiles.ini"
-
-# --- LOGGING ---
-log() { printf '\033[1;34m[THEME]\033[0m %s\n' "$*" >&2; }
-notify() { notify-send "Theme Controller" "$1" -u "${2:-normal}" -t 3000 2>/dev/null || true; }
-die() {
-  log "ERROR: $*"
-  notify "Error: $*" critical
-  exit 1
-}
-
-# --- STATE ---
-
-read_state() {
-  THEME_MODE="dark"
-  CURRENT_WALL=""
-  VARIANT=""
-  CONTRAST=""
-  [[ -f "$STATE_FILE" ]] || return 0
-  while IFS='=' read -r key value || [[ -n "$key" ]]; do
-    [[ $key =~ ^# ]] && continue
-    value="${value%\"}"
-    value="${value#\"}"
-    case "$key" in
-    THEME_MODE) THEME_MODE="$value" ;;
-    CURRENT_WALL) CURRENT_WALL="$value" ;;
-    VARIANT) VARIANT="$value" ;;
-    CONTRAST) CONTRAST="$value" ;;
-    esac
-  done <"$STATE_FILE"
-}
-
-save_state() {
-  mkdir -p "$STATE_DIR" "$CURRENT_WALLPAPER_DIR"
-  cat >"$STATE_FILE" <<EOF
-THEME_MODE="$THEME_MODE"
-CURRENT_WALL="$CURRENT_WALL"
-VARIANT="${VARIANT:-}"
-CONTRAST="${CONTRAST:-}"
+  list [--json]    Print shipped theme slugs in lexical order, or full metadata as JSON
+  current          Print the active theme slug
+  get-mode         Print the active theme's declared mode
+  prepare <slug>   Validate, privately stage, and atomically promote a shipped theme
+  bootstrap <slug> Prepare a theme and seed wallpaper state without session contact
+  use <slug>       Prepare and activate a theme, including its wallpaper 1
+  reconcile [--apply-theme-wallpaper]
+                   Reapply active-theme integration, preserving the saved wallpaper by default
+  recover-previous Atomically recover the retained previous theme and reconcile it
+  next | random    Apply another image from the transitional wallpaper pool
+  set-image <path> Apply a specific wallpaper without changing theme colors
+  restore          Restore the saved wallpaper without changing theme colors
+  tag <image> <dark|light>
+  untag <image> <dark|light>
 EOF
-  echo "$([[ "$THEME_MODE" == "light" ]] && echo 1 || echo 0)" >"$PUBLIC_STATE"
-  [[ -f "$CURRENT_WALL" ]] && cp "$CURRENT_WALL" "$CURRENT_WALLPAPER_FILE"
-
-  # Persist per-mode last wallpaper for toggle memory.
-  # Only save if the wallpaper is in the correct mode-specific pool or if no pools exist.
-  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    local base_dir="${WALL_DIR/#\~/$HOME}"
-    local mode_cap="${THEME_MODE^}"
-    local mode_dir="${base_dir}/${mode_cap}"
-    local should_save=true
-
-    if [[ -d "$mode_dir" ]]; then
-      local real_wall
-      real_wall="$(realpath "$CURRENT_WALL")"
-      local real_mode_dir
-      real_mode_dir="$(realpath "$mode_dir")/"
-      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
-        should_save=false
-        log "Not saving to ${THEME_MODE}_last: wallpaper is not in ${mode_cap} pool ($real_wall vs $real_mode_dir)"
-      fi
-    fi
-
-    if [[ "$should_save" == "true" ]]; then
-      [[ "$THEME_MODE" == "light" ]] && echo "$CURRENT_WALL" >"$LIGHT_LAST" || echo "$CURRENT_WALL" >"$DARK_LAST"
-    fi
-  fi
-
-  # Apply system-wide theme settings
-  set_system_theme "$THEME_MODE"
 }
 
-# --- SYSTEM THEME INTEGRATION ---
-
-set_system_theme() {
-  local mode="$1"
-  log "Setting system theme to: $mode"
-
-  # Save to environment file for shells/configs to source
-  mkdir -p "$(dirname "$SYSTEM_THEME_ENV")"
-  {
-    echo "# Auto-generated by theme_controller.sh"
-    echo "export GTK_THEME_VARIANT=\"$mode\""
-    echo "export QT_STYLE_OVERRIDE=\"$([[ "$mode" == "light" ]] && echo "kvantum-light" || echo "kvantum-dark")\""
-    echo "export COLORFGBG=\"$([[ "$mode" == "light" ]] && echo "7;0" || echo "0;7")\""
-  } >"$SYSTEM_THEME_ENV"
-  log "Updated $SYSTEM_THEME_ENV"
-
-  # GTK: Set color-scheme using gsettings (GNOME/freedesktop portal compatible)
-  set_gtk_theme "$mode"
-
-  # Qt: Update qt6ct config if it exists
-  set_qt_theme "$mode"
-
-  # XDG Portal: Set system appearance
-  set_xdg_portal_theme "$mode"
-
-  # Firefox: keep profile prefs aligned with system mode for "Automatic".
-  set_firefox_theme "$mode"
-
-  # Zen: chrome UI only (tabs/sidebar/toolbar), never the underlying Firefox
-  # content engine. No-op whenever Zen isn't installed.
-  set_zen_chrome_theme "$mode"
-}
-
-set_gtk_theme() {
-  local mode="$1"
-  # "prefer-light" and "prefer-dark" are the valid values Firefox and GTK apps
-  # recognise via the Settings portal. "default" does NOT signal light mode.
-  local scheme="$([[ "$mode" == "light" ]] && echo "prefer-light" || echo "prefer-dark")"
-
-  if command -v gsettings >/dev/null 2>&1; then
-    if gsettings list-schemas 2>/dev/null | grep -q "^org.gnome.desktop.interface$"; then
-      # GNOME 42+ key — read by xdg-desktop-portal-gtk and propagated to Firefox
-      # and other apps that query org.freedesktop.portal.Settings.
-      gsettings set org.gnome.desktop.interface color-scheme "$scheme" 2>/dev/null || true
-      gsettings set org.gnome.desktop.interface gtk-application-prefer-dark-mode \
-        "$([[ "$mode" == "dark" ]] && echo "true" || echo "false")" 2>/dev/null || true
-      log "Set GNOME color-scheme=$scheme, gtk-application-prefer-dark-mode"
-    fi
-  fi
-
-  return 0
-}
-
-set_firefox_theme() {
-  local mode="$1"
-  local dark_value=0
-  local content_override=1 # Light
-  if [[ "$mode" == "dark" ]]; then
-    dark_value=1
-    content_override=2 # Dark
-  fi
-
-  _walk_profiles_ini "$FIREFOX_PROFILES_INI_NATIVE" _write_firefox_userjs "$dark_value" "$content_override"
-  _walk_profiles_ini "$FIREFOX_PROFILES_INI_FLATPAK" _write_firefox_userjs "$dark_value" "$content_override"
-}
-
-# Walks a profiles.ini, calling: <callback> <profiles_root> <raw_path> <is_relative> [extra args...]
-# once per [ProfileN] block. Shared by Firefox (native/flatpak) and Zen.
-_walk_profiles_ini() {
-  local ini_file="$1" callback="$2"
-  shift 2
-  [[ -f "$ini_file" ]] || return 0
-
-  local profiles_root
-  profiles_root="$(dirname "$ini_file")"
-  local current_path=""
-  local current_relative=1
-  local line
-
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    case "$line" in
-    "[Profile"*"]")
-      if [[ -n "$current_path" ]]; then
-        "$callback" "$profiles_root" "$current_path" "$current_relative" "$@"
-      fi
-      current_path=""
-      current_relative=1
-      ;;
-    Path=*)
-      current_path="${line#Path=}"
-      ;;
-    IsRelative=*)
-      current_relative="${line#IsRelative=}"
-      ;;
-    esac
-  done <"$ini_file"
-
-  if [[ -n "$current_path" ]]; then
-    "$callback" "$profiles_root" "$current_path" "$current_relative" "$@"
-  fi
-}
-
-_write_firefox_userjs() {
-  local profiles_root="$1"
-  local raw_path="$2"
-  local is_relative="$3"
-  local dark_value="$4"
-  local content_override="$5"
-  local profile_dir="$raw_path"
-
-  if [[ "$is_relative" == "1" ]]; then
-    profile_dir="${profiles_root}/${raw_path}"
-  fi
-
-  [[ -d "$profile_dir" ]] || return 0
-
-  local user_js="${profile_dir}/user.js"
-  local tmp
-  tmp="$(mktemp)"
-
-  if [[ -f "$user_js" ]]; then
-    grep -v 'user_pref("ui.systemUsesDarkTheme"' "$user_js" |
-      grep -v 'user_pref("layout.css.prefers-color-scheme.content-override"' |
-      grep -v 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets"' \
-        >"$tmp" || true
-  fi
-
-  {
-    cat "$tmp" 2>/dev/null || true
-    echo "user_pref(\"layout.css.prefers-color-scheme.content-override\", 3);"
-    echo 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
-    echo "user_pref(\"ui.systemUsesDarkTheme\", ${dark_value});"
-    echo "user_pref(\"browser.theme.content-theme\", ${dark_value});"
-    echo "user_pref(\"browser.theme.toolbar-theme\", ${dark_value});"
-  } >"$user_js"
-
-  rm -f "$tmp"
-}
-
-# --- ZEN BROWSER CHROME (not underlying Firefox content) ---
-# Only ever touches a Zen profile if $ZEN_PROFILES_INI exists — i.e. Zen is
-# actually installed and has been run once. Nothing happens if the user
-# doesn't use Zen, or later switches away from it.
-
-set_zen_chrome_theme() {
-  local mode="$1"
-  [[ -f "$ZEN_PROFILES_INI" ]] || return 0
-  _walk_profiles_ini "$ZEN_PROFILES_INI" _sync_zen_profile_chrome "$mode"
-}
-
-_sync_zen_profile_chrome() {
-  local profiles_root="$1"
-  local raw_path="$2"
-  local is_relative="$3"
-  local mode="$4"
-  local profile_dir="$raw_path"
-
-  [[ "$is_relative" == "1" ]] && profile_dir="${profiles_root}/${raw_path}"
-  [[ -d "$profile_dir" ]] || return 0
-
-  local generated="${HOME}/.config/matugen/generated/zen-userchrome.css"
-  [[ -f "$generated" ]] || return 0 # nothing generated yet — first run, skip
-
-  local chrome_dir="${profile_dir}/chrome"
-  mkdir -p "$chrome_dir"
-  ln -nfs "$generated" "${chrome_dir}/cloudyy-zen-colors.css"
-
-  # Own file only, never overwrite a hand-authored userChrome.css: create it
-  # with just our @import if missing, or prepend the import if it's absent.
-  # Prepending (not appending) means any of the user's own !important rules
-  # further down the file still win the cascade over ours.
-  local user_chrome="${chrome_dir}/userChrome.css"
-  local import_line='@import "cloudyy-zen-colors.css";'
-  if [[ ! -f "$user_chrome" ]]; then
-    printf '%s\n' "$import_line" >"$user_chrome"
-  elif ! grep -qF "$import_line" "$user_chrome"; then
-    { printf '%s\n' "$import_line"
-      cat "$user_chrome"
-    } >"${user_chrome}.tmp" && mv "${user_chrome}.tmp" "$user_chrome"
-  fi
-
-  _ensure_zen_prefs "$profile_dir" "$mode"
-}
-
-# Required for userChrome.css to load at all, and to keep Zen's own native
-# color-scheme in sync with matugen's mode. Uses user.js (not prefs.js) so
-# it survives the browser overwriting prefs.js on exit — same mechanism
-# _write_firefox_userjs already relies on.
-#
-# zen.view.window.scheme (0=dark, 1=light) matters because Zen sets the CSS
-# color-scheme property directly on menupopup/panel elements (zen-theme.css),
-# not just :root — that's an inherited-property direct-declaration, which
-# always wins over anything our userChrome.css sets at :root regardless of
-# !important, since inheritance is never consulted once an element has its
-# own direct value. Fighting it in CSS doesn't work; syncing the pref does.
-_ensure_zen_prefs() {
-  local profile_dir="$1"
-  local mode="$2"
-  local scheme_value=0
-  [[ "$mode" == "light" ]] && scheme_value=1
-  local user_js="${profile_dir}/user.js"
-  local stylesheets_line='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
-  local scheme_line="user_pref(\"zen.view.window.scheme\", ${scheme_value});"
-
-  local tmp
-  tmp="$(mktemp)"
-  if [[ -f "$user_js" ]]; then
-    grep -v -e 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets"' \
-      -e 'user_pref("zen.view.window.scheme"' \
-      "$user_js" >"$tmp" || true
-  fi
-  { cat "$tmp" 2>/dev/null || true
-    echo "$stylesheets_line"
-    echo "$scheme_line"
-  } >"$user_js"
-  rm -f "$tmp"
-}
-
-set_qt_theme() {
-  local mode="$1"
-  local qt_style="$([[ "$mode" == "light" ]] && echo "Fusion" || echo "Fusion")"
-  local qt_palette="$([[ "$mode" == "light" ]] && echo "Light" || echo "Dark")"
-
-  # Update qt6ct config if it exists
-  if [[ -f "$QT_THEME_CONF" ]]; then
-    # Backup original
-    cp "$QT_THEME_CONF" "${QT_THEME_CONF}.backup" 2>/dev/null || true
-
-    # Update style and palette in qt6ct.conf
-    local temp_conf
-    temp_conf=$(mktemp)
-    sed "s/^style=.*/style=${qt_style}/" "$QT_THEME_CONF" >"$temp_conf"
-    mv "$temp_conf" "$QT_THEME_CONF"
-
-    log "Updated Qt6 theme preference in qt6ct.conf"
-  fi
-}
-
-set_xdg_portal_theme() {
-  local mode="$1"
-  # XDG portal color scheme values: 1 = prefer-dark, 2 = prefer-light
-  # xdg-desktop-portal-gtk watches org.gnome.desktop.interface color-scheme
-  # (set above in set_gtk_theme) and automatically emits the SettingChanged
-  # signal on org.freedesktop.portal.Settings — Firefox picks that up live.
-  # No manual dbus emission needed; gsettings is the single source of truth.
-  log "XDG portal appearance: $mode (handled by xdg-desktop-portal-gtk via gsettings)"
-}
-
-# --- HELPERS ---
-
-get_wallpapers() {
-  local mode="${1:-$THEME_MODE}"
-  walls=()
-  local base_dir="${WALL_DIR/#\~/$HOME}"
-  [[ -d "$base_dir" ]] || die "Wallpaper directory not found: $base_dir"
-  [[ -r "$base_dir" ]] || die "Wallpaper directory not readable: $base_dir"
-
-  # Use mode-specific subdir (Dark/Light) if it exists, mirroring rofi's behaviour.
-  # Capitalise first letter to match the dir naming convention.
-  local mode_cap="${mode^}"
-  local mode_dir="${base_dir}/${mode_cap}"
-  local wall_dir="$base_dir"
-  local depth_args=()
-  if [[ -d "$mode_dir" && -r "$mode_dir" ]]; then
-    wall_dir="$mode_dir"
-  else
-    # In the flat base dir, stay shallow so Dark/ and Light/ subdirs aren't
-    # accidentally included in the scan.
-    depth_args=(-maxdepth 1)
-  fi
-
-  mapfile -d '' walls < <(find -L "$wall_dir" "${depth_args[@]}" -type f \
-    \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) \
-    -print0 2>/dev/null | sort -z)
-  ((${#walls[@]} > 0)) || die "No wallpapers found in $wall_dir"
-  log "Found ${#walls[@]} wallpaper(s) [$(basename "$wall_dir")]"
-}
-
-ensure_swww() {
-  if ((${#WALLPAPER_CMD[@]} == 0)); then
-    if command -v awww >/dev/null 2>&1 && command -v awww-daemon >/dev/null 2>&1; then
-      WALLPAPER_CMD=(awww)
-      WALLPAPER_DAEMON_CMD=(awww-daemon)
-    elif command -v swww >/dev/null 2>&1 && command -v swww-daemon >/dev/null 2>&1; then
-      WALLPAPER_CMD=(swww)
-      WALLPAPER_DAEMON_CMD=(swww-daemon)
-    else
-      die "No supported wallpaper backend found (need awww or swww)"
-    fi
-  fi
-
-  pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
-
-  log "Starting ${WALLPAPER_DAEMON_CMD[0]}..."
-  # Do NOT pass --format: modern swww auto-detects the correct pixel format.
-  # Passing xrgb (NVIDIA-only) breaks the daemon on Intel/AMD laptops.
-  "${WALLPAPER_DAEMON_CMD[@]}" >/dev/null 2>&1 &
-
-  # Poll until the daemon is responsive — up to 10 seconds
-  local i=0
-  while (( i < 20 )); do
-    pgrep -x "${WALLPAPER_DAEMON_CMD[0]}" >/dev/null && return 0
-    sleep 0.5
-    (( ++i ))
-  done
-
-  die "${WALLPAPER_DAEMON_CMD[0]} failed to start after 10 seconds — check your Wayland session and GPU drivers"
-}
-
-pick_transition() {
-  # Keep a conservative allowlist of transitions known to work well.
-  local transitions=(simple grow center outer wipe wave any)
-  echo "${transitions[RANDOM % ${#transitions[@]}]}"
-}
-
-run_matugen() {
-  local img="$1" mode="$2"
-  local variant="${3:-}" contrast="${4:-}"
-  local extra_args=()
-  local lockfile="/tmp/cloudyy_theme_controller.lock"
-
-  [[ -n "$variant" ]] && extra_args+=(--type "$variant")
-  [[ -n "$contrast" ]] && extra_args+=(--contrast "$contrast")
-
-  # --- CRITICAL: Release lock before running background processes ---
-  # We lock ONLY the matugen generation part to prevent corruption.
-  # We close FD 9 (if it was used) and other common FDs to prevent inheritance.
-  # NOTE: matugen_active_mode is written inside the lock so post_hooks always read
-  # the correct mode even when two theme switches happen in quick succession.
-  flock -x "$lockfile" bash -c "
-    echo \"$mode\" > /tmp/matugen_active_mode
-    printf '\033[1;34m[THEME]\033[0m Running matugen ($mode${variant:+ $variant}${contrast:+ contrast $contrast})...\n'
-    matugen image \"$img\" -m \"$mode\" --source-color-index 0 ${extra_args[*]} 9>&- 8>&- 7>&- 6>&- 5>&- 4>&- 3>&-
-  " || {
-    log "matugen failed — check image validity"
-    return 1
+require_no_arguments() {
+  [[ "$#" -eq 0 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
   }
+}
 
-  # Now that the lock is released, trigger shell-specific reloads
-  if [[ -n "$WIDGETS_BRIDGE" ]]; then
-    if [[ -x "$WIDGETS_BRIDGE" ]]; then
-      log "Executing widget bridge: $(basename "$WIDGETS_BRIDGE")"
-      "$WIDGETS_BRIDGE" &
-    else
-      log "WARNING: Bridge script not found or not executable: $WIDGETS_BRIDGE"
-    fi
+with_theme_lock() {
+  local lock_mode="$1" lock_path lock_directory
+  if ! theme_runtime_lock_available && ! theme_state_layout_safe; then
+    return 1
+  fi
+  lock_path="$(theme_lock_path)"
+  lock_directory="$(dirname -- "$lock_path")"
+  if ! mkdir -p -- "$lock_directory"; then
+    theme_error 'could not set up theme command lock'
+    return "$CLOUDYY_THEME_EXIT_STAGING"
+  fi
+  if [[ -L "$lock_path" || ( -e "$lock_path" && ! -f "$lock_path" ) ]]; then
+    theme_error 'theme command lock is not a regular file'
+    return "$CLOUDYY_THEME_EXIT_STAGING"
+  fi
+  if ! exec {theme_lock_fd}>"$lock_path"; then
+    theme_error 'could not open theme command lock'
+    return "$CLOUDYY_THEME_EXIT_STAGING"
+  fi
+  if ! flock "$lock_mode" "$theme_lock_fd"; then
+    theme_error 'could not acquire theme command lock'
+    return "$CLOUDYY_THEME_EXIT_STAGING"
   fi
 }
 
-sync_current_wallpaper() {
-  local img="$1"
-  local transition="${2:-$(pick_transition)}"
-  [[ -f "$img" ]] || return 0
-
-  ensure_swww
-  "${WALLPAPER_CMD[@]}" img "$img" \
-    --transition-type "$transition" \
-    --transition-duration 1 \
-    --transition-fps 60
-}
-
-# --- COMMANDS ---
-
-cmd_apply() {
-  local img="$1"
-  local mode="${2:-$THEME_MODE}"
-  local transition="${3:-$(pick_transition)}"
-
-  img="$(realpath "$img")"
-  [[ -f "$img" ]] || die "Image not found: $img"
-
-  ensure_swww
-
-  log "Applying: $(basename "$img") [$mode]"
-
-  # Fire wallpaper transition immediately — no need to wait for matugen
-  "${WALLPAPER_CMD[@]}" img "$img" \
-    --transition-type "$transition" \
-    --transition-duration 2 \
-    --transition-fps 60 &
-  local swww_pid=$!
-
-  # Generate colors + post_hooks in parallel with the transition
-  run_matugen "$img" "$mode" "$VARIANT" "$CONTRAST" || log "WARNING: Matugen failed, but continuing to wallpaper..."
-
-  # Save state
-  CURRENT_WALL="$img"
-  THEME_MODE="$mode"
-  save_state
-
-  wait "$swww_pid" 2>/dev/null || true
-  notify "Wallpaper applied" low
-}
-
-cmd_restore() {
-  read_state
-  local img="$CURRENT_WALL"
-
-  [[ -n "$img" && -f "$img" ]] || img="$CURRENT_WALLPAPER_FILE"
-
-  if [[ -f "$img" ]]; then
-    run_matugen "$img" "$THEME_MODE" "$VARIANT" "$CONTRAST" || log "WARNING: Matugen failed during restore"
-    sync_current_wallpaper "$img"
-    if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-      save_state
-    fi
-  else
-    log "No saved wallpaper to restore"
+with_prepare_lock() {
+  if ! with_theme_lock -x; then
+    theme_error 'could not set up theme command lock'
+    return "$CLOUDYY_THEME_EXIT_STAGING"
   fi
+  prepare_theme "$1"
 }
 
-cmd_toggle() {
-  read_state
-  local new_mode="light"
-  [[ "$THEME_MODE" == "light" ]] && new_mode="dark"
-  log "Toggling → $new_mode"
-
-  # Restore the last wallpaper that was active in the target mode.
-  local last_file
-  [[ "$new_mode" == "light" ]] && last_file="$LIGHT_LAST" || last_file="$DARK_LAST"
-  local last_wall=""
-  [[ -f "$last_file" ]] && last_wall="$(tr -d '[:space:]' <"$last_file")"
-
-  # Validate that last_wall belongs to the correct pool if pools exist
-  if [[ -n "$last_wall" && -f "$last_wall" ]]; then
-    local base_dir="${WALL_DIR/#\~/$HOME}"
-    local mode_cap="${new_mode^}"
-    local mode_dir="${base_dir}/${mode_cap}"
-    if [[ -d "$mode_dir" ]]; then
-      local real_wall
-      real_wall="$(realpath "$last_wall")"
-      local real_mode_dir
-      real_mode_dir="$(realpath "$mode_dir")"
-      if [[ "$real_wall" != "$real_mode_dir"* ]]; then
-        log "Saved wallpaper for $new_mode is invalid (wrong pool). Ignoring."
-        last_wall=""
-      fi
-    fi
-  fi
-
-  if [[ -n "$last_wall" && -f "$last_wall" ]]; then
-    log "Restoring $(basename "$last_wall") [$new_mode]"
-    cmd_apply "$last_wall" "$new_mode"
-  else
-    # No history for this mode — try to find a matching name in the new mode's pool.
-    local base_dir="${WALL_DIR/#\~/$HOME}"
-    local new_mode_cap="${new_mode^}"
-    local new_mode_dir="${base_dir}/${new_mode_cap}"
-
-    if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" && -d "$new_mode_dir" ]]; then
-      local wall_name
-      wall_name="$(basename "$CURRENT_WALL")"
-      # Search recursively for the same filename in the new mode's pool.
-      local matching_wall
-      matching_wall="$(find -L "$new_mode_dir" -type f -name "$wall_name" -print -quit)"
-
-      if [[ -n "$matching_wall" ]]; then
-        log "Found matching wallpaper in ${new_mode_cap} pool: $wall_name"
-        cmd_apply "$matching_wall" "$new_mode"
-        return 0
-      fi
-    fi
-
-    # Still no wallpaper? If a mode pool exists, pick a random one from it.
-    if [[ -d "$new_mode_dir" ]]; then
-      log "No matching wall or history — picking random from ${new_mode_cap} pool"
-      cmd_random "$new_mode"
-    elif [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-      # Absolute fallback: keep current wall but change theme mode.
-      run_matugen "$CURRENT_WALL" "$new_mode" "$VARIANT" "$CONTRAST"
-      sync_current_wallpaper "$CURRENT_WALL"
-      THEME_MODE="$new_mode"
-      save_state
-      notify "Switched to $new_mode mode"
-    else
-      log "No pool or history — picking random"
-      cmd_random "$new_mode"
-    fi
-  fi
+with_bootstrap_lock() {
+  with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
+  prepare_theme "$1" || return $?
+  seed_theme_wallpaper || return "$CLOUDYY_THEME_EXIT_RECONCILE"
 }
 
-cmd_random() {
-  local force_mode="${1:-}"
-  read_state
-  [[ -z "$force_mode" ]] && force_mode="$THEME_MODE"
-  get_wallpapers "$force_mode"
-  local rand="${walls[RANDOM % ${#walls[@]}]}"
-  cmd_apply "$rand" "$force_mode"
+with_use_lock() {
+  with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
+  prepare_theme "$1" || return $?
+  reconcile_theme true
 }
 
-cmd_next() {
-  read_state
-  get_wallpapers "$THEME_MODE"
-  local next=0
-  if [[ -n "$CURRENT_WALL" ]]; then
-    # Resolve both sides so symlinks in Dark/Light dirs match their realpath targets.
-    local current_real
-    current_real="$(realpath "$CURRENT_WALL" 2>/dev/null || echo "$CURRENT_WALL")"
-    for i in "${!walls[@]}"; do
-      local wall_real
-      wall_real="$(realpath "${walls[$i]}" 2>/dev/null || echo "${walls[$i]}")"
-      [[ "$wall_real" == "$current_real" ]] && {
-        next=$((i + 1))
-        break
-      }
-    done
-  fi
-  ((next >= ${#walls[@]})) && next=0
-  cmd_apply "${walls[$next]}" "$THEME_MODE"
+with_reconcile_lock() {
+  with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
+  reconcile_theme "$1"
 }
 
-cmd_set_image() {
-  local img="${1:-}"
-  [[ -z "$img" ]] && die "No image specified"
-  [[ -f "$img" ]] || die "Image not found: $img"
-  read_state
-  cmd_apply "$img" "$THEME_MODE"
+with_recovery_lock() {
+  with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
+  recover_previous_theme
 }
 
-cmd_refresh() {
-  read_state
-  # Args override the persisted scheme/contrast; omit either to keep the
-  # last-saved value (e.g. a plain `refresh` after picking a new wallpaper).
-  [[ -n "${1:-}" ]] && VARIANT="$1"
-  [[ -n "${2:-}" ]] && CONTRAST="$2"
-  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$THEME_MODE" "$VARIANT" "$CONTRAST"
-    sync_current_wallpaper "$CURRENT_WALL"
-    save_state
-    notify "Theme refreshed" low
-  else
-    cmd_random
-  fi
+with_wallpaper_lock() {
+  with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
+  "$@" || {
+    local result=$?
+    [[ "$result" -eq "$CLOUDYY_THEME_EXIT_ACTIVE_STATE" || "$result" -eq "$CLOUDYY_THEME_EXIT_USAGE" ]] && return "$result"
+    return "$CLOUDYY_THEME_EXIT_RECONCILE"
+  }
 }
 
-cmd_tag() {
-  local img="${1:-}" mode="${2:-}"
-  [[ -z "$img" || -z "$mode" ]] && die "Usage: tag <image> <dark|light>"
-  [[ "$mode" != "dark" && "$mode" != "light" ]] && die "Mode must be 'dark' or 'light'"
-  [[ -f "$img" ]] || die "Image not found: $img"
-  img="$(realpath "$img")"
-  local mode_dir="${WALL_DIR}/${mode^}"
-  mkdir -p "$mode_dir"
-  ln -sf "$img" "${mode_dir}/$(basename "$img")"
-  log "Tagged '$(basename "$img")' → $mode ($mode_dir)"
+print_active_mode() {
+  local stage
+  stage="$(active_stage)" || return 1
+  jq -r '.mode' "$stage/theme/theme.json"
 }
 
-cmd_untag() {
-  local img="${1:-}" mode="${2:-}"
-  [[ -z "$img" || -z "$mode" ]] && die "Usage: untag <image> <dark|light>"
-  [[ "$mode" != "dark" && "$mode" != "light" ]] && die "Mode must be 'dark' or 'light'"
-  local mode_dir="${WALL_DIR}/${mode^}"
-  local link="${mode_dir}/$(basename "$img")"
-  [[ -L "$link" ]] || die "No tag found for '$(basename "$img")' in $mode"
-  rm "$link"
-  log "Untagged '$(basename "$img")' from $mode"
+with_read_lock() {
+  with_theme_lock -s || return 1
+  "$@"
 }
 
-cmd_set() {
-  local target_mode=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    --mode)
-      target_mode="$2"
-      shift 2
-      ;;
-    *)
-      die "Unknown argument: $1"
-      ;;
-    esac
-  done
-
-  [[ -z "$target_mode" ]] && die "Usage: set --mode <light|dark>"
-  [[ "$target_mode" != "light" && "$target_mode" != "dark" ]] && die "Invalid mode: $target_mode"
-
-  read_state
-  log "Setting mode → $target_mode"
-
-  if [[ -n "$CURRENT_WALL" && -f "$CURRENT_WALL" ]]; then
-    run_matugen "$CURRENT_WALL" "$target_mode" "$VARIANT" "$CONTRAST"
-    sync_current_wallpaper "$CURRENT_WALL"
-    THEME_MODE="$target_mode"
-    save_state
-    notify "Mode set to $target_mode"
-  else
-    # Update state only if no wallpaper is active
-    THEME_MODE="$target_mode"
-    save_state
-    notify "Mode updated to $target_mode (no active wallpaper)"
-  fi
-}
-
-# --- INIT ---
-[[ ! -d "$STATE_DIR" ]] && mkdir -p "$STATE_DIR"
-
-case "${1:-}" in
-toggle) cmd_toggle ;;
-random) cmd_random "${2:-}" ;;
-next) cmd_next ;;
-set-image) cmd_set_image "${2:-}" ;;
-restore) cmd_restore ;;
-refresh) cmd_refresh "${2:-}" "${3:-}" ;;
-set)
+command="${1:-}"
+case "$command" in
+list)
   shift
-  cmd_set "$@"
+  if [[ "${1:-}" == '--json' ]]; then
+    shift
+    require_no_arguments "$@"
+    list_themes_json "$(with_read_lock current_theme_slug 2>/dev/null || true)"
+  else
+    require_no_arguments "$@"
+    list_themes
+  fi
+  ;;
+current)
+  shift
+  require_no_arguments "$@"
+  with_read_lock current_theme_slug || {
+    theme_error 'active theme state is uninitialized or corrupt'
+    exit "$CLOUDYY_THEME_EXIT_ACTIVE_STATE"
+  }
   ;;
 get-mode)
-  read_state
-  echo "$THEME_MODE"
+  shift
+  require_no_arguments "$@"
+  with_read_lock print_active_mode || {
+    theme_error 'active theme state is uninitialized or corrupt'
+    exit "$CLOUDYY_THEME_EXIT_ACTIVE_STATE"
+  }
   ;;
-tag) cmd_tag "${2:-}" "${3:-}" ;;
-untag) cmd_untag "${2:-}" "${3:-}" ;;
-debug)
-  read_state
-  log "WALL_DIR: $WALL_DIR"
-  log "THEME_MODE: $THEME_MODE"
-  log "CURRENT_WALL: $CURRENT_WALL"
-  log "DARK_LAST:  $(cat "$DARK_LAST" 2>/dev/null || echo '(none)')"
-  log "LIGHT_LAST: $(cat "$LIGHT_LAST" 2>/dev/null || echo '(none)')"
-  log "Dark dir:  $([ -d "${WALL_DIR}/Dark" ] && echo YES || echo NO)"
-  log "Light dir: $([ -d "${WALL_DIR}/Light" ] && echo YES || echo NO)"
-  get_wallpapers "$THEME_MODE"
-  log "Wallpapers in current mode pool: ${#walls[@]}"
+prepare)
+  shift
+  [[ "$#" -eq 1 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_prepare_lock "$1"
+  ;;
+bootstrap)
+  shift
+  [[ "$#" -eq 1 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_bootstrap_lock "$1"
+  ;;
+use)
+  shift
+  [[ "$#" -eq 1 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_use_lock "$1"
+  ;;
+reconcile)
+  shift
+  apply_theme_wallpaper=false
+  if [[ "$#" -eq 1 && "$1" == '--apply-theme-wallpaper' ]]; then
+    apply_theme_wallpaper=true
+    shift
+  fi
+  require_no_arguments "$@"
+  with_reconcile_lock "$apply_theme_wallpaper"
+  ;;
+recover-previous)
+  shift
+  require_no_arguments "$@"
+  with_recovery_lock
+  ;;
+next)
+  shift
+  require_no_arguments "$@"
+  with_wallpaper_lock wallpaper_next
+  ;;
+random)
+  shift
+  require_no_arguments "$@"
+  with_wallpaper_lock wallpaper_random
+  ;;
+set-image)
+  shift
+  [[ "$#" -eq 1 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_wallpaper_lock wallpaper_set_image "$1"
+  ;;
+restore)
+  shift
+  require_no_arguments "$@"
+  with_wallpaper_lock wallpaper_restore
+  ;;
+tag)
+  shift
+  [[ "$#" -eq 2 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_wallpaper_lock wallpaper_tag "$1" "$2"
+  ;;
+untag)
+  shift
+  [[ "$#" -eq 2 ]] || {
+    usage >&2
+    exit "$CLOUDYY_THEME_EXIT_USAGE"
+  }
+  with_wallpaper_lock wallpaper_untag "$1" "$2"
   ;;
 *)
-  cat <<EOF
-Usage: $(basename "$0") {toggle|random|next|set-image <path>|restore|refresh|set|get-mode|tag|untag|debug}
-
-  toggle            Switch dark/light mode, restoring last wallpaper for that mode
-  random            Random wallpaper from current mode's pool
-  next              Next wallpaper alphabetically in current mode's pool
-  set-image <path>  Apply a specific wallpaper
-  restore           Restore the last saved wallpaper and theme without notifications
-  refresh           Re-run matugen on current wallpaper
-  set               Set specific parameters (e.g., --mode light)
-  get-mode          Print current mode (dark/light) — used by rofi/waybar
-  tag <img> <mode>  Symlink a wallpaper into Dark/ or Light/ pool
-  untag <img> <mode> Remove a wallpaper's symlink from a mode pool
-  debug             Show diagnostic info
-
-Mode pools: ~/Wallpapers/Dark/  ~/Wallpapers/Light/
-  Create symlinks here pointing to wallpapers you want for each mode.
-  When a pool dir is absent, falls back to all of ~/Wallpapers/ (current behaviour).
-EOF
+  usage >&2
+  exit "$CLOUDYY_THEME_EXIT_USAGE"
   ;;
 esac

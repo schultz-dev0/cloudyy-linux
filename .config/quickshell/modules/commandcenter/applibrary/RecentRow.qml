@@ -22,7 +22,7 @@ Item {
         id: label
         anchors.left: parent.left
         text: "RECENT"
-        color: Theme.on_surface_variant
+        color: Theme.textMuted
         font.family: "JetBrainsMono Nerd Font"
         font.pixelSize: 10
         font.letterSpacing: 1

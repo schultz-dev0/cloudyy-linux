@@ -109,14 +109,14 @@ FocusScope {
                     implicitWidth: 28
                     implicitHeight: 28
                     radius: 14
-                    color: activeFocus ? Theme.primary
-                        : Qt.rgba(Theme.secondary_container.r,
-                            Theme.secondary_container.g,
-                            Theme.secondary_container.b, 0.45)
-                    border.color: activeFocus ? Theme.primary
-                        : Qt.rgba(Theme.outline_variant.r,
-                            Theme.outline_variant.g,
-                            Theme.outline_variant.b, 0.3)
+                    color: activeFocus ? Theme.accent
+                        : Qt.rgba(Theme.selection.r,
+                            Theme.selection.g,
+                            Theme.selection.b, 0.45)
+                    border.color: activeFocus ? Theme.accent
+                        : Qt.rgba(Theme.border.r,
+                            Theme.border.g,
+                            Theme.border.b, 0.3)
                     border.width: activeFocus ? 2 : 1
                     activeFocusOnTab: visible
                     visible: calGrid.selectedDate !== CalendarService.today()
@@ -127,7 +127,7 @@ FocusScope {
                         anchors.centerIn: parent
                         text: "󰋙"
                         color: todayButton.activeFocus
-                            ? Theme.on_primary : Theme.islandOnSurfaceVariant
+                            ? Theme.accentText : Theme.islandOnSurfaceVariant
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 14
                         renderType: Text.NativeRendering
@@ -255,7 +255,7 @@ FocusScope {
                                 implicitWidth: 28
                                 implicitHeight: 28
                                 radius: 14
-                                color: activeFocus ? Theme.primary : "transparent"
+                                color: activeFocus ? Theme.accent : "transparent"
                                 border.color: activeFocus ? Theme.islandFocus
                                     : CalendarService.markedDays[calGrid.selectedDate]
                                         ? Theme.error : Theme.islandAccent
@@ -274,7 +274,7 @@ FocusScope {
                                     anchors.centerIn: parent
                                     text: CalendarService.markedDays[calGrid.selectedDate]
                                         ? "󰅗" : "󰃅"
-                                    color: markButton.activeFocus ? Theme.on_primary
+                                    color: markButton.activeFocus ? Theme.accentText
                                         : CalendarService.markedDays[calGrid.selectedDate]
                                             ? Theme.error : Theme.islandAccent
                                     font.family: "JetBrainsMono Nerd Font"

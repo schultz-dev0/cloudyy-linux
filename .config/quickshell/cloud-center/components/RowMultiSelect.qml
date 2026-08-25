@@ -24,7 +24,7 @@ Column {
             item: ({ id: multi.item.id, title: modelData })
             Rectangle {   // simple check indicator
                 width: 16; height: 16; radius: 4
-                color: multi.selected.includes(modelData) ? Theme.primary : Theme.outline_variant
+                color: multi.selected.includes(modelData) ? Theme.accent : Theme.border
                 TapHandler {
                     onTapped: {
                         let next = multi.selected.filter(v => v !== modelData);

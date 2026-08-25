@@ -43,10 +43,10 @@ Singleton {
     }
 
     function tagColor(tag) {
-        return tag === "secondary" ? Theme.secondary
-             : tag === "tertiary"  ? Theme.tertiary
+        return tag === "secondary" ? Theme.accentAlt
+             : tag === "tertiary"  ? Theme.info
              : tag === "error"     ? Theme.error
-             : Theme.primary
+             : Theme.accent
     }
 
     function dayOfWeekLabel(year, month, day) {

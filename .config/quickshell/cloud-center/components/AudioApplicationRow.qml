@@ -42,7 +42,7 @@ Item {
                           verticalCenter: parent.verticalCenter }
                 text: String(root.stream.app_name || "Playback Stream")
                 elide: Text.ElideRight
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -86,7 +86,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Output"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }

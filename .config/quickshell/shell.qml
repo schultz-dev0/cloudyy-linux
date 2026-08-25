@@ -13,6 +13,7 @@ import "modules/spotlight" as QuickSpotlight
 import "modules/commandcenter/applibrary" as QuickAppLibrary
 import "modules/commandcenter/powermenu" as QuickPowerMenu
 import "modules/commandcenter/wallpapers" as QuickWallpapers
+import "modules/themepicker" as QuickThemePicker
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/mpris" as QuickMpris
 import "modules/recording" as QuickRecording
@@ -526,6 +527,8 @@ ShellRoot {
     QuickPowerMenu.PowerMenu {}
 
     QuickWallpapers.WallpaperPicker {}
+
+    QuickThemePicker.ThemePicker {}
 
     QuickCalendar.CalendarPanel {}
 

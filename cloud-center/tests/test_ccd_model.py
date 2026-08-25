@@ -77,6 +77,21 @@ class ModelTest(unittest.TestCase):
         self.addCleanup(thumb_patch.stop)
 
 
+class TestThemeMode(unittest.TestCase):
+    def test_reads_declared_mode_from_curated_cli(self):
+        completed = mock.Mock(returncode=0, stdout="light\n", stderr="")
+        with mock.patch.object(model.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(model.theme_mode(), "light")
+        self.assertEqual(run.call_args.args[0], [str(model.THEME_COMMAND), "get-mode"])
+        self.assertFalse(run.call_args.kwargs["check"])
+
+    def test_uninitialized_cli_is_an_explicit_error(self):
+        completed = mock.Mock(returncode=3, stdout="", stderr="not initialized\n")
+        with mock.patch.object(model.subprocess, "run", return_value=completed):
+            with self.assertRaisesRegex(RuntimeError, "not initialized"):
+                model.theme_mode()
+
+
 class TestLoadModel(ModelTest):
     def test_pages_sections_items_come_through(self):
         result = model.load_model(self.config_path)
@@ -287,13 +302,10 @@ class TestWallpaperPickerModel(ModelTest):
         (base / "Light" / "nested" / "b.png").write_bytes(b"x")
         (base / "user_wallpapers" / "Light" / "u.webp").write_bytes(b"x")
 
-        state = Path(self.tmp.name) / "state.conf"
-        state.write_text('THEME_MODE="light"\n')
-
         config = Path(self.tmp.name) / "walls.yaml"
         config.write_text(WALLPAPER_YAML.replace("{dir}", str(base)))
 
-        with mock.patch.object(model, "THEME_STATE", state):
+        with mock.patch.object(model, "theme_mode", return_value="light"):
             result = model.load_model(config)
         item = result["pages"][0]["sections"][0]["items"][0]
         self.assertEqual(

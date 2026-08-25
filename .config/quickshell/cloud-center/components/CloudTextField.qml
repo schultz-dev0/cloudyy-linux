@@ -20,13 +20,13 @@ FocusScope {
         anchors.fill: parent
         radius: 2
         color: field.activeFocus
-            ? Theme.surface_container_lowest
+            ? Theme.background
             : inputHover.hovered
-                ? Theme.surface_container_high
-                : Theme.surface_container_low
+                ? Theme.surfaceOverlay
+                : Theme.surface
         border {
             width: field.activeFocus ? 1.5 : 1
-            color: field.activeFocus ? Theme.primary : Theme.hairline
+            color: field.activeFocus ? Theme.accent : Theme.hairline
         }
 
         Text {
@@ -51,7 +51,7 @@ FocusScope {
             selectByMouse: true
             clip: true
             verticalAlignment: TextInput.AlignVCenter
-            color: Theme.textPrimary
+            color: Theme.text
             renderType: TextInput.NativeRendering
             font { family: "JetBrainsMono Nerd Font"; pixelSize: field.compact ? 10 : 11
                    hintingPreference: Font.PreferVerticalHinting }

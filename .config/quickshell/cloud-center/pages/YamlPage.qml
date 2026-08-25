@@ -36,7 +36,7 @@ Flickable {
         spacing: 16
         topPadding: 24
 
-        Text { text: yamlPage.page.title; color: Theme.textPrimary
+        Text { text: yamlPage.page.title; color: Theme.text
                font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; bold: true } }
 
         Repeater {

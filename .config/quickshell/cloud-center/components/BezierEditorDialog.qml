@@ -197,7 +197,7 @@ CloudDialog {
                 Rectangle {
                     anchors.fill: parent
                     radius: 0
-                    color: Theme.surface_container_lowest
+                    color: Theme.background
                     border { width: 1; color: Theme.hairline }
 
                     Canvas {
@@ -258,7 +258,7 @@ CloudDialog {
 
                             const origin = toPx(0, 0);
                             const one = toPx(1, 1);
-                            ctx.strokeStyle = Theme.glass(Theme.outline_variant, 0.55);
+                            ctx.strokeStyle = Theme.glass(Theme.border, 0.55);
                             ctx.lineWidth = 1;
                             ctx.beginPath();
                             ctx.moveTo(origin.x, origin.y);
@@ -272,7 +272,7 @@ CloudDialog {
                             const p2 = toPx(dialog.x2, dialog.y2);
                             const p3 = toPx(1, 1);
 
-                            ctx.strokeStyle = Theme.glass(Theme.primary, 0.35);
+                            ctx.strokeStyle = Theme.glass(Theme.accent, 0.35);
                             ctx.setLineDash([4, 3]);
                             ctx.beginPath();
                             ctx.moveTo(p0.x, p0.y);
@@ -282,7 +282,7 @@ CloudDialog {
                             ctx.stroke();
                             ctx.setLineDash([]);
 
-                            ctx.strokeStyle = Theme.primary;
+                            ctx.strokeStyle = Theme.accent;
                             ctx.lineWidth = 2.5;
                             ctx.beginPath();
                             ctx.moveTo(p0.x, p0.y);
@@ -296,11 +296,11 @@ CloudDialog {
 
                             function drawHandle(pt) {
                                 ctx.beginPath();
-                                ctx.fillStyle = Theme.primary;
+                                ctx.fillStyle = Theme.accent;
                                 ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
                                 ctx.fill();
                                 ctx.beginPath();
-                                ctx.strokeStyle = Theme.on_primary;
+                                ctx.strokeStyle = Theme.accentText;
                                 ctx.lineWidth = 1.5;
                                 ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
                                 ctx.stroke();
@@ -351,7 +351,7 @@ CloudDialog {
             Text {
                 width: parent.width
                 text: "Tip: pull a handle past the box for a slight bounce."
-                color: Theme.tertiary
+                color: Theme.info
                 wrapMode: Text.WordWrap
                 renderType: Text.NativeRendering
                 font {
@@ -365,7 +365,7 @@ CloudDialog {
                 width: parent.width
                 height: 34
                 radius: 2
-                color: Theme.surface_container_low
+                color: Theme.surface
                 border { width: 1; color: Theme.hairline }
 
                 Text {
@@ -396,7 +396,7 @@ CloudDialog {
                         width: 12
                         height: 12
                         radius: 6
-                        color: Theme.primary
+                        color: Theme.accent
                         anchors.verticalCenter: parent.verticalCenter
                         x: Math.max(0, (parent.width - width)
                             * BezierMath.ease(
@@ -419,19 +419,19 @@ CloudDialog {
                         radius: 999
                         width: chipLabel.implicitWidth + 20
                         color: dialog.selectedChip === modelData.id
-                            ? Theme.primary_container
-                            : Theme.surface_container_high
+                            ? Theme.accentMuted
+                            : Theme.surfaceOverlay
                         border {
                             width: 1
                             color: dialog.selectedChip === modelData.id
-                                ? Theme.primary : Theme.hairline
+                                ? Theme.accent : Theme.hairline
                         }
                         Text {
                             id: chipLabel
                             anchors.centerIn: parent
                             text: modelData.label
                             color: dialog.selectedChip === modelData.id
-                                ? Theme.primary : Theme.textMuted
+                                ? Theme.accent : Theme.textMuted
                             font {
                                 family: "JetBrainsMono Nerd Font"
                                 pixelSize: 10
@@ -447,7 +447,7 @@ CloudDialog {
                     height: 28
                     radius: 999
                     width: moreLabel.implicitWidth + 20
-                    color: Theme.surface_container_high
+                    color: Theme.surfaceOverlay
                     border { width: 1; color: Theme.hairline }
                     Text {
                         id: moreLabel
@@ -619,7 +619,7 @@ CloudDialog {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {
             radius: 0
-            color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95)
+            color: Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.95)
             border { width: 1; color: Theme.hairline }
         }
 
@@ -628,7 +628,7 @@ CloudDialog {
             spacing: 8
             Text {
                 text: "All feels"
-                color: Theme.textPrimary
+                color: Theme.text
                 font {
                     family: "JetBrainsMono Nerd Font"
                     pixelSize: 13

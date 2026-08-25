@@ -1,0 +1,18 @@
+/* Fixed legacy SwayNC palette. Curated theme activation does not modify it. */
+@define-color surface #2E3440;
+@define-color surface_container #3B4252;
+@define-color surface_container_highest #4C566A;
+@define-color on_surface #ECEFF4;
+@define-color on_surface_variant #D8DEE9;
+@define-color primary #88C0D0;
+@define-color on_primary #2E3440;
+@define-color on-primary #2E3440;
+@define-color error #BF616A;
+@define-color on_error #2E3440;
+@define-color shadow #2E3440;
+
+@define-color cc-bg #2E3440;
+@define-color rim-light rgba(236, 239, 244, 0.18);
+@define-color button-bg #434C5E;
+@define-color text-primary #ECEFF4;
+@define-color text-secondary #D8DEE9;
