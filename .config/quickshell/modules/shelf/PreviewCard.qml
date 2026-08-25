@@ -10,7 +10,7 @@ Rectangle {
     required property var capture   // {id, kind, path, addedAt}
     signal dismissRequested(string id)
 
-    width: 200
+    width: 290
     height: 54
     radius: 0
     color: Theme.resin(Theme.resinFillAlpha)
@@ -34,6 +34,15 @@ Rectangle {
                 color: Qt.rgba(1, 1, 1, 0.06)
                 border.width: 1
                 border.color: Theme.hairline
+            }
+            Image {
+                visible: root.capture.kind === "screenshot"
+                anchors.fill: parent
+                source: "file://" + root.capture.path
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: false
+                smooth: true
             }
             Text {
                 visible: root.capture.kind === "recording"
@@ -62,12 +71,16 @@ Rectangle {
                 onTriggered: {
                     if (DragPolicy.shouldStartQtDrag(root._dragSession, root._qtDragStarted, dragHandler.active)) {
                         root._qtDragStarted = true;
-                        thumb.Drag.imageSource = "file://" + root.capture.path;
-                        thumb.Drag.active = true;
+                        thumb.grabToImage(result => {
+                            dragSource.Drag.imageSource = result.url;
+                            dragSource.Drag.hotSpot = Qt.point(thumb.width / 2, thumb.height / 2);
+                            dragSource.Drag.active = true;
+                        }, Qt.size(thumb.width, thumb.height));
                     }
                 }
             }
             Item {
+                id: dragSource
                 anchors.fill: parent
                 Drag.dragType: Drag.Automatic
                 Drag.supportedActions: Qt.CopyAction
@@ -108,18 +121,21 @@ Rectangle {
         }
     }
 
-    Text {
-        visible: closeHover.containsMouse
-        anchors { top: parent.top; right: parent.right; margins: 6 }
-        text: "×"
-        color: Theme.textMuted
-        font.pixelSize: 12
-    }
     MouseArea {
         id: closeHover
-        anchors.fill: parent
+        anchors { top: parent.top; right: parent.right }
+        width: 20
+        height: 20
         hoverEnabled: true
-        acceptedButtons: Qt.RightButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: root.dismissRequested(root.capture.id)
+
+        Text {
+            visible: closeHover.containsMouse
+            anchors { top: parent.top; right: parent.right; margins: 6 }
+            text: "×"
+            color: Theme.textMuted
+            font.pixelSize: 12
+        }
     }
 }
