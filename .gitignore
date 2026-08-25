@@ -147,3 +147,4 @@ docs/
 
 # macOS rebrand planning (local only)
 .macos/
+.superpowers/

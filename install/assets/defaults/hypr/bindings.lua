@@ -62,6 +62,7 @@ hl.bind("SHIFT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screensho
 hl.bind("Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"), { desc = "Screenshot popup (shelf)" })
 hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), { desc = "Screen record (shelf)" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
+hl.bind(mainMod .. " + CTRL + G", hl.dsp.exec_cmd("qs ipc call screenshot dismiss"), { desc = "Dismiss latest shelf preview" })
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("cloudyy-theme random"), { desc = "Random wallpaper" })
 
 -- ── Appearance ────────────────────────────────────────────────────────────────
@@ -132,6 +133,8 @@ hl.bind(
 	hl.dsp.exec_cmd("qs ipc call system toggle"),
 	{ desc = "Toggle system stats overlay" }
 )
+
+hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("qs ipc call powermenu open"), { desc = "Toggle power menu" })
 
 -- ── Window Management ─────────────────────────────────────────────────────────
 
