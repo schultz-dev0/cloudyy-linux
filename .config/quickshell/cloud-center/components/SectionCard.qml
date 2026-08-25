@@ -22,7 +22,7 @@ Column {
         height: inner.implicitHeight + 8
         radius: 0
         clip: true
-        color: Theme.surface_container_lowest
+        color: Theme.background
         border { width: 1; color: Theme.hairline }
 
         Column {

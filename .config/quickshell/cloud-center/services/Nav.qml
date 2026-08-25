@@ -16,7 +16,7 @@ Singleton {
         category: "nav"
         property string lastPage: ""
         // qs's own OS process id as of the last time this ran. It survives a
-        // QML-engine-only reload (same process, matugen rewrote Theme.qml)
+        // QML-engine-only reload (same process, source files changed)
         // but differs on a genuinely new launch — the only reliable way to
         // tell those apart, since a reload tears down *everything* QML-side,
         // including this Settings object itself; only what actually hit disk

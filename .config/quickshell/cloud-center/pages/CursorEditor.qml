@@ -219,7 +219,7 @@ Flickable {
                 spacing: 2
                 Text {
                     text: cursorPage.page.title
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; weight: Font.Bold
                            hintingPreference: Font.PreferVerticalHinting }
@@ -294,28 +294,28 @@ Flickable {
                         }
                         background: Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width; height: 4; radius: 2; color: Theme.outline_variant
+                            width: parent.width; height: 4; radius: 2; color: Theme.border
                             Rectangle { width: sizeSlider.visualPosition * parent.width
-                                        height: parent.height; radius: 2; color: Theme.primary }
+                                        height: parent.height; radius: 2; color: Theme.accent }
                         }
                         handle: Rectangle {
                             x: sizeSlider.visualPosition * (sizeSlider.width - width)
                             anchors.verticalCenter: parent.verticalCenter
                             width: 14; height: 14; radius: 7
-                            color: Theme.surface_container_lowest
-                            border { width: 1; color: Theme.outline }
+                            color: Theme.background
+                            border { width: 1; color: Theme.border }
                         }
                     }
                     Rectangle {
                         id: sizeField
                         anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                        width: 62; height: 30; radius: 8; color: Theme.surface_container
-                        border { width: 1; color: sizeInput.activeFocus ? Theme.primary : Theme.outline_variant }
+                        width: 62; height: 30; radius: 8; color: Theme.surfaceRaised
+                        border { width: 1; color: sizeInput.activeFocus ? Theme.accent : Theme.border }
                         TextInput {
                             id: sizeInput
                             anchors.fill: parent
                             text: String(cursorPage.cursorSize)
-                            color: Theme.textPrimary
+                            color: Theme.text
                             selectByMouse: true
                             verticalAlignment: TextInput.AlignVCenter
                             horizontalAlignment: TextInput.AlignHCenter
@@ -386,8 +386,8 @@ Flickable {
 
         Rectangle {
             width: content.width; height: 52; radius: 2
-            color: magnifyHover.hovered ? Theme.glass(Theme.primary, 0.07)
-                : Theme.surface_container_lowest
+            color: magnifyHover.hovered ? Theme.glass(Theme.accent, 0.07)
+                : Theme.background
             border { width: 1; color: Theme.hairline }
             Row {
                 anchors { fill: parent; leftMargin: 15; rightMargin: 15 }
@@ -397,7 +397,7 @@ Flickable {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 54; spacing: 1
-                    Text { text: "Magnification"; color: Theme.textPrimary; renderType: Text.NativeRendering
+                    Text { text: "Magnification"; color: Theme.text; renderType: Text.NativeRendering
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                                   hintingPreference: Font.PreferVerticalHinting } }
                     Text { text: "Zoom behavior and camera tracking"; color: Theme.textMuted
@@ -433,8 +433,8 @@ Flickable {
 
         Rectangle {
             width: content.width; height: 52; radius: 2
-            color: advancedHover.hovered ? Theme.glass(Theme.primary, 0.07)
-                : Theme.surface_container_lowest
+            color: advancedHover.hovered ? Theme.glass(Theme.accent, 0.07)
+                : Theme.background
             border { width: 1; color: Theme.hairline }
             Row {
                 anchors { fill: parent; leftMargin: 15; rightMargin: 15 }
@@ -444,7 +444,7 @@ Flickable {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 54; spacing: 1
-                    Text { text: "Advanced cursor"; color: Theme.textPrimary; renderType: Text.NativeRendering
+                    Text { text: "Advanced cursor"; color: Theme.text; renderType: Text.NativeRendering
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                                   hintingPreference: Font.PreferVerticalHinting } }
                     Text { text: "Hardware cursors, VRR, synchronization, and edge behavior"; color: Theme.textMuted

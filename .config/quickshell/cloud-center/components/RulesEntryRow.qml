@@ -42,7 +42,7 @@ Rectangle {
                 width: parent.width
                 text: row.title
                 elide: Text.ElideRight
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 13; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -110,7 +110,7 @@ Rectangle {
                     width: 26; height: 26; radius: 2
                     opacity: modelData.enabled ? 1 : 0.28
                     color: actionHover.hovered && modelData.enabled
-                        ? Theme.glass(modelData.action === "remove" ? Theme.error : Theme.primary, 0.15)
+                        ? Theme.glass(modelData.action === "remove" ? Theme.error : Theme.accent, 0.15)
                         : "transparent"
                     Text {
                         anchors.centerIn: parent

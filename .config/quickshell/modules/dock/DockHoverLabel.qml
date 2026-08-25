@@ -35,7 +35,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         text: root.label
-        color: Theme.on_surface
+        color: Theme.text
         font.family: "JetBrainsMono Nerd Font"
         font.pixelSize: 10
     }

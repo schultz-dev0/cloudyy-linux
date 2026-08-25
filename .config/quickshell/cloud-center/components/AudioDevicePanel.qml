@@ -174,7 +174,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Port"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -204,7 +204,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Audio format"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -229,7 +229,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "State"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -255,7 +255,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Bluetooth"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }

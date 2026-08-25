@@ -269,7 +269,7 @@ Flickable {
                 spacing: 2
                 Text {
                     text: wifiPage.page.title || "Wi-Fi"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 20; weight: Font.Bold
                            hintingPreference: Font.PreferVerticalHinting }

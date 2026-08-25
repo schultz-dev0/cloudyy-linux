@@ -140,14 +140,7 @@ def make_label_watcher(item_id: str, raw: dict) -> Watcher:
 
 
 def make_wallpaper_watcher(item_id: str, raw: dict) -> Watcher:
-    """Re-list the wallpaper pool when the system theme mode changes.
-
-    theme_controller.sh has no hook into ccd (it's invoked externally by
-    keybinds/waybar too, not just from this app), so there's nothing to
-    subscribe to — poll theme_mode() (a cheap file read) and only re-send
-    the (possibly large) wallpaper list when the mode it's keyed off of
-    actually flips, same shape as make_label_watcher.
-    """
+    """Re-list the transitional wallpaper pool when active theme mode changes."""
     props = raw.get("properties", {}) or {}
     directory = props.get("directory", "")
     max_items = int(props.get("max_items", 100))
@@ -156,7 +149,10 @@ def make_wallpaper_watcher(item_id: str, raw: dict) -> Watcher:
     watcher = Watcher(item_id=item_id, check=lambda: None, interval=interval)
 
     def check() -> None:
-        mode = model.theme_mode()
+        try:
+            mode = model.theme_mode()
+        except RuntimeError:
+            return
         if mode == watcher.last:
             return
         watcher.last = mode

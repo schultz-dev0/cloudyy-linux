@@ -113,7 +113,7 @@ Column {
             Text {
                 width: parent.width
                 text: browser.item.title || "Zsh Extension Browser"
-                color: Theme.textPrimary
+                color: Theme.text
                 elide: Text.ElideRight
                 renderType: Text.NativeRendering
                 font {

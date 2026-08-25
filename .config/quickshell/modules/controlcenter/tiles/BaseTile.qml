@@ -33,7 +33,7 @@ Rectangle {
 
             Text {
                 text:        root.icon
-                color:       Theme.on_surface
+                color:       Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 18
             }
@@ -55,7 +55,7 @@ Rectangle {
 
         Text {
             text:           root.label
-            color:          Theme.on_surface
+            color:          Theme.text
             font.family:    "JetBrainsMono Nerd Font"
             font.pixelSize: 10
             font.weight:    Font.Bold
@@ -67,7 +67,7 @@ Rectangle {
 
         Text {
             text:           root.statusText
-            color:          Theme.on_surface_variant
+            color:          Theme.textMuted
             font.family:    "JetBrainsMono Nerd Font"
             font.pixelSize: 9
             visible:        root.statusText !== ""

@@ -53,11 +53,11 @@ Item {
                     radius: 999
                     readonly property bool isActive: modelData === root.activeLabel
                     readonly property bool isKeyboardFocused: root.keyboardFocusIndex === index
-                    color: isActive ? Theme.primary_container : Theme.surface_container_high
+                    color: isActive ? Theme.accentMuted : Theme.surfaceOverlay
                     border.color: isKeyboardFocused
-                        ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
                         : (isActive
-                            ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.45)
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
                             : "transparent")
                     border.width: isKeyboardFocused || isActive ? 1.5 : 0
                     anchors.verticalCenter: parent.verticalCenter
@@ -66,7 +66,7 @@ Item {
                         id: pillText
                         anchors.centerIn: parent
                         text: modelData
-                        color: isActive || isKeyboardFocused ? Theme.primary : Theme.textMuted
+                        color: isActive || isKeyboardFocused ? Theme.accent : Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                     }

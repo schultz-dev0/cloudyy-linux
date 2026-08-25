@@ -59,13 +59,13 @@ PanelWindow {
     readonly property real bgOpacity: BarStyleService.bgOpacity
 
     // ── Bar colors ─────────────────────────────────────
-    // Theme-derived, not hardcoded white — on_surface is guaranteed to
+    // Theme-derived, not hardcoded white — the text role is guaranteed to
     // contrast against surface in both light and dark mode, which fixed
     // white text never was (invisible on a light-mode solid bar). Used in
     // both bar states now, not just solid — no vignette to lean on anymore.
-    readonly property color barFgStrong: Theme.on_surface
-    readonly property color barFg: Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.85)
-    readonly property color barFgMuted: Theme.on_surface_variant
+    readonly property color barFgStrong: Theme.text
+    readonly property color barFg: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.85)
+    readonly property color barFgMuted: Theme.textMuted
     // Charging is a semantic status color, not a legibility token — themes'
     // tertiary roles aren't reliably green (Nord/Gruvbox/Catppuccin are all
     // purple), so tokenizing this would break the "green = charging" meaning.
@@ -731,7 +731,7 @@ PanelWindow {
                 ? bar.barFgStrong
                 : bat.charging
                     ? bar.barFgCharging
-                    : (bat.percent < 15 ? "#ffdddd" : (sys.open ? bar.barFgStrong : bar.barFgMuted))
+                    : (bat.percent < 15 ? Theme.error : (sys.open ? bar.barFgStrong : bar.barFgMuted))
             bg: Qt.rgba(0,0,0,0)
             onClicked: sys.toggleOpen()
             onHoverEntered: batteryTooltip.hovered = true

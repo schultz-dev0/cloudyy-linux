@@ -29,7 +29,7 @@ Column {
         width: parent ? parent.width : 0
         height: content.implicitHeight + 20
         radius: 0
-        color: Theme.surface_container
+        color: Theme.surfaceRaised
         border { width: 1; color: Theme.hairline }
 
         Column {
@@ -54,7 +54,7 @@ Column {
                     }
                     Text {
                         text: box.title
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                                hintingPreference: Font.PreferVerticalHinting }

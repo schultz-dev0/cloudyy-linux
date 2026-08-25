@@ -209,11 +209,10 @@ class TestWallpaperWatcher(unittest.TestCase):
         (wall_dir / "Light" / "a.jpg").write_bytes(b"x")
         (wall_dir / "Dark" / "d.jpg").write_bytes(b"x")
 
-        self.theme_state = tmp_path / "state.conf"
-        self.theme_state.write_text('THEME_MODE="light"\n')
-        theme_state_patch = mock.patch.object(model, "THEME_STATE", self.theme_state)
-        theme_state_patch.start()
-        self.addCleanup(theme_state_patch.stop)
+        self.mode = "light"
+        theme_mode_patch = mock.patch.object(model, "theme_mode", lambda: self.mode)
+        theme_mode_patch.start()
+        self.addCleanup(theme_mode_patch.stop)
 
         config_path = tmp_path / "config.yaml"
         config_path.write_text(WALLPAPER_WATCHER_YAML.replace("{dir}", str(wall_dir)))
@@ -250,7 +249,7 @@ class TestWallpaperWatcher(unittest.TestCase):
         state.subscribe({"page": "home"})
         self.assertTrue(wait_for(lambda: len(self.wallpaper_events()) == 1))
 
-        self.theme_state.write_text('THEME_MODE="dark"\n')
+        self.mode = "dark"
         self.assertTrue(wait_for(lambda: len(self.wallpaper_events()) == 2))
         second_paths = [w["path"] for w in self.wallpaper_events()[1]["wallpapers"]]
         self.assertTrue(all("Dark" in p for p in second_paths))

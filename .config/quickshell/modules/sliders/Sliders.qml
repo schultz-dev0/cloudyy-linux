@@ -56,14 +56,14 @@ Scope {
         width: 30
         height: 30
         radius: 10
-        color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.55)
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+        color: Qt.rgba(Theme.surfaceOverlay.r, Theme.surfaceOverlay.g, Theme.surfaceOverlay.b, 0.55)
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.3)
         border.width: 1
 
         Text {
             anchors.centerIn: parent
             text: button.icon
-            color: Theme.on_surface
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 16
         }
@@ -86,7 +86,7 @@ Scope {
             width: control.availableWidth
             height: 10
             radius: 999
-            color: Qt.rgba(Theme.surface_container_high.r, Theme.surface_container_high.g, Theme.surface_container_high.b, 0.45)
+            color: Qt.rgba(Theme.surfaceOverlay.r, Theme.surfaceOverlay.g, Theme.surfaceOverlay.b, 0.45)
 
             Rectangle {
                 width: control.visualPosition * parent.width
@@ -103,7 +103,7 @@ Scope {
             width: 16
             height: 16
             radius: 8
-            color: control.pressed ? Theme.primary : Theme.on_surface
+            color: control.pressed ? Theme.accent : Theme.text
             border.color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.8)
             border.width: 1
             opacity: control.enabled ? 1 : 0.4

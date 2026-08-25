@@ -52,7 +52,6 @@ Singleton {
     property var keybindRows: []
     property bool showingKeybinds: false
     property bool registryLoaded: false
-    property string pendingScheme: ""
     property string powerProfile: "balanced"
     property string ollamaServiceStatus: ""
     property string openWebuiStatus: ""
@@ -115,8 +114,6 @@ Singleton {
     }
 
     function resolveScript(path) {
-        if (path === "_theme_toggle")
-            return ["bash", themeCtl, "toggle"];
         if (path === "_theme_next")
             return ["bash", themeCtl, "next"];
         if (path === "_updater")
@@ -209,11 +206,6 @@ Singleton {
         return map[secs] || `${secs}s`;
     }
 
-    function cycleHourLabel(hour) {
-        const h = Math.max(0, Number(hour) || 0);
-        return `${h < 10 ? "0" : ""}${h}:00`;
-    }
-
     function displayLabel(entry) {
         const id = entry.id || "";
         const cs = cycleState || {};
@@ -228,18 +220,6 @@ Singleton {
             const order = cs.cycle_order === "sequential" ? "Sequential" : "Random";
             return `Cycle Order — ${order}`;
         }
-        if (id === "cycle.automode") {
-            const on = cs.automode_enabled ? "ON" : "OFF";
-            const light = cycleHourLabel(cs.automode_light_hour || 7);
-            const dark = cycleHourLabel(cs.automode_dark_hour || 20);
-            return `Auto Light/Dark — ${on} (${light} / ${dark})`;
-        }
-        if (id === "cycle.automode.toggle")
-            return cs.automode_enabled ? "Disable Auto Switch" : "Enable Auto Switch";
-        if (id === "cycle.automode.light")
-            return `Light Mode Start — ${cycleHourLabel(cs.automode_light_hour || 7)}`;
-        if (id === "cycle.automode.dark")
-            return `Dark Mode Start — ${cycleHourLabel(cs.automode_dark_hour || 20)}`;
         if (id.indexOf("cycle.interval.") === 0) {
             const secs = Number(id.split(".").pop());
             const cur = Number(cs.cycle_interval || 0);
@@ -249,16 +229,6 @@ Singleton {
             return entry.label + " (current)";
         if (id === "cycle.order.sequential" && cs.cycle_order === "sequential")
             return entry.label + " (current)";
-        if (id.indexOf("cycle.automode.light.") === 0) {
-            const h = Number(id.split(".").pop());
-            if (h === Number(cs.automode_light_hour || -1))
-                return entry.label + " (current)";
-        }
-        if (id.indexOf("cycle.automode.dark.") === 0) {
-            const h = Number(id.split(".").pop());
-            if (h === Number(cs.automode_dark_hour || -1))
-                return entry.label + " (current)";
-        }
         if (id === "power" && powerProfile) {
             const names = { "performance": "Performance", "balanced": "Balanced", "power-saver": "Power Saver" };
             return entry.label + ` — ${names[powerProfile] || powerProfile}`;
@@ -297,10 +267,8 @@ Singleton {
             return "Open WebUI";
         if (type === "packages_list")
             return action.filter === "explicit" ? "Remove package" : "Package info";
-        if (type === "scheme")
-            return "Color scheme";
         if (type === "cycle")
-            return "Theme cycle";
+            return "Wallpaper cycle";
         if (type === "power_profile")
             return "Power profile";
         if (type === "external") {
@@ -317,8 +285,6 @@ Singleton {
             return "Run command";
         if (type === "script") {
             const path = action.path || "";
-            if (path === "_theme_toggle")
-                return "Toggle theme";
             if (path === "_theme_next")
                 return "Next wallpaper";
             if (path === "_updater")
@@ -337,7 +303,6 @@ Singleton {
             || (hasChildren && action.type !== "exec" && action.type !== "applibrary" && action.type !== "apps" && action.type !== "powermenu");
         const parent = entry.parent ? entryById(entry.parent) : null;
         const profileKey = profileForEntryId(entry.id);
-        const cs = cycleState || {};
         const isActive = profileKey.length > 0 && powerProfile === profileKey;
         let subtitle = navigable
             ? "Menu"
@@ -345,10 +310,8 @@ Singleton {
         if (isActive)
             subtitle = "Active";
         else if (idIsCycleLeaf(entry.id))
-            subtitle = "Theme cycle";
+            subtitle = "Wallpaper cycle";
         let icon = entry.icon || "󰧭";
-        if (entry.id === "cycle.automode.toggle")
-            icon = cs.automode_enabled ? "󰔡" : "󰨙";
         return {
             type: "command",
             id: entry.id,
@@ -362,8 +325,7 @@ Singleton {
     }
 
     function idIsCycleLeaf(id) {
-        return id.indexOf("cycle.") === 0 && id !== "cycle.interval" && id !== "cycle.order"
-            && id !== "cycle.automode" && id !== "cycle.automode.light" && id !== "cycle.automode.dark";
+        return id.indexOf("cycle.") === 0 && id !== "cycle.interval" && id !== "cycle.order";
     }
 
     function normalizeText(text) {
@@ -1021,22 +983,10 @@ Singleton {
 
     function optimisticCycleOp(op, value) {
         const cs = cycleState || {};
-        if (op === "toggle-automode") {
-            cycleState = Object.assign({}, cs, {
-                automode_enabled: !cs.automode_enabled
-            });
-        } else if (op === "toggle-cycle") {
+        if (op === "toggle-cycle") {
             cycleState = Object.assign({}, cs, {
                 cycle_enabled: !cs.cycle_enabled
             });
-        } else if (op === "set-light-hour") {
-            const h = Number(`${value ?? cs.automode_light_hour ?? 7}`);
-            if (Number.isFinite(h))
-                cycleState = Object.assign({}, cs, { automode_light_hour: h });
-        } else if (op === "set-dark-hour") {
-            const h = Number(`${value ?? cs.automode_dark_hour ?? 20}`);
-            if (Number.isFinite(h))
-                cycleState = Object.assign({}, cs, { automode_dark_hour: h });
         } else if (op === "set-interval") {
             const n = Number(`${value ?? cs.cycle_interval ?? 1800}`);
             if (Number.isFinite(n))
@@ -1127,12 +1077,6 @@ Singleton {
         }
         if (action.type === "script") {
             launch(resolveScript(action.path));
-            close();
-            return;
-        }
-        if (action.type === "scheme") {
-            pendingScheme = action.scheme;
-            launch(["bash", themeCtl, "refresh", action.scheme, "0.0"]);
             close();
             return;
         }

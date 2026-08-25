@@ -65,12 +65,12 @@ RowBase {
         options: numberSelectRow.presetValues()
         value: numberSelectRow.lastSavedDisplayValue
         popupHint: "Type any whole number"
-        backgroundColor: Theme.surface_container
-        hoverColor: Theme.surface_container_high
-        borderColor: Theme.outline_variant
-        textColor: Theme.textPrimary
+        backgroundColor: Theme.surfaceRaised
+        hoverColor: Theme.surfaceOverlay
+        borderColor: Theme.border
+        textColor: Theme.text
         mutedColor: Theme.textMuted
-        accentColor: Theme.primary
+        accentColor: Theme.accent
 
         onOptionSelected: value => numberSelectRow.selectPreset(value)
         onTextAccepted: text => numberSelectRow.commitText(text)

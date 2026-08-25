@@ -102,14 +102,14 @@ Item {
             text: root.glyph
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: Math.round(root.iconSize * 0.72)
-            color: root.dropHighlight ? Theme.primary : Theme.on_surface
+            color: root.dropHighlight ? Theme.accent : Theme.text
         }
 
         Rectangle {
             anchors.fill: parent
             radius: 2
             color: "transparent"
-            border.color: Theme.primary
+            border.color: Theme.accent
             border.width: root.dropHighlight ? 2 : 0
             visible: root.dropHighlight
         }

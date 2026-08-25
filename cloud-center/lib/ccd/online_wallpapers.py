@@ -87,17 +87,15 @@ def apply_or_download(params: dict) -> dict:
     """Download a Wallhaven result into the mode-specific pool; optionally apply it.
 
     Mirrors the GTK browser's convention: sequential zero-padded filenames in
-    the target directory, same base apply_command template as the local
-    picker (plus a `--mode` flag the local picker's template doesn't pass).
-    `mode` ("light"/"dark") picks light_directory vs dark_directory *and*,
-    when applying, is passed to theme_controller.sh so applying a wallpaper
-    you explicitly chose for the Dark pool also switches system theme mode
-    to match, rather than silently applying it under whatever mode happened
-    to already be active. Falls back to the current system theme_mode if
-    omitted or invalid.
+    the target directory. `mode` ("light"/"dark") is transitional catalog
+    metadata that chooses light_directory vs dark_directory; it is never
+    interpolated into the apply command and cannot alter the active theme.
+    Invalid or omitted metadata falls back to the active theme's declared mode.
     """
     url = str(params.get("url", ""))
     apply_command = str(params.get("apply_command", ""))
+    if "{mode}" in apply_command:
+        raise ValueError("wallpaper apply_command must be image-only")
     do_apply = bool(params.get("apply", True))
     mode = str(params.get("mode", "")).lower()
     if mode not in ("light", "dark"):
@@ -121,7 +119,7 @@ def apply_or_download(params: dict) -> dict:
             dest.write_bytes(resp.content)
 
             if do_apply and apply_command:
-                cmd = apply_command.replace("{path}", str(dest)).replace("{mode}", mode)
+                cmd = apply_command.replace("{path}", str(dest))
                 actions.run_command(cmd, "wallpapers/online")
             else:
                 protocol.send_event({"event": "toast", "text": f"Saved {dest.name}"})
@@ -134,7 +132,10 @@ def apply_or_download(params: dict) -> dict:
 
 
 def get_theme_mode(params: dict) -> dict:
-    return {"mode": model.theme_mode()}
+    try:
+        return {"mode": model.theme_mode()}
+    except RuntimeError as error:
+        return {"mode": "", "error": str(error)}
 
 
 protocol.register("search_wallpapers_online", search)

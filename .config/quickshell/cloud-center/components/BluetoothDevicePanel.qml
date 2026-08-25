@@ -92,7 +92,7 @@ Item {
                             || panel.device.address || "")
                         : ""
                     elide: Text.ElideRight
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"
@@ -141,7 +141,7 @@ Item {
                         verticalCenter: parent.verticalCenter
                     }
                     text: "Auto-connect"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"

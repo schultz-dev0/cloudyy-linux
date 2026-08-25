@@ -53,7 +53,7 @@ hl.bind(mainMod .. "+ CTRL + S", hl.dsp.exec_cmd("stochos"), { desc = "Open stoc
 
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd("qs ipc call spotlight command"), { desc = "Command Center" })
 hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd("qs ipc call applibrary open"), { desc = "App menu" })
-hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight wallpaper"), { desc = "Wallpaper menu" })
+hl.bind("ALT + Space", hl.dsp.exec_cmd("qs ipc call spotlight theme"), { desc = "Theme menu" })
 hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("qs ipc call calendar toggle"), { desc = "Open calendar" })
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────
@@ -64,10 +64,6 @@ hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), {
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
 hl.bind(mainMod .. " + CTRL + G", hl.dsp.exec_cmd("qs ipc call screenshot dismiss"), { desc = "Dismiss latest shelf preview" })
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("cloudyy-theme random"), { desc = "Random wallpaper" })
-
--- ── Appearance ────────────────────────────────────────────────────────────────
-
-hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("cloudyy-theme toggle"), { desc = "Toggle light/dark theme" })
 
 -- ── Volume (laptop keys) ──────────────────────────────────────────────────────
 

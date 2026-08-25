@@ -217,7 +217,7 @@ PanelWindow {
 
                 Text {
                     text: "Control Center"
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 16
                     font.weight: Font.Bold
@@ -226,7 +226,7 @@ PanelWindow {
 
                 Text {
                     text: panel.clockText
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
                 }
@@ -237,7 +237,6 @@ PanelWindow {
             // Layout (macOS-style, two RowLayout sections):
             //
             //   Row 1: [ WiFi + Bluetooth (tall) ]  [ Do Not Disturb ]
-            //          [                         ]  [ Dark Mode      ]
             //   Row 2: [ Night Light             ]
             //
             // Using explicit RowLayout / ColumnLayout instead of GridLayout rowSpan.
@@ -264,10 +263,6 @@ PanelWindow {
                             onDndToggle: panel.dndToggle()
                         }
 
-                        DarkModeTile {
-                            id: darkTile
-                            Layout.fillWidth: true
-                        }
                     }
                 }
 
@@ -309,7 +304,7 @@ PanelWindow {
 
                     Text {
                         text: "Display"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 10
                         font.weight: Font.Medium
@@ -362,14 +357,14 @@ PanelWindow {
                                 width: 2
                                 height: 16
                                 radius: 0
-                                color: Theme.on_surface
+                                color: Theme.text
                                 opacity: brightnessSlider.enabled ? 1 : 0.4
                             }
                         }
 
                         Text {
                             text: (panel.sliderController ? Math.round(panel.sliderController.brightnessValue) : 50) + "%"
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 10
                         }
@@ -384,7 +379,7 @@ PanelWindow {
                             Text {
                                 anchors.centerIn: parent
                                 text: "󰃠"
-                                color: Theme.on_surface
+                                color: Theme.text
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.pixelSize: 14
                             }
@@ -411,7 +406,7 @@ PanelWindow {
 
                     Text {
                         text: "Sound"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 10
                         font.weight: Font.Medium
@@ -461,14 +456,14 @@ PanelWindow {
                                 width: 2
                                 height: 16
                                 radius: 0
-                                color: Theme.on_surface
+                                color: Theme.text
                                 opacity: volumeSlider.enabled ? 1 : 0.4
                             }
                         }
 
                         Text {
                             text: (panel.sliderController ? Math.round(panel.sliderController.volumeValue) : 50) + "%"
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 10
                         }
@@ -483,7 +478,7 @@ PanelWindow {
                             Text {
                                 anchors.centerIn: parent
                                 text: panel.sliderController ? panel.sliderController.volumeIcon : "󰕾"
-                                color: Theme.on_surface
+                                color: Theme.text
                                 font.family: "JetBrainsMono Nerd Font"
                                 font.pixelSize: 14
                             }
@@ -574,8 +569,8 @@ PanelWindow {
                             height: cardContent.implicitHeight + 28
                             radius: 4
                             color: cardWrapper.modelData.urgency === 2
-                                ? Qt.tint(Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95), Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
-                                : Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.95)
+                                ? Qt.tint(Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.95), Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
+                                : Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.95)
                             border.color: cardWrapper.modelData.urgency === 2
                                 ? Theme.error
                                 : Theme.hairline
@@ -593,7 +588,7 @@ PanelWindow {
 
                                 Text {
                                     text:           cardWrapper.modelData.appName
-                                    color:          Theme.on_surface_variant
+                                    color:          Theme.textMuted
                                     font.family:    "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
                                 }
@@ -601,7 +596,7 @@ PanelWindow {
                                 Text {
                                     width:          parent.width
                                     text:           cardWrapper.modelData.summary
-                                    color:          Theme.on_surface
+                                    color:          Theme.text
                                     font.family:    "JetBrainsMono Nerd Font"
                                     font.pixelSize: 14
                                     font.weight:    Font.Bold
@@ -612,7 +607,7 @@ PanelWindow {
                                     visible:          cardWrapper.modelData.body !== ""
                                     width:            parent.width
                                     text:             cardWrapper.modelData.body
-                                    color:            Qt.rgba(Theme.on_surface.r, Theme.on_surface.g, Theme.on_surface.b, 0.8)
+                                    color:            Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.8)
                                     font.family:      "JetBrainsMono Nerd Font"
                                     font.pixelSize:   13
                                     wrapMode:         Text.WordWrap
@@ -636,7 +631,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     visible:          notifStack.displayCount === 0
                     text:             "No notifications"
-                    color:            Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.4)
+                    color:            Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.4)
                     font.family:      "JetBrainsMono Nerd Font"
                     font.pixelSize:   13
                 }

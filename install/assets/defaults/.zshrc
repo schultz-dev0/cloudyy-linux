@@ -17,7 +17,7 @@ fi
 
 source $ZSH/oh-my-zsh.sh
 
-export STARSHIP_CONFIG="$HOME/.config/matugen/generated/starship.toml"
+export STARSHIP_CONFIG="${XDG_STATE_HOME:-$HOME/.local/state}/cloudyy/current/theme/applications/starship.toml"
 STARSHIP_CACHE="$HOME/.cache/starship_init.zsh"
 if [[ ! -f "$STARSHIP_CACHE" ]]; then
   starship init zsh > "$STARSHIP_CACHE"

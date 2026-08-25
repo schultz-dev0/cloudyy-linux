@@ -256,7 +256,7 @@ Item {
         height: root.panelHeight
         radius: 22
         color: Theme.glassShell
-        border.color: Qt.rgba(Theme.outline_variant.r, Theme.outline_variant.g, Theme.outline_variant.b, 0.3)
+        border.color: Qt.rgba(Theme.border.r, Theme.border.g, Theme.border.b, 0.3)
         border.width: 1
         opacity: GlobalStates.overviewOpen ? 1 : 0
         scale: GlobalStates.overviewOpen ? 1.0 : 0.88
@@ -276,7 +276,7 @@ Item {
             anchors.centerIn: parent
             visible: root.appList.length === 0
             text: "No open windows"
-            color: Theme.on_surface_variant
+            color: Theme.textMuted
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 13
             font.weight: Font.Medium
@@ -335,7 +335,7 @@ Item {
                 const label = HyprlandData.windowLabel(wins[root.selectedInstanceIndex]);
                 return `${root.selectedInstanceIndex + 1}/${wins.length} — ${label}`;
             }
-            color: Theme.on_surface
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
         }

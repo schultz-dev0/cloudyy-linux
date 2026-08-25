@@ -17,7 +17,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 2
-        color: Theme.surface_container_high
+        color: Theme.surfaceOverlay
         border.color: Theme.hairline
         border.width: 1
     }
@@ -29,7 +29,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.icon + "  " + root.value
-            color: Theme.textPrimary
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
             font.weight: Font.Medium
@@ -40,7 +40,7 @@ Item {
             width: root.width - 8
             horizontalAlignment: Text.AlignHCenter
             text: root.label
-            color: Theme.on_surface_variant
+            color: Theme.textMuted
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 9
             elide: Text.ElideRight

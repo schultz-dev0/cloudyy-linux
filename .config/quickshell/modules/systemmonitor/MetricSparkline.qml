@@ -25,10 +25,10 @@ Row {
             anchors.bottom: parent.bottom
             radius: 1
             color: norm >= 0.85
-                ? Theme.primary
+                ? Theme.accent
                 : norm >= 0.5
-                  ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.65)
-                  : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.32)
+                  ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.65)
+                  : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.32)
         }
     }
 }

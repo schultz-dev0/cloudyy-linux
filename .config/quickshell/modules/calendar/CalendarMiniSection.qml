@@ -26,14 +26,14 @@ Rectangle {
 
             Text {
                 text: "󰃭"
-                color: Theme.primary
+                color: Theme.accent
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 14
             }
 
             Text {
                 text: Qt.formatDate(new Date(), "dddd d MMMM")
-                color: Theme.on_surface
+                color: Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 13
                 font.weight: Font.Medium
@@ -42,7 +42,7 @@ Rectangle {
 
             Text {
                 text: Qt.formatDate(new Date(), "yyyy")
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 11
             }
@@ -65,7 +65,7 @@ Rectangle {
                 // Title
                 Text {
                     text: modelData.title || "Untitled"
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
                     elide: Text.ElideRight
@@ -79,7 +79,7 @@ Rectangle {
                         const time  = modelData.allDay ? "" : (modelData.startTime || "")
                         return time ? label + " " + time : label
                     }
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 10
                 }
@@ -90,7 +90,7 @@ Rectangle {
         Text {
             visible: root._upcoming.length === 0
             text: "No upcoming events"
-            color: Theme.on_surface_variant
+            color: Theme.textMuted
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 11
             Layout.alignment: Qt.AlignHCenter

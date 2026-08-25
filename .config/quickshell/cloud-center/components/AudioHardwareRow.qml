@@ -41,7 +41,7 @@ Item {
         anchors { left: parent.left; leftMargin: 14; right: parent.right; rightMargin: 14; top: parent.top; topMargin: 12 }
         text: String(root.card.name || "Audio card")
         elide: Text.ElideRight
-        color: Theme.textPrimary
+        color: Theme.text
         renderType: Text.NativeRendering
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                hintingPreference: Font.PreferVerticalHinting }

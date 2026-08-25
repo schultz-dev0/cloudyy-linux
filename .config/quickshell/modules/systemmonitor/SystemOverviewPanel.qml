@@ -143,7 +143,7 @@ PanelWindow {
 
                 Text {
                     text: "󰘚  System"
-                    color: Theme.on_surface
+                    color: Theme.text
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: panel.titleFont
                     font.weight: Font.Bold
@@ -156,7 +156,7 @@ PanelWindow {
                     text: svc.stale
                         ? "stale · check binary"
                         : (svc.daemonManaged ? "live · 2s" : "live · 2s")
-                    color: svc.stale ? Theme.error : Theme.on_surface_variant
+                    color: svc.stale ? Theme.error : Theme.textMuted
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: panel.bodyFont
                 }
@@ -252,7 +252,7 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 Text {
                                     text: "󰋊 Storage"
-                                    color: Theme.on_surface
+                                    color: Theme.text
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
@@ -262,7 +262,7 @@ PanelWindow {
                                 }
                                 Text {
                                     text: svc.disks.length + " mounts"
-                                    color: Theme.on_surface_variant
+                                    color: Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.bodyFont
                                 }
@@ -307,7 +307,7 @@ PanelWindow {
 
                                 Text {
                                     text: "󰖩 Network"
-                                    color: Theme.on_surface
+                                    color: Theme.text
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
@@ -316,19 +316,19 @@ PanelWindow {
                                 }
                                 Text {
                                     text: "↓ " + svc.formatRate(svc.networkRxBps)
-                                    color: Theme.on_surface_variant
+                                    color: Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.bodyFont
                                 }
                                 Text {
                                     text: "↑ " + svc.formatRate(svc.networkTxBps)
-                                    color: Theme.on_surface_variant
+                                    color: Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.bodyFont
                                 }
                                 Text {
                                     text: svc.networkIface + (svc.networkIp ? " · " + svc.networkIp : "")
-                                    color: Theme.on_surface_variant
+                                    color: Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.bodyFont
                                 }
@@ -349,7 +349,7 @@ PanelWindow {
 
                                 Text {
                                     text: "󰈸 Temps"
-                                    color: Theme.on_surface
+                                    color: Theme.text
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.labelFont
                                     font.weight: Font.Bold
@@ -374,7 +374,7 @@ PanelWindow {
                                                 id: chipText
                                                 anchors.centerIn: parent
                                                 text: (modelData.label || "?") + " " + (modelData.temp_c || 0) + "°"
-                                                color: Theme.on_surface_variant
+                                                color: Theme.textMuted
                                                 font.family: "JetBrainsMono Nerd Font"
                                                 font.pixelSize: panel.bodyFont
                                             }
@@ -387,7 +387,7 @@ PanelWindow {
                                     text: svc.fans.length > 0
                                         ? (svc.fans[0].label || "Fan") + " " + (svc.fans[0].rpm || 0) + " RPM"
                                         : ""
-                                    color: Theme.on_surface_variant
+                                    color: Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: panel.bodyFont
                                 }
@@ -413,7 +413,7 @@ PanelWindow {
                     Text {
                         anchors.centerIn: parent
                         text: "󰄨 Open btop"
-                        color: Theme.on_surface
+                        color: Theme.text
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: panel.bodyFont
                     }
@@ -435,7 +435,7 @@ PanelWindow {
                     Text {
                         anchors.centerIn: parent
                         text: "󰑐 Refresh"
-                        color: Theme.on_surface
+                        color: Theme.text
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: panel.bodyFont
                     }

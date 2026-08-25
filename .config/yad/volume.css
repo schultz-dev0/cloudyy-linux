@@ -1,26 +1,26 @@
-@import url("../matugen/generated/colors.css");
+@import url("../gtk-3.0/cloudyy-theme.css");
 
 window {
-    background-color: @surface;
-    border: 2px solid @primary;
+    background-color: @window_bg_color;
+    border: 2px solid @accent_color;
     border-radius: 12px;
 }
 
 scale trough {
     margin: 10px 0;
-    background-color: @surface_container_high;
+    background-color: @button_bg_color;
     border-radius: 10px;
     min-height: 10px;
 }
 
 scale highlight {
-    background-color: @primary;
+    background-color: @accent_color;
     border-radius: 10px;
     min-height: 10px;
 }
 
 label {
-    color: @on_surface;
+    color: @window_fg_color;
     font-weight: bold;
     font-size: 16px;
 }
@@ -28,16 +28,16 @@ label {
 button {
     background: none;
     box-shadow: none;
-    color: @primary;
-    border: 1px solid @outline_variant;
+    color: @accent_color;
+    border: 1px solid @button_border_color;
     border-radius: 6px;
     padding: 5px 15px;
 }
 
 button:hover {
-    background-color: @surface_container_high;
+    background-color: @button_bg_color;
 }
 
 button:active {
-    background-color: @primary_container;
+    background-color: @accent_bg_color;
 }

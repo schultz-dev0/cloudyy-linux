@@ -48,13 +48,13 @@ Item {
                 radius: 2
                 clip: true
                 visible: root.selected
-                color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
-                border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
                 border.width: 1.5
 
                 DotTexture {
                     anchors.fill: parent
-                    tint: Theme.primary
+                    tint: Theme.accent
                     dotAlpha: 0.18
                     cell: 5
                     dotRadius: 0.7
@@ -80,14 +80,14 @@ Item {
                 anchors.right: parent.right
                 anchors.topMargin: -2
                 anchors.rightMargin: -2
-                color: Qt.rgba(Theme.primary_container.r, Theme.primary_container.g, Theme.primary_container.b, 0.95)
-                border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.55)
+                color: Qt.rgba(Theme.accentMuted.r, Theme.accentMuted.g, Theme.accentMuted.b, 0.95)
+                border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
                 border.width: 1
                 z: 2
 
                 DotTexture {
                     anchors.fill: parent
-                    tint: Theme.on_primary_container
+                    tint: Theme.accentText
                     dotAlpha: 0.16
                     cell: 4
                     dotRadius: 0.6
@@ -96,7 +96,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "+"
-                    color: Theme.on_primary_container
+                    color: Theme.accentText
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     font.weight: Font.Bold
@@ -118,7 +118,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             horizontalAlignment: Text.AlignHCenter
             text: root.appData?.name ?? ""
-            color: Theme.textPrimary
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 9
             lineHeight: 1.2
@@ -133,7 +133,7 @@ Item {
             height: 4
             radius: 2
             visible: root.running
-            color: Theme.primary
+            color: Theme.accent
             anchors.horizontalCenter: parent.horizontalCenter
         }
     }

@@ -43,7 +43,7 @@ Item {
         width: 150
         text: row.label
         elide: Text.ElideRight
-        color: Theme.textPrimary
+        color: Theme.text
         renderType: Text.NativeRendering
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; weight: Font.Medium
                hintingPreference: Font.PreferVerticalHinting }
@@ -65,12 +65,12 @@ Item {
             width: parent.width
             height: 4
             radius: 2
-            color: Theme.outline_variant
+            color: Theme.border
             Rectangle {
                 width: volumeSlider.visualPosition * parent.width
                 height: parent.height
                 radius: 2
-                color: Theme.primary
+                color: Theme.accent
             }
         }
         handle: Rectangle {
@@ -79,8 +79,8 @@ Item {
             width: 14
             height: 14
             radius: 7
-            color: Theme.surface_container_lowest
-            border { width: 1; color: Theme.outline }
+            color: Theme.background
+            border { width: 1; color: Theme.border }
         }
     }
 
@@ -90,7 +90,7 @@ Item {
         width: 38
         horizontalAlignment: Text.AlignRight
         text: Math.round(volumeSlider.value) + "%"
-        color: row.busy ? Theme.textMuted : Theme.textPrimary
+        color: row.busy ? Theme.textMuted : Theme.text
         renderType: Text.NativeRendering
         font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                hintingPreference: Font.PreferVerticalHinting }

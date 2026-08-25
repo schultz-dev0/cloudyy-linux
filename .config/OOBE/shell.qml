@@ -81,13 +81,13 @@ FloatingWindow {
 
             Text {
                 text: root.cTitle
-                color: Theme.on_surface
+                color: Theme.text
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 24; weight: Font.Bold }
                 renderType: Text.NativeRendering
             }
             Text {
                 text: root.cSubtitle
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 width: parent.width
                 wrapMode: Text.WordWrap
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 13 }
@@ -127,7 +127,7 @@ FloatingWindow {
 
                 Text {
                     text: "Skip for now"
-                    color: Theme.outline
+                    color: Theme.border
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; underline: true }
                     renderType: Text.NativeRendering
                     MouseArea {
@@ -138,7 +138,7 @@ FloatingWindow {
                 }
                 Text {
                     text: "Don't show this again"
-                    color: Theme.outline
+                    color: Theme.border
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 12; underline: true }
                     renderType: Text.NativeRendering
                     MouseArea {

@@ -102,12 +102,12 @@ Column {
             Rectangle {
                 anchors.fill: parent
                 radius: 2
-                color: Theme.surface_container_high
+                color: Theme.surfaceOverlay
                 TextInput {
                     id: searchInput
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     verticalAlignment: TextInput.AlignVCenter
-                    color: Theme.textPrimary
+                    color: Theme.text
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 12 }
                     onAccepted: { browser.query = text; browser.doSearch(true); }
                     Text { visible: !parent.text; text: "⌕ Search Wallhaven…"
@@ -137,8 +137,8 @@ Column {
                         delegate: Rectangle {
                             required property var modelData
                             width: sortText.implicitWidth + 18; height: 30; radius: 999
-                            color: browser.sort === modelData.id ? Theme.primary
-                                                                  : Theme.surface_container_high
+                            color: browser.sort === modelData.id ? Theme.accent
+                                                                  : Theme.surfaceOverlay
                             Text { id: sortText; anchors.centerIn: parent; text: modelData.label
                                    color: browser.sort === modelData.id ? Theme.background : Theme.textMuted
                                    font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -174,8 +174,8 @@ Column {
                     delegate: Rectangle {
                         required property var modelData
                         width: modeText.implicitWidth + 18; height: 30; radius: 999
-                        color: browser.targetMode === modelData.id ? Theme.primary
-                                                                    : Theme.surface_container_high
+                        color: browser.targetMode === modelData.id ? Theme.accent
+                                                                    : Theme.surfaceOverlay
                         Text { id: modeText; anchors.centerIn: parent; text: modelData.label
                                color: browser.targetMode === modelData.id ? Theme.background : Theme.textMuted
                                font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
@@ -208,7 +208,7 @@ Column {
                 id: tile
                 required property var modelData
                 width: (gridWrap.width / browser.columns) - 10; height: 96; radius: 2
-                color: Theme.surface_container
+                color: Theme.surfaceRaised
                 border { width: 1; color: Theme.hairline }
 
                 // Same rounded-mask idiom as WallpaperGrid.qml / island/ScreenshotActivity.qml —
@@ -287,7 +287,7 @@ Column {
         dim: false
         padding: 4
         enter: null; exit: null   // motion budget: no popup fade, matches RowSelect/KeybindManager
-        background: Rectangle { radius: 2; color: Theme.surface_container
+        background: Rectangle { radius: 2; color: Theme.surfaceRaised
                                  border { width: 1; color: Theme.hairline } }
         contentItem: Column {
             spacing: 2
@@ -300,9 +300,9 @@ Column {
                 delegate: Rectangle {
                     required property var modelData
                     width: 160; height: 26; radius: 2
-                    color: menuHover.hovered ? Theme.glass(Theme.primary, 0.14) : "transparent"
+                    color: menuHover.hovered ? Theme.glass(Theme.accent, 0.14) : "transparent"
                     Text { anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
-                           text: modelData.label; color: Theme.textPrimary
+                           text: modelData.label; color: Theme.text
                            font { family: "JetBrainsMono Nerd Font"; pixelSize: 11 } }
                     HoverHandler { id: menuHover }
                     TapHandler {
@@ -339,7 +339,7 @@ Column {
         padding: 4
         enter: null; exit: null
         onClosed: visible = false
-        background: Rectangle { radius: 0; color: Theme.surface_container
+        background: Rectangle { radius: 0; color: Theme.surfaceRaised
                                  border { width: 1; color: Theme.hairline } }
         contentItem: Image {
             source: browser.contextItem && browser.contextItem.thumb ? "file://" + browser.contextItem.thumb : ""

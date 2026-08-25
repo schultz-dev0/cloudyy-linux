@@ -80,7 +80,7 @@ Item {
                         width: parent.width
                         text: String(panel.network && panel.network.ssid ? panel.network.ssid : "")
                         elide: Text.ElideRight
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font {
                             family: "JetBrainsMono Nerd Font"

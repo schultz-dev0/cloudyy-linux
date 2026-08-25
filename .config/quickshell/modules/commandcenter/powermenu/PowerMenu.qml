@@ -169,13 +169,13 @@ PanelWindow {
                             text: "󰐥"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 18
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
                             text: "Power"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 15
                             font.weight: Font.Medium

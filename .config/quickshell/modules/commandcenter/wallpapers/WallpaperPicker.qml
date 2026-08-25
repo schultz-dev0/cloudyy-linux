@@ -153,13 +153,13 @@ PanelWindow {
                             text: "󰸉"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 18
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
                             text: "Wallpapers"
-                            color: Theme.textPrimary
+                            color: Theme.text
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 15
                             font.weight: Font.Medium
@@ -174,7 +174,7 @@ PanelWindow {
                             verticalCenter: parent.verticalCenter
                         }
                         text: svc.themeMode === "light" ? "Light mode" : "Dark mode"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 9
                     }
@@ -199,7 +199,7 @@ PanelWindow {
                         text: "󰍉"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                     }
 
                     TextInput {
@@ -212,7 +212,7 @@ PanelWindow {
                             rightMargin: 16
                         }
                         text: svc.query
-                        color: Theme.textPrimary
+                        color: Theme.text
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                         selectByMouse: true
@@ -276,7 +276,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             visible: svc.filteredWallpapers.length === 0
                             text: (svc.loading || svc.refreshing) ? "Loading wallpapers…" : "No wallpapers found"
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
                         }

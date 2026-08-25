@@ -216,7 +216,7 @@ Flickable {
                 spacing: 2
                 Text {
                     text: regionPage.page.title || "Region & Time"
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font {
                         family: "JetBrainsMono Nerd Font"
@@ -448,7 +448,7 @@ Flickable {
                                 horizontalAlignment: Text.AlignHCenter
                                 text: RegionTimeState.monthShort(regionPage.draftMonth)
                                       + " " + regionPage.draftYear
-                                color: Theme.textPrimary
+                                color: Theme.text
                                 renderType: Text.NativeRendering
                                 font {
                                     family: "JetBrainsMono Nerd Font"
@@ -509,7 +509,7 @@ Flickable {
                                     model.day === regionPage.draftDay
                                     && model.month === monthGrid.month
                                     && model.year === monthGrid.year
-                                ) ? Theme.on_primary : Theme.textPrimary
+                                ) ? Theme.accentText : Theme.text
                                 font {
                                     family: "JetBrainsMono Nerd Font"
                                     pixelSize: 11
@@ -527,7 +527,7 @@ Flickable {
                                     visible: model.day === regionPage.draftDay
                                              && model.month === monthGrid.month
                                              && model.year === monthGrid.year
-                                    color: Theme.primary
+                                    color: Theme.accent
                                 }
                             }
                         }

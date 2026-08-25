@@ -32,10 +32,9 @@ Column {
             if (itemId === wallGrid.item.id && !ok)
                 wallGrid.current = wallGrid.previous;
         }
-        // Subscribed pages poll theme_mode() backend-side (state.py's
-        // wallpaper watcher) and re-send this list whenever it flips, so
-        // switching light/dark elsewhere while this page is open refreshes
-        // the grid instead of leaving it showing the previous mode's pool.
+        // Subscribed pages poll the active theme's declared mode backend-side
+        // and re-send this list after a named theme changes, keeping the
+        // transitional wallpaper pool in sync.
         function onWallpapersEvent(itemId, wallpapers) {
             if (itemId === wallGrid.item.id) wallGrid.wallpapers = wallpapers;
         }
@@ -70,8 +69,8 @@ Column {
                 required property var modelData
                 width: wallGrid.thumb; height: wallGrid.thumbH; radius: 2
                 border.width: wallGrid.current === modelData.path ? 2 : 1
-                border.color: wallGrid.current === modelData.path ? Theme.primary : Theme.hairline
-                color: Theme.surface_container
+                border.color: wallGrid.current === modelData.path ? Theme.accent : Theme.hairline
+                color: Theme.surfaceRaised
 
                 // `clip: true` only clips to the bounding box, not to `radius` —
                 // the inset Image (a plain rectangle) would still paint its sharp

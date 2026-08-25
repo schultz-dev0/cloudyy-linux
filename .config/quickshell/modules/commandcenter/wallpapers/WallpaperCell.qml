@@ -31,11 +31,11 @@ Item {
             radius: root.boxRadius
             visible: root.selected || root.isCurrent
             color: root.selected
-                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
                 : "transparent"
             border.color: root.selected
-                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.55)
-                : Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.35)
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
+                : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
             border.width: root.selected ? 1.5 : 1
         }
 
@@ -61,14 +61,14 @@ Item {
             height: 16
             radius: 2
             visible: root.isCurrent
-            color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.85)
+            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.85)
             z: 1
 
             Text {
                 id: currentLabel
                 anchors.centerIn: parent
                 text: "current"
-                color: Theme.on_primary
+                color: Theme.accentText
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 8
             }

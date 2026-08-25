@@ -51,7 +51,7 @@ Rectangle {
                 anchors { fill: parent; margins: 3 }
                 radius: root.tileRadius - 3
                 color: wifiHover.containsMouse
-                    ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.09)
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.09)
                     : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
             }
@@ -63,8 +63,8 @@ Rectangle {
                 Text {
                     text:           root.wifiActive ? "󰖩" : "󰖪"
                     color:          root.wifiActive
-                        ? Theme.primary
-                        : Theme.on_surface_variant
+                        ? Theme.accent
+                        : Theme.textMuted
                     font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: 20
 
@@ -77,7 +77,7 @@ Rectangle {
 
                     Text {
                         text:           "Wi-Fi"
-                        color:          Theme.on_surface
+                        color:          Theme.text
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.weight:    Font.Bold
@@ -87,7 +87,7 @@ Rectangle {
 
                     Text {
                         text:             root.networkName
-                        color:            Theme.on_surface_variant
+                        color:            Theme.textMuted
                         font.family:      "JetBrainsMono Nerd Font"
                         font.pixelSize:   9
                         elide:            Text.ElideRight
@@ -130,7 +130,7 @@ Rectangle {
                 anchors { fill: parent; margins: 3 }
                 radius: root.tileRadius - 3
                 color: btHover.containsMouse
-                    ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.09)
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.09)
                     : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
             }
@@ -142,8 +142,8 @@ Rectangle {
                 Text {
                     text:           root.btActive ? "󰂯" : "󰂲"
                     color:          root.btActive
-                        ? Theme.primary
-                        : Theme.on_surface_variant
+                        ? Theme.accent
+                        : Theme.textMuted
                     font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: 20
 
@@ -156,7 +156,7 @@ Rectangle {
 
                     Text {
                         text:           "Bluetooth"
-                        color:          Theme.on_surface
+                        color:          Theme.text
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.weight:    Font.Bold
@@ -166,7 +166,7 @@ Rectangle {
 
                     Text {
                         text:           root.btStatusText
-                        color:          Theme.on_surface_variant
+                        color:          Theme.textMuted
                         font.family:    "JetBrainsMono Nerd Font"
                         font.pixelSize: 9
                     }

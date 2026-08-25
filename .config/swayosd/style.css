@@ -1,5 +1,3 @@
-@import "../../.config/matugen/generated/colors-swayosd.css";
-
 window#osd {
   border-radius: 999px;
   border: none;
@@ -46,5 +44,4 @@ window#osd progress {
   border-radius: inherit;
   border: none;
   background: @theme_fg_color;
-}12px;
 }

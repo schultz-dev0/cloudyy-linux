@@ -138,7 +138,7 @@ Flickable {
                     verticalCenter: parent.verticalCenter
                 }
                 text: batteryPage.page.title || "Battery"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font {
                     family: "JetBrainsMono Nerd Font"
@@ -203,7 +203,7 @@ Flickable {
                             text: BatteryState.displayValue(
                                 batteryPage.snapshot, "hero_title", "Battery"
                             )
-                            color: Theme.textPrimary
+                            color: Theme.text
                             renderType: Text.NativeRendering
                             font {
                                 family: "JetBrainsMono Nerd Font"
@@ -271,7 +271,7 @@ Flickable {
                                 )
                                 height: parent.height
                                 radius: 4
-                                color: Theme.primary
+                                color: Theme.accent
                             }
                         }
                     }
@@ -315,7 +315,7 @@ Flickable {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 text: modelData.title
-                                color: Theme.textPrimary
+                                color: Theme.text
                                 renderType: Text.NativeRendering
                                 font {
                                     family: "JetBrainsMono Nerd Font"
@@ -400,7 +400,7 @@ Flickable {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 text: modelData.title
-                                color: Theme.textPrimary
+                                color: Theme.text
                                 renderType: Text.NativeRendering
                                 font {
                                     family: "JetBrainsMono Nerd Font"
@@ -456,7 +456,7 @@ Flickable {
                             topMargin: 12
                         }
                         text: "Stop Charging At"
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font {
                             family: "JetBrainsMono Nerd Font"
@@ -504,12 +504,12 @@ Flickable {
                             width: parent.width
                             height: 4
                             radius: 2
-                            color: Theme.outline_variant
+                            color: Theme.border
                             Rectangle {
                                 width: thresholdSlider.visualPosition * parent.width
                                 height: parent.height
                                 radius: 2
-                                color: Theme.primary
+                                color: Theme.accent
                             }
                         }
                         handle: Rectangle {
@@ -518,10 +518,10 @@ Flickable {
                             width: 14
                             height: 14
                             radius: 7
-                            color: Theme.surface_container_lowest
+                            color: Theme.background
                             border {
                                 width: 1
-                                color: Theme.outline
+                                color: Theme.border
                             }
                         }
                     }
@@ -543,7 +543,7 @@ Flickable {
                             verticalCenter: parent.verticalCenter
                         }
                         text: "Charging Mode"
-                        color: Theme.textPrimary
+                        color: Theme.text
                         renderType: Text.NativeRendering
                         font {
                             family: "JetBrainsMono Nerd Font"
@@ -612,7 +612,7 @@ Flickable {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 text: modelData.title
-                                color: Theme.textPrimary
+                                color: Theme.text
                                 renderType: Text.NativeRendering
                                 font {
                                     family: "JetBrainsMono Nerd Font"

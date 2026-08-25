@@ -208,25 +208,17 @@ class TestApplyOrDownload(OnlineWallpapersTest):
         saved = next(dest_dir.glob("*.jpg"))
         self.assertIn(str(saved), out.read_text())
 
-    def test_apply_command_gets_explicit_mode_substituted(self):
-        # setUp mocks theme_mode() to "dark"; applying with mode="light" should
-        # substitute "light" into {mode}, not the current system theme — so
-        # applying a wallpaper you picked for the Light pool also switches
-        # system theme mode to match, instead of applying it silently under
-        # whatever mode happened to already be active.
+    def test_apply_command_rejects_obsolete_mode_interpolation(self):
         dest_dir = Path(self.tmp.name) / "walls"
-        out = Path(self.tmp.name) / "applied.txt"
-        with mock.patch.object(online_wallpapers.requests, "get") as get:
-            get.return_value = FakeResponse(content=b"imagebytes")
+        with self.assertRaisesRegex(ValueError, "image-only"):
             online_wallpapers.apply_or_download({
                 "url": "https://example.com/full/x.jpg",
                 "light_directory": str(dest_dir),
-                "apply_command": f"bash -c 'echo {{mode}} > {out}'",
+                "apply_command": "cloudyy-theme set-image {path} --mode {mode}",
                 "apply": True,
                 "mode": "light",
             })
-            self.assertTrue(wait_for(lambda: self.action_done_events()))
-        self.assertEqual(out.read_text().strip(), "light")
+        self.assertFalse(dest_dir.exists())
 
     def test_sequential_filenames_dont_collide(self):
         dest_dir = Path(self.tmp.name) / "walls"

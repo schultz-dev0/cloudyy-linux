@@ -161,7 +161,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Bluetooth output switching"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                        hintingPreference: Font.PreferVerticalHinting }
@@ -195,7 +195,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Wired output priority"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 11
                        hintingPreference: Font.PreferVerticalHinting }
@@ -229,7 +229,7 @@ Item {
             Text {
                 anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
                 text: "Wired output order"
-                color: Theme.textPrimary
+                color: Theme.text
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 10; weight: Font.Medium
                        hintingPreference: Font.PreferVerticalHinting }
@@ -246,7 +246,7 @@ Item {
                 Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10; topMargin: 2; bottomMargin: 2 }
                     radius: 2
-                    color: Theme.surface_container_low
+                    color: Theme.surface
                     border { width: 1; color: Theme.hairline }
                 }
                 Text {
@@ -254,7 +254,7 @@ Item {
                               verticalCenter: parent.verticalCenter }
                     text: root.priorityLabel(parent.modelData)
                     elide: Text.ElideMiddle
-                    color: Theme.textPrimary
+                    color: Theme.text
                     renderType: Text.NativeRendering
                     font { family: "JetBrainsMono Nerd Font"; pixelSize: 10
                            hintingPreference: Font.PreferVerticalHinting }
@@ -332,7 +332,7 @@ Item {
             Rectangle {
                 anchors { fill: parent; margins: 10 }
                 radius: 2
-                color: root.serviceActive ? Theme.primary_container : Theme.error_container
+                color: root.serviceActive ? Theme.accentMuted : Theme.glass(Theme.error, 0.12)
                 border { width: 1; color: Theme.hairline }
             }
             Text {
@@ -341,7 +341,7 @@ Item {
                 text: root.serviceActive ? "Audio switching service is active"
                     : String((root.service || {}).error || "Audio switching is not persistent yet")
                 wrapMode: Text.WordWrap
-                color: root.serviceActive ? Theme.textPrimary : Theme.error
+                color: root.serviceActive ? Theme.text : Theme.error
                 renderType: Text.NativeRendering
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 9
                        hintingPreference: Font.PreferVerticalHinting }

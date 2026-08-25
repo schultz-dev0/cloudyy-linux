@@ -21,7 +21,7 @@ ColumnLayout {
 
         Text {
             text: root.mount
-            color: Theme.on_surface
+            color: Theme.text
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: root.labelFont
             Layout.fillWidth: true
@@ -30,7 +30,7 @@ ColumnLayout {
 
         Text {
             text: root.percent + "% · " + root.usedGb + " / " + root.totalGb + " GB"
-            color: Theme.on_surface_variant
+            color: Theme.textMuted
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: root.bodyFont
         }

@@ -13,6 +13,7 @@ import "../currency/backend" as CurrencyBackend
 import "../time/backend" as TimeBackend
 import "../commandcenter/applibrary"
 import "../commandcenter/wallpapers"
+import "../themepicker"
 
 PanelWindow {
     id: root
@@ -454,7 +455,7 @@ PanelWindow {
                         verticalCenter: parent.verticalCenter
                     }
                     height: 22
-                    color: Theme.textPrimary
+                    color: Theme.text
                     font.pixelSize: 15
                     font.family: "JetBrainsMono Nerd Font"
                     verticalAlignment: TextInput.AlignVCenter
@@ -531,10 +532,10 @@ PanelWindow {
                             height: 24
                             radius: 2
                             color: active
-                                ? Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.22)
-                                : Qt.rgba(Theme.on_surface_variant.r, Theme.on_surface_variant.g, Theme.on_surface_variant.b, 0.08)
+                                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
+                                : Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.08)
                             border.width: 1
-                            border.color: active ? Theme.primary : Theme.hairline
+                            border.color: active ? Theme.accent : Theme.hairline
 
                             Row {
                                 id: pillRow
@@ -543,14 +544,14 @@ PanelWindow {
 
                                 Text {
                                     text: pill.modelData.sigil
-                                    color: pill.active ? Theme.primary : Theme.textMuted
+                                    color: pill.active ? Theme.accent : Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 12
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
                                     text: pill.modelData.label
-                                    color: pill.active ? Theme.textPrimary : Theme.textMuted
+                                    color: pill.active ? Theme.text : Theme.textMuted
                                     font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
                                 }
@@ -697,7 +698,7 @@ PanelWindow {
                     Text {
                         visible: svc.browseStack.length > 0
                         text: "  " + (SpotlightService.entryById(svc.currentParentId())?.label || "")
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 10
                         topPadding: 8
@@ -755,6 +756,9 @@ PanelWindow {
         }
         function wallpaper() {
             WallpaperPickerService.open();
+        }
+        function theme() {
+            ThemePickerService.open();
         }
     }
 }

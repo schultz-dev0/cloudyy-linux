@@ -28,7 +28,7 @@ Item {
             Layout.fillWidth: true
             Text {
                 text: sectionRoot.title
-                color: Theme.on_surface
+                color: Theme.text
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.labelFont
                 font.weight: Font.Bold
@@ -39,7 +39,7 @@ Item {
             Text {
                 visible: sectionRoot.valueText !== ""
                 text: sectionRoot.valueText
-                color: Theme.primary
+                color: Theme.accent
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.valueFont
                 font.weight: Font.Bold
@@ -47,7 +47,7 @@ Item {
             Text {
                 visible: sectionRoot.subValueText !== ""
                 text: sectionRoot.subValueText
-                color: Theme.on_surface_variant
+                color: Theme.textMuted
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: sectionRoot.bodyFont
             }
@@ -62,7 +62,7 @@ Item {
         Text {
             visible: sectionRoot.detailLine !== ""
             text: sectionRoot.detailLine
-            color: Theme.on_surface_variant
+            color: Theme.textMuted
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: sectionRoot.bodyFont
             wrapMode: Text.Wrap

@@ -15,8 +15,7 @@ case "${1:-}" in
   ;;
 esac
 
-# Restore the saved wallpaper behind the lock without rerunning Matugen or
-# reloading Hyprland during login.
+# Restore the saved wallpaper behind the lock without reloading applications.
 cloudyy-wallpaper-restore &
 wallpaper_pid=$!
 
@@ -31,6 +30,9 @@ wl-paste --type text --watch cliphist store &
 wl-paste --type image --watch cliphist store &
 
 cloudyy-quickshell-start
+if ! cloudyy-theme reconcile; then
+  printf 'cloudyy-session-start: theme reconciliation failed\n' >&2
+fi
 systemctl --user start cloudyy-unlocked.target
 
 if [[ ! -f "${HOME}/.config/OOBE/.dont_show" ]]; then

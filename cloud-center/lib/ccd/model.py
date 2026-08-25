@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -30,6 +31,7 @@ log = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = SCRIPT_DIR / "config.yaml"
+THEME_COMMAND = SCRIPT_DIR.parent / "bin" / "cloudyy-theme"
 
 THUMB_DIR = utility.XDG_CACHE / "rofi_thumbs"  # shared with Command Center's bash picker
 THUMB_SIZE = 256  # long edge; the grid only ever displays these at ~264px
@@ -38,7 +40,6 @@ THUMB_SIZE = 256  # long edge; the grid only ever displays these at ~264px
 ACTIVE_SHELL_TAB = "quickshell"
 
 WALLPAPER_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-THEME_STATE = Path.home() / ".config" / "hypr" / "theme_state" / "state.conf"
 
 # ── Native pages ──────────────────────────────────────────────────────────────
 # Pages still implemented by the GTK app. Shown in the sidebar; opening one
@@ -104,16 +105,25 @@ def multi_selection_values(props: dict) -> list[str]:
 
 
 def theme_mode() -> str:
-    """THEME_MODE from theme state; falls back to the dark_mode setting."""
+    """Return the active curated theme's declared mode.
+
+    An uninitialized or invalid active theme is an explicit error; Cloud Center
+    must never invent an independent light/dark preference.
+    """
     try:
-        for line in THEME_STATE.read_text(encoding="utf-8").splitlines():
-            if line.startswith("THEME_MODE="):
-                val = line[len("THEME_MODE="):].strip().strip("\"'").lower()
-                if val in {"light", "dark"}:
-                    return val
-    except OSError:
-        pass
-    return "dark" if utility.load_setting("theme/dark_mode", False) else "light"
+        result = subprocess.run(
+            [str(THEME_COMMAND), "get-mode"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=3,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError("active Cloudyy theme is not initialized") from error
+    mode = result.stdout.strip().lower()
+    if result.returncode != 0 or mode not in {"light", "dark"}:
+        raise RuntimeError("active Cloudyy theme is not initialized")
+    return mode
 
 
 def wallpaper_thumb(path: Path) -> str:
@@ -160,8 +170,14 @@ def wallpaper_list(directory: str, max_items: int = 100) -> list[dict]:
         return []
     # Mirror the GTK picker: prefer <dir>/<Mode> plus user_wallpapers/<Mode>,
     # scanned recursively; flat scan of the directory itself otherwise.
-    mode = theme_mode().capitalize()
-    roots = [r for r in (base / mode, base / "user_wallpapers" / mode) if r.is_dir()]
+    try:
+        mode = theme_mode().capitalize()
+    except RuntimeError:
+        mode = ""
+    roots = [
+        r for r in (base / mode, base / "user_wallpapers" / mode)
+        if mode and r.is_dir()
+    ]
     if roots:
         files = [
             p for root in roots for p in root.rglob("*")

@@ -1,7 +1,7 @@
 /* =====================================================================
    1. IMPORTS & VARIABLES
    ===================================================================== */
-@import url("../matugen/generated/colors-swaync.css");
+@import url("cloudyy-colors.css");
 
 @define-color background-color @surface;
 @define-color background-alt-color @surface_container;
@@ -157,19 +157,10 @@
 /* =====================================================================
    8. SPECIAL THEMED NOTIFICATIONS
    ===================================================================== */
-.notification[data-app-name="Spotify"] {
-  background: linear-gradient(135deg, alpha(@surface, 0.5), alpha(@primary, 0.15));
-  border: 1px solid alpha(@primary, 0.5);
-}
-
 .notification.critical {
   background: alpha(@error, 0.15);
   border: 1px solid @error;
   box-shadow: 0 0 10px alpha(@error, 0.2);
-}
-
-.notification[data-app-name="discord"] {
-  border-left: 4px solid #5865F2;
 }
 
 /* =====================================================================

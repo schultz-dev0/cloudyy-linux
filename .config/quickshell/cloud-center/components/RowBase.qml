@@ -19,7 +19,7 @@ Rectangle {
     width: parent ? parent.width : 0
     height: Math.max(46, contentColumn.implicitHeight + 18)
     radius: 2
-    color: hover.hovered ? Theme.glass(Theme.primary, 0.08) : "transparent"
+    color: hover.hovered ? Theme.glass(Theme.accent, 0.08) : "transparent"
     Behavior on color { ColorAnimation { duration: 120 } }
 
     Text {
@@ -33,7 +33,7 @@ Rectangle {
         id: contentColumn
         anchors { left: glyph.right; leftMargin: 12; right: slot.left; rightMargin: 12
                   verticalCenter: parent.verticalCenter }
-        Text { text: row.item.title ?? ""; color: Theme.textPrimary
+        Text { text: row.item.title ?? ""; color: Theme.text
                renderType: Text.NativeRendering
                font { family: "JetBrainsMono Nerd Font"; pixelSize: 14; weight: Font.Medium
                       hintingPreference: Font.PreferVerticalHinting } }

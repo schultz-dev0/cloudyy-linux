@@ -33,8 +33,8 @@ Item {
         height: root.ringSize
         radius: 12
         visible: root.lifted
-        color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.14)
-        border.color: Qt.rgba(Theme.primary.r, Theme.primary.g, Theme.primary.b, 0.5)
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
         border.width: 1.5
 
         Behavior on width {
@@ -94,7 +94,7 @@ Item {
             width: badgeLabel.implicitWidth + 8
             height: 16
             radius: 8
-            color: Theme.primary
+            color: Theme.accent
             anchors {
                 top: parent.top
                 right: parent.right
@@ -108,7 +108,7 @@ Item {
                 text: root.selected && root.instanceIndex >= 0
                     ? `${root.instanceIndex + 1}/${root.windowCount}`
                     : `${root.windowCount}`
-                color: Theme.on_primary
+                color: Theme.accentText
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 9
                 font.weight: Font.Bold

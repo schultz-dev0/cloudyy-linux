@@ -134,7 +134,7 @@ PanelWindow {
                     text: "󰀻"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 16
-                    color: Theme.on_surface_variant
+                    color: Theme.textMuted
                 }
 
                 TextInput {
@@ -146,7 +146,7 @@ PanelWindow {
                         verticalCenter: parent.verticalCenter
                     }
                     height: 22
-                    color: Theme.textPrimary
+                    color: Theme.text
                     font.pixelSize: 15
                     font.family: "JetBrainsMono Nerd Font"
                     verticalAlignment: TextInput.AlignVCenter
@@ -385,7 +385,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         visible: svc.filteredApps.length === 0 && !svc.catalogLoading
                         text: svc.catalogLoading ? "Loading applications…" : "No applications"
-                        color: Theme.on_surface_variant
+                        color: Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                     }
@@ -438,7 +438,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             horizontalAlignment: Text.AlignHCenter
                             text: "No matching applications"
-                            color: Theme.on_surface_variant
+                            color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 12
                             topPadding: 16
