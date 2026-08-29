@@ -1,208 +1,163 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
+import "../carousel"
 
 PanelWindow {
     id: root
 
     readonly property var svc: ThemePickerService
-    readonly property int rowHeight: 68
-    // Matches ThemeRow.stripHeight — reserved so the active theme's wallpaper
-    // strip is always visible without scrolling, whichever row it lands on.
-    readonly property int wallpaperStripHeight: 38
-    readonly property int rowSpacing: 6
-    readonly property int visibleRows: 4
-    readonly property int listViewportHeight:
-        visibleRows * rowHeight + (visibleRows - 1) * rowSpacing + wallpaperStripHeight
-    readonly property int panelWidth: {
-        const screens = Quickshell.screens;
-        const sw = screens.length > 0 ? screens[0].width : 1920;
-        return Math.min(460, Math.round(sw * 0.4));
-    }
-    readonly property int panelHeight: 48 + 1 + 8 + listViewportHeight + 14
+    readonly property var centeredTheme: svc.selectedIndex >= 0 && svc.selectedIndex < svc.themes.length
+        ? svc.themes[svc.selectedIndex] : null
+    // Shown for whichever theme is centered, not just the active one — this
+    // is browsing/preview, not a commitment. Enter only actually applies a
+    // wallpaper when the centered theme is the active one (see
+    // ThemePickerService.activateSelection); on any other theme it switches
+    // to that theme instead, regardless of which wallpaper is focused here.
+    readonly property bool showWallpaperDeck: centeredTheme !== null
+        && (centeredTheme.wallpapers || []).length > 1
 
     anchors { top: true; bottom: true; left: true; right: true }
     exclusiveZone: 0
     visible: svc.visible
     color: "transparent"
-    WlrLayershell.layer: WlrLayer.Top
+    // Overlay, not Top: the bar is also a Top-layer surface and wins that
+    // layer's stacking order, so a Top-layer scrim here left it floating
+    // undimmed above the rest of the dimmed desktop. Overlay sits above it,
+    // matching IdleScene's precedent for full-screen coverage.
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:command"
     WlrLayershell.keyboardFocus: svc.keyboardGrab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
+    // Dims the real desktop behind the carousel, bar included.
+    Rectangle {
+        anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.55)
+    }
+
     MouseArea {
         anchors.fill: parent
-        visible: svc.visible
         onClicked: svc.close()
     }
 
-    Item {
-        id: panel
-        anchors.centerIn: parent
-        width: root.panelWidth
-        height: root.panelHeight
-        visible: svc.visible
+    FocusScope {
+        id: keyNav
+        anchors.fill: parent
+        focus: true
+
+        Keys.onLeftPressed: event => { svc.moveThemeFocus(-1); event.accepted = true; }
+        Keys.onRightPressed: event => { svc.moveThemeFocus(1); event.accepted = true; }
+        Keys.onDownPressed: event => { svc.moveWallpaperFocus(1); event.accepted = true; }
+        Keys.onUpPressed: event => { svc.moveWallpaperFocus(-1); event.accepted = true; }
+        Keys.onReturnPressed: event => { svc.activateSelection(); event.accepted = true; }
+        Keys.onEscapePressed: event => { svc.close(); event.accepted = true; }
 
         MouseArea {
             anchors.fill: parent
             onClicked: mouse.accepted = true
+            propagateComposedEvents: false
         }
 
-        // Resin material — same family as the other command-center overlays
-        // (WallpaperPicker, Spotlight, AppLibrary). See Theme.qml's resin().
-        Rectangle {
-            id: panelShell
-            anchors.fill: parent
-            radius: 0
-            color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            antialiasing: true
-            clip: true
+        Column {
+            anchors.centerIn: parent
+            spacing: 18
 
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: parent.height * 0.4
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.resinGloss }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
+            CarouselDeck {
+                id: themeDeck
+                width: 700
+                height: 430
+                anchors.horizontalCenter: parent.horizontalCenter
+                items: svc.themes.map(t => ({ image: t.preview, label: t.name }))
+                currentIndex: svc.selectedIndex
+                // Square, not the previous ~16:9 box: preview.png is meant
+                // to be square (see themes/*/preview.png convention) — a
+                // wide box cropped a square source on the top/bottom for
+                // no reason. Same visual area as before (460x259), reshaped.
+                centerWidth: 345
+                centerHeight: 345
+                sideWidth: 285
+                sideHeight: 285
+                // stepOffset is the real lever here — it's what pushes
+                // side cards further from center. The outer width/height
+                // above don't clip anything (only the per-card Rectangle
+                // does), so they don't visibly affect spacing on their own.
+                stepOffset: 190
             }
-
-            Rectangle {
-                width: parent.width * 0.3
-                height: width
-                radius: width / 2
-                anchors {
-                    left: parent.left
-                    bottom: parent.bottom
-                    leftMargin: -width * 0.5
-                    bottomMargin: -height * 0.5
-                }
-                color: Theme.resinGlow
-                opacity: 0.5
-                layer.enabled: true
-                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
-            }
-        }
-
-        FocusScope {
-            id: keyNav
-            anchors.fill: parent
-            anchors.margins: 2
-            focus: true
-
-            Keys.onDownPressed: event => { root.moveSelection(1); event.accepted = true; }
-            Keys.onUpPressed: event => { root.moveSelection(-1); event.accepted = true; }
-            Keys.onLeftPressed: event => { svc.moveWallpaperFocus(-1); event.accepted = true; }
-            Keys.onRightPressed: event => { svc.moveWallpaperFocus(1); event.accepted = true; }
-            Keys.onReturnPressed: event => { svc.activateSelection(); event.accepted = true; }
-            Keys.onEscapePressed: event => { svc.close(); event.accepted = true; }
 
             Column {
-                width: parent.width
-                spacing: 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 4
 
-                Item {
-                    width: parent.width
-                    height: 48
-
-                    Row {
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            verticalCenter: parent.verticalCenter
-                            leftMargin: 16
-                            rightMargin: 16
-                        }
-                        spacing: 10
-
-                        Text {
-                            text: "󰸌"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 18
-                            color: Theme.textMuted
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: "Theme"
-                            color: Theme.text
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 15
-                            font.weight: Font.Medium
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.centeredTheme ? root.centeredTheme.name : ""
+                    color: Theme.text
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 22
+                    font.weight: Font.DemiBold
                 }
 
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Theme.hairline
-                }
-
-                Item {
-                    width: parent.width
-                    height: root.listViewportHeight + 8
-
-                    ListView {
-                        id: themeList
-                        anchors {
-                            top: parent.top
-                            topMargin: 8
-                            left: parent.left
-                            right: parent.right
-                        }
-                        height: root.listViewportHeight
-                        clip: true
-                        model: svc.themes
-                        boundsBehavior: Flickable.StopAtBounds
-                        cacheBuffer: root.rowHeight
-                        spacing: root.rowSpacing
-
-                        delegate: ThemeRow {
-                            required property var modelData
-                            required property int index
-                            width: themeList.width
-                            name: modelData.name
-                            mode: modelData.mode
-                            colors: modelData.colors
-                            preview: modelData.preview
-                            wallpapers: modelData.wallpapers || []
-                            focusedWallpaperIndex: svc.selectedWallpaperIndex
-                            selected: svc.selectedIndex === index
-                            isCurrent: modelData.slug === svc.currentSlug
-                            onActivated: svc.activateIndex(index)
-                            onWallpaperActivated: idx => svc.applyWallpaperAt(index, idx)
-                        }
-                    }
-
-                    Text {
-                        anchors.centerIn: parent
-                        visible: svc.themes.length === 0
-                        text: svc.loading ? "Loading themes…" : "No themes found"
-                        color: Theme.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 12
-                    }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: root.centeredTheme !== null
+                    text: (root.centeredTheme
+                        ? (root.centeredTheme.slug === svc.currentSlug ? "current · " : "") + root.centeredTheme.mode
+                        : "")
+                    color: Theme.accent
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    font.letterSpacing: 1
+                    opacity: 0.85
                 }
             }
-        }
-    }
 
-    function moveSelection(delta) {
-        const count = svc.themes.length;
-        if (count === 0)
-            return;
-        let idx = svc.selectedIndex < 0 ? 0 : svc.selectedIndex + delta;
-        idx = Math.max(0, Math.min(count - 1, idx));
-        svc.selectedIndex = idx;
-        themeList.positionViewAtIndex(idx, ListView.Contain);
+            CarouselDeck {
+                id: wallpaperDeck
+                visible: root.showWallpaperDeck
+                width: 320
+                height: 130
+                anchors.horizontalCenter: parent.horizontalCenter
+                // wallpaperThumbnails (pre-shrunk, engine-side — see
+                // package.sh's _theme_display_thumbnail) are what get
+                // displayed here, not the raw wallpapers array: decoding a
+                // small cached copy is fast regardless of the source
+                // photo's size. Applying a wallpaper still goes through
+                // ThemePickerService using the real wallpapers path.
+                items: root.showWallpaperDeck
+                    ? (root.centeredTheme.wallpaperThumbnails || []).map(p => ({ image: p, label: "" }))
+                    : []
+                currentIndex: svc.selectedWallpaperIndex
+                centerWidth: 130
+                centerHeight: 74
+                sideWidth: 100
+                sideHeight: 56
+                stepOffset: 70
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: svc.themes.length === 0
+                text: svc.loading ? "Loading themes…" : "No themes found"
+                color: Theme.textMuted
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 13
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.showWallpaperDeck
+                    ? "← → theme · ↑ ↓ wallpaper · enter apply · esc close"
+                    : "← → theme · enter apply · esc close"
+                color: Theme.textMuted
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 10
+                opacity: 0.6
+            }
+        }
     }
 
     Connections {

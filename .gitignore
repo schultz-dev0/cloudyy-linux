@@ -142,6 +142,34 @@ cloudyy_scripts/terminal/.claude/
 .config/waypaper/config.ini
 **/.superpowers/
 
+# Per-machine output written by cloudyy-theme at runtime (not source)
+.config/hypr/cloudyy-theme.conf
+.config/kitty/current-theme.conf
+.config/wlogout/cloudyy-theme.css
+.config/btop/themes/
+
+# Backups left by the curated-theme migration
+*.cloudyy-legacy-backup
+
+# Extracted initramfs — never commit. Dumped at the repo root by
+# `lsinitcpio -x` while developing the cloudyy-coldboot hook.
+/usr/
+/var/
+/etc/
+/hooks/
+/kernel/
+/lib64
+/sbin
+/init
+/init_functions
+/early_cpio
+/buildconfig
+/consolefont.psfu
+/keymap.bin
+/keymap.utf8
+/VERSION
+/config
+
 # Superpowers spec docs (local only)
 docs/
 

@@ -922,6 +922,26 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(chrome.read_text(), "chrome\n")
         self.assertEqual(brave.read_text(), "brave\n")
 
+    def test_chromium_adapter_uses_helium_browser_flags_when_helium_is_installed(self):
+        theme = self.prepare()
+        (self.fake_bin / "chromium").unlink()
+        self._write_fake("helium-browser", "exit 0")
+        flags = self.config / "helium-browser-flags.conf"
+        flags.write_text("# user note\n--ozone-platform=wayland\n", encoding="utf-8")
+
+        first = self.run_adapter("adapter_chromium", str(theme))
+        first_contents = flags.read_text(encoding="utf-8")
+        second = self.run_adapter("adapter_chromium", str(theme))
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(flags.read_text(encoding="utf-8"), first_contents)
+        self.assertIn("# user note", first_contents)
+        self.assertIn("--ozone-platform=wayland", first_contents)
+        self.assertIn("# >>> cloudyy-theme chromium >>>", first_contents)
+        self.assertIn(str(self.state / "cloudyy/current/theme/applications/chromium"), first_contents)
+        self.assertFalse((self.config / "chromium-flags.conf").exists())
+
     def test_chromium_rejects_ambiguous_markers_and_unowned_load_extension_without_rewrite(self):
         theme = self.prepare()
         flags = self.config / "chromium-flags.conf"
@@ -1090,148 +1110,16 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(actions["mode-firefox"], {"status": "skip"})
         self.assertEqual(actions["mode-zen"], {"status": "skip"})
 
-    def test_running_thunar_is_quit_and_restarted_without_inheriting_theme_lock(self):
+    def test_reload_gtk_is_passive_since_no_live_reload_target_is_installed(self):
         self.prepare()
-        marker = Path(self.temporary_directory.name) / "thunar-running"
-        marker.touch()
-        self.environment["CLOUDYY_TEST_THUNAR_MARKER"] = str(marker)
-        self._write_fake(
-            "pgrep",
-            'if [[ "$*" == *awww-daemon* ]]; then exit 0; fi\n'
-            'if [[ "$*" == *Thunar* || "$*" == *thunar* ]]; then '
-            '[[ -e "$CLOUDYY_TEST_THUNAR_MARKER" ]]; exit; fi\nexit 1',
-        )
-        self._write_fake(
-            "thunar",
-            'printf "thunar %s\\n" "$*" >>"$CLOUDYY_TEST_COMMAND_LOG"\n'
-            'if [[ "${1:-}" == -q ]]; then rm -f "$CLOUDYY_TEST_THUNAR_MARKER"; exit 0; fi\n'
-            'if [[ "${1:-}" == --daemon ]]; then touch "$CLOUDYY_TEST_THUNAR_MARKER"; sleep 4; exit 0; fi\n'
-            'exit 2',
-        )
 
-        result = self.run_theme("reconcile")
-        started = time.monotonic()
-        current = self.run_theme("current")
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(current.returncode, 0, current.stderr)
-        self.assertLess(time.monotonic() - started, 2)
-        commands = self.command_log.read_text()
-        self.assertIn("thunar -q", commands)
-        self.assertIn("thunar --daemon", commands)
-        actions = json.loads(
-            (self.state / "cloudyy/current/activation.json").read_text()
-        )["reconcile"]["actions"]
-        self.assertEqual(actions["reload-gtk"], {"status": "success"})
-
-    def test_thunar_waits_for_old_process_exit_before_starting_new_daemon(self):
-        self.prepare()
-        marker = Path(self.temporary_directory.name) / "thunar-running"
-        marker.touch()
-        self.environment["CLOUDYY_TEST_THUNAR_MARKER"] = str(marker)
-        self._write_fake(
-            "pgrep",
-            'if [[ "$*" == *awww-daemon* ]]; then exit 0; fi\n'
-            'if [[ "$*" == *Thunar* || "$*" == *thunar* ]]; then '
-            '[[ -e "$CLOUDYY_TEST_THUNAR_MARKER" ]]; exit; fi\nexit 1',
-        )
-        self._write_fake(
-            "thunar",
-            'printf "thunar %s\\n" "$*" >>"$CLOUDYY_TEST_COMMAND_LOG"\n'
-            'if [[ "${1:-}" == -q ]]; then '
-            '(sleep 0.3; rm -f "$CLOUDYY_TEST_THUNAR_MARKER") >/dev/null 2>&1 & exit 0; fi\n'
-            'if [[ "${1:-}" == --daemon ]]; then '
-            'if [[ -e "$CLOUDYY_TEST_THUNAR_MARKER" ]]; then '
-            'printf "premature-daemon\\n" >>"$CLOUDYY_TEST_COMMAND_LOG"; exit 5; fi; '
-            'touch "$CLOUDYY_TEST_THUNAR_MARKER"; sleep 2; fi',
-        )
-
-        started = time.monotonic()
         result = self.run_theme("reconcile")
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertGreaterEqual(time.monotonic() - started, 0.25)
-        commands = self.command_log.read_text()
-        self.assertIn("thunar --daemon", commands)
-        self.assertNotIn("premature-daemon", commands)
-
-    def test_thunar_refresh_failure_is_recorded_and_later_passive_actions_still_run(self):
-        self.prepare()
-        marker = Path(self.temporary_directory.name) / "thunar-running"
-        marker.touch()
-        self.environment["CLOUDYY_TEST_THUNAR_MARKER"] = str(marker)
-        self._write_fake(
-            "pgrep",
-            'if [[ "$*" == *awww-daemon* ]]; then exit 0; fi\n'
-            'if [[ "$*" == *Thunar* || "$*" == *thunar* ]]; then exit 0; fi\nexit 1',
-        )
-        self._write_fake(
-            "thunar",
-            'printf "thunar %s\\n" "$*" >>"$CLOUDYY_TEST_COMMAND_LOG"\n'
-            '[[ "${1:-}" == -q ]] && exit 9\nexit 0',
-        )
-
-        result = self.run_theme("reconcile")
-
-        self.assertEqual(result.returncode, 20)
         actions = json.loads(
             (self.state / "cloudyy/current/activation.json").read_text()
         )["reconcile"]["actions"]
-        self.assertEqual(actions["reload-gtk"], {"status": "failure"})
-        self.assertEqual(actions["reload-obsidian"], {"status": "skip"})
-        self.assertIn("1 failed", result.stdout)
-
-    def test_thunar_old_process_exit_timeout_records_failure_without_relaunch(self):
-        self.prepare()
-        self._write_fake(
-            "pgrep",
-            'if [[ "$*" == *awww-daemon* ]]; then exit 0; fi\n'
-            'if [[ "$*" == *Thunar* || "$*" == *thunar* ]]; then exit 0; fi\nexit 1',
-        )
-        self._write_fake(
-            "thunar",
-            'printf "thunar %s\\n" "$*" >>"$CLOUDYY_TEST_COMMAND_LOG"\n'
-            '[[ "${1:-}" == -q ]] && exit 0\nexit 7',
-        )
-
-        result = self.run_theme("reconcile")
-
-        self.assertEqual(result.returncode, 20)
-        commands = self.command_log.read_text()
-        self.assertIn("thunar -q", commands)
-        self.assertNotIn("thunar --daemon", commands)
-        actions = json.loads(
-            (self.state / "cloudyy/current/activation.json").read_text()
-        )["reconcile"]["actions"]
-        self.assertEqual(actions["reload-gtk"], {"status": "failure"})
-        self.assertEqual(actions["reload-obsidian"], {"status": "skip"})
-
-    def test_thunar_new_daemon_failure_records_failure_and_continues(self):
-        self.prepare()
-        marker = Path(self.temporary_directory.name) / "thunar-running"
-        marker.touch()
-        self.environment["CLOUDYY_TEST_THUNAR_MARKER"] = str(marker)
-        self._write_fake(
-            "pgrep",
-            'if [[ "$*" == *awww-daemon* ]]; then exit 0; fi\n'
-            'if [[ "$*" == *Thunar* || "$*" == *thunar* ]]; then '
-            '[[ -e "$CLOUDYY_TEST_THUNAR_MARKER" ]]; exit; fi\nexit 1',
-        )
-        self._write_fake(
-            "thunar",
-            'printf "thunar %s\\n" "$*" >>"$CLOUDYY_TEST_COMMAND_LOG"\n'
-            'if [[ "${1:-}" == -q ]]; then rm -f "$CLOUDYY_TEST_THUNAR_MARKER"; exit 0; fi\n'
-            '[[ "${1:-}" == --daemon ]] && exit 9\nexit 7',
-        )
-
-        result = self.run_theme("reconcile")
-
-        self.assertEqual(result.returncode, 20)
-        self.assertIn("thunar --daemon", self.command_log.read_text())
-        actions = json.loads(
-            (self.state / "cloudyy/current/activation.json").read_text()
-        )["reconcile"]["actions"]
-        self.assertEqual(actions["reload-gtk"], {"status": "failure"})
+        self.assertEqual(actions["reload-gtk"], {"status": "skip"})
         self.assertEqual(actions["reload-obsidian"], {"status": "skip"})
 
     def test_reconcile_records_exact_actions_and_attempts_reload_after_adapter_failure(self):

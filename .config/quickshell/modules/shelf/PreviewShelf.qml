@@ -14,7 +14,7 @@ PanelWindow {
 
     anchors { bottom: true; right: true }
     margins { bottom: 16; right: 16 }
-    implicitWidth: panelActive ? 200 : 0
+    implicitWidth: panelActive ? 290 : 0
     implicitHeight: panelActive ? column.implicitHeight : 0
     visible: panelActive
     exclusiveZone: 0

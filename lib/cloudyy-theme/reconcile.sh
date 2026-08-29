@@ -20,7 +20,8 @@ _owned_activation_draft_file() {
   state_root="$(readlink -f -- "$state_root")" || return 1
   base="${path##*/}"
   [[ "$base" =~ ^\.activation-draft\.[[:alnum:]]{8}$ ||
-    "$base" =~ ^\.activation-draft-update\.[[:alnum:]]{8}$ ]] || return 1
+    "$base" =~ ^\.activation-draft-update\.[[:alnum:]]{8}$ ||
+    "$base" =~ ^\.activation-draft\.[[:alnum:]]{8}\.lock$ ]] || return 1
   [[ "$path" == "$state_root/$base" && -f "$path" && ! -L "$path" ]]
 }
 

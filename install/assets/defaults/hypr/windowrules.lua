@@ -238,9 +238,17 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
-	name = "quickshell_island",
-	match = { namespace = "^(quickshell:island)$" },
-	blur = false,
+	name = "quickshell_toast",
+	match = { namespace = "^(quickshell:toast)$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
+
+hl.layer_rule({
+	name = "quickshell_shelf",
+	match = { namespace = "^(quickshell:shelf)$" },
+	blur = true,
+	ignore_alpha = 0.2,
 })
 
 hl.layer_rule({

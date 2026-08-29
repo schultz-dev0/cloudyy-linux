@@ -140,30 +140,18 @@ QtObject {
     readonly property color glassSection:     glass(surfaceRaised, glassSectionAlpha)
     readonly property color glassSectionHigh: glass(surfaceOverlay, glassSectionHighAlpha)
 
-    // Resin material — a real theme-hue tint at real saturation, not a
-    // neutral glass tint. Inspired by translucent resin keycaps: color
-    // deepens with the material's own thickness, and a faint inner shape
-    // suggests structure underneath rather than showing the desktop behind
-    // it. Clamped to BOTH a floor and a ceiling — unlike islandAccent's
-    // floor-only clamp, this fill sits directly behind existing light-toned
-    // text, so a naturally pale/pastel accent (light
-    // wallpapers) needs pulling back down into "deep resin" range just as
-    // much as a too-dark one needs lifting up. Used sparingly — hero
-    // surfaces only, not every panel.
+    // Resin material — panel fill shared by every hero surface (Control
+    // Center, Spotlight, power menu, toasts, dock, Cloud Center...).
     //
-    // The clamp range itself is mode-aware, not just the accent: light
-    // mode's dark text reads fine against a medium-toned fill, but dark
-    // mode's light text needs the fill pulled meaningfully darker for the
-    // same contrast — same lightness range read as "fine" in one mode and
-    // "rough" in the other.
-    function _clampLightness(c, min, max) {
-        const l = Math.min(max, Math.max(min, c.hslLightness))
-        return Qt.hsla(c.hslHue, c.hslSaturation, l, c.a)
-    }
-    readonly property color resinTint: isLightTheme
-        ? _clampLightness(accent, 0.24, 0.42)
-        : _clampLightness(accent, 0.14, 0.22)
-    readonly property real resinFillAlpha: 0.34
+    // ponytail: 2026-08-27 — was an accent-hue tint (clamped-lightness
+    // `accent`), which on saturated themes (e.g. Gruvbox's orange) washed
+    // every panel in that hue. Neutralised to the same surface-toned glass
+    // the system-info panel uses (`glass(surface, ...)`), which reads
+    // cleaner and pairs correctly with `text`/`textMuted` in both modes.
+    // Token names kept so all ~13 call sites flip at once. Revert this pair
+    // of lines to bring the tint back.
+    readonly property color resinTint: surface
+    readonly property real resinFillAlpha: glassShellAlpha
     function resin(alpha) {
         return Qt.rgba(resinTint.r, resinTint.g, resinTint.b, alpha)
     }

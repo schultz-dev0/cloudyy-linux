@@ -74,14 +74,16 @@ IpcHandler {
 - `renderType: Text.NativeRendering` is common (heaviest in `cloud-center/components`, `modules/island`) but **not universal** — `Bar.qml` and most of `modules/controlcenter`/`modules/calendar` don't use it. Don't assume it's required; match whatever the file you're editing already does.
 - Often paired with `font.hintingPreference: Font.PreferVerticalHinting` where it is used.
 
-## Visual language (2026-08-14 redesign, in progress)
+## Visual language (flat "instrument panel" — rolled out shell-wide)
 
-Moving off "liquid glass" (blur, translucency, 16-24px radii, soft rim highlights) toward a flatter, lighter language — see `docs/superpowers/specs/2026-08-14-visual-theme-system-design.md` for the full design. Piloted end-to-end on the Control Center (`NotifPanel.qml` + `modules/controlcenter/**` + `modules/calendar/CalendarMiniSection.qml`); not yet rolled out elsewhere, so most of the codebase still uses the old glass tokens (`Theme.glassShell`, `Theme.glassSection`, `Theme.glassPanelRadius`, `Theme.glass()`) — that's still correct to use in un-migrated files, don't mix languages within one surface.
+Off "liquid glass" (blur, translucency, 16-24px radii, soft rim highlights) onto a flatter, lighter language — design doc: `docs/superpowers/specs/2026-08-14-visual-theme-system-design.md` (its "rollout not started" section is stale). Piloted on the Control Center (`NotifPanel.qml` + `modules/controlcenter/**` + `modules/calendar/**`), then rolled out shell-wide in the 2026-08-19 "entire visual redesign" commit — Bar, dock, island, spotlight, command center, toasts/shelf, cloud-center. The one holdout still on plain `Theme.glassShell` is `modules/systemmonitor/SystemOverviewPanel.qml`.
+
+The old `glass*` tokens (`Theme.glassShell`, `Theme.glassSection`, `Theme.glassPanelRadius`, `Theme.glass()`) still exist and are fine for **nested** sections/cards inside a panel; the **panel shell itself** uses the `Theme.resin*` tokens (see next bullet). Don't mix languages within one surface.
 
 Validated rules, for when migrating a new surface:
 
 - **Panel radius:** 0. **Tile/interactive radius:** 0-2px (not a pill unless it already was one for a real reason — see island/dock exception below).
-- **Panel fill:** flat, ~92-95% opaque, no blur, no translucency.
+- **Panel fill:** the shared `Theme.resin*` tokens — `color: Theme.resin(Theme.resinFillAlpha)`, `border.color: Theme.resinBorder`, optional `Theme.resinGloss` top-edge gradient + `Theme.resinGlow` corner glow. Flat, no compositor blur. As of 2026-08-27 `resinTint` is `surface` (neutral, matches `glassShell`) — it was briefly an accent-hue tint ("resin keycap"), reverted because saturated accents (Gruvbox orange) washed every panel in that hue. `Bar.qml`'s "frost material" comment describes the same neutral-surface intent.
 - **Panel edge:** no full border. Either nothing, or four small corner-bracket marks (`Theme.accent`, ~9px long, 1.5px weight, ~5px inset from the corner) — see `NotifPanel.qml`'s `panelShell` for the pattern (8 `Rectangle`s, no `Shape`/`Canvas` needed).
 - **Group separation:** a 1px `Theme.hairline` `Rectangle` between logical groups, not a border around every tile.
 - **State indicators** (on/off, active/inactive): a small square LED (7x7, 1px border in `Theme.accent`, filled when active) next to the label — never recolor the whole element. Keeps the label legible in both states.

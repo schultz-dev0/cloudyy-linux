@@ -181,7 +181,7 @@ STANDARD_INSTALL_OFFICIAL=(
 
   # CLI toolkit
   "neovim" "tree-sitter" "bat" "eza" "fzf" "ripgrep" "fd" "yazi" "tealdeer"
-  "imagemagick" "reflector" "tree" "gdu" "swayimg" "inxi" "expac"
+  "imagemagick" "libvips" "reflector" "tree" "gdu" "swayimg" "inxi" "expac"
 
   # GUI extras
   "blueman" "gnome-calculator" "gnome-clocks" "loupe" "seahorse"

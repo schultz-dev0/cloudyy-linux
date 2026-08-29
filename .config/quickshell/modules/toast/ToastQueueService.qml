@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import "ToastQueuePolicy.js" as Policy
 
 QtObject {
     id: root
@@ -14,14 +13,11 @@ QtObject {
     readonly property int notificationMaxMs: 5000
     readonly property int osdBurstDurationMs: 2000
 
-    property var currentActivity: null
-    property var _queue: []
+    // Every toast shows at once, stacked — no queue, no preemption. Same-kind
+    // OSD bursts (e.g. holding a volume key) update the existing entry in
+    // place instead of stacking duplicates.
+    property var activeToasts: []
     property int _serial: 0
-    property string _finishingActivityId: ""
-    property string _osdBurstId: ""
-
-    signal currentActivityUpdated()
-    signal currentActivityFinished(string activityId)
 
     function notificationDurationMs(expireTimeoutSec) {
         if (expireTimeoutSec > 0)
@@ -31,146 +27,67 @@ QtObject {
 
     function showOsdBurst(kind, icon, valueLabel, progress) {
         const prog = progress ?? 0;
-        const act = root.currentActivity;
+        const idx = root.activeToasts.findIndex(t => t.data?.activityType === "osd" && t.data?.kind === kind);
 
-        if (act?.data?.activityType === "osd" && act.data?.kind === kind) {
-            act.data.icon = icon;
-            act.data.valueLabel = valueLabel;
-            act.data.progress = prog;
-            root._osdBurstId = act.id;
-            root._startTimer(root.osdBurstDurationMs);
-            root.currentActivityUpdated();
-            return act.id;
+        if (idx !== -1) {
+            const updated = root.activeToasts.slice();
+            const prev = updated[idx];
+            updated[idx] = Object.assign({}, prev, {
+                data: Object.assign({}, prev.data, { icon: icon, valueLabel: valueLabel, progress: prog }),
+                expiresAt: Date.now() + root.osdBurstDurationMs
+            });
+            root.activeToasts = updated;
+            return updated[idx].id;
         }
 
-        if (act?.data?.activityType === "osd") {
-            root.remove(act.id);
-            root._osdBurstId = "";
-        }
-
-        const queued = Policy.findQueuedOsd(root._queue, kind);
-        if (queued) {
-            queued.data.icon = icon;
-            queued.data.valueLabel = valueLabel;
-            queued.data.progress = prog;
-            root._osdBurstId = queued.id;
-            return queued.id;
-        }
-
-        root._osdBurstId = root.push({
-            priority: 90,
+        return root.push({
             durationMs: root.osdBurstDurationMs,
             data: { activityType: "osd", kind: kind, icon: icon, valueLabel: valueLabel, progress: prog }
         });
-        return root._osdBurstId;
     }
 
     function push(activityDef) {
         const serial = root._serial++;
         const id = "toast-" + serial;
-        const requestedDuration = activityDef.durationMs ?? root.notificationDefaultMs;
-        const activity = {
+        const durationMs = activityDef.durationMs > 0 ? activityDef.durationMs : root.notificationDefaultMs;
+        const toast = {
             id: id,
             serial: serial,
-            priority: activityDef.priority ?? 10,
-            durationMs: requestedDuration > 0 ? requestedDuration : root.notificationDefaultMs,
-            data: activityDef.data ?? {}
+            data: activityDef.data ?? {},
+            expiresAt: Date.now() + durationMs
         };
-
-        const decision = Policy.decidePush(root.currentActivity, root._finishingActivityId, activity);
-        if (decision.action === "queue") {
-            root._insertQueued(activity);
-        } else if (decision.action === "extend") {
-            root._extendCurrent();
-            root._insertQueued(activity);
-        } else if (decision.bumpCurrent) {
-            const prev = root.currentActivity;
-            root._timer.stop();
-            root._insertQueued(prev);
-            root._present(activity);
-        } else {
-            root._present(activity);
-        }
+        root.activeToasts = root.activeToasts.concat([toast]);
+        root._tickTimer.running = true;
         return id;
     }
 
     function remove(id) {
-        if (root._osdBurstId === id)
-            root._osdBurstId = "";
-        if (root.currentActivity && root.currentActivity.id === id) {
-            root._finishCurrent();
-            return;
-        }
-        root._queue = root._queue.filter(a => a.id !== id);
+        root.activeToasts = root.activeToasts.filter(t => t.id !== id);
     }
 
     function removeForNotification(notificationId) {
-        function matches(activity) {
-            return activity?.data?.notificationId === notificationId;
-        }
-        if (root.currentActivity && matches(root.currentActivity)) {
-            root.remove(root.currentActivity.id);
-            return;
-        }
-        root._queue = root._queue.filter(a => !matches(a));
+        root.activeToasts = root.activeToasts.filter(t => t.data?.notificationId !== notificationId);
     }
 
     function clearAllNotifications() {
-        function isNotif(activity) {
-            return activity?.data?.activityType === "notification";
-        }
-        root._queue = root._queue.filter(a => !isNotif(a));
-        if (isNotif(root.currentActivity))
-            root._finishCurrent();
+        root.activeToasts = root.activeToasts.filter(t => t.data?.activityType !== "notification");
     }
 
-    function _present(activity) {
-        root._finishingActivityId = "";
-        root.currentActivity = activity;
-        root._startTimer(activity.durationMs);
-    }
-
-    function _finishCurrent() {
-        const activityId = root.currentActivity?.id || "";
-        if (!activityId || root._finishingActivityId === activityId)
-            return;
-        root._timer.stop();
-        root._finishingActivityId = activityId;
-        root._popCurrent();
-    }
-
-    function _popCurrent() {
-        root._finishingActivityId = "";
-        if (root._queue.length > 0) {
-            const sorted = Policy.sortQueue(root._queue);
-            const next = sorted[0];
-            root._queue = sorted.slice(1);
-            root._present(next);
-        } else {
-            root.currentActivity = null;
-        }
-    }
-
-    function _startTimer(durationMs) {
-        if (durationMs > 0) {
-            root._timer.interval = durationMs;
-            root._timer.restart();
-        }
-    }
-
-    function _extendCurrent() {
-        if (root.currentActivity && root.currentActivity.durationMs > 0)
-            root._timer.restart();
-    }
-
-    function _insertQueued(activity) {
-        root._queue = Policy.sortQueue(root._queue.concat([activity]));
-    }
-
-    property var _timer: Timer {
-        repeat: false
+    // Single shared timer sweeps expired toasts rather than one Timer per
+    // entry — simpler than managing N dynamic Timer objects for a plain
+    // array of data, and 250ms resolution is plenty for a UI element.
+    property var _tickTimer: Timer {
+        interval: 250
+        repeat: true
         running: false
-        onTriggered: root._popCurrent()
+        onTriggered: {
+            const now = Date.now();
+            const remaining = root.activeToasts.filter(t => t.expiresAt > now);
+            if (remaining.length !== root.activeToasts.length)
+                root.activeToasts = remaining;
+            if (root.activeToasts.length === 0)
+                root._tickTimer.running = false;
+        }
     }
 
     function playNotifSound() {

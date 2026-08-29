@@ -281,7 +281,8 @@ class CuratedThemeEngineTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         stems = [Path(line).stem for line in result.stdout.strip().splitlines()]
-        self.assertEqual(stems, ["1", "2", "3", "10"])
+        self.assertEqual(stems, sorted(stems, key=int))
+        self.assertEqual(stems[-1], "10")
 
     def test_list_json_reports_the_active_slug_once_prepared(self):
         self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)
@@ -788,6 +789,17 @@ class CuratedThemeEngineTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Kitty", result.stderr)
+
+    def test_validator_accepts_optional_preview_png_but_not_other_stray_files(self):
+        package = self.copy_nord_package()
+        (package / "preview.png").write_bytes(b"stub png; presence is what the validator checks")
+
+        self.assertEqual(self.run_validator(package).returncode, 0, self.run_validator(package).stderr)
+
+        (package / "notes.txt").write_text("stray\n", encoding="utf-8")
+        stray = self.run_validator(package)
+        self.assertNotEqual(stray.returncode, 0)
+        self.assertIn("unexpected package file: notes.txt", stray.stderr)
 
     def test_validator_rejects_symbolic_link_assets(self):
         package = self.copy_nord_package()

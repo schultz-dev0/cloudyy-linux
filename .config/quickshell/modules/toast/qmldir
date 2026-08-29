@@ -1,3 +1,4 @@
 module QuickToast
 singleton ToastQueueService 1.0 ToastQueueService.qml
 ToastPanel 1.0 ToastPanel.qml
+ToastCard 1.0 ToastCard.qml

@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Vantablack",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [13, 13, 13],
+      "background_tab_inactive": [13, 13, 13],
+      "background_tab_incognito": [13, 13, 13],
+      "background_tab_incognito_inactive": [13, 13, 13],
+      "bookmark_text": [242, 242, 242],
+      "button_background": [13, 13, 13],
+      "frame": [5, 5, 5],
+      "frame_inactive": [5, 5, 5],
+      "frame_incognito": [5, 5, 5],
+      "frame_incognito_inactive": [5, 5, 5],
+      "ntp_background": [5, 5, 5],
+      "ntp_header": [13, 13, 13],
+      "ntp_link": [255, 45, 85],
+      "ntp_text": [242, 242, 242],
+      "omnibox_background": [5, 5, 5],
+      "omnibox_text": [242, 242, 242],
+      "tab_background_text": [136, 136, 136],
+      "tab_background_text_inactive": [136, 136, 136],
+      "tab_background_text_incognito": [136, 136, 136],
+      "tab_background_text_incognito_inactive": [136, 136, 136],
+      "tab_text": [242, 242, 242],
+      "toolbar": [13, 13, 13],
+      "toolbar_button_icon": [136, 136, 136],
+      "toolbar_text": [242, 242, 242]
+    }
+  }
+}

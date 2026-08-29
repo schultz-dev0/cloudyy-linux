@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Gruvbox",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [60, 56, 54],
+      "background_tab_inactive": [60, 56, 54],
+      "background_tab_incognito": [60, 56, 54],
+      "background_tab_incognito_inactive": [60, 56, 54],
+      "bookmark_text": [235, 219, 178],
+      "button_background": [60, 56, 54],
+      "frame": [40, 40, 40],
+      "frame_inactive": [40, 40, 40],
+      "frame_incognito": [40, 40, 40],
+      "frame_incognito_inactive": [40, 40, 40],
+      "ntp_background": [40, 40, 40],
+      "ntp_header": [60, 56, 54],
+      "ntp_link": [254, 128, 25],
+      "ntp_text": [235, 219, 178],
+      "omnibox_background": [40, 40, 40],
+      "omnibox_text": [235, 219, 178],
+      "tab_background_text": [168, 153, 132],
+      "tab_background_text_inactive": [168, 153, 132],
+      "tab_background_text_incognito": [168, 153, 132],
+      "tab_background_text_incognito_inactive": [168, 153, 132],
+      "tab_text": [235, 219, 178],
+      "toolbar": [60, 56, 54],
+      "toolbar_button_icon": [168, 153, 132],
+      "toolbar_text": [235, 219, 178]
+    }
+  }
+}
