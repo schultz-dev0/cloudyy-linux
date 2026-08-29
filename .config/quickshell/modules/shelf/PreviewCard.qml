@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import "../.."
 import "IslandPreviewDragPolicy.js" as DragPolicy
 
@@ -43,6 +44,15 @@ Rectangle {
                 asynchronous: true
                 cache: false
                 smooth: true
+                // Without sourceSize, Qt decodes at the source's full
+                // resolution and lets the GPU shrink it to this Item's
+                // size — bilinear minification over a large ratio looks
+                // soft rather than sharp. Decoding at exactly this Item's
+                // physical pixel size (accounting for the screen's own
+                // scale factor) is what actually looks crisp, and adapts
+                // automatically to whatever screen this renders on.
+                sourceSize.width: Math.round(thumb.width * Screen.devicePixelRatio)
+                sourceSize.height: Math.round(thumb.height * Screen.devicePixelRatio)
             }
             Text {
                 visible: root.capture.kind === "recording"

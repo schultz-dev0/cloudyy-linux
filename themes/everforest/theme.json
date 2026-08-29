@@ -1,0 +1,24 @@
+{
+  "name": "Everforest",
+  "slug": "everforest",
+  "mode": "dark",
+  "colors": {
+    "background": "#333c43",
+    "surface": "#3a464c",
+    "surfaceRaised": "#434f55",
+    "surfaceOverlay": "#4d5960",
+    "text": "#d3c6aa",
+    "textMuted": "#859289",
+    "accent": "#a7c080",
+    "accentMuted": "#83c092",
+    "accentAlt": "#7fbbb3",
+    "onAccent": "#333c43",
+    "border": "#4d5960",
+    "selection": "#434f55",
+    "success": "#a7c080",
+    "warning": "#dbbc7f",
+    "error": "#e67e80",
+    "info": "#7fbbb3",
+    "shadow": "#333c43"
+  }
+}

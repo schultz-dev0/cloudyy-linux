@@ -152,8 +152,9 @@ PanelWindow {
     WlrLayershell.exclusiveZone: 0
 
     // ── Panel shell ───────────────────────────────────────────────────────────
-    // Resin material — real theme-hue tint, not neutral glass. See
-    // Theme.qml's resin() comment for the keycap reasoning.
+    // Shared hero-panel fill (Theme.resin* tokens). Neutral surface-toned
+    // glass as of 2026-08-27 — was an accent-hue tint; see Theme.qml's
+    // resin() comment.
     Rectangle {
         id: panelShell
         anchors.fill: parent

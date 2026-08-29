@@ -1,0 +1,350 @@
+#!/usr/bin/env python3
+# cloudyy:summary=Configure and select one-shot UEFI boot targets
+"""Configure stable aliases for UEFI BootNext entries."""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+
+CONFIG_HEADER = "# cloudyy-boot-targets-v1"
+ENTRY_RE = re.compile(r"^Boot([0-9A-Fa-f]{4})(\*)?\s+(.+)$")
+DEVICE_RE = re.compile(r"\b(?:HD|VenHw|VenMsg|FvFile)\(")
+HD_RE = re.compile(
+    r"HD\(\d+,GPT,([0-9A-Fa-f-]{36}),[^)]*\)/(.*)", re.IGNORECASE
+)
+EFI_RE = re.compile(r"(\\EFI\\.*?\.EFI)", re.IGNORECASE)
+ALIAS_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+RESERVED_ALIASES = {"clear", "configure", "list"}
+
+
+class BootError(Exception):
+    """A user-facing boot target error."""
+
+
+@dataclass(frozen=True)
+class BootEntry:
+    number: str
+    label: str
+    partuuid: str | None
+    loader_path: str | None
+    current: bool # for the sake of knowing which system is currently live
+
+
+@dataclass(frozen=True)
+class BootTarget:
+    alias: str
+    partuuid: str
+    loader_path: str
+    label: str
+
+
+def _config_path() -> Path:
+    override = os.environ.get("CLOUDYY_BOOT_CONFIG")
+    if override:
+        return Path(override)
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return config_home / "cloudyy" / "boot-targets"
+
+
+def _efivars_path() -> Path:
+    return Path(
+        os.environ.get("CLOUDYY_BOOT_EFIVARS_DIR", "/sys/firmware/efi/efivars")
+    )
+
+
+def _run(command: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise BootError(f"Required command not found: {command[0]}") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.strip() or exc.stdout.strip() or "command failed"
+        raise BootError(f"{command[0]}: {detail}") from exc
+    return result.stdout
+
+
+def _normalize_loader_path(path: str) -> str:
+    return path.replace("/", "\\").lower()
+
+
+def _read_entries() -> list[BootEntry]:
+    if not _efivars_path().is_dir():
+        raise BootError("UEFI variables are unavailable; this system may use legacy BIOS")
+
+    output = _run(["efibootmgr", "-v"])
+    current_match = re.search(r"^BootCurrent:\s*([0-9A-Fa-f]{4})$", output, re.MULTILINE)
+    current = current_match.group(1).upper() if current_match else None
+    entries: list[BootEntry] = []
+
+    for line in output.splitlines():
+        match = ENTRY_RE.match(line)
+        if not match or not match.group(2):
+            continue
+
+        number = match.group(1).upper()
+        remainder = match.group(3)
+        device = DEVICE_RE.search(remainder)
+        label = remainder[: device.start()].rstrip() if device else remainder.strip()
+        hd = HD_RE.search(remainder)
+        partuuid = hd.group(1).lower() if hd else None
+        loader = EFI_RE.search(hd.group(2)) if hd else None
+        loader_path = _normalize_loader_path(loader.group(1)) if loader else None
+        entries.append(
+            BootEntry(number, label, partuuid, loader_path, number == current)
+        )
+
+    if not entries:
+        raise BootError("No active UEFI boot entries were found") # literally pointless error "handling" by codex here!
+    return entries
+
+
+def _partition_map() -> dict[str, tuple[str, str]]:
+    output = _run(["lsblk", "-rpn", "-o", "PATH,PKNAME,PARTUUID"])
+    partitions: dict[str, tuple[str, str]] = {}
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) == 3:
+            path, parent, partuuid = fields
+            partitions[partuuid.lower()] = (path, parent)
+    return partitions
+
+
+def _write_config(records: list[tuple[str, BootEntry]]) -> Path:
+    path = _config_path()
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    temp_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=path.parent, delete=False
+        ) as temp:
+            temp_name = temp.name
+            os.chmod(temp_name, 0o600)
+            temp.write(f"{CONFIG_HEADER}\n")
+            for alias, entry in records:
+                temp.write(
+                    f"{alias}\t{entry.partuuid}\t{entry.loader_path}\t{entry.label}\n"
+                )
+        os.replace(temp_name, path)
+    finally:
+        if temp_name and os.path.exists(temp_name):
+            os.unlink(temp_name)
+    return path
+
+
+def _read_config() -> dict[str, BootTarget]:
+    path = _config_path()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError as exc:
+        raise BootError("No boot targets configured; run 'cloudyy boot configure'") from exc
+    if not lines or lines[0] != CONFIG_HEADER:
+        raise BootError(f"Malformed or unsupported boot target file: {path}")
+
+    targets: dict[str, BootTarget] = {}
+    for line_number, line in enumerate(lines[1:], start=2):
+        fields = line.split("\t")
+        if len(fields) != 4:
+            raise BootError(f"Malformed boot target record on line {line_number}")
+        alias, partuuid, loader_path, label = fields
+        if (
+            not ALIAS_RE.fullmatch(alias)
+            or alias in RESERVED_ALIASES
+            or alias in targets
+            or not re.fullmatch(r"[0-9a-f-]{36}", partuuid)
+            or not loader_path.startswith("\\efi\\")
+            or not loader_path.endswith(".efi")
+        ):
+            raise BootError(f"Invalid boot target record on line {line_number}")
+        targets[alias] = BootTarget(alias, partuuid, loader_path, label)
+    return targets
+
+
+def _resolve_target(alias: str) -> tuple[BootTarget, BootEntry]:
+    target = _read_config().get(alias)
+    if target is None:
+        raise BootError(f"Unknown boot target '{alias}'; run 'cloudyy boot list'")
+    matches = [
+        entry
+        for entry in _read_entries()
+        if entry.partuuid == target.partuuid
+        and entry.loader_path == target.loader_path
+    ]
+    if not matches:
+        raise BootError(
+            f"Boot target '{alias}' is stale; run 'cloudyy boot configure'"
+        )
+    if len(matches) > 1:
+        raise BootError(
+            f"Boot target '{alias}' is ambiguous; run 'cloudyy boot configure'"
+        )
+    return target, matches[0]
+
+
+def _read_boot_next() -> str | None:
+    output = _run(["efibootmgr", "-v"])
+    match = re.search(r"^BootNext:\s*([0-9A-Fa-f]{4})$", output, re.MULTILINE)
+    return match.group(1).upper() if match else None
+
+
+def _set_target(alias: str, reboot: bool) -> int:
+    if reboot and shutil.which("systemctl") is None:
+        raise BootError("Required command not found: systemctl")
+    target, entry = _resolve_target(alias)
+    if not re.fullmatch(r"[0-9A-F]{4}", entry.number):
+        raise BootError("Resolved firmware entry has an invalid boot number")
+
+    print(f"Target: {target.alias}")
+    print(f"  Entry: Boot{entry.number} ({entry.label})")
+    print(f"  PARTUUID: {entry.partuuid}")
+    print(f"  Loader: {entry.loader_path}")
+    _run(["sudo", "efibootmgr", "--bootnext", entry.number])
+    if _read_boot_next() != entry.number:
+        raise BootError(
+            "Firmware did not verify BootNext; inspect 'efibootmgr' and use "
+            "'cloudyy boot clear' if needed"
+        )
+    print(f"BootNext is set to {alias} (Boot{entry.number})")
+    if reboot:
+        try:
+            _run(["systemctl", "reboot"])
+        except BootError as error:
+            raise BootError(
+                f"{error}; BootNext remains set to {alias} (Boot{entry.number})"
+            ) from error
+    return 0
+
+
+def _list_targets() -> int:
+    targets = _read_config()
+    entries = _read_entries()
+    if not targets:
+        print("No boot targets configured.")
+        return 0
+
+    for target in targets.values():
+        matches = [
+            entry
+            for entry in entries
+            if entry.partuuid == target.partuuid
+            and entry.loader_path == target.loader_path
+        ]
+        if len(matches) == 1:
+            entry = matches[0]
+            current = " (current)" if entry.current else ""
+            print(f"{target.alias}: Boot{entry.number} - {entry.label}{current}")
+        elif matches:
+            print(f"{target.alias}: ambiguous ({len(matches)} entries)")
+        else:
+            print(f"{target.alias}: stale (not found)")
+        print(f"  PARTUUID: {target.partuuid}")
+        print(f"  Loader: {target.loader_path}")
+    return 0
+
+
+def _clear_boot_next() -> int:
+    if not _efivars_path().is_dir():
+        raise BootError("UEFI variables are unavailable; this system may use legacy BIOS")
+    pending = _read_boot_next()
+    if pending is None:
+        print("No pending BootNext value.")
+        return 0
+    _run(["sudo", "efibootmgr", "--delete-bootnext"])
+    if _read_boot_next() is not None:
+        raise BootError("Firmware did not clear BootNext")
+    print(f"Cleared pending BootNext (Boot{pending})")
+    return 0
+
+
+def _configure() -> int:
+    entries = _read_entries()
+    partitions = _partition_map()
+    records: list[tuple[str, BootEntry]] = []
+    aliases: set[str] = set()
+
+    for entry in entries:
+        print(f"\nBoot{entry.number}: {entry.label}")
+        if entry.current: 
+            print("  Status: current")
+        if not entry.partuuid or not entry.loader_path:
+            print("  Status: unsupported device path; skipped")
+            continue
+
+        partition = partitions.get(entry.partuuid)
+        if partition:
+            partition_path, parent = partition
+            details = _run(["lsblk", "-dno", "MODEL,SIZE", parent]).strip()
+            print(f"  Disk: {parent}{f' ({details})' if details else ''}")
+            print(f"  ESP: {partition_path}")
+        else:
+            print(f"  ESP PARTUUID: {entry.partuuid} (not found by lsblk)")
+        print(f"  Loader: {entry.loader_path}")
+
+        while True:
+            alias = input("  Alias (blank to skip): ").strip()
+            if not alias:
+                break
+            if not ALIAS_RE.fullmatch(alias):
+                print("  Alias may contain only letters, numbers, dots, underscores, and hyphens.")
+                continue
+            if alias in RESERVED_ALIASES:
+                print(f"  Alias '{alias}' is reserved for a command.")
+                continue
+            if alias in aliases:
+                print(f"  Alias '{alias}' is already assigned.")
+                continue
+            if any(character in entry.label for character in "\t\r\n"):
+                print("  Firmware label contains unsupported control characters; skipped.")
+                break
+            aliases.add(alias)
+            records.append((alias, entry))
+            break
+
+    path = _write_config(records)
+    print(f"\nSaved {len(records)} boot target(s) to {path}")
+    return 0
+
+# CLI usage
+def _usage() -> None:
+    print(
+        "Usage:\n"
+        "  cloudyy boot configure\n"
+        "  cloudyy boot list\n"
+        "  cloudyy boot clear\n"
+        "  cloudyy boot <alias> --set\n"
+        "  cloudyy boot <alias> --now",
+        file=sys.stderr,
+    )
+
+
+def main(argv: list[str]) -> int:
+    if argv == ["configure"]:
+        return _configure()
+    if argv == ["list"]:
+        return _list_targets()
+    if argv == ["clear"]:
+        return _clear_boot_next()
+    if len(argv) == 2 and argv[1] in {"--set", "--now"}:
+        return _set_target(argv[0], reboot=argv[1] == "--now")
+    _usage()
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except (BootError, EOFError, KeyboardInterrupt) as error:
+        print(f"cloudyy boot: {error or 'cancelled'}", file=sys.stderr)
+        raise SystemExit(1) from None

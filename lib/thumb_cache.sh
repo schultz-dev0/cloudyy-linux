@@ -70,7 +70,7 @@ promote_thumb() {
 
 gen_thumb() {
   local img="$1"
-  local real hash thumb converter cached canonical
+  local real hash thumb lock lock_fd tmp cached canonical
   real=$(canonical_real "$img")
   [[ -f "$real" ]] || return 1
 
@@ -87,15 +87,53 @@ gen_thumb() {
 
   hash=$(path_hash "$real")
   thumb="${CACHE_DIR}/${hash}.png"
-  converter="convert"
-  command -v magick &>/dev/null && converter="magick"
-  if "$converter" "${real}[0]" -strip \
-    -resize "${THUMB_SIZE}x${THUMB_SIZE}^" \
-    -gravity center \
-    -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
-    -quality 85 "$thumb" 2>/dev/null; then
-    printf '%s' "$thumb"
+  lock="${thumb}.lock"
+  tmp="${thumb}.$$.png"
+
+  # Concurrent callers can request the same source (e.g. a theme's preview
+  # falls back to wallpapers[0] — see package.sh — so both get thumbnailed
+  # in the same batch); lock per-thumbnail and re-check after acquiring
+  # rather than let two writers race the same destination path.
+  exec {lock_fd}>"$lock" || return 1
+  if ! flock -w 30 "$lock_fd"; then
+    exec {lock_fd}>&-
+    return 1
   fi
+  if [[ -f "$thumb" ]]; then
+    exec {lock_fd}>&-
+    printf '%s' "$thumb"
+    return 0
+  fi
+
+  # Inlined rather than a helper function: callers export gen_thumb into
+  # fresh `bash -c` subshells for parallel generation (see wallpapers.sh),
+  # and only what's explicitly export -f'd exists there — a second function
+  # gen_thumb called out to would need its own export at every call site.
+  if command -v vipsthumbnail &>/dev/null; then
+    # Single-threaded per call on purpose: callers fan out one gen_thumb
+    # per image concurrently, so N of these run in parallel without each
+    # one also fighting for every core on its own.
+    VIPS_CONCURRENCY=1 vipsthumbnail "$real" \
+      --size "${THUMB_SIZE}x${THUMB_SIZE}" \
+      --smartcrop=centre \
+      --path "${tmp}[strip]" 2>/dev/null
+  else
+    local converter="convert"
+    command -v magick &>/dev/null && converter="magick"
+    "$converter" "${real}[0]" -strip \
+      -resize "${THUMB_SIZE}x${THUMB_SIZE}^" \
+      -gravity center \
+      -extent "${THUMB_SIZE}x${THUMB_SIZE}" \
+      -quality 85 "$tmp" 2>/dev/null
+  fi
+
+  if [[ -f "$tmp" ]]; then
+    mv -f -- "$tmp" "$thumb"
+    printf '%s' "$thumb"
+  else
+    rm -f -- "$tmp"
+  fi
+  exec {lock_fd}>&-
 }
 
 resolve_thumb_for_display() {

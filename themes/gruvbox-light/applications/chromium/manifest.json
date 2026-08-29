@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Gruvbox Light",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [235, 219, 178],
+      "background_tab_inactive": [235, 219, 178],
+      "background_tab_incognito": [235, 219, 178],
+      "background_tab_incognito_inactive": [235, 219, 178],
+      "bookmark_text": [60, 56, 54],
+      "button_background": [235, 219, 178],
+      "frame": [251, 241, 199],
+      "frame_inactive": [251, 241, 199],
+      "frame_incognito": [251, 241, 199],
+      "frame_incognito_inactive": [251, 241, 199],
+      "ntp_background": [251, 241, 199],
+      "ntp_header": [235, 219, 178],
+      "ntp_link": [214, 93, 14],
+      "ntp_text": [60, 56, 54],
+      "omnibox_background": [251, 241, 199],
+      "omnibox_text": [60, 56, 54],
+      "tab_background_text": [124, 111, 100],
+      "tab_background_text_inactive": [124, 111, 100],
+      "tab_background_text_incognito": [124, 111, 100],
+      "tab_background_text_incognito_inactive": [124, 111, 100],
+      "tab_text": [60, 56, 54],
+      "toolbar": [235, 219, 178],
+      "toolbar_button_icon": [124, 111, 100],
+      "toolbar_text": [60, 56, 54]
+    }
+  }
+}

@@ -942,15 +942,13 @@ _update_obsidian_appearance() {
   fi
 }
 
-adapter_chromium() {
-  local theme="$1" config_root="${XDG_CONFIG_HOME:-$HOME/.config}"
-  local flags="$config_root/chromium-flags.conf" begin='# >>> cloudyy-theme chromium >>>'
-  local end='# <<< cloudyy-theme chromium <<<' extension begin_count end_count begin_line end_line temporary
-  _adapter_theme_is_active "$theme" || return 1
+_update_chromium_flags() {
+  local flags="$1" executable="$2" process="$3" label="$4"
+  local begin='# >>> cloudyy-theme chromium >>>' end='# <<< cloudyy-theme chromium <<<'
+  local extension begin_count end_count begin_line end_line temporary
   extension="--load-extension=$(_stable_theme_root)/applications/chromium"
-  [[ -d "$config_root" ]] || return "$CLOUDYY_ADAPTER_SKIP"
   if [[ ! -e "$flags" ]]; then
-    command -v chromium >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
+    command -v "$executable" >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
     temporary="$(mktemp "${flags}.cloudyy.XXXXXXXX")" || return 1
     if ! printf '%s\n%s\n%s\n' "$begin" "$extension" "$end" >"$temporary" ||
       ! mv -Tf -- "$temporary" "$flags"; then
@@ -963,7 +961,7 @@ adapter_chromium() {
     end_count="$(grep -Fxc "$end" "$flags" || true)"
     if [[ "$begin_count" -eq 0 && "$end_count" -eq 0 ]]; then
       if grep -Eq '^[[:space:]]*--load-extension([=[:space:]]|$)' "$flags"; then
-        theme_error "unowned Chromium --load-extension flag is present: $flags"
+        theme_error "unowned $label --load-extension flag is present: $flags"
         return 1
       fi
       temporary="$(mktemp "${flags}.cloudyy.XXXXXXXX")" || return 1
@@ -979,7 +977,7 @@ adapter_chromium() {
       [[ "$begin_line" -lt "$end_line" ]] || return 1
       if awk -v first="$begin_line" -v last="$end_line" 'NR < first || NR > last' "$flags" |
         grep -Eq '^[[:space:]]*--load-extension([=[:space:]]|$)'; then
-        theme_error "unowned Chromium --load-extension flag is present: $flags"
+        theme_error "unowned $label --load-extension flag is present: $flags"
         return 1
       fi
       temporary="$(mktemp "${flags}.cloudyy.XXXXXXXX")" || return 1
@@ -992,13 +990,32 @@ adapter_chromium() {
         return 1
       fi
     else
-      theme_error "ambiguous Cloudyy Chromium markers: $flags"
+      theme_error "ambiguous Cloudyy $label markers: $flags"
       return 1
     fi
   fi
-  if pgrep -x chromium >/dev/null 2>&1; then
-    theme_error 'Chromium theme is ready; pending restart (Chromium was not signalled)'
+  if pgrep -x "$process" >/dev/null 2>&1; then
+    theme_error "$label theme is ready; pending restart or manual reload at chrome://extensions"
   fi
+}
+
+adapter_chromium() {
+  local theme="$1" config_root="${XDG_CONFIG_HOME:-$HOME/.config}" result status="$CLOUDYY_ADAPTER_SKIP"
+  local -a flags=("$config_root/chromium-flags.conf" "$config_root/helium-browser-flags.conf")
+  local -a executables=(chromium helium-browser) processes=(chromium helium) labels=(Chromium Helium)
+  local index
+  _adapter_theme_is_active "$theme" || return 1
+  [[ -d "$config_root" ]] || return "$CLOUDYY_ADAPTER_SKIP"
+  for index in "${!flags[@]}"; do
+    if _update_chromium_flags "${flags[$index]}" "${executables[$index]}" \
+      "${processes[$index]}" "${labels[$index]}"; then
+      status=0
+    else
+      result=$?
+      [[ "$result" -eq "$CLOUDYY_ADAPTER_SKIP" ]] || return "$result"
+    fi
+  done
+  return "$status"
 }
 
 adapter_vscode() {

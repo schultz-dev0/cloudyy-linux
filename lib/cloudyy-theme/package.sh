@@ -68,6 +68,10 @@ _validate_package_tree() {
     [wallpapers]=1
   )
   local -A required_files=([theme.json]=1)
+  # Optional top-level files a package may ship but need not. preview.png is
+  # consumed by _theme_preview_path() for the picker; the validator has to
+  # allow it or `use <slug>` rejects any theme that ships one.
+  local -A optional_files=([preview.png]=1)
   local application
 
   for application in "${CLOUDYY_THEME_APPLICATION_FILES[@]}"; do
@@ -82,7 +86,7 @@ _validate_package_tree() {
       continue
     fi
     if [[ -f "$path" ]]; then
-      if [[ -n "${required_files[$relative]:-}" || "$relative" == wallpapers/* ]]; then
+      if [[ -n "${required_files[$relative]:-}" || -n "${optional_files[$relative]:-}" || "$relative" == wallpapers/* ]]; then
         continue
       fi
       _package_error "unexpected package file: $relative"
@@ -215,8 +219,64 @@ _theme_preview_path() {
   _theme_wallpaper_paths "$package" | sed -n '1p'
 }
 
+_cloudyy_theme_thumb_cache_ready=false
+_theme_ensure_thumb_cache() {
+  [[ "$_cloudyy_theme_thumb_cache_ready" == true ]] && return 0
+  # Same cache dir/size as the wallpaper picker (commandcenter/scripts/
+  # wallpapers.sh) — a wallpaper already thumbnailed there is an instant
+  # hit here too, and nothing new needs pruning: it's the picker's cache.
+  CACHE_DIR="${HOME}/.cache/rofi_thumbs"
+  THUMB_SIZE=256
+  mkdir -p -- "$CACHE_DIR" || return 1
+  # shellcheck source=../thumb_cache.sh
+  source "$(theme_repo_root)/lib/thumb_cache.sh" || return 1
+  _cloudyy_theme_thumb_cache_ready=true
+}
+
+# Small display-only copy of a wallpaper/preview file, for the picker's
+# carousels — decoding a 256x256 cached thumbnail is fast regardless of how
+# large the source photo is. Falls back to the original path if the cache
+# can't be reached (imagemagick missing, cache dir not writable, etc.); a
+# consumer just decodes the full file at that point, same as before this
+# existed.
+_theme_display_thumbnail() {
+  local path="$1" thumb
+  _theme_ensure_thumb_cache || {
+    printf '%s\n' "$path"
+    return 0
+  }
+  thumb="$(gen_thumb "$path" 2>/dev/null)" && [[ -n "$thumb" ]] || {
+    printf '%s\n' "$path"
+    return 0
+  }
+  printf '%s\n' "$thumb"
+}
+
+# Thumbnails a theme needs (its preview, then each wallpaper in order) are
+# generated concurrently — one background job per image, index-numbered
+# temp files so results can be reassembled in order afterward.
+# gen_thumb (thumb_cache.sh) locks per-thumbnail-file, so this stays safe
+# even when preview and wallpapers[0] are the same underlying image.
+_theme_display_thumbnails() {
+  local tmp_dir="$1" i
+  shift
+  local -a paths=("$@") pids=()
+  for i in "${!paths[@]}"; do
+    _theme_display_thumbnail "${paths[$i]}" >"$tmp_dir/$i" &
+    pids+=("$!")
+  done
+  for i in "${pids[@]}"; do
+    wait "$i"
+  done
+  for i in "${!paths[@]}"; do
+    cat -- "$tmp_dir/$i"
+  done
+}
+
 list_themes_json() {
-  local current="${1:-}" themes_root theme slug preview wallpapers_json lines=''
+  local current="${1:-}" themes_root theme slug preview preview_thumb lines=''
+  local wallpapers_json wallpaper_thumbs_json tmp_dir
+  local -a wallpapers thumbs all_thumbs
   themes_root="$(theme_repo_root)/themes"
   if [[ -d "$themes_root" && ! -L "$themes_root" ]]; then
     while IFS= read -r -d '' theme; do
@@ -225,9 +285,22 @@ list_themes_json() {
       [[ -f "$theme/theme.json" && ! -L "$theme/theme.json" ]] || continue
       preview="$(_theme_preview_path "$theme")"
       [[ -n "$preview" ]] || continue
-      wallpapers_json="$(_theme_wallpaper_paths "$theme" | jq -R . | jq -s .)"
-      lines+="$(jq -c --arg preview "$preview" --argjson wallpapers "$wallpapers_json" \
-        '{slug, name, mode, colors, preview: $preview, wallpapers: $wallpapers}' "$theme/theme.json" 2>/dev/null)"$'\n'
+      mapfile -t wallpapers < <(_theme_wallpaper_paths "$theme")
+
+      # Thumbnails are a display-only convenience for the picker (see
+      # _theme_display_thumbnail) — wallpapers itself stays the real paths,
+      # since set-image/apply need the actual file, not a shrunk copy.
+      tmp_dir="$(mktemp -d)" || return 1
+      mapfile -t all_thumbs < <(_theme_display_thumbnails "$tmp_dir" "$preview" "${wallpapers[@]}")
+      rm -rf -- "$tmp_dir"
+      preview_thumb="${all_thumbs[0]}"
+      thumbs=("${all_thumbs[@]:1}")
+
+      wallpapers_json="$(printf '%s\n' "${wallpapers[@]}" | jq -R . | jq -s .)"
+      wallpaper_thumbs_json="$(printf '%s\n' "${thumbs[@]}" | jq -R . | jq -s .)"
+      lines+="$(jq -c --arg preview "$preview_thumb" --argjson wallpapers "$wallpapers_json" \
+        --argjson wallpaperThumbnails "$wallpaper_thumbs_json" \
+        '{slug, name, mode, colors, preview: $preview, wallpapers: $wallpapers, wallpaperThumbnails: $wallpaperThumbnails}' "$theme/theme.json" 2>/dev/null)"$'\n'
     done < <(find -P "$themes_root" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
   fi
   printf '%s' "$lines" | jq -s --arg current "$current" '{current: $current, themes: .}'

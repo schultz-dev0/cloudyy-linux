@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# setup-nvim.sh — Bootstrap lazy.nvim and install all plugins headlessly.
-# Clones lazy.nvim explicitly rather than relying on nvim's in-config bootstrap,
-# which doesn't behave reliably in headless mode.
+# setup-nvim.sh — Bootstrap the NvChad-based config headlessly.
+# NvChad 2.5 is loaded as a plugin by ~/.config/nvim (NvChad/starter layout);
+# its init.lua self-bootstraps lazy.nvim. This script drives the first plugin
+# sync + base46 theme compile so the first interactive launch is clean.
 
 set -euo pipefail -E
 
@@ -29,21 +30,6 @@ if ! command -v nvim &>/dev/null; then
   exit 0
 fi
 
-# ── Clone lazy.nvim ───────────────────────────────────────────────────────────
-LAZY_PATH="${HOME}/.local/share/nvim/lazy/lazy.nvim"
-
-# Check for the actual entry point, not just the directory — a failed/partial
-# clone leaves an empty dir which fools nvim's own fs_stat bootstrap check.
-if [[ ! -f "${LAZY_PATH}/lua/lazy/init.lua" ]]; then
-  log "Cloning lazy.nvim..."
-  rm -rf "$LAZY_PATH"
-  git clone --filter=blob:none --branch=stable \
-    https://github.com/folke/lazy.nvim.git "$LAZY_PATH"
-  log_ok "lazy.nvim cloned."
-else
-  log_ok "lazy.nvim already present."
-fi
-
 # ── tree-sitter CLI ───────────────────────────────────────────────────────────
 # Install from pacman so Mason doesn't try to build it and get interrupted.
 if ! command -v tree-sitter &>/dev/null; then
@@ -53,12 +39,26 @@ if ! command -v tree-sitter &>/dev/null; then
 fi
 
 # ── Sync plugins ──────────────────────────────────────────────────────────────
+# NvChad's init.lua clones lazy.nvim itself if missing, so `lazy.sync` here is
+# enough to pull NvChad + base46 + the rest.
 log "Syncing plugins (this may take a minute)..."
-
 if timeout 300 nvim --headless \
     -c "lua require('lazy').sync({wait=true})" \
     -c "qa!"; then
   log_ok "Neovim plugins installed."
 else
   log_warn "Plugin sync exited non-zero — open nvim to check, or run: nvim --headless -c \"lua require('lazy').sync({wait=true})\" -c 'qa!'"
+fi
+
+# ── Compile base46 theme cache ────────────────────────────────────────────────
+# init.lua does `dofile(base46_cache .. "defaults")` on every launch; that file
+# only exists once base46 has compiled. Build it now so the first interactive
+# launch doesn't error before NvChad gets a chance to compile it lazily.
+log "Compiling base46 theme cache..."
+if timeout 60 nvim --headless \
+    -c "lua pcall(function() require('base46').load_all() end)" \
+    -c "qa!"; then
+  log_ok "base46 cache compiled."
+else
+  log_warn "base46 compile exited non-zero — first nvim launch will compile it instead."
 fi

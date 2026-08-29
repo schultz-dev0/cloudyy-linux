@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Everforest",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [58, 70, 76],
+      "background_tab_inactive": [58, 70, 76],
+      "background_tab_incognito": [58, 70, 76],
+      "background_tab_incognito_inactive": [58, 70, 76],
+      "bookmark_text": [211, 198, 170],
+      "button_background": [58, 70, 76],
+      "frame": [51, 60, 67],
+      "frame_inactive": [51, 60, 67],
+      "frame_incognito": [51, 60, 67],
+      "frame_incognito_inactive": [51, 60, 67],
+      "ntp_background": [51, 60, 67],
+      "ntp_header": [58, 70, 76],
+      "ntp_link": [167, 192, 128],
+      "ntp_text": [211, 198, 170],
+      "omnibox_background": [51, 60, 67],
+      "omnibox_text": [211, 198, 170],
+      "tab_background_text": [133, 146, 137],
+      "tab_background_text_inactive": [133, 146, 137],
+      "tab_background_text_incognito": [133, 146, 137],
+      "tab_background_text_incognito_inactive": [133, 146, 137],
+      "tab_text": [211, 198, 170],
+      "toolbar": [58, 70, 76],
+      "toolbar_button_icon": [133, 146, 137],
+      "toolbar_text": [211, 198, 170]
+    }
+  }
+}

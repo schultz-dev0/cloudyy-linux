@@ -17,14 +17,18 @@ Singleton {
     property bool visible: false
     property bool keyboardGrab: false
     property int selectedIndex: -1
-    // Keyboard/visual focus within the active theme's wallpaper strip — the
-    // only strip shown (see ThemeRow). Meaningless while selectedIndex isn't
-    // on the active theme's row; reset on open() so it never carries over a
-    // stale value from a previous session.
+    // Keyboard/visual focus within the centered theme's wallpaper carousel —
+    // only shown when that theme is the active one (see ThemePicker's
+    // showWallpaperDeck). Reset on open() so it never carries over stale.
     property int selectedWallpaperIndex: 0
     property string currentSlug: ""
     property var themes: []
     property bool loading: false
+    // Set before triggering listProc; onStreamFinished reads it to decide
+    // whether this load should snap selection back to the active theme
+    // (opening) or leave the user's current navigation alone (background
+    // refresh while browsing).
+    property bool _resetSelectionOnLoad: true
 
     signal requestFocus()
 
@@ -47,7 +51,11 @@ Singleton {
     function open() {
         closeOtherPanels();
         showPanel();
-        selectedIndex = -1;
+        // selectedIndex is deliberately left as-is (not reset to -1): it
+        // already points at the right theme from last time, and resetting
+        // it here meant every card rendered as an off-center "side" card
+        // for the one tick before loadThemes' async reply arrived and
+        // snapped it back — visible as the deck jumping/sliding on open.
         selectedWallpaperIndex = 0;
         loadThemes();
         requestFocus();
@@ -72,7 +80,6 @@ Singleton {
 
     function finishClose() {
         visible = false;
-        selectedIndex = -1;
     }
 
     function close() {
@@ -100,14 +107,44 @@ Singleton {
 
     function loadThemes() {
         loading = themes.length === 0;
+        _resetSelectionOnLoad = true;
         listProc.running = false;
         listProc.running = true;
     }
 
-    function applyTheme(slug) {
+    // Picks up wallpapers/theme.json edits made while the picker is open —
+    // there's no directory watcher for themes/, so this polls instead.
+    // ponytail: polling, not inotify; themes/ is small and list --json is
+    // cheap, so a plain Timer is the simplest thing that actually works.
+    function refreshThemes() {
+        if (!visible)
+            return;
+        _resetSelectionOnLoad = false;
+        listProc.running = false;
+        listProc.running = true;
+    }
+
+    Timer {
+        interval: 2000
+        repeat: true
+        running: svc.visible
+        onTriggered: svc.refreshThemes()
+    }
+
+    // wallpaperPath is optional — "use" alone already lands on a theme's
+    // wallpaper 1, so it's only passed when the user browsed to a different
+    // one before switching (see activateSelection), chaining a second
+    // command so it applies after the theme's own colors are live.
+    function applyTheme(slug, wallpaperPath) {
         if (!slug)
             return;
-        launch(["bash", themeCtl, "use", slug]);
+        if (wallpaperPath) {
+            launch(["bash", "-c",
+                'bash "$1" use "$2" && bash "$1" set-image "$3"',
+                "--", themeCtl, slug, wallpaperPath]);
+        } else {
+            launch(["bash", themeCtl, "use", slug]);
+        }
         currentSlug = slug;
         close();
     }
@@ -140,31 +177,43 @@ Singleton {
     }
 
     // Enter/click on the active theme's row picks whichever wallpaper is
-    // focused in its strip; on any other row it switches to that theme.
+    // focused in its strip; on any other row it switches to that theme,
+    // carrying over the focused wallpaper too if the user browsed away
+    // from that theme's default (index 0) before hitting enter.
     function activateSelection() {
         if (selectedIndex < 0 || selectedIndex >= themes.length)
             return;
         const entry = themes[selectedIndex];
+        const wallpapers = entry.wallpapers || [];
         if (entry.slug === currentSlug) {
-            const wallpapers = entry.wallpapers || [];
             applyWallpaper(wallpapers[selectedWallpaperIndex]);
         } else {
-            applyTheme(entry.slug);
+            const wallpaperPath = selectedWallpaperIndex > 0 ? wallpapers[selectedWallpaperIndex] : undefined;
+            applyTheme(entry.slug, wallpaperPath);
         }
     }
 
-    // Left/Right move the wallpaper-strip focus; only the active theme's row
-    // shows one, so this only does anything while that row is selected.
+    // Left/Right on the main carousel — wraps, unlike the old list's clamp,
+    // since cycling past either end of a deck should feel continuous.
+    function moveThemeFocus(delta) {
+        if (themes.length === 0)
+            return;
+        selectedIndex = (selectedIndex + delta + themes.length) % themes.length;
+        selectedWallpaperIndex = 0;
+    }
+
+    // Up/Down move the centered theme's wallpaper-strip focus — browsing
+    // works for any centered theme, not just the active one (see
+    // ThemePicker.showWallpaperDeck); activateSelection is what actually
+    // gates applying a wallpaper to the active theme only.
     function moveWallpaperFocus(delta) {
         if (selectedIndex < 0 || selectedIndex >= themes.length)
             return;
         const entry = themes[selectedIndex];
-        if (entry.slug !== currentSlug)
-            return;
         const count = (entry.wallpapers || []).length;
         if (count === 0)
             return;
-        selectedWallpaperIndex = Math.max(0, Math.min(count - 1, selectedWallpaperIndex + delta));
+        selectedWallpaperIndex = (selectedWallpaperIndex + delta + count) % count;
     }
 
     Process {
@@ -181,9 +230,27 @@ Singleton {
                 try {
                     const payload = JSON.parse(text);
                     svc.currentSlug = payload.current || "";
-                    svc.themes = Array.isArray(payload.themes) ? payload.themes : [];
-                    if (svc.themes.length > 0)
+                    const nextThemes = Array.isArray(payload.themes) ? payload.themes : [];
+                    // Every poll parses a fresh array even when nothing on
+                    // disk changed. Assigning it unconditionally replaced
+                    // svc.themes' reference every 2s, which the carousel's
+                    // items binding treats as "the model changed" — tearing
+                    // down and rebuilding (redecoding) every card in both
+                    // decks on a timer, whether or not anything moved.
+                    if (JSON.stringify(nextThemes) !== JSON.stringify(svc.themes))
+                        svc.themes = nextThemes;
+                    if (svc.themes.length === 0) {
+                        svc.selectedIndex = -1;
+                    } else if (svc._resetSelectionOnLoad) {
                         svc.selectedIndex = Math.max(0, svc.themes.findIndex(t => t.slug === svc.currentSlug));
+                    } else {
+                        // Background refresh: keep browsing where the user left
+                        // off, just clamp in case the list shrank.
+                        svc.selectedIndex = Math.max(0, Math.min(svc.themes.length - 1, svc.selectedIndex));
+                    }
+                    const wallpaperCount = (svc.themes[svc.selectedIndex]?.wallpapers || []).length;
+                    svc.selectedWallpaperIndex = wallpaperCount === 0
+                        ? 0 : Math.min(svc.selectedWallpaperIndex, wallpaperCount - 1);
                 } catch (e) {
                     console.warn("themepicker: bad catalog json", e);
                 }
