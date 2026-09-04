@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -104,6 +105,15 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         path.chmod(0o755)
         return path
 
+    def _install_zen_bridge_fixture(self) -> Path:
+        install_root = Path(self.temporary_directory.name) / "zen-install"
+        pref = install_root / "defaults/pref/cloudyy-autoconfig.js"
+        pref.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / "install/assets/zen/cloudyy-autoconfig.js", pref)
+        shutil.copy2(REPO_ROOT / "install/assets/zen/cloudyy.cfg", install_root / "cloudyy.cfg")
+        self.environment["CLOUDYY_ZEN_INSTALL_ROOT"] = str(install_root)
+        return install_root
+
     def run_theme(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(THEME_COMMAND), *arguments], cwd=REPO_ROOT, env=self.environment,
@@ -115,6 +125,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
             "source lib/cloudyy-theme/common.sh; "
             "source lib/cloudyy-theme/package.sh; "
             "source lib/cloudyy-theme/adapters.sh; "
+            "source lib/cloudyy-theme/reload.sh; "
             f"{function} \"$@\""
         )
         return subprocess.run(
@@ -135,20 +146,23 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         ):
             (self.config / relative).mkdir(parents=True, exist_ok=True)
 
-    def _create_profiles_and_vault(self) -> tuple[Path, Path, Path]:
+    def _create_profiles_and_vault(
+        self, zen_name: str = "profile.default"
+    ) -> tuple[Path, Path, Path]:
         firefox_profile = self.home / ".mozilla/firefox/profile.default"
-        firefox_profile.mkdir(parents=True)
+        firefox_profile.mkdir(parents=True, exist_ok=True)
         firefox_ini = self.home / ".mozilla/firefox/profiles.ini"
         firefox_ini.write_text(
             "[Profile0]\nName=default\nIsRelative=1\nPath=profile.default\n", encoding="utf-8"
         )
-        zen_profile = self.config / "zen/profile.default"
-        zen_profile.mkdir(parents=True)
+        zen_profile = self.config / "zen" / zen_name
+        zen_profile.mkdir(parents=True, exist_ok=True)
+        (zen_profile / "zen-themes.json").write_text("{}\n", encoding="utf-8")
         (self.config / "zen/profiles.ini").write_text(
-            "[Profile0]\nIsRelative=1\nPath=profile.default\n", encoding="utf-8"
+            f"[Profile0]\nIsRelative=1\nPath={zen_name}\n", encoding="utf-8"
         )
         vault = self.home / "Notes/.obsidian"
-        vault.mkdir(parents=True)
+        vault.mkdir(parents=True, exist_ok=True)
         return firefox_profile, zen_profile, vault
 
     def expected_links(self, theme: Path, zen_profile: Path, vault: Path) -> dict[Path, Path]:
@@ -161,7 +175,6 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
             self.config / "wlogout/cloudyy-theme.css": applications / "wlogout.css",
             self.config / "btop/themes/cloudyy.theme": applications / "btop.theme",
             self.config / "hypr/cloudyy-theme.conf": applications / "hyprland.conf",
-            zen_profile / "chrome/cloudyy-theme.css": applications / "zen.css",
             vault / "snippets/cloudyy-theme.css": applications / "obsidian.css",
         }
 
@@ -196,6 +209,17 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
                 self.assertIn(str(stable_root), os.readlink(path))
                 self.assertEqual(os.readlink(path), before[path])
                 self.assertNotIn("theme-stages", os.readlink(path))
+        self.assert_zen_mod_css(theme, zen_profile)
+        self.assert_zen_mod_css(theme, zen_profile)
+
+    def assert_zen_mod_css(self, theme: Path, zen_profile: Path) -> None:
+        mod_css = zen_profile / "chrome/zen-themes/cloudyy-theme/chrome.css"
+        stage_name = (self.state / "cloudyy/current").resolve().name
+        self.assertTrue(mod_css.is_file())
+        self.assertFalse(mod_css.is_symlink())
+        lines = mod_css.read_text().splitlines(keepends=True)
+        self.assertEqual(lines[0], f"/* cloudyy-generation: {stage_name} */\n")
+        self.assertEqual("".join(lines[1:]), (theme / "applications/zen.css").read_text())
 
     def test_gtk_adapters_install_one_owned_import_and_preserve_existing_css(self):
         self.prepare()
@@ -574,10 +598,17 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         theme = self.prepare()
         self._create_consumer_roots()
         _, zen_profile, vault = self._create_profiles_and_vault()
+        self._install_zen_bridge_fixture()
+        self._write_fake(
+            "pgrep", '[[ "$1" == "-x" && ( "$2" == "zen-bin" || "$2" == "awww-daemon" ) ]]'
+        )
         expected = self.expected_links(theme, zen_profile, vault)
         for path in expected:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("hand-authored\n", encoding="utf-8")
+        zen_mod_css = zen_profile / "chrome/zen-themes/cloudyy-theme/chrome.css"
+        zen_mod_css.parent.mkdir(parents=True, exist_ok=True)
+        zen_mod_css.write_text("hand-authored\n", encoding="utf-8")
 
         result = self.run_theme("reconcile")
 
@@ -586,7 +617,225 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
             self.assertEqual(path.read_text(encoding="utf-8"), "hand-authored\n")
         activation = json.loads((self.state / "cloudyy/current/activation.json").read_text())
         self.assertEqual(activation["reconcile"]["status"], "failure")
-        self.assertIn("mode-zen", activation["reconcile"]["actions"])
+        actions = activation["reconcile"]["actions"]
+        self.assertEqual(actions["link-zen"], {"status": "failure"})
+        self.assertEqual(actions["reload-zen"], {"status": "skip"})
+        self.assertFalse((zen_profile / "chrome/cloudyy-theme-signal.json").exists())
+
+    def test_zen_mode_failure_skips_reload_without_signalling_any_profile(self):
+        theme = self.prepare()
+        _, first_profile, _ = self._create_profiles_and_vault("first")
+        second_profile = self.config / "zen/second"
+        second_profile.mkdir()
+        (second_profile / "zen-themes.json").write_text("{}\n")
+        (self.config / "zen/profiles.ini").write_text(
+            "[Profile0]\nIsRelative=1\nPath=first\n"
+            "[Profile1]\nIsRelative=1\nPath=second\n"
+        )
+        (first_profile / "user.js").mkdir()
+        self._install_zen_bridge_fixture()
+        self._write_fake(
+            "pgrep", '[[ "$1" == "-x" && ( "$2" == "zen-bin" || "$2" == "awww-daemon" ) ]]'
+        )
+
+        result = self.run_theme("reconcile")
+
+        self.assertEqual(result.returncode, 20)
+        actions = json.loads(
+            (self.state / "cloudyy/current/activation.json").read_text()
+        )["reconcile"]["actions"]
+        self.assertEqual(actions["link-zen"], {"status": "success"})
+        self.assertEqual(actions["mode-zen"], {"status": "failure"})
+        self.assertEqual(actions["reload-zen"], {"status": "skip"})
+        for profile in (first_profile, second_profile):
+            self.assertFalse((profile / "chrome/cloudyy-theme-signal.json").exists())
+
+    def test_running_zen_bin_receives_private_durable_signal_for_active_stage(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        install_root = self._install_zen_bridge_fixture()
+        bridge_before = {
+            path: (path.read_bytes(), path.stat().st_mtime_ns)
+            for path in (
+                install_root / "defaults/pref/cloudyy-autoconfig.js",
+                install_root / "cloudyy.cfg",
+            )
+        }
+        self._write_fake(
+            "pgrep", '[[ "$1" == "-x" && ( "$2" == "zen-bin" || "$2" == "awww-daemon" ) ]]'
+        )
+
+        result = self.run_theme("reconcile")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        active_stage = (self.state / "cloudyy/current").resolve()
+        signal_path = profile / "chrome/cloudyy-theme-signal.json"
+        self.assertEqual(json.loads(signal_path.read_text()), {
+            "schema": 1,
+            "generation": active_stage.name,
+            "mode": "dark",
+        })
+        self.assertEqual(stat.S_IMODE(signal_path.stat().st_mode), 0o600)
+        actions = json.loads((active_stage / "activation.json").read_text())["reconcile"]["actions"]
+        self.assertEqual(actions["reload-zen"], {"status": "success"})
+        for path, before in bridge_before.items():
+            self.assertEqual((path.read_bytes(), path.stat().st_mtime_ns), before)
+
+    def test_zen_process_name_and_light_generation_replace_the_owned_signal(self):
+        self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        self._install_zen_bridge_fixture()
+        self._write_fake(
+            "pgrep", '[[ "$1" == "-x" && ( "$2" == "zen" || "$2" == "awww-daemon" ) ]]'
+        )
+        first = self.run_theme("reconcile")
+        first_signal = json.loads(
+            (profile / "chrome/cloudyy-theme-signal.json").read_text()
+        )
+
+        prepared = self.run_theme("prepare", "gruvbox-light")
+        second = self.run_theme("reconcile")
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(prepared.returncode, 0, prepared.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        signal = json.loads((profile / "chrome/cloudyy-theme-signal.json").read_text())
+        self.assertEqual(signal, {
+            "schema": 1,
+            "generation": (self.state / "cloudyy/current").resolve().name,
+            "mode": "light",
+        })
+        self.assertNotEqual(signal["generation"], first_signal["generation"])
+
+    def test_zen_reload_writes_signal_even_when_browser_is_not_running(self):
+        self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        self._install_zen_bridge_fixture()
+
+        result = self.run_theme("reconcile")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = json.loads(
+            (self.state / "cloudyy/current/activation.json").read_text()
+        )["reconcile"]["actions"]
+        self.assertEqual(actions["reload-zen"], {"status": "success"})
+        signal = json.loads((profile / "chrome/cloudyy-theme-signal.json").read_text())
+        self.assertEqual(signal, {
+            "schema": 1,
+            "generation": (self.state / "cloudyy/current").resolve().name,
+            "mode": "dark",
+        })
+        self.assertNotIn("live bridge is unavailable", result.stderr)
+
+    def test_zen_reload_warns_about_unavailable_bridge_but_still_signals(self):
+        for case in ("missing", "altered"):
+            with self.subTest(case=case):
+                self.prepare()
+                _, profile, _ = self._create_profiles_and_vault(case)
+                install_root = self._install_zen_bridge_fixture()
+                target = install_root / "cloudyy.cfg"
+                if case == "missing":
+                    target.unlink()
+                else:
+                    target.write_text("altered\n")
+                self._write_fake(
+                    "pgrep",
+                    '[[ "$1" == "-x" && ( "$2" == "zen-bin" || "$2" == "awww-daemon" ) ]]',
+                )
+
+                result = self.run_theme("reconcile")
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(
+                    "bridge unavailable; colors apply after bridge install", result.stderr
+                )
+                actions = json.loads(
+                    (self.state / "cloudyy/current/activation.json").read_text()
+                )["reconcile"]["actions"]
+                self.assertEqual(actions["reload-zen"], {"status": "success"})
+                signal = json.loads(
+                    (profile / "chrome/cloudyy-theme-signal.json").read_text()
+                )
+                self.assertEqual(signal["mode"], "dark")
+
+    def test_zen_signal_writer_rejects_every_unowned_occupied_destination(self):
+        profile = self.config / "zen/profile"
+        chrome = profile / "chrome"
+        chrome.mkdir(parents=True)
+        signal = chrome / "cloudyy-theme-signal.json"
+        external = self.home / "external-signal"
+        external.write_text("safe\n")
+        cases = ("invalid-file", "symlink", "directory")
+        for case in cases:
+            with self.subTest(case=case):
+                if signal.is_symlink() or signal.is_file():
+                    signal.unlink()
+                elif signal.is_dir():
+                    signal.rmdir()
+                if case == "invalid-file":
+                    signal.write_text('{"schema":1,"generation":"bad","mode":"dark"}\n')
+                elif case == "symlink":
+                    signal.symlink_to(external)
+                else:
+                    signal.mkdir()
+                before = external.read_bytes()
+
+                result = self.run_adapter(
+                    "_write_zen_theme_signal", str(profile), "stage.Ab12Cd34", "dark"
+                )
+
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(external.read_bytes(), before)
+                self.assertFalse(list(chrome.glob(".cloudyy-theme-signal.*")))
+
+    def test_zen_signal_writer_rejects_non_ascii_alphanumeric_generation(self):
+        profile = self.config / "zen/profile"
+        chrome = profile / "chrome"
+        chrome.mkdir(parents=True)
+        self.environment["LC_ALL"] = "en_GB.UTF-8"
+
+        result = self.run_adapter(
+            "_write_zen_theme_signal", str(profile), "stage.éééééééé", "dark"
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertFalse((chrome / "cloudyy-theme-signal.json").exists())
+        self.assertFalse(list(chrome.glob(".cloudyy-theme-signal.*")))
+
+    def test_zen_signal_writer_propagates_file_and_directory_fsync_errors(self):
+        profile = self.config / "zen/profile"
+        chrome = profile / "chrome"
+        chrome.mkdir(parents=True)
+        signal = chrome / "cloudyy-theme-signal.json"
+        old = '{"schema":1,"generation":"stage.Ab12Cd34","mode":"dark"}\n'
+        signal.write_text(old)
+        real_python = (self.fake_bin / "python3").resolve()
+        (self.fake_bin / "python3").unlink()
+        cases = ("file", "directory")
+        for case in cases:
+            with self.subTest(case=case):
+                signal.write_text(old)
+                if case == "file":
+                    body = "exit 1"
+                else:
+                    body = (
+                        '[[ "${@: -1}" == */chrome ]] && exit 1\n'
+                        f'exec "{real_python}" "$@"'
+                    )
+                self._write_fake("python3", body)
+
+                result = self.run_adapter(
+                    "_write_zen_theme_signal", str(profile), "stage.Zy98Xw76", "light"
+                )
+
+                self.assertEqual(result.returncode, 1)
+                if case == "file":
+                    self.assertEqual(signal.read_text(), old)
+                else:
+                    self.assertEqual(json.loads(signal.read_text()), {
+                        "schema": 1, "generation": "stage.Zy98Xw76", "mode": "light",
+                    })
+                self.assertFalse(list(chrome.glob(".cloudyy-theme-signal.*")))
 
     def test_starship_migrates_deployed_zdotdir_assignment_to_direct_stable_boundary(self):
         self.prepare()
@@ -680,27 +929,303 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
                 self.assertEqual(zshrc.read_text(), original)
                 self.assertFalse(Path(f"{zshrc}.cloudyy-legacy-backup").exists())
 
-    def test_zen_replaces_exact_legacy_import_and_link_without_leaving_override(self):
+    def test_zen_migrates_exact_imports_and_owned_links_to_local_mod(self):
+        theme = self.prepare()
+        for name, import_name, link_target, backup_suffix in (
+            ("current", "cloudyy-theme.css", theme / "applications/zen.css", "theme"),
+            (
+                "legacy", "cloudyy-zen-colors.css",
+                self.config / "matugen/generated/zen-userchrome.css", "legacy",
+            ),
+        ):
+            with self.subTest(name=name):
+                profile = self.config / f"zen/profile-{name}"
+                chrome = profile / "chrome"
+                chrome.mkdir(parents=True)
+                (profile / "zen-themes.json").write_text("{}\n")
+                (self.config / "zen/profiles.ini").write_text(
+                    f"[Profile0]\nIsRelative=1\nPath=profile-{name}\n"
+                )
+                old_link = chrome / import_name
+                old_link.symlink_to(link_target)
+                user_chrome = chrome / "userChrome.css"
+                original = f'@import "{import_name}";\n/* personal */\n'
+                user_chrome.write_text(original)
+
+                result = self.run_theme("reconcile")
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                manifest = json.loads((profile / "zen-themes.json").read_text())
+                self.assertEqual(manifest["cloudyy-theme"]["cloudyyOwner"], "zen-live-theme-v1")
+                self.assertTrue(manifest["cloudyy-theme"]["enabled"])
+                self.assertEqual(user_chrome.read_text(), "/* personal */\n")
+                self.assertFalse((chrome / "cloudyy-theme.css").exists())
+                self.assertFalse((chrome / "cloudyy-zen-colors.css").exists())
+                mod_css = chrome / "zen-themes/cloudyy-theme/chrome.css"
+                self.assertTrue(mod_css.is_file())
+                self.assertFalse(mod_css.is_symlink())
+                self.assertIn("cloudyy-generation: stage.", mod_css.read_text())
+                self.assertIn(
+                    (theme / "applications/zen.css").read_text().splitlines()[2],
+                    mod_css.read_text(),
+                )
+                self.assertEqual(
+                    Path(f"{user_chrome}.cloudyy-{backup_suffix}-backup").read_text(),
+                    original,
+                )
+                if name == "legacy":
+                    self.assertTrue(Path(f"{old_link}.cloudyy-legacy-backup").is_symlink())
+
+    def test_zen_preserves_unrelated_mod_members_and_is_idempotent(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        unrelated = {"enabled": False, "nested": {"items": [1, "two", None]}}
+        (profile / "zen-themes.json").write_text(json.dumps({"personal-mod": unrelated}) + "\n")
+
+        first = self.run_adapter("adapter_zen", str(theme))
+        first_manifest = (profile / "zen-themes.json").read_bytes()
+        mod_css = profile / "chrome/zen-themes/cloudyy-theme/chrome.css"
+        first_css = mod_css.read_bytes()
+        second = self.run_adapter("adapter_zen", str(theme))
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(json.loads(first_manifest)["personal-mod"], unrelated)
+        self.assertEqual((profile / "zen-themes.json").read_bytes(), first_manifest)
+        self.assertEqual(mod_css.read_bytes(), first_css)
+        stage_name = (self.state / "cloudyy/current").resolve().name
+        self.assertTrue(
+            first_css.startswith(f"/* cloudyy-generation: {stage_name} */\n".encode())
+        )
+        self.assertEqual(
+            first_css.split(b"\n", 1)[1],
+            (theme / "applications/zen.css").read_bytes(),
+        )
+
+    def test_zen_rejects_unowned_or_invalid_manifest_without_profile_writes(self):
+        theme = self.prepare()
+        cases = (
+            '{"cloudyy-theme":{"cloudyyOwner":"someone-else"}}\n',
+            '{"cloudyy-theme":null}\n',
+            '{ invalid\n',
+            '[]\n',
+        )
+        for index, original in enumerate(cases):
+            with self.subTest(original=original):
+                _, profile, _ = self._create_profiles_and_vault(f"invalid-{index}")
+                manifest = profile / "zen-themes.json"
+                manifest.write_text(original)
+
+                result = self.run_theme("reconcile")
+
+                self.assertEqual(result.returncode, 20)
+                self.assertEqual(manifest.read_text(), original)
+                self.assertFalse((profile / "chrome").exists())
+
+    def test_zen_rejects_occupied_mod_paths_without_changing_manifest(self):
+        theme = self.prepare()
+        for index, kind in enumerate(("mod-directory", "regular-css", "unknown-link")):
+            with self.subTest(kind=kind):
+                _, profile, _ = self._create_profiles_and_vault(f"occupied-{index}")
+                manifest = profile / "zen-themes.json"
+                original = manifest.read_bytes()
+                zen_themes = profile / "chrome/zen-themes"
+                zen_themes.mkdir(parents=True)
+                mod = zen_themes / "cloudyy-theme"
+                if kind == "mod-directory":
+                    mod.write_text("occupied\n")
+                else:
+                    mod.mkdir()
+                    css = mod / "chrome.css"
+                    if kind == "regular-css":
+                        css.write_text("personal\n")
+                    else:
+                        css.symlink_to(self.home / "personal.css")
+
+                result = self.run_adapter("adapter_zen", str(theme))
+
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(manifest.read_bytes(), original)
+                self.assertFalse("cloudyy-theme" in json.loads(manifest.read_text()))
+
+    def test_zen_rejects_ambiguous_import_before_manifest_or_link_changes(self):
         theme = self.prepare()
         _, profile, _ = self._create_profiles_and_vault()
         chrome = profile / "chrome"
         chrome.mkdir()
-        legacy_link = chrome / "cloudyy-zen-colors.css"
-        legacy_link.symlink_to(self.config / "matugen/generated/zen-userchrome.css")
         user_chrome = chrome / "userChrome.css"
-        original = '@import "cloudyy-zen-colors.css";\n/* personal */\n'
-        user_chrome.write_text(original, encoding="utf-8")
+        original = '@import "cloudyy-theme.css";\n@import "cloudyy-zen-colors.css";\npersonal\n'
+        user_chrome.write_text(original)
+        manifest = profile / "zen-themes.json"
+        manifest_before = manifest.read_bytes()
 
-        result = self.run_theme("reconcile")
+        result = self.run_adapter("adapter_zen", str(theme))
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(user_chrome.read_text(), original)
+        self.assertEqual(manifest.read_bytes(), manifest_before)
+        self.assertFalse((chrome / "zen-themes").exists())
+
+    def test_zen_import_migration_preserves_personal_css_bytes_without_final_newline(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        chrome = profile / "chrome"
+        chrome.mkdir()
+        user_chrome = chrome / "userChrome.css"
+        user_chrome.write_bytes(
+            b'/* before */\n@import "cloudyy-theme.css";\n/* no final newline */'
+        )
+        (chrome / "cloudyy-theme.css").symlink_to(
+            self.state / "cloudyy/current/theme/applications/zen.css"
+        )
+
+        result = self.run_adapter("adapter_zen", str(theme))
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(
-            (chrome / "cloudyy-theme.css").resolve(), (theme / "applications/zen.css").resolve()
+            user_chrome.read_bytes(), b"/* before */\n/* no final newline */"
         )
-        self.assertFalse(legacy_link.exists())
-        self.assertTrue(Path(f"{legacy_link}.cloudyy-legacy-backup").is_symlink())
-        self.assertEqual(user_chrome.read_text(), '@import "cloudyy-theme.css";\n/* personal */\n')
-        self.assertEqual(Path(f"{user_chrome}.cloudyy-legacy-backup").read_text(), original)
+
+    def test_zen_manifest_concurrent_change_aborts_and_rolls_back_profile(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        manifest = profile / "zen-themes.json"
+        concurrent = '{"concurrent":{"enabled":true}}\n'
+        program = (
+            "source lib/cloudyy-theme/common.sh; source lib/cloudyy-theme/package.sh; "
+            "source lib/cloudyy-theme/adapters.sh; "
+            f"_zen_before_manifest_replace() {{ printf '%s' '{concurrent}' >\"$1\"; }}; "
+            "adapter_zen \"$1\""
+        )
+
+        result = subprocess.run(
+            ["bash", "-c", program, "_", str(theme)], cwd=REPO_ROOT,
+            env=self.environment, text=True, capture_output=True, check=False,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(manifest.read_text(), concurrent)
+        self.assertFalse((profile / "chrome").exists())
+
+    def test_zen_write_failures_restore_complete_profile_tree(self):
+        theme = self.prepare()
+        for index, helper in enumerate((
+            "_zen_replace_manifest", "_zen_replace_import", "_zen_retire_profile_links",
+        )):
+            with self.subTest(helper=helper):
+                _, profile, _ = self._create_profiles_and_vault(f"rollback-{index}")
+                chrome = profile / "chrome"
+                chrome.mkdir()
+                legacy = chrome / "cloudyy-zen-colors.css"
+                legacy.symlink_to(self.config / "matugen/generated/zen-userchrome.css")
+                (chrome / "userChrome.css").write_text(
+                    '@import "cloudyy-zen-colors.css";\n/* personal */\n'
+                )
+                before = self._tree_snapshot(profile)
+                program = (
+                    "source lib/cloudyy-theme/common.sh; source lib/cloudyy-theme/package.sh; "
+                    "source lib/cloudyy-theme/adapters.sh; "
+                    f"{helper}() {{ return 1; }}; adapter_zen \"$1\""
+                )
+
+                result = subprocess.run(
+                    ["bash", "-c", program, "_", str(theme)], cwd=REPO_ROOT,
+                    env=self.environment, text=True, capture_output=True, check=False,
+                )
+
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(self._tree_snapshot(profile), before)
+                self.assertFalse(list(profile.rglob("*.cloudyy.*tmp*")))
+
+    def test_remove_zen_integration_removes_only_owned_profile_state(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        manifest = profile / "zen-themes.json"
+        manifest.write_text(json.dumps({
+            "personal": {"enabled": False},
+            "cloudyy-theme": {"cloudyyOwner": "zen-live-theme-v1", "enabled": True},
+        }) + "\n")
+        chrome = profile / "chrome"
+        mod = chrome / "zen-themes/cloudyy-theme"
+        mod.mkdir(parents=True)
+        (mod / "chrome.css").symlink_to(self.state / "cloudyy/current/theme/applications/zen.css")
+        (mod / "keep.txt").write_text("personal\n")
+        user_chrome = chrome / "userChrome.css"
+        user_chrome.write_text("/* personal */\n")
+        backup = chrome / "userChrome.css.cloudyy-theme-backup"
+        backup.write_text("safety\n")
+        signal = chrome / "cloudyy-theme-signal.json"
+        signal.write_text('{"schema":1,"generation":"stage.Ab12Cd34","mode":"dark"}\n')
+
+        result = self.run_adapter("remove_zen_integration")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(manifest.read_text()), {"personal": {"enabled": False}})
+        self.assertFalse((mod / "chrome.css").exists())
+        self.assertTrue(mod.is_dir())
+        self.assertEqual((mod / "keep.txt").read_text(), "personal\n")
+        self.assertEqual(user_chrome.read_text(), "/* personal */\n")
+        self.assertEqual(backup.read_text(), "safety\n")
+        self.assertFalse(signal.exists())
+
+    def test_remove_zen_integration_removes_generated_marker_css(self):
+        theme = self.prepare()
+        _, profile, _ = self._create_profiles_and_vault()
+        self.assertEqual(self.run_adapter("adapter_zen", str(theme)).returncode, 0)
+        mod_css = profile / "chrome/zen-themes/cloudyy-theme/chrome.css"
+        self.assertIn("cloudyy-generation:", mod_css.read_text())
+
+        result = self.run_adapter("remove_zen_integration")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(mod_css.exists())
+        self.assertNotIn(
+            "cloudyy-theme", json.loads((profile / "zen-themes.json").read_text())
+        )
+
+    def test_remove_zen_integration_conflicts_preserve_every_owned_path(self):
+        theme = self.prepare()
+        for index, conflict in enumerate(("manifest", "null-manifest", "link", "signal")):
+            with self.subTest(conflict=conflict):
+                _, profile, _ = self._create_profiles_and_vault(f"remove-{index}")
+                manifest = profile / "zen-themes.json"
+                manifest.write_text(
+                    '{"cloudyy-theme":{"cloudyyOwner":"zen-live-theme-v1","enabled":true}}\n'
+                )
+                link = profile / "chrome/zen-themes/cloudyy-theme/chrome.css"
+                link.parent.mkdir(parents=True)
+                link.symlink_to(self.state / "cloudyy/current/theme/applications/zen.css")
+                signal = profile / "chrome/cloudyy-theme-signal.json"
+                signal.write_text('{"schema":1,"generation":"stage.Ab12Cd34","mode":"dark"}\n')
+                if conflict == "manifest":
+                    data = json.loads(manifest.read_text())
+                    data["cloudyy-theme"]["cloudyyOwner"] = "other"
+                    manifest.write_text(json.dumps(data) + "\n")
+                elif conflict == "null-manifest":
+                    manifest.write_text('{"cloudyy-theme":null}\n')
+                elif conflict == "link":
+                    link.unlink()
+                    link.symlink_to(self.home / "personal.css")
+                else:
+                    signal.write_text('{"schema":1,"generation":"bad","mode":"dark"}\n')
+                before = self._tree_snapshot(profile)
+
+                result = self.run_adapter("remove_zen_integration")
+
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(self._tree_snapshot(profile), before)
+
+    def _tree_snapshot(self, root: Path) -> dict[str, tuple[str, bytes | str]]:
+        snapshot = {".": ("directory", "")}
+        for path in sorted(root.rglob("*")):
+            relative = str(path.relative_to(root))
+            if path.is_symlink():
+                snapshot[relative] = ("symlink", os.readlink(path))
+            elif path.is_dir():
+                snapshot[relative] = ("directory", "")
+            else:
+                snapshot[relative] = ("file", path.read_bytes())
+        return snapshot
 
     def test_zen_preserves_unowned_legacy_link_as_conflict(self):
         self.prepare()
@@ -718,7 +1243,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(result.returncode, 20)
         self.assertEqual(os.readlink(legacy_link), str(self.home / "personal-zen.css"))
         self.assertEqual(user_chrome.read_text(), original)
-        self.assertFalse((chrome / "cloudyy-theme.css").exists())
+        self.assertFalse((chrome / "zen-themes/cloudyy-theme/chrome.css").exists())
 
     def test_zen_ambiguous_import_does_not_partially_move_legacy_link(self):
         self.prepare()
@@ -759,7 +1284,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(os.readlink(legacy_link), str(legacy_target))
         self.assertEqual(user_chrome.read_text(), original)
         self.assertEqual(import_backup.read_text(), "occupied\n")
-        self.assertFalse((chrome / "cloudyy-theme.css").exists())
+        self.assertFalse((chrome / "zen-themes/cloudyy-theme/chrome.css").exists())
         self.assertFalse(Path(f"{legacy_link}.cloudyy-legacy-backup").exists())
 
     def test_zen_occupied_link_backup_preserves_legacy_link_and_import_transaction(self):
@@ -782,7 +1307,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(os.readlink(legacy_link), str(legacy_target))
         self.assertEqual(os.readlink(link_backup), str(self.home / "occupied.css"))
         self.assertEqual(user_chrome.read_text(), original)
-        self.assertFalse((chrome / "cloudyy-theme.css").exists())
+        self.assertFalse((chrome / "zen-themes/cloudyy-theme/chrome.css").exists())
         self.assertFalse(Path(f"{user_chrome}.cloudyy-legacy-backup").exists())
 
     def test_zen_import_write_failure_rolls_back_link_and_new_backups(self):
@@ -799,9 +1324,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         program = (
             "source lib/cloudyy-theme/common.sh; source lib/cloudyy-theme/package.sh; "
             "source lib/cloudyy-theme/adapters.sh; "
-            "_atomic_replace_from() { "
-            "[[ \"$1\" == */chrome/userChrome.css ]] && return 1; return 99; "
-            "}; adapter_zen \"$1\""
+            "_zen_replace_import() { return 1; }; adapter_zen \"$1\""
         )
 
         result = subprocess.run(
@@ -812,7 +1335,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertEqual(os.readlink(legacy_link), str(legacy_target))
         self.assertEqual(user_chrome.read_text(), original)
-        self.assertFalse((chrome / "cloudyy-theme.css").exists())
+        self.assertFalse((chrome / "zen-themes/cloudyy-theme/chrome.css").exists())
         self.assertFalse(Path(f"{legacy_link}.cloudyy-legacy-backup").exists())
         self.assertFalse(Path(f"{user_chrome}.cloudyy-legacy-backup").exists())
 

@@ -90,6 +90,7 @@ class CuratedThemeEndToEndTests(unittest.TestCase):
             (config / "zen/profiles.ini").write_text(
                 "[Profile0]\nIsRelative=1\nPath=profile.default\n"
             )
+            (zen / "zen-themes.json").write_text("{}\n")
             vault = home / "Notes/.obsidian"
             vault.mkdir(parents=True)
 
@@ -141,13 +142,28 @@ class CuratedThemeEndToEndTests(unittest.TestCase):
                 config / "gtk-4.0/cloudyy-theme.css": active / "applications/gtk-4.css",
                 config / "wlogout/cloudyy-theme.css": active / "applications/wlogout.css",
                 config / "btop/themes/cloudyy.theme": active / "applications/btop.theme",
-                zen / "chrome/cloudyy-theme.css": active / "applications/zen.css",
                 vault / "snippets/cloudyy-theme.css": active / "applications/obsidian.css",
             }
             for link, target in expected_links.items():
                 with self.subTest(link=link):
                     self.assertTrue(link.is_symlink())
                     self.assertEqual(link.resolve(), target.resolve())
+            zen_css = zen / "chrome/zen-themes/cloudyy-theme/chrome.css"
+            self.assertTrue(zen_css.is_file())
+            self.assertFalse(zen_css.is_symlink())
+            zen_css_lines = zen_css.read_text().splitlines(keepends=True)
+            self.assertEqual(
+                zen_css_lines[0],
+                f"/* cloudyy-generation: {active.resolve().parent.name} */\n",
+            )
+            self.assertEqual(
+                "".join(zen_css_lines[1:]),
+                (active / "applications/zen.css").read_text(),
+            )
+            manifest = json.loads((zen / "zen-themes.json").read_text())
+            self.assertEqual(manifest["cloudyy-theme"]["cloudyyOwner"], "zen-live-theme-v1")
+            self.assertFalse((zen / "chrome/userChrome.css").exists())
+            self.assertFalse((zen / "chrome/cloudyy-theme.css").exists())
             vscode = json.loads((config / "Code/User/settings.json").read_text())
             self.assertEqual(vscode["editor.fontSize"], 14)
             self.assertEqual(vscode["workbench.colorCustomizations"]["personal"], "#fff")

@@ -35,9 +35,6 @@ if ! cloudyy-theme reconcile; then
 fi
 systemctl --user start cloudyy-unlocked.target
 
-if [[ ! -f "${HOME}/.config/OOBE/.dont_show" ]]; then
-  qs -n -d -p "${HOME}/.config/OOBE"
-fi
 
 if "$personal_services"; then
   syncthing &

@@ -15,7 +15,7 @@ Reference for working on the cloudyy-linux distro: coding conventions already es
 
 Detailed, file:line-cited conventions per language live in separate reference files — read the one relevant to what you're touching:
 
-- **QML / Quickshell** (`.config/quickshell/**`, `.config/OOBE/**`) → [qml-conventions.md](qml-conventions.md)
+- **QML / Quickshell** (`.config/quickshell/**`) → [qml-conventions.md](qml-conventions.md)
 - **Bash** (`install/*.sh`, `cloudyy_scripts/**/*.sh`) → [bash-conventions.md](bash-conventions.md)
 - **Python** (`cloud-center/**`) → [python-conventions.md](python-conventions.md)
 - **Lua** (`.config/hypr/**`) → [lua-conventions.md](lua-conventions.md)

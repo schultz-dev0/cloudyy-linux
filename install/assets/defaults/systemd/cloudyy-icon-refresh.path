@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for installed/removed apps and refresh the Quickshell icon index
+
+[Path]
+PathChanged=%h/.local/share/applications
+PathChanged=/usr/share/applications
+Unit=cloudyy-icon-refresh.service
+
+[Install]
+WantedBy=default.target

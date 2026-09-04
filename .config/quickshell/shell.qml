@@ -23,6 +23,7 @@ import "modules/notifpanel" as QuickNotifPanel
 import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "overview/modules/overview" as QuickOverview
+import "overview/services"
 
 ShellRoot {
     id: root
@@ -399,6 +400,14 @@ ShellRoot {
         target: "idle"
         function activate() { QuickIdle.IdleService.show(); }
         function dismiss() { QuickIdle.IdleService.dismiss(); }
+    }
+
+    // Rebuild the icon index after apps are installed/removed, so newly added
+    // apps get icons without a full quickshell restart. Poked by the
+    // cloudyy-icon-refresh.path systemd user unit.
+    IpcHandler {
+        target: "icons"
+        function refresh() { IconResolver.refreshIndex(); }
     }
 
     IpcHandler {

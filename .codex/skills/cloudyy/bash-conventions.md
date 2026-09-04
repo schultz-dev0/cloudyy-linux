@@ -30,7 +30,7 @@ log_error(){ printf '%s[✗]%s  [%s] %s\n'  "$RED"   "$RESET" "$(_ts)" "$1" >&2;
 
 ## Parallelism
 
-- Shell-level fan-out: `xargs -0 -P "$MAX_JOBS" -I {} bash -c 'fn "$@"' _ {}` (`_legacy-rofi/appearance.sh:56`, and the OOBE thumbnail-generation fix this session).
+- Shell-level fan-out: `xargs -0 -P "$MAX_JOBS" -I {} bash -c 'fn "$@"' _ {}` (`_legacy-rofi/appearance.sh:56`).
 - Python-side equivalent: `ThreadPoolExecutor` (`cloud-center/lib/ccd/model.py`, `bluetooth_core.py`).
 
 ## Singleton / instance detection

@@ -139,8 +139,6 @@ hl.on("hyprland.start", function()
 
 	hl.exec_cmd("cloudyy-quickshell-start")
 
-	-- First-run welcome popup — skips itself once ~/.config/OOBE/.dont_show exists.
-	hl.exec_cmd("test -f " .. home .. "/.config/OOBE/.dont_show || qs -n -d -p " .. home .. "/.config/OOBE")
 end)
 EOF
 
@@ -483,6 +481,32 @@ deploy_defaults() {
   else
     log_warn "No default cloudyy-audio-autoswitch.service in ${defaults_dir}/systemd."
   fi
+
+  # Icon-index refresh: path unit watches the app dirs, oneshot pokes Quickshell
+  # so newly installed apps get icons without a full shell restart.
+  local icon_refreshed=0 icon_unit_name
+  for icon_unit_name in cloudyy-icon-refresh.service cloudyy-icon-refresh.path; do
+    local icon_unit="${HOME}/.config/systemd/user/${icon_unit_name}"
+    local icon_unit_default="${defaults_dir}/systemd/${icon_unit_name}"
+    if [[ -f "$icon_unit_default" ]]; then
+      mkdir -p "$(dirname "$icon_unit")"
+      if [[ ! -f "$icon_unit" ]] || ! cmp -s "$icon_unit_default" "$icon_unit"; then
+        cp "$icon_unit_default" "$icon_unit"
+        icon_refreshed=1
+      fi
+    else
+      log_warn "No default ${icon_unit_name} in ${defaults_dir}/systemd."
+    fi
+  done
+  if (( icon_refreshed )); then
+    systemctl --user daemon-reload 2>/dev/null || true
+    log_ok "cloudyy-icon-refresh units deployed."
+  else
+    log_skip "cloudyy-icon-refresh units"
+  fi
+  systemctl --user enable --now cloudyy-icon-refresh.path 2>/dev/null \
+    && log_ok "cloudyy-icon-refresh.path enabled." \
+    || log_warn "Could not enable cloudyy-icon-refresh.path (no user systemd bus?)."
 
   local cwd_walk_file="${cc_terminal_dir}/cwd_walk"
   if [[ ! -f "$cwd_walk_file" ]]; then

@@ -25,6 +25,7 @@ class CuratedThemeInstallContractTests(unittest.TestCase):
     def test_deploy_excludes_matugen_and_uses_curated_lifecycle(self):
         deploy = (ROOT / "install/config/deploy.sh").read_text()
         install = (ROOT / "install/install.sh").read_text()
+        packages_install = (ROOT / "install/packages/install.sh").read_text()
         all_config = (ROOT / "install/config/all.sh").read_text()
         session = (ROOT / "bin/cloudyy-session-start").read_text()
 
@@ -47,6 +48,15 @@ class CuratedThemeInstallContractTests(unittest.TestCase):
         self.assertIn("cloudyy-theme reconcile", session)
         self.assertNotIn("cloudyy-theme restore", install)
         self.assertNotIn("cloudyy-theme restore", all_config)
+        self.assertIn('zen-live-theme.sh" install', packages_install)
+        self.assertGreater(
+            packages_install.index('zen-live-theme.sh" install'),
+            packages_install.index('aur_install    "Standard"'),
+        )
+        self.assertIn(
+            "Zen live-theme bridge unavailable; browser colors",
+            packages_install,
+        )
 
     def test_repository_no_longer_owns_matugen_runtime_configuration(self):
         self.assertFalse((ROOT / ".config/matugen").exists())

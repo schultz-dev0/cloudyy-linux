@@ -16,7 +16,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 THEME_QML = ROOT / ".config/quickshell/Theme.qml"
-QML_ROOTS = (ROOT / ".config/quickshell", ROOT / ".config/OOBE")
+QML_ROOTS = (ROOT / ".config/quickshell",)
 
 SEMANTIC_ROLES = {
     "background", "surface", "surfaceRaised", "surfaceOverlay", "text",
@@ -176,7 +176,6 @@ class CuratedThemeQmlContractTests(unittest.TestCase):
         links = {
             ROOT / ".config/quickshell/cloud-center/Theme.qml": "../Theme.qml",
             ROOT / ".config/quickshell/lock/Theme.qml": "../Theme.qml",
-            ROOT / ".config/OOBE/Theme.qml": "../quickshell/Theme.qml",
         }
         for path, target in links.items():
             with self.subTest(path=path):

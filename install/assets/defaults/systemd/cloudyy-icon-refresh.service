@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh the Quickshell icon index (new apps get icons without a restart)
+
+[Service]
+Type=oneshot
+# ponytail: sleep coalesces a burst of .desktop writes from one pacman/AUR
+# transaction into a single refresh; raise if big installs still double-fire.
+ExecStartPre=/usr/bin/sleep 5
+ExecStart=/usr/bin/qs ipc call icons refresh

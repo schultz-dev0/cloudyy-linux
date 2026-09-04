@@ -38,11 +38,13 @@ Item {
     }
 
     function queueUnresolvedLookups(data) {
-        const generic = IconResolver.genericIconSource;
+        // Only a concrete file counts as resolved. Quickshell.iconPath() hands
+        // back an "image://icon/<name>" URL even when the Qt icon theme (often
+        // Adwaita) has no such icon — trusting that phantom skips the Python
+        // fallback that would find it in Fluent-green/Papirus/etc.
         const hasReal = sources.some(s => {
             const value = `${s ?? ""}`;
-            return value.length > 0
-                && value !== generic
+            return (value.startsWith("file://") || value.startsWith("/"))
                 && !value.includes("application-default-icon");
         });
         if (hasReal)

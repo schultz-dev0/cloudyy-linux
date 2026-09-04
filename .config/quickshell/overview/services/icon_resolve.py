@@ -99,6 +99,11 @@ def alias_names(name: str) -> list[str]:
     if not normalized:
         return []
     names = [normalized]
+    # Window classes like "Proton Mail" never match a lowercase-dashed .desktop
+    # stem / freedesktop icon name; try the slug form too.
+    slug = re.sub(r"\s+", "-", normalized).lower()
+    if slug and slug not in names:
+        names.append(slug)
     alias = ICON_ALIASES.get(normalized)
     if alias and alias not in names:
         names.append(alias)
@@ -1021,6 +1026,32 @@ def main() -> int:
             print(icon)
         return 0 if icon else 1
 
+    if cmd == "apps-batch":
+        # Just parse each .desktop and hand back name/exec/wmclass/id. Icon name
+        # goes out raw (absolute paths pass straight through as iconPath); the
+        # QML IconResolver turns a bare name into a file via its prebuilt index
+        # + Qt theme, cached shell-wide — doing it here meant walking the icon
+        # theme dirs per match, which was the bulk of a search's CPU.
+        for dp in args[1:]:
+            fields = read_desktop(Path(dp))
+            name = fields.get("Name", "")
+            exec_cmd = re.sub(r" %[a-zA-Z]", "", fields.get("Exec", "")).strip()
+            if not name or not exec_cmd:
+                continue
+            icon = fields.get("Icon", "")
+            desktop_id = Path(dp).stem
+            print(json.dumps({
+                "type": "app",
+                "name": name,
+                "icon": icon or "application-x-executable",
+                "iconPath": icon if icon.startswith("/") else "",
+                "desktopPath": dp,
+                "id": desktop_id,
+                "exec": exec_cmd,
+                "wmclass": wmclass_from_fields(fields, exec_cmd, desktop_id),
+            }, separators=(",", ":")))
+        return 0
+
     if cmd == "open-dirs":
         sub = args[1] if len(args) > 1 else "scan"
         if sub == "scan":
@@ -1030,7 +1061,7 @@ def main() -> int:
         print("usage: icon_resolve.py open-dirs {scan}", file=sys.stderr)
         return 1
 
-    print("usage: icon_resolve.py {lookup|resolve|wmclass|launch-argv|build-index|open-dirs|file-icon} ...", file=sys.stderr)
+    print("usage: icon_resolve.py {lookup|resolve|wmclass|launch-argv|build-index|open-dirs|file-icon|apps-batch} ...", file=sys.stderr)
     return 1
 
 

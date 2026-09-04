@@ -40,7 +40,6 @@ MANDATORY_OFFICIAL_DAEMONS=(
 )
 MANDATORY_AUR_DAEMONS=(
   "hyprcap"    # Screen capture daemon
-  "rusty_keys" # Keyboard sounds
 )
 
 # --- Audio Stack --------------------------------------------------------------
@@ -285,7 +284,7 @@ AUR_GPU_INTEL=()
 
 OFFICIAL_GPU_AMD=(
   "mesa" "lib32-mesa" "vulkan-radeon" "lib32-vulkan-radeon"
-  "libva-mesa-driver" "mesa-vdpau" "lib32-mesa-vdpau"
+  "libva-mesa-driver" # mesa-vdpau/lib32-mesa-vdpau merged into mesa upstream; those names no longer resolve
 )
 AUR_GPU_AMD=()
 

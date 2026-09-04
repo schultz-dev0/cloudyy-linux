@@ -3,7 +3,7 @@
 ## Window structure
 
 - Bar-style, layer-shell panels: root is `PanelWindow` (`Bar.qml:19`, `modules/dock/Dock.qml:18`).
-- Standalone dialog-style apps (own `qs -p <config>` invocation): root is `FloatingWindow`, `color: "transparent"` (`cloud-center/shell.qml:11`, `OOBE/shell.qml:6`). Chrome is built from a `Rectangle`/`GlassPanel` inside, relying on Hyprland's blur behind the transparent window.
+- Standalone dialog-style apps (own `qs -p <config>` invocation): root is `FloatingWindow`, `color: "transparent"` (`cloud-center/shell.qml:11`). Chrome is built from a `Rectangle`/`GlassPanel` inside, relying on Hyprland's blur behind the transparent window.
 - The main bar's `shell.qml:24` root is `ShellRoot { id: root }` — a container hosting multiple `PanelWindow`/overlay children, not a window itself.
 
 ## Theme singleton pattern
@@ -12,12 +12,12 @@ Canonical `Theme.qml` (`pragma Singleton`, `QtObject`, loads matugen-generated J
 
 ```
 cloud-center/Theme.qml -> ../Theme.qml
-OOBE/Theme.qml         -> ../quickshell/Theme.qml   (OOBE is one level shallower than cloud-center)
+lock/Theme.qml         -> ../Theme.qml
 ```
 
 Import with `import "."` — same-directory singletons are auto-available, but this repo states the reason explicitly in comments (`cloud-center/shell.qml:5-6`): *"shared Theme.qml singleton (stable loader); symlinked into this dir since Quickshell's per-config import sandbox does not resolve '..' across config roots."* Same-root relative imports (e.g. `import "../.."` within a single `quickshell/` config root) work fine — the limitation is specifically about crossing config-root boundaries.
 
-**When adding a new standalone config root:** symlink `Theme.qml` in at the correct relative depth (get it wrong and every `Theme.*` binding throws a silent `ReferenceError` at runtime — this exact bug happened once during OOBE's Task 1).
+**When adding a new standalone config root:** symlink `Theme.qml` in at the correct relative depth (get it wrong and every `Theme.*` binding throws a silent `ReferenceError` at runtime).
 
 ## File organization
 
@@ -57,7 +57,7 @@ proc.command = ["bash", "-lc", newCmd]
 proc.running = false
 proc.running = true
 ```
-This toggle-to-trigger idiom is used throughout (`WallpaperPickerService.qml:221-227`, `AppLibraryService.qml:316-317`, `OOBE/shell.qml`'s `launch()` helper).
+This toggle-to-trigger idiom is used throughout (`WallpaperPickerService.qml:221-227`, `AppLibraryService.qml:316-317`).
 
 **IpcHandler** — expose callable methods to `qs ipc -p <config> call <target> <fn>`:
 ```qml
