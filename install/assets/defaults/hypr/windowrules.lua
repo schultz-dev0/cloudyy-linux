@@ -1,16 +1,6 @@
 -- Window rules and layer rules
 -- Source: active Lua windowrules
 
--- OOBE --
-
-hl.window_rule({
-	name = "OOBE",
-	match = { class = "^(org.quickshell)$", title = "^(Welcome to Cloudyy)$" },
-	float = true,
-	size = "560 460",
-	center = true,
-})
-
 -- ── Application-specific rules ───────────────────────────────────────────────
 
 hl.window_rule({
@@ -54,14 +44,6 @@ hl.window_rule({
 	match = { class = "^(.*Keypunch)$" },
 	size = "1280 720",
 	float = true,
-})
-
-hl.window_rule({
-	name = "rustykeys",
-	match = { class = "^(org.cloudyy.rustykeys)$" },
-	float = true,
-	size = "550 420",
-	center = true,
 })
 
 -- ── Utilities ─────────────────────────────────────────────────────────────────

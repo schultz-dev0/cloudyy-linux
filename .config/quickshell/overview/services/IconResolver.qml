@@ -21,6 +21,10 @@ Singleton {
     property var pathByName: ({})
     property bool indexReady: false
     property var runtimeCache: ({})
+    // Names already handed to lookupNameAsync this session (hit OR miss). Mutated
+    // in place so it never emits — its only job is to stop the same name being
+    // re-spawned every time runtimeCache/pathByName change and wake every AppIcon.
+    property var attemptedNames: ({})
 
     function normalizeName(icon) {
         const raw = `${icon ?? ""}`.trim();
@@ -33,6 +37,11 @@ Singleton {
         if (!normalized)
             return [];
         const names = [normalized];
+        // Window classes like "Proton Mail" never match a lowercase-dashed
+        // .desktop stem / freedesktop icon name; try the slug form too.
+        const slug = normalized.replace(/\s+/g, "-").toLowerCase();
+        if (slug && !names.includes(slug))
+            names.push(slug);
         const aliases = {
             "xfce-filemanager": "org.xfce.thunar",
             "thunar": "org.xfce.thunar",
@@ -168,8 +177,11 @@ Singleton {
 
     function lookupNameAsync(iconName) {
         const key = normalizeName(iconName);
-        if (!key || runtimeCache[key] || pathByName[key] || pathByName[key.toLowerCase()])
+        if (!key || attemptedNames[key] || runtimeCache[key] || pathByName[key] || pathByName[key.toLowerCase()])
             return;
+        // ponytail: never retried this session even if the icon theme changes;
+        // buildIndexProc rebuilding pathByName is the recovery path, restart is the fallback.
+        attemptedNames[key] = true;
 
         const proc = lookupProto.createObject(resolver, {
             command: ["python3", resolveScript, "lookup", key]

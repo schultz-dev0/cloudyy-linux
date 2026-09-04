@@ -19,40 +19,18 @@ mapfile -t app_dirs < <(
 )
 
 # ── App search ─────────────────────────────────────────────────────────────
-# ponytail: grep -r avoids xargs splitting paths with spaces (Steam game names)
+# ponytail: grep -r avoids xargs splitting paths with spaces (Steam game names).
+# One python3 call parses the whole match set (name/exec/wmclass/id). Icon-name
+# → file resolution is left to the QML IconResolver (indexed, cached shell-wide);
+# doing per-match `resolve` here spawned 16 gi/Gtk-importing pythons per search —
+# ~97% of its CPU.
 mapfile -t desktop_matches < <(
     grep -rlFi -- "$query" "${app_dirs[@]}" 2>/dev/null \
     | grep '\.desktop$' \
     | head -8
 )
-
-for desktop in "${desktop_matches[@]}"; do
-    name=$(grep -m1 "^Name=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
-    icon=$(grep -m1 "^Icon=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
-    exec_raw=$(grep -m1 "^Exec=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
-    exec=$(printf '%s' "$exec_raw" | sed 's/ %[a-zA-Z]//g')
-    raw_wmclass=$(grep -m1 "^StartupWMClass=" "$desktop" 2>/dev/null | cut -d= -f2- | tr -d '\r')
-    desktop_id=$(basename "$desktop" .desktop)
-    if [[ "$exec" =~ steam://rungameid/([0-9]+) ]]; then
-        wmclass="steam_app_${BASH_REMATCH[1]}"
-    else
-        wmclass=$(python3 "$ICON_RESOLVE" wmclass "$desktop_id" "$raw_wmclass" "$exec" 2>/dev/null || true)
-        if [[ -z "$wmclass" ]]; then
-            wmclass=$(basename "${exec%% *}" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-        fi
-    fi
-    exec_base=$(basename "${exec%% *}" 2>/dev/null)
-    icon_path=$(python3 "$ICON_RESOLVE" resolve "$icon" "$desktop_id" "$wmclass" "$exec" 2>/dev/null || true)
-    [[ -z "$name" || -z "$exec" ]] && continue
-    jq -cn \
-      --arg name    "$name" \
-      --arg icon    "${icon:-application-x-executable}" \
-      --arg iconPath "${icon_path:-}" \
-      --arg desktopPath "$desktop" \
-      --arg exec    "$exec" \
-      --arg wmclass "$wmclass" \
-      '{type:"app",name:$name,icon:$icon,iconPath:$iconPath,desktopPath:$desktopPath,exec:$exec,wmclass:$wmclass}'
-done
+[[ ${#desktop_matches[@]} -gt 0 ]] \
+    && python3 "$ICON_RESOLVE" apps-batch "${desktop_matches[@]}" 2>/dev/null || true
 
 # ── File search ─────────────────────────────────────────────────────────────
 if [[ ${#query} -ge 3 ]]; then

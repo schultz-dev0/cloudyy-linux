@@ -70,7 +70,7 @@ Singleton {
     readonly property int overlayWidth: 640
     readonly property int topMargin: 80
     readonly property int rowHeight: 46
-    readonly property int debounceMs: 120
+    readonly property int debounceMs: 200
     readonly property int maxFileResults: 10
 
     property int searchEpoch: 0

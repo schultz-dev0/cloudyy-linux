@@ -573,6 +573,28 @@ class CuratedThemeEngineTest(unittest.TestCase):
         self.assertEqual(activation.read_bytes(), prior)
         self.assertTrue((self.compatibility_root / "state.conf").is_file())
 
+    def test_recorded_integration_receives_exact_stage_without_changing_prior_status(self):
+        self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)
+        result = self.run_library(
+            'source lib/cloudyy-theme/common.sh; source lib/cloudyy-theme/package.sh; '
+            'source lib/cloudyy-theme/adapters.sh; source lib/cloudyy-theme/reload.sh; '
+            'source lib/cloudyy-theme/reconcile.sh; '
+            'stage="$(active_stage)"; begin_activation_results "$stage"; '
+            'write_activation_result link-boundary failure; '
+            'probe() { printf "%s\\n%s\\n" "$1" "$2"; }; '
+            '_run_recorded_integration "$stage" "$stage/theme" reload-gtk probe; '
+            'jq -c ".reconcile.actions" "$CLOUDYY_ACTIVATION_DRAFT"',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        active_stage = str((self.state / "cloudyy/current").resolve())
+        self.assertEqual(lines[:2], [f"{active_stage}/theme", active_stage])
+        self.assertEqual(json.loads(lines[2]), {
+            "link-boundary": {"status": "failure"},
+            "reload-gtk": {"status": "success"},
+        })
+
     def test_interrupted_activation_draft_leaves_prior_document_readable(self):
         self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)
         activation = self.state / "cloudyy/current/activation.json"

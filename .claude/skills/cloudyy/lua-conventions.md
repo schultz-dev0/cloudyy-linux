@@ -40,7 +40,7 @@ Every `hl.bind()` call in `bindings.lua` includes `desc = "..."` — 100% covera
 
 ## Naming
 
-- `window_rule`/`layer_rule` `name` fields: kebab-case or bare app names for window rules (`"zen-browser"`, `"OOBE"`, `"Steam"`); `quickshell_<name>` snake_case specifically for quickshell layer rules (`quickshell_bar_vignette`, `quickshell_panel`).
+- `window_rule`/`layer_rule` `name` fields: kebab-case or bare app names for window rules (`"zen-browser"`, `"Steam"`, `"mpv"`); `quickshell_<name>` snake_case specifically for quickshell layer rules (`quickshell_bar_vignette`, `quickshell_panel`).
 - Standard locals reused for every keybind that shells out: `local mainMod = "SUPER"`, `local scripts = os.getenv("HOME") .. "/cloudyy_scripts"`.
 
 ## Section headers
@@ -49,4 +49,4 @@ Consistent divider comment style for organizing long files:
 ```lua
 -- ── Section Name ───────────────────────────────────────────────────────────
 ```
-or, for smaller groups, a plain `-- Section` comment (e.g. `-- OOBE --`). Used consistently in `bindings.lua` and `windowrules.lua` — match it when adding a new section rather than using a different comment style.
+Used consistently in `bindings.lua` and `windowrules.lua` — match it when adding a new section rather than using a different comment style.

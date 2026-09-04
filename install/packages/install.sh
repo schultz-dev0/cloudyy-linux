@@ -267,6 +267,9 @@ main() {
   log_section "Installing — Standard Packages"
   pacman_install "Standard" "${STANDARD_INSTALL_OFFICIAL[@]}"
   aur_install    "Standard" "${STANDARD_INSTALL_AUR[@]}"
+  if ! bash "${SCRIPT_DIR}/zen-live-theme.sh" install; then
+    log_warn "Zen live-theme bridge unavailable; browser colors will not follow Cloudyy themes until it installs."
+  fi
 
   log_section "Installing — External Packages"
   install_stochos
