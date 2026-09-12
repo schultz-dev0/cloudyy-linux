@@ -71,6 +71,14 @@ WlSessionLockSurface {
             }
         }
 
+        MouseArea {
+            anchors.fill: parent
+            onPressed: {
+                root.claimPasswordFocus();
+                mouse.accepted = false;
+            }
+        }
+
     Column {
         anchors.centerIn: parent
         spacing: 12
@@ -131,15 +139,20 @@ WlSessionLockSurface {
                 renderType: Text.NativeRendering
                 echoMode: TextInput.Password
                 inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
-                focus: root.lockService.secure
                 enabled: root.lockService.secure
                     && root.lockService.responseRequired
                     && !root.lockService.responseVisible
+                    && root.lockService.isPromptScreen(root.screen)
                 font { family: "JetBrainsMono Nerd Font"; pixelSize: 12
                        hintingPreference: Font.PreferVerticalHinting }
 
                 Keys.onReturnPressed: root.submitPassword()
                 Keys.onEnterPressed: root.submitPassword()
+
+                onActiveFocusChanged: {
+                    if (!activeFocus)
+                        Qt.callLater(root.claimPasswordFocus);
+                }
 
                 Text {
                     visible: passwordInput.text.length === 0
@@ -184,6 +197,14 @@ WlSessionLockSurface {
         root.lockService.respond(passwordInput.text);
     }
 
+    function claimPasswordFocus() {
+        if (!passwordInput.enabled || root.lockService.unlocking)
+            return;
+        if (passwordInput.activeFocus)
+            return;
+        passwordInput.forceActiveFocus();
+    }
+
     Connections {
         target: root.lockService
         function onErrorMessageChanged() {
@@ -192,25 +213,24 @@ WlSessionLockSurface {
         }
         function onSecureChanged() {
             if (root.lockService.secure)
-                focusTimer.restart();
+                root.claimPasswordFocus();
         }
-    }
-
-    Timer {
-        id: focusTimer
-        interval: 0
-        repeat: false
-        onTriggered: {
-            if (passwordInput.enabled)
-                passwordInput.forceActiveFocus();
-        }
-    }
-
-    Connections {
-        target: root.lockService
         function onResponseRequiredChanged() {
             if (root.lockService.responseRequired && !root.lockService.responseVisible)
-                focusTimer.restart();
+                root.claimPasswordFocus();
         }
+    }
+
+    // Hidden inputs on other outputs used to bind focus:secure and steal
+    // the seat. A one-shot timer also lost the race when PAM enabled the
+    // field a frame later, or after a click on the wallpaper. Reclaim
+    // until this prompt field actually has focus.
+    Timer {
+        id: focusTimer
+        interval: 50
+        repeat: true
+        running: passwordInput.enabled && !passwordInput.activeFocus
+            && root.lockService.secure && !root.lockService.unlocking
+        onTriggered: root.claimPasswordFocus()
     }
 }

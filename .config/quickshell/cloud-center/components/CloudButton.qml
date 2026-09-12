@@ -35,17 +35,6 @@ FocusScope {
             color: Theme.hairline
         }
 
-        // Dots material — faint texture on the fill, text stays fully opaque.
-        DotTexture {
-            anchors.fill: parent
-            visible: !button.subtle || hover.hovered
-            tint: button.danger ? Theme.error
-                : button.primary ? Theme.accentText : Theme.accent
-            dotAlpha: 0.16
-            cell: 5
-            dotRadius: 0.7
-        }
-
         Row {
             id: labelRow
             anchors.centerIn: parent

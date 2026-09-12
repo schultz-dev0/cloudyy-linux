@@ -36,7 +36,7 @@ Popup {
         id: dialogShell
         radius: 0
         color: Theme.resin(Theme.resinFillAlpha)
-        border { width: 1; color: Theme.resinBorder }
+        border.width: 0
         clip: true
 
         // Gloss — light catching the material's upper edge.
@@ -69,6 +69,13 @@ Popup {
             layer.enabled: true
             layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
         }
+
+        CornerFrame {
+            open: dialog.visible
+            showTopRule: false
+        }
+
+        GrainOverlay {}
     }
 
     contentItem: Column {

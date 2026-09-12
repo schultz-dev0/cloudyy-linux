@@ -1,5 +1,6 @@
 //@ pragma UseQApplication
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import "."   // shared Theme.qml singleton (stable loader); symlinked into this dir since
@@ -25,19 +26,54 @@ FloatingWindow {
     property string currentPageId: ""
     readonly property int sidebarStripWidth: 240
 
-    // Resin-tinted strip framing the inset GlassPanel below.
     Rectangle {
-        id: glassStrip
-        anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-        width: root.sidebarStripWidth
-        color: Theme.resin(Theme.resinFillAlpha * 0.6)
+        id: panelShell
+        anchors.fill: parent
+        radius: 0
+        color: Theme.resin(Theme.resinFillAlpha)
+        border.width: 0
+        clip: true
 
-        GlassPanel {
-            anchors { fill: parent; margins: 10 }
+        Rectangle {
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: parent.height * 0.4
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.resinGloss }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
+        Rectangle {
+            width: parent.width * 0.4
+            height: width
+            radius: width / 2
+            anchors {
+                left: parent.left
+                bottom: parent.bottom
+                leftMargin: -width * 0.5
+                bottomMargin: -height * 0.5
+            }
+            color: Theme.resinGlow
+            opacity: 0.5
+            layer.enabled: true
+            layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+        }
+
+        Rectangle {
+            id: glassStrip
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            width: root.sidebarStripWidth
+            color: Theme.resin(Theme.resinFillAlpha * 0.6)
 
             Column {
                 id: sidebarColumn
-                anchors { fill: parent; topMargin: 10 }
+                anchors {
+                    fill: parent
+                    leftMargin: 10
+                    rightMargin: 10
+                    bottomMargin: 10
+                    topMargin: 16
+                }
 
                 // Search field (filter wired in Task 7)
                 Rectangle {
@@ -103,17 +139,23 @@ FloatingWindow {
                 onClicked: S.Nav.navigate("home")
             }
         }
-    }
 
-    // Opaque content pane.
-    Rectangle {
-        id: contentPane
-        anchors { left: glassStrip.right; right: parent.right; top: parent.top; bottom: parent.bottom }
-        color: Theme.background
+        Rectangle {
+            anchors { top: parent.top; bottom: parent.bottom; left: glassStrip.right }
+            width: 1
+            color: Theme.hairline
+        }
+
+        Rectangle {
+            id: contentPane
+            anchors { left: glassStrip.right; right: parent.right; top: parent.top; bottom: parent.bottom }
+            color: Theme.background
 
         Item {
             id: contentArea
             anchors.fill: parent
+            anchors.topMargin: 8
+            anchors.bottomMargin: Theme.frameArmLength + Theme.frameInset + 8
 
             Loader {
                 id: pageLoader
@@ -155,6 +197,21 @@ FloatingWindow {
                 font.family: "JetBrainsMono Nerd Font"
             }
         }
+        }
+
+        CornerFrame {
+            open: true
+            showTopRule: true
+            topRuleLabel: "CLOUD"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: root.implicitWidth + " × " + root.implicitHeight
+        }
+
+        GrainOverlay {}
     }
 
     ToastOverlay { id: toasts }

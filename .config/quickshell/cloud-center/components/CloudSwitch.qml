@@ -29,15 +29,6 @@ FocusScope {
         }
         Behavior on color { ColorAnimation { duration: 120 } }
 
-        // Dots material — faint texture on the track.
-        DotTexture {
-            anchors.fill: parent
-            tint: control.checked ? Theme.accentText : Theme.accent
-            dotAlpha: 0.16
-            cell: 5
-            dotRadius: 0.7
-        }
-
         Rectangle {
             width: 16; height: 16; radius: 8
             anchors.verticalCenter: parent.verticalCenter

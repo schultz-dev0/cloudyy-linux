@@ -4,7 +4,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -12,6 +11,7 @@ import "modules/controlcenter"
 import "modules/controlcenter/tiles"
 import "modules/calendar"
 import "modules/notifpanel" as QuickNotifPanel
+import "Readout.js" as Readout
 
 PanelWindow {
     id: panel
@@ -24,10 +24,8 @@ PanelWindow {
     readonly property int panelRadius: 0
     readonly property int sectionRadius: 0
     readonly property int panelPadding: 18
+    readonly property int notifChromeClearance: Theme.frameArmLength + Theme.frameInset
     readonly property int emptyNotifHeight: 36
-    readonly property int notifCardShadowSideInset: 18
-    readonly property int notifCardShadowTopInset: 10
-    readonly property int notifCardShadowBottomInset: 22
     readonly property int notifPanelMaxVisible: 3
     property var visibleNotifications: []
 
@@ -87,10 +85,49 @@ PanelWindow {
         suppressLayoutAnim = false;
         refreshVisibleNotifications();
     }
+
+    // ── First-open pre-warm (marginal — measure before trusting) ─────────────
+    // `visible: open || _warmed` stops the scene graph being rebuilt on every
+    // open, but the *first* open still pays ~370ms to build it (glyph raster
+    // for ~40 Nerd-Font Text nodes + tiles + layout).
+    //
+    // ponytail: this blip flashes panelShell to 0.004 opacity (sub-perceptual,
+    // still "painted") for 250ms at ~2.5s post-login, to force that build off
+    // the first-open path. Mapping at opacity 0 isn't enough — Qt defers
+    // node/glyph work until something paints. In practice it only pre-bakes
+    // the static chrome, not the populated state (clock string, notif cards,
+    // slider values all bind on real open), so measured first-open only
+    // sometimes drops (~380 single → ~290+120 split) and sometimes doesn't.
+    // It also adds a few 40-70ms startup hitches. If it's not earning its
+    // keep on your setup, delete _warming + both Timers + the _warming branch
+    // in panelShell.opacity; keep `property bool _warmed` and everything else.
+    // Ceiling: a future Qt that culls near-zero-opacity subtrees silently
+    // reverts this to the ~370ms first open (nothing breaks).
+    property bool _warmed: false
+    property bool _warming: false
+    Timer {
+        interval: 2500
+        running: true
+        repeat: false
+        onTriggered: {
+            if (panel._warmed)   // user already opened it — nothing to warm
+                return;
+            panel._warmed = true;
+            panel._warming = true;
+            warmBlipEnd.start();
+        }
+    }
+    Timer {
+        id: warmBlipEnd
+        interval: 250
+        onTriggered: panel._warming = false
+    }
+
     onOpenChanged: {
         if (!open)
             return;
 
+        panel._warmed = true;
         QuickNotifPanel.NotifPanelService.markAllRead();
         panel.refreshVisibleNotifications();
         panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
@@ -102,7 +139,6 @@ PanelWindow {
             if (panel.sliderController)
                 panel.sliderController.refreshAll();
             wifibtTile.refresh();
-            darkTile.refresh();
         });
     }
 
@@ -132,6 +168,55 @@ PanelWindow {
         p.running = true;
     }
 
+    // Tick-gauge with a 16px grabber around the 2px bar. implicitHeight is
+    // required — without it the control lays out at 0px and the ticks paint
+    // as overflow you cannot drag.
+    component GaugeSlider: Slider {
+        id: control
+        Layout.fillWidth: true
+        Layout.preferredHeight: 22
+        implicitHeight: 22
+        live: true
+        padding: 0
+        readonly property int tickCount: 22
+        background: Item {
+            implicitWidth: 100
+            implicitHeight: 22
+            x: control.leftPadding
+            y: control.topPadding
+            width: control.availableWidth
+            height: control.availableHeight
+            readonly property real tickGap: width / Math.max(1, control.tickCount - 1)
+
+            Repeater {
+                model: control.tickCount
+                delegate: Rectangle {
+                    required property int index
+                    x: index * control.background.tickGap - width / 2
+                    y: (parent.height - height) / 2
+                    width: 1.5
+                    height: 10
+                    color: (index / (control.tickCount - 1)) <= control.visualPosition
+                        ? Theme.accent
+                        : Theme.hairline
+                }
+            }
+        }
+        handle: Item {
+            implicitWidth: 16
+            implicitHeight: 22
+            x: control.leftPadding + control.visualPosition * (control.availableWidth - width)
+            y: control.topPadding + control.availableHeight / 2 - height / 2
+            Rectangle {
+                anchors.centerIn: parent
+                width: 2
+                height: 16
+                color: Theme.text
+                opacity: control.enabled ? 1 : 0.4
+            }
+        }
+    }
+
     // ── Window setup ──────────────────────────────────────────────────────────
     anchors {
         top: true
@@ -144,7 +229,16 @@ PanelWindow {
     implicitWidth: panelWidth
     implicitHeight: Math.min(panelMaxHeight, contentColumn.implicitHeight + panelPadding * 2)
     color: "transparent"
-    visible: open
+
+    // Keep the layer surface mapped once warmed (see the pre-warm block up
+    // top), instead of `visible: open`. Toggling visible tore down the
+    // wl_surface + scene graph on every close and rebuilt it on the next
+    // open — a ~300ms GUI-thread stall every time (measured). Now the build
+    // happens once; opens after that just animate. Input is gated by `mask`
+    // (compositor pass-through when closed) and panelShell.enabled; opacity
+    // 0 hides it visually.
+    visible: open || _warmed
+    mask: Region { item: panel.open ? panelShell : null }
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:control"
@@ -152,7 +246,7 @@ PanelWindow {
     WlrLayershell.exclusiveZone: 0
 
     // ── Panel shell ───────────────────────────────────────────────────────────
-    // Shared hero-panel fill (Theme.resin* tokens). Neutral surface-toned
+    // Shared hero panel fill (Theme.resin* tokens). Neutral surface-toned
     // glass as of 2026-08-27 — was an accent-hue tint; see Theme.qml's
     // resin() comment.
     Rectangle {
@@ -160,11 +254,13 @@ PanelWindow {
         anchors.fill: parent
         radius: panel.panelRadius
         color: Theme.resin(Theme.resinFillAlpha)
-        border.width: 1
-        border.color: Theme.resinBorder
+        border.width: 0
         clip: true
 
-        opacity: panel.open ? 1 : 0
+        // 0.004 during the one-shot pre-warm blip: sub-perceptual but still
+        // painted, which forces glyph/node build off the first-open path.
+        opacity: panel.open ? 1 : (panel._warming ? 0.004 : 0)
+        enabled: panel.open
         transformOrigin: Item.TopRight
         Behavior on opacity {
             enabled: Perf.animationsEnabled
@@ -182,26 +278,39 @@ PanelWindow {
         }
 
         // Inner glow — a hint of structure beneath the material, like the
-        // switch under a keycap, not the desktop behind it. Actually blurred
-        // (not just low-opacity) so it reads as soft light, not a defined
-        // shape sitting on top of the fill. Corner-anchored with the center
-        // pushed past the edge (clipped by panelShell) instead of a
-        // percentage-of-height position, so it never lands under a text row
-        // regardless of how much content the panel holds.
-        Rectangle {
+        // switch under a keycap, not the desktop behind it. Corner-anchored
+        // with the center pushed past the edge (clipped by panelShell) so it
+        // never lands under a text row regardless of how much content the
+        // panel holds.
+        //
+        // Three stacked translucent discs rather than one disc + MultiEffect
+        // blur — the blur FBO was regenerated on the first render after each
+        // map, landing on the same frames as the open animation. Plain
+        // rounded rects cost nothing there. ponytail: 4th disc if banding shows.
+        Item {
             width: parent.width * 0.4
             height: width
-            radius: width / 2
             anchors {
                 left: parent.left
                 bottom: parent.bottom
                 leftMargin: -width * 0.5
                 bottomMargin: -height * 0.5
             }
-            color: Theme.resinGlow
-            opacity: 0.5
-            layer.enabled: true
-            layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width; height: width; radius: width / 2
+                color: Theme.resinGlow; opacity: 0.12
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 0.68; height: width; radius: width / 2
+                color: Theme.resinGlow; opacity: 0.16
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 0.4; height: width; radius: width / 2
+                color: Theme.resinGlow; opacity: 0.22
+            }
         }
 
         ColumnLayout {
@@ -215,6 +324,7 @@ PanelWindow {
             // ── Header ───────────────────────────────────────────────────────
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: 6
 
                 Text {
                     text: "Control Center"
@@ -254,16 +364,11 @@ PanelWindow {
                         id: wifibtTile
                     }
 
-                    ColumnLayout {
-                        spacing: 6
-
-                        DndTile {
-                            id: dndTile
-                            Layout.fillWidth: true
-                            dnd: panel.dnd
-                            onDndToggle: panel.dndToggle()
-                        }
-
+                    DndTile {
+                        id: dndTile
+                        Layout.fillWidth: true
+                        dnd: panel.dnd
+                        onDndToggle: panel.dndToggle()
                     }
                 }
 
@@ -317,57 +422,27 @@ PanelWindow {
                         Layout.fillWidth: true
                         spacing: 10
 
-                        Slider {
+                        GaugeSlider {
                             id: brightnessSlider
-                            Layout.fillWidth: true
                             from: 1
                             to: 100
-                            live: true
                             value: panel.sliderController ? panel.sliderController.brightnessValue : 50
-                            onMoved: if (panel.sliderController)
-                                panel.sliderController.setBrightness(value)
-
-                            // Tick-gauge track — filled ticks (accent) up to
-                            // the current value, unfilled ticks (hairline)
-                            // past it. Reads as a level meter, not a pill.
-                            background: Item {
-                                id: brightnessTrack
-                                x: brightnessSlider.leftPadding
-                                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                                width: brightnessSlider.availableWidth
-                                height: 10
-                                readonly property int tickCount: 22
-                                readonly property real tickGap: width / (tickCount - 1)
-
-                                Repeater {
-                                    model: brightnessTrack.tickCount
-                                    delegate: Rectangle {
-                                        required property int index
-                                        x: index * brightnessTrack.tickGap - width / 2
-                                        width: 1.5
-                                        height: brightnessTrack.height
-                                        color: (index / (brightnessTrack.tickCount - 1)) <= brightnessSlider.visualPosition
-                                            ? Theme.accent
-                                            : Theme.hairline
-                                    }
-                                }
+                            onMoved: if (panel.sliderController) {
+                                panel.sliderController.setBrightness(value, false);
+                                if (!pressed)
+                                    panel.sliderController.scheduleBrightnessCommit();
                             }
-                            handle: Rectangle {
-                                x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
-                                y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                                width: 2
-                                height: 16
-                                radius: 0
-                                color: Theme.text
-                                opacity: brightnessSlider.enabled ? 1 : 0.4
-                            }
+                            onPressedChanged: if (!pressed && panel.sliderController)
+                                panel.sliderController.commitBrightness()
                         }
 
                         Text {
-                            text: (panel.sliderController ? Math.round(panel.sliderController.brightnessValue) : 50) + "%"
+                            text: Readout.osd("BRT", (panel.sliderController ? Math.round(panel.sliderController.brightnessValue) : 50) + "%")
                             color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 10
+                            Layout.preferredWidth: 78
+                            horizontalAlignment: Text.AlignRight
                         }
 
                         Rectangle {
@@ -388,6 +463,79 @@ PanelWindow {
                                 anchors.fill: parent
                                 onClicked: if (panel.sliderController)
                                     panel.sliderController.showBrightness()
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Night Light temp only while the tile is on ─────────────────
+            Item {
+                visible: !!panel.sliderController && panel.sliderController.nightLightActive
+                Layout.fillWidth: true
+                implicitHeight: visible ? nlCol.implicitHeight : 0
+
+                ColumnLayout {
+                    id: nlCol
+                    anchors { left: parent.left; right: parent.right }
+                    spacing: 6
+
+                    Text {
+                        text: "Night Light"
+                        color: Theme.textMuted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 10
+                        font.weight: Font.Medium
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: 0.6
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        GaugeSlider {
+                            id: nightLightSlider
+                            from: 1000
+                            to: 6500
+                            stepSize: 50
+                            value: panel.sliderController ? panel.sliderController.nightLightTemp : 3500
+                            onMoved: if (panel.sliderController) {
+                                panel.sliderController.setNightLightTemp(value, false);
+                                if (!pressed)
+                                    panel.sliderController.scheduleNightLightCommit();
+                            }
+                            onPressedChanged: if (!pressed && panel.sliderController)
+                                panel.sliderController.commitNightLightTemp()
+                        }
+
+                        Text {
+                            text: Readout.osd("NL", (panel.sliderController ? panel.sliderController.nightLightTemp : 3500) + "K")
+                            color: Theme.textMuted
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                            Layout.preferredWidth: 78
+                            horizontalAlignment: Text.AlignRight
+                        }
+
+                        Rectangle {
+                            width: 22
+                            height: 22
+                            radius: 0
+                            color: "transparent"
+                            border.color: Theme.hairline
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰖙"
+                                color: Theme.text
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: if (panel.sliderController)
+                                    panel.sliderController.showNightLight()
                             }
                         }
                     }
@@ -419,54 +567,24 @@ PanelWindow {
                         Layout.fillWidth: true
                         spacing: 10
 
-                        Slider {
+                        GaugeSlider {
                             id: volumeSlider
-                            Layout.fillWidth: true
                             from: 0
                             to: 100
-                            live: true
                             value: panel.sliderController ? panel.sliderController.volumeValue : 50
                             onMoved: if (panel.sliderController)
-                                panel.sliderController.setVolume(value)
-
-                            background: Item {
-                                id: volumeTrack
-                                x: volumeSlider.leftPadding
-                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                                width: volumeSlider.availableWidth
-                                height: 10
-                                readonly property int tickCount: 22
-                                readonly property real tickGap: width / (tickCount - 1)
-
-                                Repeater {
-                                    model: volumeTrack.tickCount
-                                    delegate: Rectangle {
-                                        required property int index
-                                        x: index * volumeTrack.tickGap - width / 2
-                                        width: 1.5
-                                        height: volumeTrack.height
-                                        color: (index / (volumeTrack.tickCount - 1)) <= volumeSlider.visualPosition
-                                            ? Theme.accent
-                                            : Theme.hairline
-                                    }
-                                }
-                            }
-                            handle: Rectangle {
-                                x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                                width: 2
-                                height: 16
-                                radius: 0
-                                color: Theme.text
-                                opacity: volumeSlider.enabled ? 1 : 0.4
-                            }
+                                panel.sliderController.setVolume(value, false)
                         }
 
                         Text {
-                            text: (panel.sliderController ? Math.round(panel.sliderController.volumeValue) : 50) + "%"
+                            text: panel.sliderController && panel.sliderController.volumeMuted
+                                ? Readout.osd("VOL", "MUTE")
+                                : Readout.osd("VOL", (panel.sliderController ? Math.round(panel.sliderController.volumeValue) : 50) + "%")
                             color: Theme.textMuted
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 10
+                            Layout.preferredWidth: 78
+                            horizontalAlignment: Text.AlignRight
                         }
 
                         Rectangle {
@@ -520,14 +638,11 @@ PanelWindow {
             Item {
                 id: notifStack
                 Layout.fillWidth: true
+                implicitWidth: contentColumn.width
 
-                // ── Tunables ──────────────────────────────────────────────────
                 readonly property int maxVisible: panel.notifPanelMaxVisible
-                readonly property int peekHeight: 12  // px each card peeks below the one in front
-                readonly property int widthInset:  8  // px inset on each side per depth level
-                readonly property int stackUnitHeight: panel.notifCardShadowTopInset
-                                                     + 96
-                                                     + panel.notifCardShadowBottomInset
+                readonly property int peekHeight: 12
+                readonly property int widthInset: 8
 
                 readonly property int notifCount: panel.trackedCount
                 readonly property int displayCount: notifStack.suppressLayoutAnim
@@ -538,7 +653,8 @@ PanelWindow {
 
                 implicitHeight: displayCount === 0
                     ? panel.emptyNotifHeight
-                    : stackUnitHeight + Math.max(0, shownCount - 1) * peekHeight
+                    : (notifRepeater.itemAt(0) ? notifRepeater.itemAt(0).height : 64)
+                      + Math.max(0, shownCount - 1) * peekHeight
 
                 Repeater {
                     id: notifRepeater
@@ -552,23 +668,21 @@ PanelWindow {
 
                         visible: panel.open && index < notifStack.maxVisible
 
-                        // Higher index = further back = lower z = rendered first.
-                        z:       notifStack.maxVisible - index
+                        z: notifStack.maxVisible - index
 
-                        // Each card shifts inward and downward to create depth.
-                        x:       index * notifStack.widthInset
-                        y:       index * notifStack.peekHeight
-                        width:   notifStack.width - (index * notifStack.widthInset * 2)
-                        height:  panel.notifCardShadowTopInset + card.height + panel.notifCardShadowBottomInset
+                        x: index * notifStack.widthInset
+                        y: index * notifStack.peekHeight
+                        width: contentColumn.width - (index * notifStack.widthInset * 2)
+                        height: card.height
                         opacity: 1.0 - (index * 0.18)
 
                         Rectangle {
                             id: card
-                            x:      panel.notifCardShadowSideInset
-                            y:      panel.notifCardShadowTopInset
-                            width:  parent.width - panel.notifCardShadowSideInset * 2
+                            anchors.left: parent.left
+                            anchors.right: parent.right
                             height: cardContent.implicitHeight + 28
-                            radius: 4
+                            radius: 0
+                            clip: true
                             color: cardWrapper.modelData.urgency === 2
                                 ? Qt.tint(Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.95), Qt.rgba(Theme.error.r, Theme.error.g, Theme.error.b, 0.12))
                                 : Qt.rgba(Theme.surfaceRaised.r, Theme.surfaceRaised.g, Theme.surfaceRaised.b, 0.95)
@@ -580,40 +694,43 @@ PanelWindow {
                             Column {
                                 id: cardContent
                                 anchors {
-                                    left:    parent.left
-                                    right:   parent.right
-                                    top:     parent.top
+                                    left: parent.left
+                                    right: parent.right
+                                    top: parent.top
                                     margins: 14
                                 }
                                 spacing: 4
 
                                 Text {
-                                    text:           cardWrapper.modelData.appName
-                                    color:          Theme.textMuted
-                                    font.family:    "JetBrainsMono Nerd Font"
+                                    width: card.width - 28
+                                    text: cardWrapper.modelData.appName
+                                    color: Theme.textMuted
+                                    font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 11
+                                    wrapMode: Text.NoWrap
+                                    elide: Text.ElideRight
                                 }
 
                                 Text {
-                                    width:          parent.width
-                                    text:           cardWrapper.modelData.summary
-                                    color:          Theme.text
-                                    font.family:    "JetBrainsMono Nerd Font"
+                                    width: card.width - 28
+                                    text: cardWrapper.modelData.summary
+                                    color: Theme.text
+                                    font.family: "JetBrainsMono Nerd Font"
                                     font.pixelSize: 14
-                                    font.weight:    Font.Bold
-                                    wrapMode:       Text.WordWrap
+                                    font.weight: Font.Bold
+                                    wrapMode: Text.NoWrap
+                                    elide: Text.ElideRight
                                 }
 
                                 Text {
-                                    visible:          cardWrapper.modelData.body !== ""
-                                    width:            parent.width
-                                    text:             cardWrapper.modelData.body
-                                    color:            Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.8)
-                                    font.family:      "JetBrainsMono Nerd Font"
-                                    font.pixelSize:   13
-                                    wrapMode:         Text.WordWrap
-                                    maximumLineCount: 3
-                                    elide:            Text.ElideRight
+                                    visible: cardWrapper.modelData.body !== ""
+                                    width: card.width - 28
+                                    text: cardWrapper.modelData.body
+                                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.8)
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 13
+                                    wrapMode: Text.NoWrap
+                                    elide: Text.ElideRight
                                 }
                             }
 
@@ -637,6 +754,27 @@ PanelWindow {
                     font.pixelSize:   13
                 }
             }
+
+            // Empty row so GRAIN / size flags sit on resin, not on the card.
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: panel.notifChromeClearance + 8
+            }
         }
+
+        CornerFrame {
+            open: panel.open
+            duration: panel.openFadeMs
+            showTopRule: true
+            topRuleLabel: "CONTROL"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: panel.panelWidth + " × AUTO"
+        }
+
+        GrainOverlay {}
     }
 }

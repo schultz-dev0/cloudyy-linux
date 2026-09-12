@@ -9,8 +9,7 @@ Rectangle {
     id: panel
     radius: 0
     color: Theme.resin(Theme.resinFillAlpha)
-    border.width: 1
-    border.color: Theme.resinBorder
+    border.width: 0
     clip: true
 
     // Gloss — light catching the material's upper edge.

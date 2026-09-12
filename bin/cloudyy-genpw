@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Generate strong random passwords from /dev/urandom
+
+set -euo pipefail
+
+# Base alphabet is always A-Za-z0-9. On top of that, a symbol set chosen with
+# -s. The default ("safe") avoids quotes, backslash, $, &, / and space, so
+# output pastes cleanly into shells, URLs and CSV imports. LENGTH 24 over the
+# full 75-char set ~= 149 bits; alnum-only 24 ~= 143 bits.
+readonly ALNUM='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+readonly SAFE_SYMBOLS='!@#%*_+=,.:?-'
+readonly BASIC_SYMBOLS='!@#$%'
+readonly DEFAULT_LEN=24
+
+usage() {
+  cat <<EOF
+Usage: cloudyy-genpw [-s NAME|SYMBOLS] [LENGTH] [COUNT]
+       cloudyy-genpw --check
+
+  -s, --set    which symbols to allow on top of letters and digits:
+                 safe   (default)  ! @ # % * _ + = , . : ? -
+                 basic             ! @ # \$ %     (widest site compatibility)
+                 alnum             none          (sites that ban all symbols)
+                 <string>          exactly those, e.g.  -s '@#()'
+
+LENGTH defaults to $DEFAULT_LEN (min 8, max 256), COUNT to 1.
+If a site rejects output for "must contain a digit/symbol", just re-run.
+EOF
+}
+
+gen() {
+  local len=$1 set=$2 raw=''
+  # Rejection sampling: read random bytes, keep only wanted chars, repeat
+  # until long enough. Chunked so it terminates even for a tiny symbol set.
+  while (( ${#raw} < len )); do
+    raw+=$(head -c 256 /dev/urandom | LC_ALL=C tr -dc "$set")
+  done
+  printf '%s\n' "${raw:0:len}"
+}
+
+symbols=$SAFE_SYMBOLS
+mode=gen
+while (( $# )); do
+  case $1 in
+    -h | --help) usage; exit 0 ;;
+    --check) mode=check; shift ;;
+    -s | --set)
+      [[ $# -ge 2 ]] || { usage >&2; exit 64; }
+      case $2 in
+        safe)  symbols=$SAFE_SYMBOLS ;;
+        basic) symbols=$BASIC_SYMBOLS ;;
+        alnum) symbols='' ;;
+        *)     symbols=$2 ;;
+      esac
+      shift 2 ;;
+    --) shift; break ;;
+    -*) usage >&2; exit 64 ;;
+    *) break ;;
+  esac
+done
+
+# Build the tr set. ALNUM has no '-', so its ranges (A-Z etc.) stay safe.
+# Symbols are treated as literals: drop backslash (tr's escape char), and
+# force any '-' to the end so tr can't read it as a range operator — e.g.
+# '$-(' would silently expand to '$ % & ' ( '.
+symbols=${symbols//\\/}
+if [[ $symbols == *-* ]]; then
+  symbols="${symbols//-/}-"
+fi
+alphabet="$ALNUM$symbols"
+
+if [[ $mode == check ]]; then
+  p=$(gen 40 "$alphabet")
+  pbad=$(printf '%s' "$p" | LC_ALL=C tr -d "$alphabet")
+  r=$(gen 32 "${ALNUM}@#")
+  rbad=$(printf '%s' "$r" | LC_ALL=C tr -d "${ALNUM}@#")
+  if [[ ${#p} -eq 40 && -z $pbad && ${#r} -eq 32 && -z $rbad ]]; then
+    echo 'cloudyy-genpw: ok'; exit 0
+  fi
+  echo "cloudyy-genpw: self-check FAILED (p='$p' r='$r')" >&2; exit 1
+fi
+
+len=${1:-$DEFAULT_LEN}
+count=${2:-1}
+[[ $len =~ ^[0-9]+$ && $len -ge 8 && $len -le 256 ]] || { usage >&2; exit 64; }
+[[ $count =~ ^[0-9]+$ && $count -ge 1 && $count -le 1000 ]] || { usage >&2; exit 64; }
+
+for (( i = 0; i < count; i++ )); do
+  gen "$len" "$alphabet"
+done

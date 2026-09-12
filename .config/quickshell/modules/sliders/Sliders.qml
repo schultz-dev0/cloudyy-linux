@@ -9,6 +9,7 @@ import Quickshell.Io
 import "../.."
 import "../../overview/services"
 import "../toast" as QuickToast
+import "../../Readout.js" as Readout
 
 Scope {
     id: sliders
@@ -30,12 +31,9 @@ Scope {
     readonly property bool osdVisible: osdKind !== ""
     readonly property string volumeIcon: volumeMuted ? "󰖁" : (volumeValue < 33 ? "󰕿" : volumeValue < 66 ? "󰕾" : "󱄠")
     readonly property string osdIcon: osdKind === "brightness" ? "󰃠" : (osdKind === "kbdbrightness" ? "󰌌" : (osdKind === "nightlight" ? "󰖙" : volumeIcon))
-    readonly property string osdValueLabel: {
-        if (osdKind === "brightness") return Math.round(brightnessValue) + "%";
-        if (osdKind === "kbdbrightness") return Math.round(kbdBrightnessMax > 0 ? kbdBrightnessValue / kbdBrightnessMax * 100 : 0) + "%";
-        if (osdKind === "nightlight") return nightLightTemp + "K";
-        return volumeMuted ? "Muted" : Math.round(volumeValue) + "%";
-    }
+    readonly property string osdValueLabel: Readout.osdLabel(
+        osdKind, volumeValue, volumeMuted, brightnessValue,
+        kbdBrightnessValue, kbdBrightnessMax, nightLightTemp)
     readonly property real osdProgress: {
         if (osdKind === "brightness") return Math.max(0, Math.min(1, brightnessValue / 100));
         if (osdKind === "kbdbrightness") return kbdBrightnessMax > 0 ? Math.max(0, Math.min(1, kbdBrightnessValue / kbdBrightnessMax)) : 0;
@@ -148,7 +146,7 @@ Scope {
 
     function refreshBrightness() {
         brightnessState.running = false;
-        brightnessState.command = ["sh", "-c", "brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/, \"\", $4); print $4}'"];
+        brightnessState.command = ["bash", "-lc", "exec cloudyy-slider-brightness get"];
         brightnessState.running = true;
     }
 
@@ -162,15 +160,17 @@ Scope {
         stateRefreshTimer.restart();
     }
 
-    function setVolume(value) {
+    function setVolume(value, showOsd) {
         const target = Math.max(0, Math.min(100, Math.round(value)));
         volumeValue = target;
         if (target > 0)
             volumeMuted = false;
         volumeWriteTimer.restart();
-        osdKind = "volume";
-        _osdAwaitingRefresh = false;
-        _pushOsdBurst();
+        if (showOsd !== false) {
+            osdKind = "volume";
+            _osdAwaitingRefresh = false;
+            _pushOsdBurst();
+        }
     }
 
     function toggleMute() {
@@ -178,13 +178,15 @@ Scope {
         showVolume();
     }
 
-    function setBrightness(value) {
+    function setBrightness(value, showOsd) {
         const target = Math.max(1, Math.min(100, Math.round(value)));
         brightnessValue = target;
         brightnessWriteTimer.restart();
-        osdKind = "brightness";
-        _osdAwaitingRefresh = false;
-        _pushOsdBurst();
+        if (showOsd !== false) {
+            osdKind = "brightness";
+            _osdAwaitingRefresh = false;
+            _pushOsdBurst();
+        }
     }
 
     function toggleNightLight() {
@@ -203,21 +205,49 @@ Scope {
         nightLightActive = !nightLightActive;
     }
 
-    function setNightLightTemp(value) {
+    function setNightLightTemp(value, showOsd) {
         if (!nightLightAvailable)
             return;
 
         pendingNightLightTemp = Math.max(1000, Math.min(6500, Math.round(value)));
         nightLightTemp = pendingNightLightTemp;
+        if (showOsd !== false) {
+            osdKind = "nightlight";
+            _osdAwaitingRefresh = false;
+            _pushOsdBurst();
+        }
+    }
+
+    function scheduleNightLightCommit() {
         nightLightWriteTimer.restart();
-        osdKind = "nightlight";
-        _osdAwaitingRefresh = false;
-        _pushOsdBurst();
+    }
+
+    function commitNightLightTemp() {
+        nightLightWriteTimer.stop();
+        writeNightLightTemp();
+    }
+
+    function scheduleBrightnessCommit() {
+        brightnessDdcTimer.restart();
+    }
+
+    function commitBrightness() {
+        brightnessDdcTimer.stop();
+        const target = Math.round(brightnessValue);
+        brightnessDdcProc.running = false;
+        brightnessDdcProc.command = ["bash", "-lc", "exec cloudyy-slider-brightness set-ddc " + target];
+        brightnessDdcProc.running = true;
     }
 
     function writeNightLightTemp() {
         const temp = Math.round(pendingNightLightTemp);
-        launch(nightLightExecArgv("set", temp));
+        // Direct hyprctl — the bin script retries with sleeps and lags a drag.
+        nightLightWriteProc.running = false;
+        nightLightWriteProc.command = ["hyprctl", "hyprsunset", "temperature", String(temp)];
+        nightLightWriteProc.running = true;
+        nightLightCacheProc.running = false;
+        nightLightCacheProc.command = ["sh", "-c", "printf '%s' '" + temp + "' > \"${XDG_CACHE_HOME:-$HOME/.cache}/wltemp\""];
+        nightLightCacheProc.running = true;
     }
 
     function _pushOsdBurst() {
@@ -345,32 +375,55 @@ Scope {
 
     Timer {
         id: volumeWriteTimer
-        interval: 50
+        interval: 150
         repeat: false
         onTriggered: {
             const target = Math.round(sliders.volumeValue);
-            sliders.launch(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", target + "%"]);
-            if (target > 0)
-                sliders.launch(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
+            volumeWriteProc.running = false;
+            volumeWriteProc.command = ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", target + "%"];
+            volumeWriteProc.running = true;
+            if (target > 0) {
+                volumeUnmuteProc.running = false;
+                volumeUnmuteProc.command = ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"];
+                volumeUnmuteProc.running = true;
+            }
         }
     }
 
+    Process { id: volumeWriteProc }
+    Process { id: volumeUnmuteProc }
+
     Timer {
         id: brightnessWriteTimer
-        interval: 50
+        interval: 150
         repeat: false
         onTriggered: {
             const target = Math.round(sliders.brightnessValue);
-            sliders.launch(["brightnessctl", "set", target + "%", "-q"]);
+            brightnessWriteProc.running = false;
+            brightnessWriteProc.command = ["bash", "-lc", "exec cloudyy-slider-brightness set-fast " + target];
+            brightnessWriteProc.running = true;
         }
+    }
+
+    Process { id: brightnessWriteProc }
+
+    Timer {
+        id: brightnessDdcTimer
+        interval: 400
+        repeat: false
+        onTriggered: sliders.commitBrightness()
     }
 
     Timer {
         id: nightLightWriteTimer
-        interval: 200
+        interval: 400
         repeat: false
         onTriggered: sliders.writeNightLightTemp()
     }
+
+    Process { id: nightLightWriteProc }
+    Process { id: nightLightCacheProc }
+    Process { id: brightnessDdcProc }
 
     IpcHandler {
         target: "sliders"

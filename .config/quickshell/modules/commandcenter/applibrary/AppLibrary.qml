@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
@@ -38,6 +37,7 @@ PanelWindow {
         let h = panelPaddingV * 2 + 40 + 8 + 36 + 8 + gridViewportHeight + 14;
         if (svc.recentEntries.length > 0)
             h += recentRow.height + 6;
+        h += 8 + Theme.frameArmLength + Theme.frameInset + 8;
         return h;
     }
 
@@ -74,9 +74,7 @@ PanelWindow {
             anchors.fill: parent
             radius: 0
             color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            antialiasing: true
+            border.width: 0
             clip: true
 
             // Gloss — light catching the material's upper edge.
@@ -90,25 +88,38 @@ PanelWindow {
             }
 
             // Inner glow — a hint of structure beneath the material.
-            // Actually blurred, not just low-opacity, so it reads as soft
-            // light rather than a defined shape. Corner-anchored with the
-            // center pushed past the edge (clipped by panelShell) instead
-            // of a percentage-of-height position, so it never lands under
-            // a list row regardless of how many results are showing.
-            Rectangle {
+            // Corner-anchored with the center pushed past the edge (clipped
+            // by panelShell) so it never lands under a list row regardless
+            // of how many results are showing.
+            //
+            // Three stacked translucent discs rather than one disc +
+            // MultiEffect blur — the blur FBO regenerated every time the
+            // overlay was shown, on the same frames as the open animation.
+            // Plain rounded rects cost nothing there.
+            Item {
                 width: parent.width * 0.3
                 height: width
-                radius: width / 2
                 anchors {
                     left: parent.left
                     bottom: parent.bottom
                     leftMargin: -width * 0.5
                     bottomMargin: -height * 0.5
                 }
-                color: Theme.resinGlow
-                opacity: 0.5
-                layer.enabled: true
-                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.12
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.68; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.16
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.4; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.22
+                }
             }
         }
 
@@ -116,7 +127,7 @@ PanelWindow {
             anchors.fill: parent
             anchors.leftMargin: root.panelPaddingH
             anchors.rightMargin: root.panelPaddingH
-            anchors.topMargin: root.panelPaddingV
+            anchors.topMargin: root.panelPaddingV + 8
             anchors.bottomMargin: root.panelPaddingV
             spacing: 0
 
@@ -447,6 +458,20 @@ PanelWindow {
                 }
             }
         }
+
+        CornerFrame {
+            open: svc.visible
+            showTopRule: true
+            topRuleLabel: "APPS"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: root.panelWidth + " × AUTO"
+        }
+
+        GrainOverlay {}
     }
 
     function syncCategoryFocus(label) {

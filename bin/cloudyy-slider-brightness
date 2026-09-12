@@ -1,33 +1,124 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Adjust or query display brightness
-# cloudyy:args=[up|down]
-# brightness.sh — brightness control via brightnessctl + Quickshell OSD
-#
-# Binds:
-#   bindel = , XF86MonBrightnessUp,   exec, $scripts/brightness.sh up
-#   bindel = , XF86MonBrightnessDown, exec, $scripts/brightness.sh down
-#
-# Deps: brightnessctl, optional quickshell IPC target "sliders"
+# cloudyy:args=[up|down|get|set <percent>|set-fast <percent>|set-ddc <percent>]
+# Backlight panels via brightnessctl; external monitors via ddcutil VCP 0x10.
+# DDC is slow — call set-ddc / set on release, not while dragging.
 
 STEP=5
 MIN=1
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
+BUS_CACHE="${CACHE_DIR}/cloudyy-ddc-buses"
 
-_brightness() {
-    brightnessctl -m | awk -F, '{gsub(/%/, "", $4); print $4}'
+show_osd() {
+    command -v qs >/dev/null 2>&1 || return 0
+    env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL \
+      qs -p "$HOME/.config/quickshell" ipc call sliders showBrightness >/dev/null 2>&1 || true
+}
+
+has_backlight() {
+    local dir
+    dir=/sys/class/backlight
+    [[ -d "$dir" ]] && [[ -n "$(ls -A "$dir" 2>/dev/null)" ]]
+}
+
+backlight_get() {
+    has_backlight || return 1
+    command -v brightnessctl >/dev/null 2>&1 || return 1
+    local v
+    v=$(brightnessctl -m 2>/dev/null | awk -F, '{gsub(/%/, "", $4); print $4}')
+    [[ "$v" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$v"
+}
+
+backlight_set() {
+    has_backlight || return 0
+    command -v brightnessctl >/dev/null 2>&1 || return 0
+    brightnessctl set "${1}%" -q 2>/dev/null || true
+}
+
+refresh_ddc_buses() {
+    mkdir -p "$CACHE_DIR"
+    command -v ddcutil >/dev/null 2>&1 || { : >"$BUS_CACHE"; return 0; }
+    ddcutil detect --brief 2>/dev/null | grep -oE 'i2c-[0-9]+' | sed 's/^i2c-//' >"$BUS_CACHE" || true
+}
+
+ddc_set() {
+    command -v ddcutil >/dev/null 2>&1 || return 0
+    mkdir -p "$CACHE_DIR"
+    [[ -s "$BUS_CACHE" ]] || refresh_ddc_buses
+    [[ -s "$BUS_CACHE" ]] || return 0
+    local bus
+    while read -r bus; do
+        [[ -n "$bus" ]] || continue
+        ddcutil --bus "$bus" setvcp 10 "$1" --noverify >/dev/null 2>&1 &
+    done <"$BUS_CACHE"
+}
+
+ddc_get() {
+    command -v ddcutil >/dev/null 2>&1 || return 1
+    mkdir -p "$CACHE_DIR"
+    [[ -s "$BUS_CACHE" ]] || refresh_ddc_buses
+    local bus
+    bus=$(head -n1 "$BUS_CACHE" 2>/dev/null)
+    [[ -n "$bus" ]] || return 1
+    local out
+    out=$(ddcutil --bus "$bus" getvcp 10 --brief 2>/dev/null) || return 1
+    awk '{ if ($5+0 > 0) printf "%d\n", ($4 / $5) * 100; else print $4 }' <<<"$out"
+}
+
+clamp_pct() {
+    local pct=$1
+    (( pct < MIN )) && pct=$MIN
+    (( pct > 100 )) && pct=100
+    printf '%s\n' "$pct"
+}
+
+get_pct() {
+    local v
+    if v=$(backlight_get); then
+        printf '%s\n' "$v"
+        return 0
+    fi
+    if v=$(ddc_get); then
+        [[ "$v" =~ ^[0-9]+$ ]] || { printf '50\n'; return 0; }
+        printf '%s\n' "$v"
+        return 0
+    fi
+    printf '50\n'
+}
+
+set_pct() {
+    local pct
+    pct=$(clamp_pct "$1")
+    backlight_set "$pct"
+    ddc_set "$pct"
 }
 
 case "${1:-}" in
+    get)
+        get_pct
+        ;;
+    set)
+        set_pct "${2:-50}"
+        ;;
+    set-fast)
+        backlight_set "$(clamp_pct "${2:-50}")"
+        ;;
+    set-ddc)
+        ddc_set "$(clamp_pct "${2:-50}")"
+        ;;
     up)
-        brightnessctl set "${STEP}%+" -q
-        command -v qs >/dev/null 2>&1 && env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL qs -p "$HOME/.config/quickshell" ipc call sliders showBrightness >/dev/null 2>&1 || true
+        set_pct $(( $(get_pct) + STEP ))
+        show_osd
         ;;
     down)
-        (( $(_brightness) <= MIN )) && exit 0
-        brightnessctl set "${STEP}%-" -q
-        command -v qs >/dev/null 2>&1 && env -u __QUICKSHELL_CRASH_DUMP_PID -u __QUICKSHELL_CRASH_INFO_FD -u __QUICKSHELL_CRASH_SIGNAL qs -p "$HOME/.config/quickshell" ipc call sliders showBrightness >/dev/null 2>&1 || true
+        cur=$(get_pct)
+        (( cur <= MIN )) && exit 0
+        set_pct $((cur - STEP))
+        show_osd
         ;;
     *)
-        echo "Usage: $(basename "$0") {up|down}"
+        echo "Usage: $(basename "$0") {up|down|get|set <percent>|set-fast <percent>|set-ddc <percent>}" >&2
         exit 1
         ;;
 esac

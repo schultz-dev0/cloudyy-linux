@@ -7,6 +7,8 @@ BaseTile {
     property bool dnd: false
     signal dndToggle()
 
+    implicitHeight: 142
+
     icon:       "󰂛"
     label:      "Do Not Disturb"
     statusText: dnd ? "On" : "Off"

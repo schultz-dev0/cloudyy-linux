@@ -25,6 +25,7 @@ PanelWindow {
         return Math.min(580, Math.round(sw * 0.48));
     }
     readonly property int panelHeight: 48 + 1 + 40 + 8 + gridViewportHeight + 14
+        + 8 + Theme.frameArmLength + Theme.frameInset + 8
 
     anchors { top: true; bottom: true; left: true; right: true }
     exclusiveZone: 0
@@ -59,9 +60,7 @@ PanelWindow {
             anchors.fill: parent
             radius: 0
             color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            antialiasing: true
+            border.width: 0
             clip: true
 
             // Gloss — light catching the material's upper edge.
@@ -97,7 +96,10 @@ PanelWindow {
         FocusScope {
             id: keyNav
             anchors.fill: parent
-            anchors.margins: 2
+            anchors.leftMargin: 2
+            anchors.rightMargin: 2
+            anchors.topMargin: 10
+            anchors.bottomMargin: 2
             focus: true
 
             Keys.onDownPressed: event => {
@@ -284,6 +286,20 @@ PanelWindow {
                 }
             }
         }
+
+        CornerFrame {
+            open: svc.visible
+            showTopRule: true
+            topRuleLabel: "WALL"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: root.panelWidth + " × AUTO"
+        }
+
+        GrainOverlay {}
     }
 
     function focusSearch() {

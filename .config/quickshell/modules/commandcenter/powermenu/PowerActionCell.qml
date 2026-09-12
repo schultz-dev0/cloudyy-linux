@@ -37,14 +37,6 @@ Item {
                 color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
                 border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.5)
                 border.width: 1.5
-
-                DotTexture {
-                    anchors.fill: parent
-                    tint: Theme.accent
-                    dotAlpha: 0.18
-                    cell: 5
-                    dotRadius: 0.7
-                }
             }
 
             Text {

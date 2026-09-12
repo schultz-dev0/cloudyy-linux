@@ -221,14 +221,6 @@ Item {
                     rightMargin: -4
                 }
 
-                DotTexture {
-                    anchors.fill: parent
-                    tint: Theme.accentText
-                    dotAlpha: 0.18
-                    cell: 4
-                    dotRadius: 0.6
-                }
-
                 Text {
                     id: countLabel
                     anchors.centerIn: parent

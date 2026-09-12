@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 // modules/spotlight/Spotlight.qml — overlay UI (Spotlight search + Command Center browse)
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
@@ -356,6 +355,7 @@ PanelWindow {
         id: contentPanel
         width: svc.overlayWidth
         implicitHeight: searchBar.height + catBar.height + bodyCol.listBodyHeight
+            + Theme.frameArmLength + Theme.frameInset + 8
         opacity: svc.closing ? 0 : 1
 
         Behavior on opacity {
@@ -385,9 +385,7 @@ PanelWindow {
             anchors.fill: parent
             radius: 0
             color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            antialiasing: true
+            border.width: 0
             clip: true
 
             // Gloss — light catching the material's upper edge.
@@ -401,25 +399,38 @@ PanelWindow {
             }
 
             // Inner glow — a hint of structure beneath the material.
-            // Actually blurred, not just low-opacity, so it reads as soft
-            // light rather than a defined shape. Corner-anchored with the
-            // center pushed past the edge (clipped by panelShell) instead
-            // of a percentage-of-height position, so it never lands under
-            // a list row regardless of how many results are showing.
-            Rectangle {
+            // Corner-anchored with the center pushed past the edge (clipped
+            // by panelShell) so it never lands under a list row regardless
+            // of how many results are showing.
+            //
+            // Three stacked translucent discs rather than one disc +
+            // MultiEffect blur — the blur FBO regenerated every time the
+            // overlay was shown, on the same frames as the open animation.
+            // Plain rounded rects cost nothing there.
+            Item {
                 width: parent.width * 0.3
                 height: width
-                radius: width / 2
                 anchors {
                     left: parent.left
                     bottom: parent.bottom
                     leftMargin: -width * 0.5
                     bottomMargin: -height * 0.5
                 }
-                color: Theme.resinGlow
-                opacity: 0.5
-                layer.enabled: true
-                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.12
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.68; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.16
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.4; height: width; radius: width / 2
+                    color: Theme.resinGlow; opacity: 0.22
+                }
             }
         }
 
@@ -430,7 +441,7 @@ PanelWindow {
             Item {
                 id: searchBar
                 width: parent.width
-                height: 40
+                height: 52
 
                 Text {
                     id: searchIcon
@@ -735,6 +746,21 @@ PanelWindow {
                 }
             }
         }
+
+        CornerFrame {
+            open: svc.visible && !svc.closing
+            duration: Perf.msHalf(140)
+            showTopRule: true
+            topRuleLabel: "SPOTLIGHT"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: svc.overlayWidth + " × AUTO"
+        }
+
+        GrainOverlay {}
     }
 
     IpcHandler {

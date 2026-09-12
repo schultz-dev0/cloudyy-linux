@@ -18,6 +18,7 @@ import "modules/recording" as QuickRecording
 import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "modules/notifpanel" as QuickNotifPanel
+import "Readout.js" as Readout
 
 PanelWindow {
     id: bar
@@ -455,9 +456,9 @@ PanelWindow {
             id: recordingControl
             readonly property var svc: QuickRecording.RecordingService
             readonly property bool active: svc.recordingActive
-            readonly property color recRed: Qt.rgba(1, 0.27, 0.23, 1)
+            readonly property color recRed: Theme.error
             readonly property int collapsedW: 18
-            readonly property int expandedW: 86
+            readonly property int expandedW: Math.max(118, Math.round(expandedRow.implicitWidth + 18))
             property bool hovered: false
             property string elapsedText: "00:00"
 
@@ -502,29 +503,41 @@ PanelWindow {
                 }
             }
 
-            // Expanded: neutral chrome row (dot stays red).
+            // Expanded: bracketed readout + Stop. Grammar only here, not on the dot.
             Row {
                 id: expandedRow
                 visible: recordingControl.hovered
                 anchors.centerIn: parent
                 spacing: 8
 
-                Rectangle {
-                    width: 8
-                    height: 8
-                    radius: 4
+                Row {
+                    spacing: 0
                     anchors.verticalCenter: parent.verticalCenter
-                    color: recordingControl.recRed
-                }
 
-                Text {
-                    text: recordingControl.elapsedText
-                    color: bar.barFgStrong
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                    renderType: Text.NativeRendering
-                    anchors.verticalCenter: parent.verticalCenter
+                    Text {
+                        text: "[ "
+                        color: bar.barFgStrong
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        renderType: Text.NativeRendering
+                    }
+                    Text {
+                        text: "REC"
+                        color: Theme.error
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        renderType: Text.NativeRendering
+                    }
+                    Text {
+                        text: " · " + recordingControl.elapsedText + " ]"
+                        color: bar.barFgStrong
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        renderType: Text.NativeRendering
+                    }
                 }
 
                 Rectangle {
@@ -600,12 +613,12 @@ PanelWindow {
         Pill {
             id: mprisPill
             readonly property var player: QuickMpris.MprisFocus.activePlayer
+            property int clock: 0
             visible: player !== null && (player.playbackState === MprisPlaybackState.Playing || player.playbackState === MprisPlaybackState.Paused)
             label: {
                 const _ = QuickMpris.MprisFocus.revision;
-                if (!player) return "";
-                const icon = player.playbackState === MprisPlaybackState.Playing ? "▶ " : "⏸ ";
-                return icon + (player.trackTitle ?? "").substring(0, 16);
+                const __ = clock;
+                return Readout.mpris(player);
             }
             width: visible ? Math.max(implicitWidth + bar.pillPadH * 2, 50) : 0
             fg: bar.barFg
@@ -613,6 +626,14 @@ PanelWindow {
             onClicked: if (player) player.togglePlaying()
             onScrollUp: if (player) player.next()
             onScrollDown: if (player) player.previous()
+
+            Timer {
+                interval: 1000
+                running: mprisPill.visible && mprisPill.player
+                    && mprisPill.player.playbackState === MprisPlaybackState.Playing
+                repeat: true
+                onTriggered: mprisPill.clock++
+            }
         }
 
         Pill {

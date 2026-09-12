@@ -68,6 +68,8 @@ PanelWindow {
             }
             onCloseNestedRequested: root.svc.close()
         }
+
+        GrainOverlay {}
     }
 
     IpcHandler {

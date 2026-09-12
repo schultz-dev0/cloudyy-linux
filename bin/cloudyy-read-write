@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Benchmark sequential read/write speed of a chosen drive
+# cloudyy:examples=cloudyy read-write   |   cloudyy read-write 2048   (test size in MiB)
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+  RED=$'\e[1;31m' GREEN=$'\e[1;32m' YELLOW=$'\e[1;33m' BLUE=$'\e[1;34m' \
+  CYAN=$'\e[1;36m' DIM=$'\e[2m' BOLD=$'\e[1m' RESET=$'\e[0m'
+else
+  RED='' GREEN='' YELLOW='' BLUE='' CYAN='' DIM='' BOLD='' RESET=''
+fi
+
+ICON_OK="󰄬" ICON_FAIL="󰅖" ICON_RUN="󰓅"
+
+SIZE_MB="${1:-1024}"
+TMPFILE=""
+UNMOUNT_DIR=""   # set when we temp-mount an unmounted device; cleanup undoes it
+w_raw=""         # stays empty when the write test is skipped (read-only target)
+
+cleanup() {
+  [[ -n "$TMPFILE" && -f "$TMPFILE" ]] && rm -f "$TMPFILE"
+  if [[ -n "$UNMOUNT_DIR" ]]; then
+    umount "$UNMOUNT_DIR" 2>/dev/null || umount -l "$UNMOUNT_DIR" 2>/dev/null || true
+    rmdir "$UNMOUNT_DIR" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+die() { printf '\n %s%s%s  %s\n\n' "$RED" "$ICON_FAIL" "$RESET" "$1" >&2; exit 1; }
+
+repeat() { local n=$1 ch=$2 i; for ((i = 0; i < n; i++)); do printf '%s' "$ch"; done; }
+
+# "…, 2.51 s, 428 MB/s" -> "428 MB/s"
+parse_speed() { sed -n 's|.*, \([0-9.]*\) \([kMG]B/s\)$|\1 \2|p' <<<"$1" | tail -1; }
+
+to_mbps() { # value unit -> MB/s as float
+  awk -v v="$1" -v u="$2" 'BEGIN {
+    if (u == "GB/s") print v * 1000;
+    else if (u == "kB/s") print v / 1000;
+    else print v;
+  }'
+}
+
+bar() { # mbps max -> coloured 34-wide bar
+  local filled
+  filled=$(awk -v m="$1" -v x="$2" 'BEGIN { f = int(m / x * 34); if (f > 34) f = 34; if (f < 1) f = 1; print f }')
+  printf '%s%s%s%s' "$GREEN" "$(repeat "$filled" '█')" "$DIM" "$(repeat "$((34 - filled))" '░')"
+  printf '%s' "$RESET"
+}
+
+header() {
+  clear 2>/dev/null || true
+  printf '%s\n' "$CYAN"
+  cat <<'EOF'
+   ┌─┐┬  ┌─┐┬ ┬┌┬┐┬ ┬┬ ┬   ┬─┐┬ ┬   ┌┐ ┌─┐┌┐┌┌─┐┬ ┬
+   │  │  │ ││ │ ││└┬┘└┬┘   ├┬┘│││   ├┴┐├┤ ││││  ├─┤
+   └─┘┴─┘└─┘└─┘─┴┘ ┴  ┴    ┴└─└┴┘   └─┘└─┘┘└┘└─┘┴ ┴
+EOF
+  printf '%s%s    Cloudyy Linux  •  disk read/write benchmark%s\n\n' "$RESET" "$BOLD" "$RESET"
+}
+
+# Incompressible data source, so a compressing filesystem (btrfs compress=zstd,
+# ZFS, a NAS export) can't fake the numbers by squashing a stream of zeros.
+if command -v openssl >/dev/null; then DATA_SRC=openssl; else DATA_SRC=urandom; fi
+gen_stream() {
+  if [[ $DATA_SRC == openssl ]]; then
+    openssl enc -aes-256-ctr -nosalt -pass pass:cloudyy-rwtest -in /dev/zero 2>/dev/null
+  else
+    cat /dev/urandom
+  fi
+}
+
+# Both run in the main shell (not a subshell) so die() can abort the script.
+# They set: w_mode/w_raw and r_mode/r_raw.
+do_write() {
+  local out
+  : >"$TMPFILE"
+  chattr +C "$TMPFILE" 2>/dev/null || true  # btrfs: skip CoW + compression for this file
+  if out=$(LC_ALL=C dd if=<(gen_stream) of="$TMPFILE" bs=1M count="$SIZE_MB" \
+             iflag=fullblock oflag=direct conv=fsync 2>&1); then
+    w_mode=direct
+  elif out=$(LC_ALL=C dd if=<(gen_stream) of="$TMPFILE" bs=1M count="$SIZE_MB" \
+             iflag=fullblock conv=fdatasync 2>&1); then
+    w_mode=buffered
+  else
+    die "write test failed: ${out##*$'\n'}"
+  fi
+  w_raw=$(parse_speed "$out")
+}
+
+# Reads $READ_SRC — the test file for a writable target, or the raw block
+# device for a read-only / unmountable one.
+do_read() {
+  local out
+  sync
+  # Drop caches so the read hits the disk, not RAM.
+  echo 3 >/proc/sys/vm/drop_caches 2>/dev/null || true
+  if out=$(LC_ALL=C dd if="$READ_SRC" of=/dev/null bs=1M count="$SIZE_MB" iflag=direct 2>&1); then
+    r_mode=direct
+  elif out=$(LC_ALL=C dd if="$READ_SRC" of=/dev/null bs=1M count="$SIZE_MB" 2>&1); then
+    r_mode=buffered
+  else
+    die "read test failed: ${out##*$'\n'}"
+  fi
+  r_raw=$(parse_speed "$out")
+}
+
+selftest() {
+  local s
+  s=$(parse_speed "1073741824 bytes (1.1 GB, 1.0 GiB) copied, 2.51 s, 428 MB/s")
+  [[ "$s" == "428 MB/s" ]] || { echo "parse_speed FAIL: '$s'"; exit 1; }
+  s=$(parse_speed $'first line\n536870912 bytes copied, 0.25 s, 2.1 GB/s')
+  [[ "$s" == "2.1 GB/s" ]] || { echo "parse_speed FAIL: '$s'"; exit 1; }
+  [[ "$(to_mbps 2.1 GB/s)" == "2100" ]] || { echo "to_mbps FAIL"; exit 1; }
+  [[ "$(to_mbps 428 MB/s)" == "428" ]] || { echo "to_mbps FAIL"; exit 1; }
+  # The whole point of the rewrite: the data source must not be compressible,
+  # or a compress=zstd mount reports RAM speed instead of disk speed.
+  local n; n=$( { gen_stream | head -c 1048576 | gzip -c | wc -c; } 2>/dev/null || true )
+  (( n > 900000 )) || { echo "gen_stream is compressible ($n/1048576 bytes gzipped)"; exit 1; }
+  echo "selftest ok ($DATA_SRC)"
+}
+
+[[ "${1:-}" == "--selftest" ]] && { selftest; exit 0; }
+[[ "$SIZE_MB" =~ ^[0-9]+$ && "$SIZE_MB" -ge 16 ]] || die "test size must be an integer >= 16 (MiB)"
+command -v findmnt >/dev/null || die "findmnt not found (util-linux)"
+command -v python3 >/dev/null || die "python3 not found"
+
+# Needs root to write into most mount roots and to drop caches for an honest
+# read number, so just re-exec under sudo.
+if [[ $EUID -ne 0 ]]; then
+  command -v sudo >/dev/null || die "sudo not found — run this script as root"
+  exec sudo "$(readlink -f "$0")" "$@"
+fi
+
+header
+
+# --- build the list ---------------------------------------------------------
+# Entry format: "<kind>\t<spec>\t<fs>\t<size>\t<note>"
+#   mount <mountpoint>  — already mounted, tested with a file
+#   dev   <device>      — not mounted; temp-mounted rw, or (if that fails) read
+#                         only as a raw sample of the block device
+ENTRIES=()
+
+while read -r t fs sz av src; do
+  [[ -n "$t" ]] || continue
+  ENTRIES+=("mount"$'\t'"$t"$'\t'"$fs"$'\t'"$sz"$'\t'"mounted · ${av} free")
+done < <(findmnt -rno TARGET,FSTYPE,SIZE,AVAIL,SOURCE --real | sort)
+
+while IFS=$'\t' read -r path sz fs label; do
+  [[ -n "$path" ]] || continue
+  ENTRIES+=("dev"$'\t'"$path"$'\t'"$fs"$'\t'"$sz"$'\t'"not mounted${label:+ · $label}")
+done < <(lsblk -J -o PATH,SIZE,FSTYPE,LABEL,MOUNTPOINT | python3 -c '
+import json, sys
+skip = {"crypto_LUKS", "LVM2_member", "swap", "linux_raid_member", "zfs_member"}
+def walk(nodes):
+    for n in nodes:
+        walk(n.get("children") or [])
+        fs = n.get("fstype")
+        if not fs or fs in skip or n.get("mountpoint"):
+            continue
+        print("\t".join([n["path"], n.get("size") or "?", fs, n.get("label") or ""]))
+walk(json.load(sys.stdin)["blockdevices"])
+')
+
+((${#ENTRIES[@]})) || die "no filesystems found"
+
+# --- pick ------------------------------------------------------------------
+printf '  %sPick a drive to test%s  %s(%s MiB · %s)%s\n\n' "$BOLD" "$RESET" "$DIM" "$SIZE_MB" "$DATA_SRC" "$RESET"
+printf '   %s   %-22s %-7s %7s  %s%s\n' "$DIM" "TARGET" "FS" "SIZE" "STATUS" "$RESET"
+for i in "${!ENTRIES[@]}"; do
+  IFS=$'\t' read -r _ spec fs sz note <<<"${ENTRIES[$i]}"
+  printf '   %s%2d%s  %-22s %-7s %7s  %s%s%s\n' "$CYAN" "$((i + 1))" "$RESET" "$spec" "$fs" "$sz" "$DIM" "$note" "$RESET"
+done
+
+printf '\n  %s> %s' "$BOLD" "$RESET"
+read -r choice
+[[ "$choice" =~ ^[0-9]+$ ]] && ((choice >= 1 && choice <= ${#ENTRIES[@]})) || die "invalid choice"
+IFS=$'\t' read -r KIND SPEC FS _ <<<"${ENTRIES[$((choice - 1))]}"
+
+# --- resolve to a writable dir, or a raw device for read-only cases --------
+RAW_DEV=""
+if [[ $KIND == mount ]]; then
+  TARGET="$SPEC"
+else
+  printf '\n  %sTemp-mount%s %s to benchmark it? [y/N] ' "$BOLD" "$RESET" "$SPEC"
+  read -r ans
+  [[ "$ans" =~ ^[Yy]$ ]] || die "cancelled"
+  UNMOUNT_DIR="/run/cloudyy-rwtest.$$"
+  mkdir -p "$UNMOUNT_DIR"
+  if mount "$SPEC" "$UNMOUNT_DIR" 2>/dev/null; then
+    if touch "$UNMOUNT_DIR/.wtest" 2>/dev/null; then
+      rm -f "$UNMOUNT_DIR/.wtest"
+      TARGET="$UNMOUNT_DIR"
+    else
+      RAW_DEV="$SPEC"   # mounted read-only (e.g. hibernated NTFS)
+    fi
+  else
+    rmdir "$UNMOUNT_DIR" 2>/dev/null || true
+    UNMOUNT_DIR=""
+    RAW_DEV="$SPEC"     # could not mount at all
+  fi
+fi
+
+# --- run -----------------------------------------------------------------------
+if [[ -n "$RAW_DEV" ]]; then
+  READ_SRC="$RAW_DEV"
+  reason="read-only filesystem"; [[ -z "$UNMOUNT_DIR" ]] && reason="could not mount"
+  printf '\n  %sTesting%s %s  %sraw read-only sample · %s MiB%s\n\n' \
+    "$BOLD" "$RESET" "$RAW_DEV" "$DIM" "$SIZE_MB" "$RESET"
+  printf '   %s%s%s  write  —   %s(%s)%s\n' "$DIM" "$ICON_FAIL" "$RESET" "$DIM" "$reason" "$RESET"
+else
+  [[ -d "$TARGET" ]] || die "'$TARGET' is not a directory"
+  avail_mb=$(df -Pm "$TARGET" | awk 'NR==2 {print $4}')
+  ((avail_mb > SIZE_MB + 64)) || die "not enough free space on '$TARGET' (${avail_mb} MiB free, need ~$((SIZE_MB + 64)))"
+  TMPFILE="$TARGET/.cloudyy-rwtest.$$"
+  READ_SRC="$TMPFILE"
+  printf '\n  %sTesting%s %s  %s%s MiB · incompressible via %s%s\n' \
+    "$BOLD" "$RESET" "$TARGET" "$DIM" "$SIZE_MB" "$DATA_SRC" "$RESET"
+  printf '\n   %s%s%s  writing…' "$YELLOW" "$ICON_RUN" "$RESET"
+  do_write
+  printf '\r   %s%s%s  write  %s%s   %s(%s)%s\n' "$GREEN" "$ICON_OK" "$RESET" "$BOLD" "$w_raw" "$DIM" "$w_mode" "$RESET"
+fi
+
+printf '   %s%s%s  reading…' "$YELLOW" "$ICON_RUN" "$RESET"
+do_read
+printf '\r   %s%s%s  read   %s%s   %s(%s)%s\n' "$GREEN" "$ICON_OK" "$RESET" "$BOLD" "$r_raw" "$DIM" "$r_mode" "$RESET"
+
+# --- results -----------------------------------------------------------------
+r_mbps=$(to_mbps $r_raw)
+max=$r_mbps
+if [[ -n "$w_raw" ]]; then
+  w_mbps=$(to_mbps $w_raw)
+  max=$(awk -v a="$w_mbps" -v b="$r_mbps" 'BEGIN { print (a > b ? a : b) }')
+fi
+
+printf '\n  %sResults%s  %s%s  •  %s MiB%s\n\n' "$BOLD" "$RESET" "$DIM" "${TARGET:-$RAW_DEV}" "$SIZE_MB" "$RESET"
+[[ -n "$w_raw" ]] && printf '   Write  %s  %s%s%s\n' "$(bar "$w_mbps" "$max")" "$BOLD" "$w_raw" "$RESET"
+printf '   Read   %s  %s%s%s\n\n' "$(bar "$r_mbps" "$max")" "$BOLD" "$r_raw" "$RESET"

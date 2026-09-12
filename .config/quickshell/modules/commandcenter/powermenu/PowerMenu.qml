@@ -46,7 +46,7 @@ PanelWindow {
         id: panel
         anchors.centerIn: parent
         width: root.panelWidth
-        height: root.panelContentHeight + 8
+        height: root.panelContentHeight + 8 + 8 + Theme.frameArmLength + Theme.frameInset + 8
         visible: svc.visible
 
         MouseArea {
@@ -61,9 +61,7 @@ PanelWindow {
             anchors.fill: parent
             radius: 0
             color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            antialiasing: true
+            border.width: 0
             clip: true
 
             // Gloss — light catching the material's upper edge.
@@ -102,7 +100,10 @@ PanelWindow {
         FocusScope {
             id: keyNav
             anchors.fill: parent
-            anchors.margins: 2
+            anchors.leftMargin: 2
+            anchors.rightMargin: 2
+            anchors.topMargin: 10
+            anchors.bottomMargin: 2
             focus: true
 
             Keys.onTabPressed: event => {
@@ -277,6 +278,20 @@ PanelWindow {
                 }
             }
         }
+
+        CornerFrame {
+            open: svc.visible
+            showTopRule: true
+            topRuleLabel: "POWER"
+        }
+
+        MarginRules {
+            topRight: Theme.name || "theme"
+            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
+            bottomRight: root.panelWidth + " × AUTO"
+        }
+
+        GrainOverlay {}
     }
 
     function stepProfile(delta) {

@@ -92,7 +92,8 @@ MANDATORY_OFFICIAL_SYSTEM=(
   "curl"          # HTTP requests, used by qs
   "socat"         # Sockets — used by Hyprland IPC scripts
   "inotify-tools" # File watching — live-reload scripts
-  "brightnessctl" # Backlight control keybinds
+  "brightnessctl" # Laptop backlight
+  "ddcutil"       # External monitor brightness (DDC/CI VCP 0x10)
   "networkmanager"
   "network-manager-applet" # NM system tray
   "nm-connection-editor"   # NM GUI editor

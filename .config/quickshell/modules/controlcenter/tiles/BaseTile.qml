@@ -53,6 +53,11 @@ Rectangle {
             }
         }
 
+        Item {
+            Layout.fillHeight: root.implicitHeight >= 142
+            Layout.preferredHeight: 0
+        }
+
         Text {
             text:           root.label
             color:          Theme.text

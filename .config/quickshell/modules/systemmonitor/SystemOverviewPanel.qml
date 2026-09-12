@@ -447,5 +447,7 @@ PanelWindow {
                 }
             }
         }
+
+        GrainOverlay {}
     }
 }

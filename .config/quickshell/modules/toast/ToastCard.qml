@@ -128,4 +128,6 @@ Rectangle {
             QuickToast.ToastQueueService.remove(root.toast.id);
         }
     }
+
+    GrainOverlay {}
 }

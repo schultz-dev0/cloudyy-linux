@@ -26,6 +26,7 @@ QtObject {
     ]
 
     property string mode: "dark"
+    property string name: ""
 
     // Official Nord values are a complete, legible fallback if active state is
     // temporarily unavailable. Invalid updates retain the last complete theme.
@@ -116,6 +117,7 @@ QtObject {
                 theme[key] = theme._qmlColor(data.colors[key]);
         }
         theme.mode = data.mode;
+        theme.name = typeof data.name === "string" ? data.name : "";
     }
 
     // Frutiger Aero / cloudy accents derived from curated semantic roles.
@@ -169,6 +171,15 @@ QtObject {
     // Flat instrument-panel divider — thin low-contrast rule used to separate
     // groups instead of boxing every tile in its own bordered card.
     readonly property color hairline: withAlpha(border, 0.4)
+
+    readonly property real grainOpacity: isLightTheme ? 0.03 : 0.05
+    readonly property url grainTexture: {
+        const home = Quickshell.env("HOME") || "";
+        return home ? "file://" + home + "/.config/quickshell/assets/grain-512.png" : "";
+    }
+    readonly property int frameArmLength: 14
+    readonly property int frameStroke: 1
+    readonly property int frameInset: 6
 
     // Persistent top-attached island chrome and motion.
     readonly property int islandRestWidth: 176
