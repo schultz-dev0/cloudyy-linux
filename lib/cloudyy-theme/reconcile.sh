@@ -142,7 +142,8 @@ print_reconcile_summary() {
 }
 
 reconcile_theme() {
-  local apply_theme_wallpaper="${1:-false}" stage wallpaper wallpaper_result
+  local apply_theme_wallpaper="${1:-false}" wallpaper_override="${2:-}"
+  local stage wallpaper wallpaper_result
   stage="$(active_stage)" || {
     theme_error 'active theme state is uninitialized or corrupt'
     return "$CLOUDYY_THEME_EXIT_ACTIVE_STATE"
@@ -153,7 +154,9 @@ reconcile_theme() {
   }
   CLOUDYY_RECONCILE_FAILED=false
 
-  if [[ "$apply_theme_wallpaper" == true ]]; then
+  if [[ -n "$wallpaper_override" ]]; then
+    wallpaper="$wallpaper_override"
+  elif [[ "$apply_theme_wallpaper" == true ]]; then
     wallpaper="$(theme_wallpaper_one)" || {
       _discard_activation_draft
       return "$CLOUDYY_THEME_EXIT_RECONCILE"

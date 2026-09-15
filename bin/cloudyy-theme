@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Activate curated Cloudyy themes and manage wallpapers
-# cloudyy:args={list [--json]|current|get-mode|prepare <slug>|bootstrap <slug>|use <slug>|reconcile [--apply-theme-wallpaper]|recover-previous|next|random|set-image <path>|restore|tag <image> <dark|light>|untag <image> <dark|light>}
+# cloudyy:args={list [--json]|current|get-mode|prepare <slug>|bootstrap <slug>|use <slug> [wallpaper]|reconcile [--apply-theme-wallpaper]|recover-previous|next|random|set-image <path>|restore|tag <image> <dark|light>|untag <image> <dark|light>}
 
 set -euo pipefail
 
@@ -27,7 +27,8 @@ Usage: cloudyy-theme <command> [arguments]
   get-mode         Print the active theme's declared mode
   prepare <slug>   Validate, privately stage, and atomically promote a shipped theme
   bootstrap <slug> Prepare a theme and seed wallpaper state without session contact
-  use <slug>       Prepare and activate a theme, including its wallpaper 1
+  use <slug> [wallpaper]
+                   Prepare and activate a theme with wallpaper 1 or the selected image
   reconcile [--apply-theme-wallpaper]
                    Reapply active-theme integration, preserving the saved wallpaper by default
   recover-previous Atomically recover the retained previous theme and reconcile it
@@ -86,9 +87,17 @@ with_bootstrap_lock() {
 }
 
 with_use_lock() {
+  local slug="$1" wallpaper="${2:-}"
   with_theme_lock -x || return "$CLOUDYY_THEME_EXIT_STAGING"
-  prepare_theme "$1" || return $?
-  reconcile_theme true
+  if [[ -n "$wallpaper" ]]; then
+    [[ -f "$wallpaper" ]] || {
+      theme_error "image not found: $wallpaper"
+      return "$CLOUDYY_THEME_EXIT_RECONCILE"
+    }
+    wallpaper="$(realpath -- "$wallpaper")" || return "$CLOUDYY_THEME_EXIT_RECONCILE"
+  fi
+  prepare_theme "$slug" || return $?
+  reconcile_theme true "$wallpaper"
 }
 
 with_reconcile_lock() {
@@ -168,11 +177,11 @@ bootstrap)
   ;;
 use)
   shift
-  [[ "$#" -eq 1 ]] || {
+  [[ "$#" -ge 1 && "$#" -le 2 ]] || {
     usage >&2
     exit "$CLOUDYY_THEME_EXIT_USAGE"
   }
-  with_use_lock "$1"
+  with_use_lock "$@"
   ;;
 reconcile)
   shift

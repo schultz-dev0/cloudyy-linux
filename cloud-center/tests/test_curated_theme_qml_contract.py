@@ -132,6 +132,13 @@ class CuratedThemeQmlContractTests(unittest.TestCase):
         self.assertNotIn('bat.percent < 15 ? "#ffdddd"', bar)
         self.assertIn("bat.percent < 15 ? Theme.error", bar)
 
+    def test_theme_picker_passes_chosen_wallpaper_to_single_activation(self):
+        picker = (
+            ROOT / ".config/quickshell/modules/themepicker/ThemePickerService.qml"
+        ).read_text()
+        self.assertNotIn('["bash", "-c"', picker)
+        self.assertIn('["bash", themeCtl, "use", slug, wallpaperPath]', picker)
+
     def test_reviewed_error_surfaces_keep_content_distinct_from_background(self):
         cloud_button = (
             ROOT / ".config/quickshell/cloud-center/components/CloudButton.qml"

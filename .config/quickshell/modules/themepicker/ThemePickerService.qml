@@ -132,19 +132,15 @@ Singleton {
     }
 
     // wallpaperPath is optional — "use" alone already lands on a theme's
-    // wallpaper 1, so it's only passed when the user browsed to a different
-    // one before switching (see activateSelection), chaining a second
-    // command so it applies after the theme's own colors are live.
+    // wallpaper 1. When the user browsed to a different one before switching
+    // (see activateSelection), pass it into the same activation transaction.
     function applyTheme(slug, wallpaperPath) {
         if (!slug)
             return;
-        if (wallpaperPath) {
-            launch(["bash", "-c",
-                'bash "$1" use "$2" && bash "$1" set-image "$3"',
-                "--", themeCtl, slug, wallpaperPath]);
-        } else {
+        if (wallpaperPath)
+            launch(["bash", themeCtl, "use", slug, wallpaperPath]);
+        else
             launch(["bash", themeCtl, "use", slug]);
-        }
         currentSlug = slug;
         close();
     }

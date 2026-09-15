@@ -401,6 +401,25 @@ class CuratedThemeEngineTest(unittest.TestCase):
             f'THEME_MODE="dark"\nCURRENT_WALL="{wallpaper}"\n',
         )
 
+    def test_use_applies_a_selected_wallpaper_without_applying_wallpaper_one(self):
+        self.install_fake_wallpaper_backend()
+        wallpaper = NORD_ROOT / "wallpapers/2.jpg"
+
+        result = self.run_theme("use", "nord", str(wallpaper))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        wallpaper_calls = [
+            line for line in self.wallpaper_log.read_text().splitlines()
+            if line.startswith("img ")
+        ]
+        self.assertEqual(len(wallpaper_calls), 1)
+        self.assertIn(f"img {wallpaper}", wallpaper_calls[0])
+        self.assertNotIn(str(self.active_stage_wallpaper), wallpaper_calls[0])
+        self.assertEqual(
+            (self.compatibility_root / "state.conf").read_text(),
+            f'THEME_MODE="dark"\nCURRENT_WALL="{wallpaper}"\n',
+        )
+
     def test_saved_theme_wallpaper_keeps_its_stage_identity_across_promotion(self):
         self.install_fake_wallpaper_backend()
         self.assertEqual(self.run_theme("bootstrap", "nord").returncode, 0)
