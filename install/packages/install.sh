@@ -146,6 +146,7 @@ INTEL
 
 export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
+export QT_QPA_PLATFORMTHEME=qt6ct
 export SDL_VIDEODRIVER=wayland
 export MOZ_ENABLE_WAYLAND=1
 export ELECTRON_OZONE_PLATFORM_HINT=auto

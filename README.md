@@ -1,22 +1,9 @@
-Disclaimer: Some of the things in this projects are written with AI, as this is a work in progress project I will overwrite and fix things as I go, but AI makes my student life easier. Thanks! Enjoy the dotfiles.
-
-A Hyprland rice intended to be a competitor to Omarchy, suitable for new users and advanced users alike. Inspired heavily by the workflow and visuals of MacOS 27.
-
 ## Install
 
 ```bash
 git clone https://github.com/schultz-dev0/cloudyy-linux ~/cloudyy-linux
 ~/cloudyy-linux/install/install.sh
 ```
-
-Follow the prompts, the installer handles GPU detection, package selection, dotfiles symlinking, and service setup automatically. Resumes from the last checkpoint if interrupted.
-
-## Usage
-
-!Most features are shown in this video: https://www.youtube.com/watch?v=rspzOLU1LwU
-New video soon with the latest feature set. 
-
-## Quickshell overview
 
 ![Preview](extras/Previewpics/general/system_overview.png)
 
