@@ -19,6 +19,7 @@ Singleton {
     readonly property string catalogCacheFile: homeDir + "/.config/cloud-center/settings/quickshell/app_catalog.json"
     readonly property string recentsFile: homeDir + "/.config/cloud-center/settings/quickshell/app_recents.json"
     readonly property int debounceMs: 120
+    readonly property int startupLoadDelayMs: 1500
     readonly property int maxRecents: 8
     readonly property int gridColumns: 5
     readonly property int visibleRows: 4
@@ -246,6 +247,7 @@ Singleton {
         query = "";
         activeCategory = "All";
         selectedIndex = -1;
+        startupCatalogDelay.stop();
         loadRecents();
         if (catalog.length === 0)
             catalogLoaded = false;
@@ -510,9 +512,16 @@ Singleton {
         }
     }
 
+    Timer {
+        id: startupCatalogDelay
+        interval: svc.startupLoadDelayMs
+        repeat: false
+        onTriggered: svc.loadCatalog()
+    }
+
     Component.onCompleted: {
         loadRecents();
-        loadCatalog();
+        startupCatalogDelay.start();
     }
 
     Timer {

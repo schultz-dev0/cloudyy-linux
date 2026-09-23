@@ -23,6 +23,11 @@ QtObject {
     readonly property int topGap: root.solid ? root.solidTopGap : root.transparentTopGap
     readonly property real bgOpacity: root.solid ? root.solidBgOpacity : root.transparentBgOpacity
 
+    // Width of the bar on the left/right edge, same in both styles: icons and
+    // stacked text need real room (the 10px transparent strip only works
+    // horizontally, where text overflows it).
+    readonly property int verticalBarWidth: 36
+
     function toggle() {
         root.solid = !root.solid;
     }

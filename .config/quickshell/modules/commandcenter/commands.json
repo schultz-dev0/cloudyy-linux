@@ -186,6 +186,204 @@
     }
   },
   {
+    "id": "appearance.bar",
+    "label": "Bar Position",
+    "icon": "󰛼",
+    "keywords": [
+      "bar",
+      "position",
+      "move",
+      "edge"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "appearance.bar.top",
+    "label": "Top",
+    "icon": "󰃑",
+    "keywords": [
+      "bar",
+      "top"
+    ],
+    "parent": "appearance.bar",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setBar",
+        "top"
+      ]
+    }
+  },
+  {
+    "id": "appearance.bar.bottom",
+    "label": "Bottom",
+    "icon": "󰃈",
+    "keywords": [
+      "bar",
+      "bottom"
+    ],
+    "parent": "appearance.bar",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setBar",
+        "bottom"
+      ]
+    }
+  },
+  {
+    "id": "appearance.bar.left",
+    "label": "Left",
+    "icon": "󰃌",
+    "keywords": [
+      "bar",
+      "left"
+    ],
+    "parent": "appearance.bar",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setBar",
+        "left"
+      ]
+    }
+  },
+  {
+    "id": "appearance.bar.right",
+    "label": "Right",
+    "icon": "󰃏",
+    "keywords": [
+      "bar",
+      "right"
+    ],
+    "parent": "appearance.bar",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setBar",
+        "right"
+      ]
+    }
+  },
+  {
+    "id": "appearance.dock",
+    "label": "Dock Position",
+    "icon": "󱂬",
+    "keywords": [
+      "dock",
+      "position",
+      "move",
+      "edge"
+    ],
+    "parent": "appearance",
+    "action": {
+      "type": "navigate"
+    }
+  },
+  {
+    "id": "appearance.dock.top",
+    "label": "Top",
+    "icon": "󱔓",
+    "keywords": [
+      "dock",
+      "top"
+    ],
+    "parent": "appearance.dock",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setDock",
+        "top"
+      ]
+    }
+  },
+  {
+    "id": "appearance.dock.bottom",
+    "label": "Bottom",
+    "icon": "󱂩",
+    "keywords": [
+      "dock",
+      "bottom"
+    ],
+    "parent": "appearance.dock",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setDock",
+        "bottom"
+      ]
+    }
+  },
+  {
+    "id": "appearance.dock.left",
+    "label": "Left",
+    "icon": "󱂪",
+    "keywords": [
+      "dock",
+      "left"
+    ],
+    "parent": "appearance.dock",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setDock",
+        "left"
+      ]
+    }
+  },
+  {
+    "id": "appearance.dock.right",
+    "label": "Right",
+    "icon": "󱂫",
+    "keywords": [
+      "dock",
+      "right"
+    ],
+    "parent": "appearance.dock",
+    "action": {
+      "type": "exec",
+      "command": [
+        "qs",
+        "ipc",
+        "call",
+        "layout",
+        "setDock",
+        "right"
+      ]
+    }
+  },
+  {
     "id": "apps",
     "label": "Applications",
     "icon": "󰀻",

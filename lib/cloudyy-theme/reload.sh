@@ -66,12 +66,41 @@ _reload_passive_consumer() {
   return "$CLOUDYY_ADAPTER_SKIP"
 }
 
-# GTK apps read gtk.css at startup; no live-reload target is part of this
-# system (Thunar used to be poked here via quit+relaunch, but it isn't
-# installed on Cloudyy — that dance only ever ran for a user who happened
-# to have it, and cost seconds of blocking under the exclusive theme lock
-# when it did), so this is passive like the other CSS consumers below.
-reload_gtk() { _reload_passive_consumer "$1"; }
+# GTK apps read gtk.css at startup and GTK4/libadwaita (Nautilus) does not
+# watch it, so the only live reload is to quit and relaunch the process.
+# Nautilus is Cloudyy's file manager — the one GTK window a user keeps open
+# while switching themes — so it gets a quit+relaunch dance (mirroring the
+# old Thunar one) so a theme switch re-reads gtk.css without a manual
+# restart. Skipped when Nautilus isn't installed or isn't running.
+reload_gtk() {
+  local theme="$1" attempt daemon_pid
+  _adapter_theme_is_active "$theme" || return 1
+  command -v nautilus >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
+  _process_running nautilus || return "$CLOUDYY_ADAPTER_SKIP"
+  # `nautilus -q` exits 255 even when the quit succeeds (it reaches for the
+  # Mutter service channel, which has no owner under Hyprland), so its exit
+  # status is not a reliable signal. Quit, then verify with the poll below.
+  nautilus -q >/dev/null 2>&1 || true
+  for ((attempt = 0; attempt < 20; attempt += 1)); do
+    _process_running nautilus || break
+    sleep 0.1
+  done
+  _process_running nautilus && return 1
+  (
+    [[ -z "${theme_lock_fd:-}" ]] || exec {theme_lock_fd}>&-
+    exec nautilus
+  ) >/dev/null 2>&1 &
+  daemon_pid=$!
+  for ((attempt = 0; attempt < 20; attempt += 1)); do
+    _process_running nautilus && return 0
+    kill -0 "$daemon_pid" >/dev/null 2>&1 || {
+      wait "$daemon_pid" 2>/dev/null || true
+      return 1
+    }
+    sleep 0.1
+  done
+  return 1
+}
 reload_wlogout() { _reload_passive_consumer "$1"; }
 reload_starship() { _reload_passive_consumer "$1"; }
 # No reload_vesktop: it's been removed from this system.

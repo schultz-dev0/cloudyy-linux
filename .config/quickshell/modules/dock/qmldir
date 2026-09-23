@@ -5,3 +5,4 @@ DockIcon 1.0 DockIcon.qml
 DockDockButton 1.0 DockDockButton.qml
 DockDivider 1.0 DockDivider.qml
 DockHoverLabel 1.0 DockHoverLabel.qml
+DockUpright 1.0 DockUpright.qml

@@ -1,0 +1,392 @@
+#!/usr/bin/env bash
+# Apply or undo the personal Cloudyy performance profile.
+
+set -euo pipefail -E
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+readonly STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/cloudyy/performance-profile"
+readonly STATE_FILE="${STATE_DIR}/state"
+readonly DOCKER_UNIT="docker-desktop.service"
+readonly WATCHDOG_UNIT="cloudyy-plymouth-watchdog.service"
+readonly WATCHDOG_DROPIN_DIR="/etc/systemd/system/${WATCHDOG_UNIT}.d"
+readonly WATCHDOG_DROPIN="${WATCHDOG_DROPIN_DIR}/performance.conf"
+readonly WATCHDOG_BACKUP="${STATE_DIR}/watchdog-dropin.before"
+readonly QS_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
+readonly QS_SETTING_FILE="${QS_CONFIG_HOME}/cloud-center/settings/quickshell/lightweight"
+readonly QS_DROPIN_DIR="${QS_CONFIG_HOME}/systemd/user/quickshell.service.d"
+readonly QS_DROPIN="${QS_DROPIN_DIR}/performance.conf"
+readonly QS_SETTING_BACKUP="${STATE_DIR}/quickshell-lightweight.before"
+readonly QS_DROPIN_BACKUP="${STATE_DIR}/quickshell-dropin.before"
+readonly LEGACY_QS_ENV_FILE="${QS_CONFIG_HOME}/quickshell/qs.env"
+readonly LEGACY_QS_ENV_BACKUP="${STATE_DIR}/quickshell-env.before"
+
+ACTION="apply"
+DRY_RUN=0
+SUDO_READY=0
+
+if [[ $EUID -eq 0 ]]; then
+  printf '[!] Do not run this script as root.\n' >&2
+  exit 1
+fi
+
+if [[ -t 1 ]]; then
+  BLUE=$'\e[1;34m' GREEN=$'\e[1;32m' YELLOW=$'\e[1;33m'
+  RED=$'\e[1;31m' RESET=$'\e[0m'
+else
+  BLUE='' GREEN='' YELLOW='' RED='' RESET=''
+fi
+
+_ts() { date '+%H:%M:%S'; }
+log() { printf '%s[*]%s [%s] %s\n' "$BLUE" "$RESET" "$(_ts)" "$1"; }
+log_ok() { printf '%s[+]%s [%s] %s\n' "$GREEN" "$RESET" "$(_ts)" "$1"; }
+log_warn() { printf '%s[!]%s [%s] %s\n' "$YELLOW" "$RESET" "$(_ts)" "$1"; }
+log_error() { printf '%s[x]%s [%s] %s\n' "$RED" "$RESET" "$(_ts)" "$1" >&2; }
+_err_handler() { log_error "Unexpected error on line ${BASH_LINENO[0]}: ${BASH_COMMAND}"; }
+trap '_err_handler' ERR
+
+usage() {
+  cat <<'EOF'
+Usage: cloudyy-apply-performance-profile [OPTION]
+
+Apply the personal Cloudyy performance profile, or undo its machine-local
+service and environment changes.
+
+Options:
+  --dry-run  Show changes without applying them
+  --undo     Restore the state captured before the profile was applied
+  --help     Show this message
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    --undo)
+      ACTION="undo"
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    *)
+      log_error "Unknown option: $1"
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [[ "$ACTION" == "undo" && $DRY_RUN -eq 1 ]]; then
+  log_error "--dry-run and --undo cannot be combined."
+  exit 2
+fi
+
+if [[ "$ACTION" == "undo" && ! -f "$STATE_FILE" ]]; then
+  log_error "No performance-profile state exists at ${STATE_FILE}."
+  exit 1
+fi
+
+_state_value() {
+  local wanted="$1" key value
+  while IFS='=' read -r key value; do
+    if [[ "$key" == "$wanted" ]]; then
+      printf '%s' "$value"
+      return 0
+    fi
+  done <"$STATE_FILE"
+  return 1
+}
+
+_write_atomic() {
+  local path="$1" mode="$2" content="$3" temp
+  mkdir -p "$(dirname "$path")"
+  temp="$(mktemp "${path}.tmp.XXXXXX")"
+  printf '%s' "$content" >"$temp"
+  chmod "$mode" "$temp"
+  mv -f "$temp" "$path"
+}
+
+_capture_file() {
+  local path="$1" backup="$2"
+  if [[ -e "$path" ]]; then
+    cp -p "$path" "$backup"
+    printf '1'
+  else
+    rm -f "$backup"
+    printf '0'
+  fi
+}
+
+_write_state() {
+  local temp
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+  temp="$(mktemp "${STATE_FILE}.tmp.XXXXXX")"
+  cat >"$temp" <<EOF
+profile_version=2
+docker_enabled_before=${DOCKER_ENABLED_BEFORE}
+docker_active_before=${DOCKER_ACTIVE_BEFORE}
+watchdog_dropin_before=${WATCHDOG_DROPIN_BEFORE}
+quickshell_setting_before=${QS_SETTING_BEFORE}
+quickshell_dropin_before=${QS_DROPIN_BEFORE}
+EOF
+  chmod 600 "$temp"
+  mv -f "$temp" "$STATE_FILE"
+}
+
+_run_user() {
+  if ((DRY_RUN)); then
+    log "dry-run: systemctl --user $*"
+  else
+    systemctl --user "$@"
+  fi
+}
+
+prepare_sudo() {
+  if ! command -v sudo >/dev/null 2>&1; then
+    log_warn "sudo is unavailable; privileged changes will be skipped."
+    return 1
+  fi
+  if sudo -n true 2>/dev/null; then
+    SUDO_READY=1
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    log_warn "No interactive terminal is available for sudo; privileged changes will be skipped."
+    return 1
+  fi
+  if sudo -v; then
+    SUDO_READY=1
+    return 0
+  fi
+  log_warn "sudo authentication failed; privileged changes will be skipped."
+  return 1
+}
+
+_watchdog_exists() {
+  systemctl cat "$WATCHDOG_UNIT" >/dev/null 2>&1
+}
+
+check_source_version() {
+  local required_file
+  for required_file in \
+    "${REPO_DIR}/.config/quickshell/modules/commandcenter/applibrary/AppLibraryService.qml" \
+    "${REPO_DIR}/.config/quickshell/modules/systemmonitor/SystemMonitorService.qml" \
+    "${REPO_DIR}/.config/quickshell/shell.qml"; do
+    if [[ ! -f "$required_file" ]]; then
+      log_warn "Quickshell source file missing: ${required_file}"
+    fi
+  done
+}
+
+capture_state() {
+  mkdir -p "$STATE_DIR"
+  chmod 700 "$STATE_DIR"
+
+  if [[ -f "$STATE_FILE" ]]; then
+    if [[ "$(_state_value profile_version)" == 2 ]]; then
+      log "Existing rollback state found; preserving it for --undo."
+      return 0
+    fi
+    log_error "An older performance-profile state exists; run '$0 --undo' before reapplying."
+    return 1
+  fi
+
+  if systemctl --user is-enabled --quiet "$DOCKER_UNIT" 2>/dev/null; then
+    DOCKER_ENABLED_BEFORE=1
+  else
+    DOCKER_ENABLED_BEFORE=0
+  fi
+  if systemctl --user is-active --quiet "$DOCKER_UNIT" 2>/dev/null; then
+    DOCKER_ACTIVE_BEFORE=1
+  else
+    DOCKER_ACTIVE_BEFORE=0
+  fi
+
+  WATCHDOG_DROPIN_BEFORE=unknown
+  if ((SUDO_READY)) && _watchdog_exists; then
+    if sudo -n test -e "$WATCHDOG_DROPIN"; then
+      WATCHDOG_DROPIN_BEFORE=1
+      sudo -n cp -p "$WATCHDOG_DROPIN" "$WATCHDOG_BACKUP"
+    else
+      WATCHDOG_DROPIN_BEFORE=0
+      rm -f "$WATCHDOG_BACKUP"
+    fi
+  fi
+
+  QS_SETTING_BEFORE="$(_capture_file "$QS_SETTING_FILE" "$QS_SETTING_BACKUP")"
+  QS_DROPIN_BEFORE="$(_capture_file "$QS_DROPIN" "$QS_DROPIN_BACKUP")"
+  _write_state
+}
+
+apply_docker_policy() {
+  if ! systemctl --user cat "$DOCKER_UNIT" >/dev/null 2>&1; then
+    log_warn "${DOCKER_UNIT} is not installed; leaving Docker unchanged."
+    return 0
+  fi
+
+  if systemctl --user is-active --quiet "$DOCKER_UNIT" 2>/dev/null ||
+    systemctl --user is-enabled --quiet "$DOCKER_UNIT" 2>/dev/null; then
+    _run_user disable --now "$DOCKER_UNIT" ||
+      log_warn "Could not stop or disable ${DOCKER_UNIT} (non-fatal)."
+  else
+    log_ok "Docker Desktop is already on-demand."
+  fi
+}
+
+apply_watchdog_policy() {
+  if ! _watchdog_exists; then
+    log_warn "${WATCHDOG_UNIT} is not installed; leaving boot watchdog unchanged."
+    return 0
+  fi
+  if ((DRY_RUN)); then
+    log "dry-run: install ${WATCHDOG_DROPIN} with Type=simple"
+    return 0
+  fi
+  if ((SUDO_READY == 0)); then
+    log_warn "Privileged access is unavailable; leaving boot watchdog unchanged."
+    return 0
+  fi
+
+  sudo install -d -m 0755 "$WATCHDOG_DROPIN_DIR"
+  printf '%s\n' \
+    '# Managed by cloudyy-apply-performance-profile.' \
+    '[Service]' \
+    'Type=simple' \
+    'RemainAfterExit=no' |
+    sudo tee "$WATCHDOG_DROPIN" >/dev/null
+  sudo systemctl daemon-reload
+  log_ok "Plymouth watchdog no longer blocks getty.target for its sleep interval."
+}
+
+apply_quickshell_policy() {
+  if ((DRY_RUN)); then
+    log "dry-run: set ${QS_SETTING_FILE} to True"
+    log "dry-run: write ${QS_DROPIN} with CLOUDYY_LIGHTWEIGHT=1"
+  else
+    _write_atomic "$QS_SETTING_FILE" 0644 $'True\n'
+    _write_atomic "$QS_DROPIN" 0644 $'# Managed by cloudyy-apply-performance-profile.\n[Service]\nEnvironment=CLOUDYY_LIGHTWEIGHT=1\n'
+    systemctl --user daemon-reload
+    if systemctl --user is-active --quiet quickshell.service 2>/dev/null; then
+      systemctl --user restart quickshell.service
+      log_ok "Quickshell restarted with the lightweight profile."
+    else
+      log_warn "Quickshell is not active; its next start will use the lightweight profile."
+    fi
+  fi
+}
+
+report() {
+  log "User service summary:"
+  systemctl --user is-enabled "$DOCKER_UNIT" 2>/dev/null || true
+  systemctl --user is-active docker-desktop.service 2>/dev/null || true
+  systemctl --user is-active syncthing.service 2>/dev/null || true
+  systemctl --user is-active localsearch-3.service 2>/dev/null || true
+  log "Top system boot units:"
+  systemd-analyze blame 2>/dev/null | awk 'NR <= 8' || true
+  log "Top user-session units:"
+  systemd-analyze --user blame 2>/dev/null | awk 'NR <= 8' || true
+}
+
+apply_profile() {
+  local DOCKER_ENABLED_BEFORE=0 DOCKER_ACTIVE_BEFORE=0
+  local WATCHDOG_DROPIN_BEFORE=0 QS_SETTING_BEFORE=0 QS_DROPIN_BEFORE=0
+
+  if ((DRY_RUN)); then
+    check_source_version
+    apply_docker_policy
+    apply_watchdog_policy
+    apply_quickshell_policy
+    report
+    return 0
+  fi
+
+  if _watchdog_exists; then
+    prepare_sudo || true
+  fi
+  capture_state
+  check_source_version
+  apply_docker_policy
+  apply_watchdog_policy
+  apply_quickshell_policy
+  report
+  log_ok "Cloudyy performance profile applied."
+  log "Use '$0 --undo' to restore machine-local service and environment state."
+}
+
+undo_profile() {
+  local profile_version docker_enabled_before watchdog_before qs_setting_before
+  local qs_dropin_before legacy_env_before
+  profile_version="$(_state_value profile_version)"
+  docker_enabled_before="$(_state_value docker_enabled_before)"
+  watchdog_before="$(_state_value watchdog_dropin_before)"
+  qs_setting_before="$(_state_value quickshell_setting_before)"
+  if [[ "$profile_version" == 1 ]]; then
+    legacy_env_before="$(_state_value quickshell_env_before)"
+  else
+    qs_dropin_before="$(_state_value quickshell_dropin_before)"
+  fi
+
+  if [[ "$docker_enabled_before" == 1 ]]; then
+    systemctl --user enable "$DOCKER_UNIT" || true
+  else
+    systemctl --user disable "$DOCKER_UNIT" || true
+  fi
+  if [[ "$(_state_value docker_active_before)" == 1 ]]; then
+    systemctl --user start "$DOCKER_UNIT" || true
+  else
+    systemctl --user stop "$DOCKER_UNIT" || true
+  fi
+
+  if [[ "$watchdog_before" == unknown ]]; then
+    log_warn "Rollback state lacks privileged watchdog data; leaving its drop-in unchanged."
+  elif _watchdog_exists; then
+    if ! prepare_sudo; then
+      log_warn "Privileged rollback unavailable; leaving the watchdog drop-in unchanged."
+    elif [[ "$watchdog_before" == 1 ]]; then
+      sudo install -d -m 0755 "$WATCHDOG_DROPIN_DIR"
+      sudo install -m 0644 "$WATCHDOG_BACKUP" "$WATCHDOG_DROPIN"
+      sudo systemctl daemon-reload
+    else
+      sudo rm -f "$WATCHDOG_DROPIN"
+      sudo systemctl daemon-reload
+    fi
+  fi
+
+  if [[ "$qs_setting_before" == 1 ]]; then
+    install -m 0644 "$QS_SETTING_BACKUP" "$QS_SETTING_FILE"
+  else
+    rm -f "$QS_SETTING_FILE"
+  fi
+  if [[ "$profile_version" == 1 ]]; then
+    if [[ "$legacy_env_before" == 1 ]]; then
+      install -m 0644 "$LEGACY_QS_ENV_BACKUP" "$LEGACY_QS_ENV_FILE"
+    else
+      rm -f "$LEGACY_QS_ENV_FILE"
+    fi
+  elif [[ "$qs_dropin_before" == 1 ]]; then
+    install -m 0644 "$QS_DROPIN_BACKUP" "$QS_DROPIN"
+    systemctl --user daemon-reload
+  else
+    rm -f "$QS_DROPIN"
+    systemctl --user daemon-reload
+  fi
+  if systemctl --user is-active --quiet quickshell.service 2>/dev/null; then
+    systemctl --user restart quickshell.service
+  fi
+
+  rm -f "$STATE_FILE" "$WATCHDOG_BACKUP" "$QS_SETTING_BACKUP" \
+    "$QS_DROPIN_BACKUP" "$LEGACY_QS_ENV_BACKUP"
+  report
+  log_ok "Cloudyy performance profile undone."
+}
+
+if [[ "$ACTION" == "undo" ]]; then
+  undo_profile
+else
+  apply_profile
+fi

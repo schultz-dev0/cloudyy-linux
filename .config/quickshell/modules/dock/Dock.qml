@@ -9,6 +9,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
+import "../../ShellEdges.js" as ShellEdges
 import "../../overview/services"
 import "../../overview/services/AppIdentity.js" as AppIdentity
 import "DockVisibilityPolicy.js" as DockVisibilityPolicy
@@ -41,9 +42,27 @@ PanelWindow {
     screen: resolvedScreen
     visible: QuickIdle.IdleService.state !== "scene"
 
+    // Screen edge (ShellLayout). The dock is always laid out as a bottom dock;
+    // edgeFrame below turns it onto `edge`.
+    readonly property string edge: ShellLayout.dockEdge
+    readonly property bool vertical: ShellEdges.isVertical(edge)
+    readonly property var edgeTransform: ShellEdges.dockFrame(edge)
+
+    // Space the bar reserves at the start/end of this edge — its thickness plus
+    // the gap Hyprland counts twice (exclusive zone + margin), as in `reserved`.
+    readonly property var barInsets: ShellEdges.barInsets(edge, ShellLayout.barEdge,
+        (ShellEdges.isVertical(ShellLayout.barEdge) ? BarStyleService.verticalBarWidth : BarStyleService.barHeight)
+            + BarStyleService.topGap * 2)
+
     DockFit.DockFitMetrics {
         id: fitMetrics
-        screenWidth: Number(dock.resolvedScreen?.width ?? 0)
+        // Length along the dock's edge that the bar leaves free.
+        screenWidth: Number((dock.vertical ? dock.resolvedScreen?.height : dock.resolvedScreen?.width) ?? 0)
+            - dock.barInsets.start - dock.barInsets.end
+        // Side docks: smaller icons, tighter gaps, more room at the ends.
+        baseIconSize: dock.vertical ? 40 : 48
+        baseIconSpacing: dock.vertical ? 12 : 25
+        edgeMargin: dock.vertical ? 24 : 12
         appCount: dock.mergedApps.length
         folderCount: dock.openFolderEntries.length
     }
@@ -60,16 +79,16 @@ PanelWindow {
     readonly property real paddingH: fitMetrics.paddingH
     readonly property real paddingV: fitMetrics.paddingV
     readonly property int bottomGap: 1
-    readonly property int activationHeight: 1 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up.
+    readonly property int activationHeight: 2 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 2 not 1: Hyprland's cursor hotspot_padding keeps the pointer 1px off every screen edge, so a 1px strip is unreachable on the top/left edges.
     // Reveal intent: dwell on the 1px strip + a few hyprctl cursorpos checks
-    // confirming the pointer stays on this monitor's bottom edge (event-driven
+    // confirming the pointer stays on this monitor's dock edge (event-driven
     // only — no background poller while the dock is idle).
     readonly property int revealDwellMs: 190
     readonly property int revealSampleCount: 4
     readonly property int revealSampleIntervalMs: 48
-    readonly property int revealBottomSlopPx: 4
-    // Reject U-sweeps / edge skimming: X must stay nearly planted while dwelling.
-    readonly property int revealMaxHorizontalSpanPx: 30
+    readonly property int revealEdgeSlopPx: Math.max(4, revealStripPx)
+    // Reject U-sweeps / edge skimming: position along the edge must stay nearly planted while dwelling.
+    readonly property int revealMaxAlongSpanPx: 30
     readonly property int showAnimMs: 500
     readonly property int hideAnimMs: 480
     // After a successful reveal, block hide briefly so the slide can finish and
@@ -112,6 +131,10 @@ PanelWindow {
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
     property real dockMouseXRaw: -9999
+    // Raw pointer (global coords) from the tray-wide hover handlers below. Icons
+    // use it for the vertical half of their hit test — a HoverHandler on the icon
+    // itself never sees hover, dockMagnifyHover sits above the icons.
+    property point dockPointerGlobal: Qt.point(-99999, -99999)
     property real dockMouseXSmooth: -9999
     property bool revealIntentArmed: false
     property int revealSampleHits: 0
@@ -120,10 +143,10 @@ PanelWindow {
     property bool revealDwellElapsed: false
     property bool revealSamplesComplete: false
     property bool revealVerifyComplete: false
-    property bool revealHorizontalStable: false
-    property real revealSampleMinX: 0
-    property real revealSampleMaxX: 0
-    property bool revealSampleXInit: false
+    property bool revealAlongStable: false
+    property real revealSampleMinAlong: 0
+    property real revealSampleMaxAlong: 0
+    property bool revealSampleAlongInit: false
     property bool postRevealGrace: false
     // After hide while still on the 1px strip, require leaving before re-intent
     // (breaks hide → immediate re-arm → show flicker loops).
@@ -215,6 +238,24 @@ PanelWindow {
         }
     }
 
+    // On an edge shared with another monitor the pointer can't push against
+    // the edge — it crosses onto the neighbour — so the reveal strip is wider
+    // there, letting the cursor rest near the edge. Same geometry source as
+    // revealMonitorGeom(); Quickshell.screens covers hotplug too.
+    readonly property bool edgeShared: {
+        const g = dock.revealMonitorGeom();
+        if (!g)
+            return false;
+        const others = Quickshell.screens
+            .filter(s => s !== dock.resolvedScreen)
+            .map(s => ({ x: Number(s.x), y: Number(s.y), width: Number(s.width), height: Number(s.height) }));
+        return ShellEdges.edgeIsShared(dock.edge, g, others);
+    }
+    // Hidden-window thickness and reveal trigger. The shown dock keeps
+    // activationHeight, so it sits the same distance from every edge. The
+    // 8px strip swallows clicks on the outermost 8px of windows on that side.
+    readonly property int revealStripPx: edgeShared ? 8 : activationHeight
+
     onDockHoveredChanged: syncDockVisibility()
 
     onDockVisibleChanged: {
@@ -254,14 +295,14 @@ PanelWindow {
 
     function cursorAtDockActivationEdge(cx, cy) {
         const g = dock.revealMonitorGeom();
-        if (!g)
-            return false;
-        const bottom = g.y + g.height - 1;
-        if (cy < bottom - dock.revealBottomSlopPx)
-            return false;
-        const dockW = dock.dockWidth;
-        const left = g.x + (g.width - dockW) / 2;
-        return cx >= left - 4 && cx <= left + dockW + 4;
+        return g ? ShellEdges.atActivationEdge(dock.edge, g, cx, cy, dock.dockWidth, dock.revealEdgeSlopPx,
+            dock.barInsets.start, dock.barInsets.end) : false;
+    }
+
+    // Cursor position along the dock's edge (x for top/bottom, y for left/right).
+    function revealAlong(cx, cy) {
+        const g = dock.revealMonitorGeom();
+        return g ? ShellEdges.edgeCoords(dock.edge, g, cx, cy).along : cx;
     }
 
     function resetRevealSamples() {
@@ -271,10 +312,10 @@ PanelWindow {
         dock.revealDwellElapsed = false;
         dock.revealSamplesComplete = false;
         dock.revealVerifyComplete = false;
-        dock.revealHorizontalStable = false;
-        dock.revealSampleMinX = 0;
-        dock.revealSampleMaxX = 0;
-        dock.revealSampleXInit = false;
+        dock.revealAlongStable = false;
+        dock.revealSampleMinAlong = 0;
+        dock.revealSampleMaxAlong = 0;
+        dock.revealSampleAlongInit = false;
     }
 
     function cancelRevealIntent(allowRearm) {
@@ -309,19 +350,20 @@ PanelWindow {
             return false;
         }
         dock.revealSampleHits++;
-        if (!dock.revealSampleXInit) {
-            dock.revealSampleMinX = cx;
-            dock.revealSampleMaxX = cx;
-            dock.revealSampleXInit = true;
+        const along = dock.revealAlong(cx, cy);
+        if (!dock.revealSampleAlongInit) {
+            dock.revealSampleMinAlong = along;
+            dock.revealSampleMaxAlong = along;
+            dock.revealSampleAlongInit = true;
         } else {
-            if (cx < dock.revealSampleMinX)
-                dock.revealSampleMinX = cx;
-            if (cx > dock.revealSampleMaxX)
-                dock.revealSampleMaxX = cx;
+            if (along < dock.revealSampleMinAlong)
+                dock.revealSampleMinAlong = along;
+            if (along > dock.revealSampleMaxAlong)
+                dock.revealSampleMaxAlong = along;
         }
-        const span = dock.revealSampleMaxX - dock.revealSampleMinX;
-        dock.revealHorizontalStable = span <= dock.revealMaxHorizontalSpanPx;
-        return dock.revealHorizontalStable;
+        const span = dock.revealSampleMaxAlong - dock.revealSampleMinAlong;
+        dock.revealAlongStable = span <= dock.revealMaxAlongSpanPx;
+        return dock.revealAlongStable;
     }
 
     function armRevealIntent() {
@@ -354,12 +396,12 @@ PanelWindow {
         if (!raw.length) {
             dock.revealSampleMisses++;
             dock.revealSamplesComplete = true;
-            dock.revealHorizontalStable = false;
+            dock.revealAlongStable = false;
             dock.tryCommitRevealIntent();
             return;
         }
         const chunks = raw.split(/\n+/).map(s => s.trim()).filter(s => s.length > 0);
-        let prevX = NaN;
+        let prevAlong = NaN;
         for (let i = 0; i < chunks.length; i++) {
             const m = chunks[i].match(/^(-?\d+)\s*,\s*(-?\d+)\s*$/);
             if (!m) {
@@ -374,18 +416,19 @@ PanelWindow {
                 dock.revealSamplesDone++;
                 continue;
             }
-            if (Number.isFinite(prevX) && Math.abs(cx - prevX) > dock.revealMaxHorizontalSpanPx) {
+            const along = dock.revealAlong(cx, cy);
+            if (Number.isFinite(prevAlong) && Math.abs(along - prevAlong) > dock.revealMaxAlongSpanPx) {
                 dock.revealSampleMisses++;
                 dock.revealSamplesDone++;
-                dock.revealHorizontalStable = false;
+                dock.revealAlongStable = false;
                 break;
             }
             if (!dock.noteRevealSamplePoint(cx, cy))
                 break;
-            prevX = cx;
+            prevAlong = along;
         }
         dock.revealSamplesComplete = true;
-        if (dock.revealSampleMisses > 0 || !dock.revealHorizontalStable || !triggerZone.containsMouse) {
+        if (dock.revealSampleMisses > 0 || !dock.revealAlongStable || !triggerZone.containsMouse) {
             dock.cancelRevealIntent();
             return;
         }
@@ -416,7 +459,7 @@ PanelWindow {
             return;
         }
         dock.revealVerifyComplete = true;
-        if (!triggerZone.containsMouse || !dock.revealHorizontalStable) {
+        if (!triggerZone.containsMouse || !dock.revealAlongStable) {
             dock.cancelRevealIntent();
             return;
         }
@@ -433,7 +476,7 @@ PanelWindow {
         const samplesOk = dock.revealSampleMisses === 0
             && dock.revealSampleHits >= Math.min(2, dock.revealSampleCount)
             && dock.revealSamplesDone > 0
-            && dock.revealHorizontalStable;
+            && dock.revealAlongStable;
         if (!stripOk || !samplesOk) {
             dock.cancelRevealIntent();
             return;
@@ -456,7 +499,7 @@ PanelWindow {
     }
 
     function syncDockVisibility() {
-        if (interactionBlock) {
+        if (interactionBlock || ShellLayout.movingWhich === "dock") {
             dock.cancelRevealIntent();
             dock.postRevealGrace = false;
             postRevealGraceTimer.stop();
@@ -1371,6 +1414,10 @@ PanelWindow {
     readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
     // Extra window height above the pill for magnify + instance labels
     readonly property int visualOverflowPx: Math.ceil(iconSize * (maxScale - 1)) + 44
+    // Side edges: the upright hover label (≤220px, DockHoverLabel) runs into the screen.
+    readonly property int overflowPx: vertical
+        ? Math.max(visualOverflowPx, Math.ceil(iconSize * (maxScale - 1)) + 16 + 220 + 8)
+        : visualOverflowPx
     // Pill + magnify lift only excludes the instance-label band above icons.
     readonly property int magnifyHoverHeight: pillHeight + Math.ceil(iconSize * (maxScale - 1))
     // Nudge the hit band a few px below the peak magnify tip so the label
@@ -1381,15 +1428,18 @@ PanelWindow {
     readonly property int interactBandHeight: activationHeight + bottomGap + magnifyInteractHeight
     readonly property real dockWidth: fitMetrics.dockWidth
     readonly property int visibleDockHeight: dockVisible
-        ? dockFullHeight + activationHeight + visualOverflowPx
-        : activationHeight
+        ? dockFullHeight + activationHeight + overflowPx
+        : revealStripPx
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
-        bottom: true
+        bottom: dock.edge === "bottom"
+        top: dock.edge === "top"
+        left: dock.edge === "left"
+        right: dock.edge === "right"
     }
-    implicitWidth: dockWidth
-    implicitHeight: visibleDockHeight
+    implicitWidth: vertical ? visibleDockHeight : dockWidth
+    implicitHeight: vertical ? dockWidth : visibleDockHeight
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:dock"
@@ -1405,12 +1455,18 @@ PanelWindow {
     // visual-overflow band used for hover labels above icons.
     Item {
         id: dockInteractZone
-        anchors {
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
-        }
-        width: dock.dockWidth
-        height: dock.interactBandHeight
+        // Window-level on purpose: a mask Region whose item sits inside the
+        // rotated edgeFrame yields an empty input region.
+        // Plain x/y, not anchors: switching edge swaps which axis is
+        // anchored (e.g. bottom+horizontalCenter -> left+verticalCenter),
+        // and Qt's anchor system latches the cross-axis size from before the
+        // swap instead of picking up the new height/width binding — mask
+        // ends up a small, mispositioned box and every left/right probe
+        // misses the window entirely. Explicit x/y sidesteps that.
+        width: dock.vertical ? dock.interactBandHeight : dock.dockWidth
+        height: dock.vertical ? dock.dockWidth : dock.interactBandHeight
+        x: dock.edge === "left" ? 0 : dock.edge === "right" ? parent.width - width : (parent.width - width) / 2
+        y: dock.edge === "top" ? 0 : dock.edge === "bottom" ? parent.height - height : (parent.height - height) / 2
 
         HoverHandler {
             id: dockInteractPointer
@@ -1437,6 +1493,18 @@ PanelWindow {
         p.running = true;
     }
 
+    function trackMove(area, mouse) {
+        const scr = dock.resolvedScreen;
+        if (ShellLayout.movingWhich !== "dock" || !scr)
+            return;
+        // ponytail: assumes the dock is centred on the whole edge; other layers'
+        // exclusive zones shift it by up to their thickness — fine for picking
+        // the nearest edge. Switch to hyprctl cursorpos if that ever misfires.
+        const origin = ShellEdges.surfaceOrigin(dock.edge, false, scr.width, scr.height, dock.width, dock.height, 0);
+        const p = area.mapToItem(null, mouse.x, mouse.y);
+        ShellLayout.updateMove(origin.x + p.x, origin.y + p.y, scr.width, scr.height);
+    }
+
     function launchApp(app) {
         const identity = Object.assign({}, app?.identity || HyprlandData.primaryIdentityForApp(app), {
             exec: app?.identity?.exec || dock.execForPinnedApp(app),
@@ -1454,7 +1522,14 @@ PanelWindow {
         rebuildFolderBar();
     }
 
-    Component.onDestruction: occupancyHideTimer.stop()
+    Component.onDestruction: {
+        occupancyHideTimer.stop();
+        // With dock_on_all_screens off, this Variants delegate can be
+        // destroyed mid-drag (focus followed the drag to another monitor) —
+        // no released/canceled arrives, so movingWhich would stay stuck set.
+        if (ShellLayout.movingWhich === "dock" && ShellLayout.moveScreen === dock.screen)
+            ShellLayout.cancelMove();
+    }
 
     // Overview's full-screen Overlay can steal the mouse release during a dock drag.
     Connections {
@@ -1469,7 +1544,43 @@ PanelWindow {
         }
     }
 
-    // ── Dock body (fixed to screen bottom; overflow grows above, not under) ─
+    Connections {
+        target: ShellLayout
+        function onMovingWhichChanged() {
+            dock.syncDockVisibility();
+        }
+    }
+
+    // Everything visual is laid out as a bottom dock; edgeFrame/edgeScale turn
+    // it onto `edge` (ShellEdges.dockFrame). Input mask / trigger items stay
+    // outside both. Within one Item, Qt applies that item's own scale/
+    // rotation PROPERTIES first (innermost), then its `transform` list — so
+    // putting scale (list) and rotation (property) on the same item does
+    // rotate-then-scale, not the scale-then-rotate ShellEdges.dockFrame
+    // expects. Nesting instead — scale's transform list on the inner
+    // edgeScale, rotation's property on the outer edgeFrame — makes the
+    // parent-child order do scale-then-rotate explicitly, independent of
+    // per-item list-vs-property ordering.
+    Item {
+        id: edgeFrame
+        anchors.centerIn: parent
+        width: dock.dockWidth
+        height: dock.visibleDockHeight
+        rotation: dock.edgeTransform.rotation
+
+    Item {
+        id: edgeScale
+        anchors.fill: parent
+        transform: [
+            Scale {
+                origin.x: edgeScale.width / 2
+                origin.y: edgeScale.height / 2
+                xScale: dock.edgeTransform.xScale
+                yScale: dock.edgeTransform.yScale
+            }
+        ]
+
+    // ── Dock body (fixed to frame bottom; overflow grows above, not under) ──
     Item {
         id: dockChrome
         anchors {
@@ -1478,7 +1589,7 @@ PanelWindow {
         }
         anchors.bottomMargin: dock.activationHeight
         width: parent.width
-        height: dock.dockFullHeight + dock.visualOverflowPx
+        height: dock.dockFullHeight + dock.overflowPx
         clip: false
 
         Item {
@@ -1548,11 +1659,27 @@ PanelWindow {
             }
         }
 
+        // Long-press empty tray space to drag the dock to another screen edge.
+        // Under the icons (z: -1): icon presses keep going to the icons.
+        MouseArea {
+            id: dockBackground
+            anchors.fill: dockPill
+            z: -1
+            pressAndHoldInterval: 400
+            onPressAndHold: ShellLayout.beginMove("dock", dock.screen)
+            onPositionChanged: mouse => dock.trackMove(dockBackground, mouse)
+            onReleased: if (ShellLayout.movingWhich === "dock") ShellLayout.endMove()
+            onCanceled: if (ShellLayout.movingWhich === "dock") ShellLayout.cancelMove()
+        }
+
         // Icon row (search button pinned left + app icons)
         Row {
             anchors {
                 bottom: parent.bottom
-                bottomMargin: dock.paddingV
+                // Icon cells keep 6px under the icon for the running dot
+                // (DockIcon iconContainer bottomMargin); drop the row by that
+                // much so icons sit centred across the tray, dot in the padding.
+                bottomMargin: Math.max(0, dock.paddingV - 6)
                 horizontalCenter: parent.horizontalCenter
             }
             spacing: dock.iconSpacing
@@ -1563,6 +1690,7 @@ PanelWindow {
                 spread: dock.spread
                 frameMs: dock.frameMs
                 dockMouseX: dock.dockMouseXEffective
+                dockPointer: dock.dockPointerGlobal
                 btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
                 animationActive: dock.animationActive
                 glyph: "󰍉"
@@ -1592,6 +1720,7 @@ PanelWindow {
                         spread: dock.spread
                         frameMs: dock.frameMs
                         dockMouseX: dock.dockMouseXEffective
+                        dockPointer: dock.dockPointerGlobal
                         iconCenterX: dock.iconSlotCenterX(index)
                         animationActive: dock.animationActive
                         dockIdle: dock.dockIdle
@@ -1629,6 +1758,7 @@ PanelWindow {
                         spread: dock.spread
                         frameMs: dock.frameMs
                         dockMouseX: dock.dockMouseXEffective
+                        dockPointer: dock.dockPointerGlobal
                         btnCenterX: dock.openFolderSlotCenterX(index)
                         animationActive: dock.animationActive
                         imageSource: dock.folderImageSource
@@ -1651,6 +1781,7 @@ PanelWindow {
                 spread: dock.spread
                 frameMs: dock.frameMs
                 dockMouseX: dock.dockMouseXEffective
+                dockPointer: dock.dockPointerGlobal
                 btnCenterX: dock.appBrowserCenterX
                 animationActive: dock.animationActive
                 glyph: "󰀻"
@@ -1677,13 +1808,10 @@ PanelWindow {
                 }
             }
 
-            Image {
-                id: ghostImg
-                property int sourceIndex: 0
-                property var ghostSources: dock.dragGhostAppData
-                    ? HyprlandData.iconSourcesForAppData(dock.dragGhostAppData)
-                    : [HyprlandData.genericIconSource]
-
+            // Upright on every edge, same as icons: DockUpright inside, the
+            // ghost's own position/scale outside.
+            Item {
+                id: ghostImgHolder
                 anchors {
                     bottom: parent.bottom
                     bottomMargin: 6
@@ -1691,17 +1819,29 @@ PanelWindow {
                 }
                 width: dock.iconSize
                 height: dock.iconSize
-                onGhostSourcesChanged: sourceIndex = 0
-                source: ghostSources[sourceIndex] ?? HyprlandData.genericIconSource
-                sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
-                smooth: true
                 scale: dock.maxScale * 0.92
                 transformOrigin: Item.Bottom
-                onStatusChanged: {
-                    if (status === Image.Error && ghostImg.sourceIndex < ghostSources.length - 1)
-                        Qt.callLater(() => {
-                            ghostImg.sourceIndex++;
-                        });
+
+                DockUpright {
+                    Image {
+                        id: ghostImg
+                        property int sourceIndex: 0
+                        property var ghostSources: dock.dragGhostAppData
+                            ? HyprlandData.iconSourcesForAppData(dock.dragGhostAppData)
+                            : [HyprlandData.genericIconSource]
+
+                        anchors.fill: parent
+                        onGhostSourcesChanged: sourceIndex = 0
+                        source: ghostSources[sourceIndex] ?? HyprlandData.genericIconSource
+                        sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
+                        smooth: true
+                        onStatusChanged: {
+                            if (status === Image.Error && ghostImg.sourceIndex < ghostSources.length - 1)
+                                Qt.callLater(() => {
+                                    ghostImg.sourceIndex++;
+                                });
+                        }
+                    }
                 }
             }
 
@@ -1745,14 +1885,14 @@ PanelWindow {
                 id: dockMagnifyPointer
 
                 function updateMouseX() {
-                    dock.dockMouseXRaw = iconsRow.mapFromGlobal(
-                        dockMagnifyHover.mapToGlobal(point.position.x, point.position.y).x,
-                        0
-                    ).x;
+                    dock.dockPointerGlobal = dockMagnifyHover.mapToGlobal(point.position.x, point.position.y);
+                    dock.dockMouseXRaw = dockMagnifyHover.mapToItem(iconsRow, point.position.x, point.position.y).x;
                 }
 
                 onHoveredChanged: {
                     dock.syncDockVisibility();
+                    if (!hovered && !dockBodyHover.hovered)
+                        dock.dockPointerGlobal = Qt.point(-99999, -99999);
                     if (hovered)
                         updateMouseX();
                     else if (dock.currentWorkspaceEmpty && !dockBodyHover.hovered)
@@ -1770,13 +1910,13 @@ PanelWindow {
         HoverHandler {
             id: dockBodyHover
             function updateMouseX() {
-                dock.dockMouseXRaw = iconsRow.mapFromGlobal(
-                    dockBody.mapToGlobal(point.position.x, point.position.y).x,
-                    0
-                ).x;
+                dock.dockPointerGlobal = dockBody.mapToGlobal(point.position.x, point.position.y);
+                dock.dockMouseXRaw = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
             }
             onHoveredChanged: {
                 dock.syncDockVisibility();
+                if (!hovered && !dockMagnifyPointer.hovered)
+                    dock.dockPointerGlobal = Qt.point(-99999, -99999);
                 if (!hovered && dock.currentWorkspaceEmpty && !dockMagnifyPointer.hovered)
                     dock.dismissMagnify();
             }
@@ -1790,6 +1930,8 @@ PanelWindow {
 
         }
 
+    }
+    }
     }
 
     Timer {
@@ -1822,12 +1964,13 @@ PanelWindow {
     // ── Autohide trigger strip ─────────────────────────────────────────────
     MouseArea {
         id: triggerZone
-        anchors {
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
-        }
-        width: dock.dockWidth
-        height: dock.activationHeight
+        // Plain x/y, not anchors — see dockInteractZone's comment: an
+        // anchor-axis swap on edge change leaves Qt's anchoring system
+        // stuck with a stale cross-axis size.
+        width: dock.vertical ? dock.revealStripPx : dock.dockWidth
+        height: dock.vertical ? dock.dockWidth : dock.revealStripPx
+        x: dock.edge === "left" ? 0 : dock.edge === "right" ? parent.width - width : (parent.width - width) / 2
+        y: dock.edge === "top" ? 0 : dock.edge === "bottom" ? parent.height - height : (parent.height - height) / 2
         hoverEnabled: true
         onContainsMouseChanged: dock.syncDockVisibility()
     }

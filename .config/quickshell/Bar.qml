@@ -19,6 +19,7 @@ import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "modules/notifpanel" as QuickNotifPanel
 import "Readout.js" as Readout
+import "ShellEdges.js" as ShellEdges
 
 PanelWindow {
     id: bar
@@ -51,13 +52,16 @@ PanelWindow {
     // so the rest of this file doesn't need to change.
     readonly property int barHeight: BarStyleService.barHeight
     readonly property int topGap: BarStyleService.topGap
-    readonly property int sideGap: 0
     readonly property int radius: 0
     readonly property int pillRadius: 2
     readonly property int pillPadH: 6
     readonly property int pillPadV: 3
     readonly property int pillGap: 10
     readonly property real bgOpacity: BarStyleService.bgOpacity
+    readonly property string edge: ShellLayout.barEdge
+    readonly property bool vertical: ShellEdges.isVertical(edge)
+    // Size across the bar: barHeight on top/bottom, a fixed width on the sides.
+    readonly property int thickness: vertical ? BarStyleService.verticalBarWidth : barHeight
 
     // ── Bar colors ─────────────────────────────────────
     // Theme-derived, not hardcoded white — the text role is guaranteed to
@@ -78,17 +82,20 @@ PanelWindow {
 
     // ── Window ────────────────────────────────────────────────────────────────
     anchors {
-        top: true
-        left: true
-        right: true
+        top: bar.edge !== "bottom"
+        bottom: bar.edge !== "top"
+        left: bar.edge !== "right"
+        right: bar.edge !== "left"
     }
     margins {
-        top: topGap
-        left: sideGap
-        right: sideGap
+        top: bar.edge === "top" ? topGap : 0
+        bottom: bar.edge === "bottom" ? topGap : 0
+        left: bar.edge === "left" ? topGap : 0
+        right: bar.edge === "right" ? topGap : 0
     }
-    implicitHeight: barHeight + topGap
-    exclusiveZone: barHeight + topGap
+    implicitHeight: vertical ? 0 : thickness + topGap
+    implicitWidth: vertical ? thickness + topGap : 0
+    exclusiveZone: thickness + topGap
     // Frost material — neutral Theme.surface tint, no resin saturation or
     // dot texture. Opacity is still owned by BarStyleService's solid/
     // transparent toggle, not the material itself.
@@ -111,6 +118,14 @@ PanelWindow {
         p.running = true;
     }
 
+    function trackMove(area, mouse) {
+        if (ShellLayout.movingWhich !== "bar" || !bar.screen)
+            return;
+        const origin = ShellEdges.surfaceOrigin(bar.edge, true, bar.screen.width, bar.screen.height, bar.width, bar.height, bar.topGap);
+        const p = area.mapToItem(null, mouse.x, mouse.y);
+        ShellLayout.updateMove(origin.x + p.x, origin.y + p.y, bar.screen.width, bar.screen.height);
+    }
+
     Timer {
         id: deferredWindowFocusTimer
         interval: 500
@@ -126,6 +141,14 @@ PanelWindow {
     }
 
     Component.onCompleted: getKeyboardDevices.running = true
+
+    // With bar_on_all_screens off, this Variants delegate can be destroyed
+    // mid-drag (focus followed the drag to another monitor) — no
+    // released/canceled arrives, so movingWhich would stay stuck set.
+    Component.onDestruction: {
+        if (ShellLayout.movingWhich === "bar" && ShellLayout.moveScreen === bar.screen)
+            ShellLayout.cancelMove();
+    }
 
     function updateKeyboardLayout(devices) {
         const keyboards = devices?.keyboards ?? [];
@@ -176,7 +199,11 @@ PanelWindow {
         signal hoverEntered
         signal hoverExited
 
-        height: bar.barHeight - bar.pillPadV * 2
+        // Text shown on a vertical bar; pills override it where the generic rule is wrong.
+        property string verticalText: ShellEdges.verticalLabel(label)
+
+        width: bar.vertical ? bar.thickness - bar.pillPadV * 2 : implicitWidth + bar.pillPadH * 2
+        height: bar.vertical ? pillText.implicitHeight + bar.pillPadV * 2 : bar.barHeight - bar.pillPadV * 2
         implicitWidth: pillText.implicitWidth
         radius: bar.pillRadius
         color: bg
@@ -184,7 +211,8 @@ PanelWindow {
         Text {
             id: pillText
             anchors.centerIn: parent
-            text: pill.label
+            text: bar.vertical ? pill.verticalText : pill.label
+            horizontalAlignment: Text.AlignHCenter
             color: pill.fg
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: pill.iconSize
@@ -210,28 +238,52 @@ PanelWindow {
         }
     }
 
-    // Double-click empty bar space to switch solid <-> transparent+vignette.
+    // Double-click empty bar space to switch solid <-> transparent+vignette;
+    // long-press it to drag the bar to another screen edge.
     // Declared before the zones/pills below so their own MouseAreas still
     // win on direct hits — this only catches clicks that land on nothing.
     MouseArea {
+        id: barBackground
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton
+        pressAndHoldInterval: 400
         onDoubleClicked: BarStyleService.toggle()
+        onPressAndHold: ShellLayout.beginMove("bar", bar.screen)
+        onPositionChanged: mouse => bar.trackMove(barBackground, mouse)
+        onReleased: if (ShellLayout.movingWhich === "bar") ShellLayout.endMove()
+        onCanceled: if (ShellLayout.movingWhich === "bar") ShellLayout.cancelMove()
     }
 
+    // See leftRowZone's comment (below, LEFT section): Grid's own width/height
+    // are not a safe anchor source across a vertical<->horizontal round-trip.
+    // wsZone is content-sized on one axis and full-sized on the other; on the
+    // full-sized axis wsRowCentered centers itself using its own verified
+    // contentW/contentH (never its own possibly-stale width/height).
     Item {
         id: wsZone
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: wsRowCentered.implicitWidth
-        height: parent.height
+        anchors.centerIn: parent
+        width: bar.vertical ? parent.width : wsRowCentered.contentW
+        height: bar.vertical ? wsRowCentered.contentH : parent.height
     }
 
     // Workspaces
-    Row {
+    Grid {
         id: wsRowCentered
         parent: wsZone
-        anchors.centerIn: parent
+        x: bar.vertical ? (wsZone.width - contentW) / 2 : 0
+        y: bar.vertical ? 0 : (wsZone.height - contentH) / 2
         spacing: 4
+        // One column on left/right; one row of all items on top/bottom (columns
+        // fixed to the item count, not -1, so a mode flip can't land on a stale
+        // rows/columns pair that's briefly too small for the item count).
+        columns: bar.vertical ? 1 : children.length
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        // Used by wsZone and by x/y above, not by Grid itself — see
+        // leftRowZone's comment (LEFT section): a plain `width:`/`height:`
+        // override on the Grid itself doesn't reliably stick.
+        readonly property real contentW: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.x + c.width); return m; }
+        readonly property real contentH: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.y + c.height); return m; }
 
         Repeater {
             model: Array.from({ length: 5 }, (_, i) => i + 1)
@@ -256,7 +308,7 @@ PanelWindow {
                         right: parent.right
                         top: parent.top
                     }
-                    height: bar.barHeight - bar.pillPadV * 2
+                    height: bar.vertical ? 22 : bar.barHeight - bar.pillPadV * 2
 
                     Image {
                         id: workspaceIcon
@@ -320,9 +372,9 @@ PanelWindow {
         id: leftZone
         anchors {
             top: parent.top
-            bottom: parent.bottom
             left: parent.left
-            right: wsZone.left
+            bottom: bar.vertical ? wsZone.top : parent.bottom
+            right: bar.vertical ? parent.right : wsZone.left
         }
         clip: true
     }
@@ -330,29 +382,56 @@ PanelWindow {
     Item {
         id: rightZone
         anchors {
-            top: parent.top
+            top: bar.vertical ? wsZone.bottom : parent.top
+            left: bar.vertical ? parent.left : wsZone.right
             bottom: parent.bottom
-            left: wsZone.right
             right: parent.right
         }
         clip: true
     }
 
     // LEFT
-    Row {
-        id: leftRow
+    // Grid's own width/height are not a safe anchor source across a vertical<->
+    // horizontal round-trip: Grid repositions children correctly (verified live)
+    // but its own reported size can go stale, and a plain QML `width:`/`height:`
+    // override on the Grid itself doesn't reliably stick (Positioner's own
+    // relayout pass wins). So leftRowZone — a plain Item, not a Positioner —
+    // carries the real position, sized from leftRow's verified-correct
+    // contentW/contentH; leftRow itself just sits at the wrapper's origin.
+    //
+    // No `anchors` block: ternary-toggling BETWEEN DIFFERENT anchor lines on the
+    // same axis (left <-> horizontalCenter, top <-> verticalCenter as bar.vertical
+    // flips) can transiently over-constrain Qt's Anchors engine when both lines
+    // update in the same batch — verified live, it computes garbage width/height
+    // via a direct write that silently clears any QML width/height binding (no
+    // binding re-evaluation at all, confirmed with logging). Plain x/y bindings
+    // never touch the Anchors engine, so they can't hit this.
+    Item {
+        id: leftRowZone
         parent: leftZone
-        anchors {
-            left: parent.left
-            leftMargin: 4
-            verticalCenter: parent.verticalCenter
-        }
+        width: leftRow.contentW
+        height: leftRow.contentH
+        x: bar.vertical ? (leftZone.width - width) / 2 : 4
+        y: bar.vertical ? 4 : (leftZone.height - height) / 2
+    }
+
+    Grid {
+        id: leftRow
+        parent: leftRowZone
         spacing: bar.pillGap
+        // One column on left/right; one row of all items on top/bottom (columns
+        // fixed to the item count, not -1, so a mode flip can't land on a stale
+        // rows/columns pair that's briefly too small for the item count).
+        columns: bar.vertical ? 1 : children.length
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        // Used by leftRowZone above, not by Grid itself (see leftRowZone's comment).
+        readonly property real contentW: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.x + c.width); return m; }
+        readonly property real contentH: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.y + c.height); return m; }
 
         Pill {
             label: "󰅟"
             iconSize: 16
-            width: implicitWidth + bar.pillPadH * 2
             fg: bar.barFgStrong
             bg: Qt.rgba(0, 0, 0, 0)
             onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "spotlight", "command"])
@@ -360,9 +439,9 @@ PanelWindow {
 
         Item {
             id: clockPill
-            height: bar.barHeight - bar.pillPadV * 2
+            height: bar.vertical ? clockColumn.implicitHeight + bar.pillPadV * 2 : bar.barHeight - bar.pillPadV * 2
             implicitWidth: clockRow.implicitWidth
-            width: implicitWidth + bar.pillPadH * 2
+            width: bar.vertical ? bar.thickness - bar.pillPadV * 2 : implicitWidth + bar.pillPadH * 2
 
             property string dateText: Qt.formatDateTime(new Date(), "ddd MMM d")
             property string timeText: Qt.formatDateTime(new Date(), "HH:mm")
@@ -375,6 +454,7 @@ PanelWindow {
 
             Row {
                 id: clockRow
+                visible: !bar.vertical
                 anchors.centerIn: parent
                 spacing: 8
 
@@ -392,6 +472,26 @@ PanelWindow {
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
+                }
+            }
+
+            // Vertical bar: HH over MM, date only in the calendar.
+            Column {
+                id: clockColumn
+                visible: bar.vertical
+                anchors.centerIn: parent
+
+                Repeater {
+                    model: [clockPill.timeText.slice(0, 2), clockPill.timeText.slice(3, 5)]
+                    Text {
+                        required property string modelData
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: modelData
+                        color: bar.barFg
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                    }
                 }
             }
 
@@ -415,7 +515,6 @@ PanelWindow {
             id: updatesPill
             property string n: "0"
             label: "󰏔 " + n
-            width: implicitWidth + bar.pillPadH * 2
             onClicked: bar.launchAndFocusByTitle(
                 ["bash", "-c", "kitty --title cloudyy-update cloudyy-update"],
                 "cloudyy-update")
@@ -438,15 +537,31 @@ PanelWindow {
     }
 
     // RIGHT
-    Row {
-        id: rightRow
+    // See leftRowZone's comment: rightRowZone (a plain Item, plain x/y, no
+    // `anchors`) carries the real position, sized from rightRow's verified-
+    // correct contentW/contentH.
+    Item {
+        id: rightRowZone
         parent: rightZone
-        anchors {
-            right: parent.right
-            rightMargin: 4
-            verticalCenter: parent.verticalCenter
-        }
+        width: rightRow.contentW
+        height: rightRow.contentH
+        x: bar.vertical ? (rightZone.width - width) / 2 : rightZone.width - width - 4
+        y: bar.vertical ? rightZone.height - height - 4 : (rightZone.height - height) / 2
+    }
+
+    Grid {
+        id: rightRow
+        parent: rightRowZone
         spacing: bar.pillGap
+        // One column on left/right; one row of all items on top/bottom (columns
+        // fixed to the item count, not -1, so a mode flip can't land on a stale
+        // rows/columns pair that's briefly too small for the item count).
+        columns: bar.vertical ? 1 : children.length
+        horizontalItemAlignment: Grid.AlignHCenter
+        verticalItemAlignment: Grid.AlignVCenter
+        // Used by rightRowZone above, not by Grid itself (see leftRowZone's comment).
+        readonly property real contentW: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.x + c.width); return m; }
+        readonly property real contentH: { let m = 0; for (const c of children) if (c.visible) m = Math.max(m, c.y + c.height); return m; }
 
         // Live screen-recording indicator (macOS-style): red dot while capturing;
         // hover expands to timer + Stop. Only the dot is red.
@@ -459,12 +574,13 @@ PanelWindow {
             readonly property color recRed: Theme.error
             readonly property int collapsedW: 18
             readonly property int expandedW: Math.max(118, Math.round(expandedRow.implicitWidth + 18))
+            readonly property bool expanded: hovered && !bar.vertical
             property bool hovered: false
             property string elapsedText: "00:00"
 
             visible: active
-            height: bar.barHeight - bar.pillPadV * 2
-            width: !active ? 0 : (hovered ? expandedW : collapsedW)
+            height: bar.vertical ? collapsedW : bar.barHeight - bar.pillPadV * 2
+            width: !active ? 0 : (bar.vertical ? bar.thickness - bar.pillPadV * 2 : (expanded ? expandedW : collapsedW))
 
             Behavior on width {
                 NumberAnimation {
@@ -488,7 +604,7 @@ PanelWindow {
             // Collapsed: just the live dot, centered in the slot.
             Rectangle {
                 id: liveDot
-                visible: !recordingControl.hovered
+                visible: !recordingControl.expanded
                 width: 8
                 height: 8
                 radius: 4
@@ -496,7 +612,7 @@ PanelWindow {
                 color: recordingControl.recRed
 
                 SequentialAnimation on opacity {
-                    running: recordingControl.active && !recordingControl.hovered
+                    running: recordingControl.active && !recordingControl.expanded
                     loops: Animation.Infinite
                     NumberAnimation { from: 1; to: 0.45; duration: 700; easing.type: Easing.InOutSine }
                     NumberAnimation { from: 0.45; to: 1; duration: 700; easing.type: Easing.InOutSine }
@@ -506,7 +622,7 @@ PanelWindow {
             // Expanded: bracketed readout + Stop. Grammar only here, not on the dot.
             Row {
                 id: expandedRow
-                visible: recordingControl.hovered
+                visible: recordingControl.expanded
                 anchors.centerIn: parent
                 spacing: 8
 
@@ -567,7 +683,7 @@ PanelWindow {
 
             MouseArea {
                 z: 2
-                visible: recordingControl.hovered
+                visible: recordingControl.expanded
                 width: 22
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -581,6 +697,15 @@ PanelWindow {
                     recordingControl.hovered = true;
                 }
                 onExited: leaveDelay.restart()
+            }
+
+            // Vertical bar has no room to expand: the dot itself stops the recording.
+            MouseArea {
+                z: 3
+                visible: bar.vertical
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: recordingControl.svc.stopRecording()
             }
 
             Timer {
@@ -620,7 +745,8 @@ PanelWindow {
                 const __ = clock;
                 return Readout.mpris(player);
             }
-            width: visible ? Math.max(implicitWidth + bar.pillPadH * 2, 50) : 0
+            width: bar.vertical ? bar.thickness - bar.pillPadV * 2 : Math.max(implicitWidth + bar.pillPadH * 2, 50)
+            verticalText: "󰎈"
             fg: bar.barFg
             bg: Qt.rgba(0,0,0,0)
             onClicked: if (player) player.togglePlaying()
@@ -639,7 +765,7 @@ PanelWindow {
         Pill {
             id: keyboardLayoutPill
             label: " " + bar.keyboardLayoutLabel
-            width: implicitWidth + bar.pillPadH * 2
+            verticalText: bar.keyboardLayoutLabel
             iconSize: 12
             fg: bar.barFgMuted
             bg: Qt.rgba(0,0,0,0)
@@ -651,7 +777,6 @@ PanelWindow {
             id: netPill
             property string lbl: "󰤨"
             label: lbl
-            width: implicitWidth + bar.pillPadH * 2
             iconSize: 12
             Timer {
                 interval: 5000
@@ -678,7 +803,6 @@ PanelWindow {
             id: volPill
             property string lbl: "󰕾"
             label: lbl
-            width: implicitWidth + bar.pillPadH * 2
             iconSize: 12
             Timer {
                 interval: 2000
@@ -710,7 +834,6 @@ PanelWindow {
             id: bellPill
             readonly property int unread: QuickNotifPanel.NotifPanelService.unreadCount
             label: "󰂚" + (unread > 0 ? (" " + unread) : "")
-            width: implicitWidth + bar.pillPadH * 2
             fg: bar.barFg
             bg: Qt.rgba(0, 0, 0, 0)
             onClicked: bar.notifToggle()
@@ -747,7 +870,6 @@ PanelWindow {
             readonly property var sys: QuickSystemMonitor.SystemMonitorService
             visible: bat.available
             label: bat.barLabel
-            width: visible ? implicitWidth + bar.pillPadH * 2 : 0
             fg: bat.full
                 ? bar.barFgStrong
                 : bat.charging
@@ -763,7 +885,6 @@ PanelWindow {
         Pill {
             label: "󰐥"
             iconSize: 12
-            width: implicitWidth + bar.pillPadH * 2
             fg: bar.barFgStrong
             bg: Qt.rgba(0, 0, 0, 0)
             onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "powermenu", "open"])

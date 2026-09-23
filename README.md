@@ -1,3 +1,5 @@
+Personal dotfiles, may not work the same for everyone. Install if ye want
+
 ## Install
 
 ```bash

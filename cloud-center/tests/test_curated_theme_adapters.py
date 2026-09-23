@@ -1633,7 +1633,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(actions["mode-firefox"], {"status": "skip"})
         self.assertEqual(actions["mode-zen"], {"status": "skip"})
 
-    def test_reload_gtk_is_passive_since_no_live_reload_target_is_installed(self):
+    def test_reload_gtk_skips_without_nautilus(self):
         self.prepare()
 
         result = self.run_theme("reconcile")
@@ -1644,6 +1644,38 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         )["reconcile"]["actions"]
         self.assertEqual(actions["reload-gtk"], {"status": "skip"})
         self.assertEqual(actions["reload-obsidian"], {"status": "skip"})
+
+    def test_reload_gtk_quits_and_relaunches_running_nautilus(self):
+        self.prepare()
+        state_file = Path(self.temporary_directory.name) / "nautilus.running"
+        state_file.write_text("running\n", encoding="utf-8")
+        self.environment["CLOUDYY_NAUTILUS_STATE"] = str(state_file)
+        self._write_fake(
+            "nautilus",
+            "if [[ \"${1:-}\" == \"-q\" ]]; then "
+            "printf 'nautilus -q\\n' >>\"$CLOUDYY_TEST_COMMAND_LOG\"; "
+            "rm -f \"$CLOUDYY_NAUTILUS_STATE\"; exit 0; fi\n"
+            "printf 'nautilus-relaunch\\n' >>\"$CLOUDYY_TEST_COMMAND_LOG\"; "
+            ": > \"$CLOUDYY_NAUTILUS_STATE\"; exit 0\n",
+        )
+        self._write_fake(
+            "pgrep",
+            "[[ \"$*\" == *awww-daemon* ]] && exit 0\n"
+            "[[ \"$*\" == *nautilus* ]] || exit 1\n"
+            "[[ -f \"$CLOUDYY_NAUTILUS_STATE\" ]] && exit 0\n"
+            "exit 1\n",
+        )
+
+        result = self.run_theme("reconcile")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        log = self.command_log.read_text()
+        self.assertIn("nautilus -q\n", log)
+        self.assertIn("nautilus-relaunch\n", log)
+        actions = json.loads(
+            (self.state / "cloudyy/current/activation.json").read_text()
+        )["reconcile"]["actions"]
+        self.assertEqual(actions["reload-gtk"], {"status": "success"})
 
     def test_reconcile_records_exact_actions_and_attempts_reload_after_adapter_failure(self):
         self.prepare()

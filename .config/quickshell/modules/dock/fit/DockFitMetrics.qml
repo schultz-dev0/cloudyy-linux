@@ -8,11 +8,12 @@ QtObject {
     property int appCount: 0
     property int folderCount: 0
 
-    readonly property real baseIconSize: 48
-    readonly property real baseIconSpacing: 25
+    // Overridable per dock edge (Dock.qml: side docks are smaller and tighter).
+    property real baseIconSize: 48
+    property real baseIconSpacing: 25
     readonly property real basePaddingH: 14
     readonly property real basePaddingV: 12
-    readonly property real edgeMargin: 12
+    property real edgeMargin: 12
     readonly property real fixedWidth: 2
 
     readonly property real naturalIconsWidth: Math.max(0, root.appCount) * root.baseIconSize

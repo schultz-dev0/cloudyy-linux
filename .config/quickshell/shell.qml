@@ -95,10 +95,8 @@ ShellRoot {
     }
 
     function dockIpcEnabled(screen) {
-        if (!dockOnAllScreens)
-            return true;
-        const monitor = Hyprland.monitorFor(screen);
-        return monitor?.id === Hyprland.focusedMonitor?.id;
+        const screens = root.dockScreens;
+        return screens.length > 0 && screens[0] === screen;
     }
 
     Process {
@@ -402,6 +400,14 @@ ShellRoot {
         function dismiss() { QuickIdle.IdleService.dismiss(); }
     }
 
+    // Bar / dock screen edge — called by the command center (commands.json).
+    IpcHandler {
+        target: "layout"
+        function setBar(edge: string): void { ShellLayout.setEdge("bar", edge); }
+        function setDock(edge: string): void { ShellLayout.setEdge("dock", edge); }
+        function get(): string { return ShellLayout.barEdge + " " + ShellLayout.dockEdge; }
+    }
+
     // Rebuild the icon index after apps are installed/removed, so newly added
     // apps get icons without a full quickshell restart. Poked by the
     // cloudyy-icon-refresh.path systemd user unit.
@@ -517,6 +523,8 @@ ShellRoot {
             ipcEnabled: root.dockIpcEnabled(modelData)
         }
     }
+
+    EdgeDropOverlay {}
 
     QuickOverview.Overview {}
 

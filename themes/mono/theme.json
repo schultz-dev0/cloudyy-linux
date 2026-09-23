@@ -1,0 +1,24 @@
+{
+  "name": "Monochrome",
+  "slug": "mono",
+  "mode": "dark",
+  "colors": {
+    "background": "#050505",
+    "surface": "#0d0d0d",
+    "surfaceRaised": "#1a1a1a",
+    "surfaceOverlay": "#2a2a2a",
+    "text": "#f2f2f2",
+    "textMuted": "#888888",
+    "accent": "#ffffff",
+    "accentMuted": "#9a9a9a",
+    "accentAlt": "#c9c9c9",
+    "onAccent": "#050505",
+    "border": "#2a2a2a",
+    "selection": "#1a1a1a",
+    "success": "#b0b0b0",
+    "warning": "#d6d6d6",
+    "error": "#ffffff",
+    "info": "#8a8a8a",
+    "shadow": "#050505"
+  }
+}

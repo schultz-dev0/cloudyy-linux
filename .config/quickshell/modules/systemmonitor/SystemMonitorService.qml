@@ -81,8 +81,10 @@ Singleton {
                 const path = resolveOut.text.trim();
                 if (path.length > 0) {
                     root._resolvedBinary = path;
-                    root.ensureDaemon();
-                    root.pollSnapshot();
+                    if (root.open) {
+                        root.ensureDaemon();
+                        root.pollSnapshot();
+                    }
                 } else {
                     root.stale = true;
                     console.warn("SystemMonitorService: cloudyy-system-monitor not found (install cloudyy-system-monitor-git from AUR)");
@@ -94,7 +96,7 @@ Singleton {
     readonly property Timer _pollTimer: Timer {
         interval: root.pollIntervalMs
         repeat: true
-        running: true
+        running: root.open
         triggeredOnStart: true
         onTriggered: root.pollSnapshot()
     }
@@ -162,7 +164,28 @@ Singleton {
         }
     }
 
-    Component.onCompleted: resolveBinaryPath()
+    Component.onCompleted: {
+        if (root.open)
+            startMonitoring();
+    }
+
+    onOpenChanged: {
+        if (root.open)
+            startMonitoring();
+        else if (_snapshotProc.running)
+            _snapshotProc.signal(15);
+    }
+
+    function startMonitoring() {
+        if (!root.open)
+            return;
+        if (_resolvedBinary.length > 0) {
+            ensureDaemon();
+            pollSnapshot();
+            return;
+        }
+        resolveBinaryPath();
+    }
 
     function resolveBinaryPath() {
         const env = Quickshell.env("CLOUDYY_SYSTEM_MONITOR_BIN");
@@ -213,8 +236,7 @@ Singleton {
     }
 
     function restartMonitor() {
-        ensureDaemon();
-        pollSnapshot();
+        startMonitoring();
     }
 
     function shellQuote(s) {

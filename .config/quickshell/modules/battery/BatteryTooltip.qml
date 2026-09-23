@@ -21,10 +21,12 @@ PopupWindow {
     implicitWidth: tipWidth
     implicitHeight: tipHeight
 
+    readonly property string barEdge: ShellLayout.barEdge
+    // Open away from the bar, whichever edge it's on.
+    anchor.edges: ({ top: Edges.Bottom, bottom: Edges.Top, left: Edges.Right, right: Edges.Left })[barEdge]
+    anchor.gravity: ({ top: Edges.Bottom, bottom: Edges.Top, left: Edges.Right, right: Edges.Left })[barEdge]
+
     anchor.item: anchorItem
-    anchor.edges: Edges.Bottom
-    anchor.gravity: Edges.Bottom
-    anchor.margins.top: 4
     anchor.adjustment: PopupAdjustment.Slide | PopupAdjustment.Flip
 
     readonly property int centerNudgeX: 38
@@ -33,14 +35,20 @@ PopupWindow {
         if (!anchorItem)
             return;
         const w = tip.tipWidth;
-        tip.anchor.rect.x = anchorItem.width / 2 - w / 2 + centerNudgeX;
-        tip.anchor.rect.y = anchorItem.height;
+        const horizontal = tip.barEdge === "top" || tip.barEdge === "bottom";
+        tip.anchor.rect.x = horizontal ? anchorItem.width / 2 - w / 2 + centerNudgeX
+            : (tip.barEdge === "left" ? anchorItem.width + 4 : -4);
+        tip.anchor.rect.y = horizontal ? (tip.barEdge === "top" ? anchorItem.height + 4 : -4)
+            : anchorItem.height / 2;
         tip.anchor.rect.w = 1;
         tip.anchor.rect.h = 1;
         tip.anchor.updateAnchor();
     }
 
     onVisibleChanged: if (visible)
+        syncAnchor()
+
+    onBarEdgeChanged: if (visible)
         syncAnchor()
 
     onTipWidthChanged: if (visible)

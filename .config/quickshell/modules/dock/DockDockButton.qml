@@ -53,7 +53,18 @@ Item {
 
     readonly property real labelLiftPx: root.iconSize * Math.max(0, root.currentScale - 1)
     readonly property real pointerDeltaX: dockMouseX < -1000 ? 99999 : Math.abs(dockMouseX - btnCenterX)
-    readonly property bool pointerOverIcon: root.pointerDeltaX <= root.iconSize * 0.72
+    property point dockPointer: Qt.point(-99999, -99999)
+    // Pointer's y must be inside the drawn, scaled icon — not the tray
+    // padding. Factored out so right/middle-click TapHandlers can gate on
+    // this alone: the x half below uses the smoothed dockMouseX, which lags
+    // ~100ms and can drop a fast click past the cell.
+    readonly property bool pointerInIconHeight: {
+        iconContainer.scale; // re-evaluate while magnifying
+        const p = iconContainer.mapFromGlobal(root.dockPointer.x, root.dockPointer.y);
+        return p.y >= 0 && p.y <= iconContainer.height;
+    }
+    // x-band as before (gaps between icons are intentionally fine).
+    readonly property bool pointerOverIcon: root.pointerDeltaX <= root.iconSize * 0.72 && root.pointerInIconHeight
 
     z: pointerOverIcon && hoverLabel.length > 0 ? 40 : 0
 
@@ -85,33 +96,37 @@ Item {
         transformOrigin: Item.Bottom
         opacity: root.leftDragging ? 0.35 : 1.0
 
-        Image {
-            visible: root.imageSource.length > 0
-            anchors.fill: parent
-            source: root.imageSource
-            fillMode: root.cropImage ? Image.PreserveAspectCrop : Image.PreserveAspectFit
-            smooth: true
-            mipmap: true
-        }
+        // Inside iconContainer, not on it: the pointerOverIcon /
+        // containmentMask y test must keep measuring along the dock's own axis.
+        DockUpright {
+            Image {
+                visible: root.imageSource.length > 0
+                anchors.fill: parent
+                source: root.imageSource
+                fillMode: root.cropImage ? Image.PreserveAspectCrop : Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
 
-        Text {
-            visible: root.imageSource.length === 0
-            anchors.fill: parent
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            text: root.glyph
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: Math.round(root.iconSize * 0.72)
-            color: root.dropHighlight ? Theme.accent : Theme.text
-        }
+            Text {
+                visible: root.imageSource.length === 0
+                anchors.fill: parent
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: root.glyph
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: Math.round(root.iconSize * 0.72)
+                color: root.dropHighlight ? Theme.accent : Theme.text
+            }
 
-        Rectangle {
-            anchors.fill: parent
-            radius: 2
-            color: "transparent"
-            border.color: Theme.accent
-            border.width: root.dropHighlight ? 2 : 0
-            visible: root.dropHighlight
+            Rectangle {
+                anchors.fill: parent
+                radius: 2
+                color: "transparent"
+                border.color: Theme.accent
+                border.width: root.dropHighlight ? 2 : 0
+                visible: root.dropHighlight
+            }
         }
     }
 
@@ -123,7 +138,18 @@ Item {
     }
 
     MouseArea {
+        id: buttonArea
         anchors.fill: parent
+        // Full cell width, but only the drawn icon's height is clickable.
+        containmentMask: QtObject {
+            // Typed signature required: an untyped contains() is not
+            // invokable as a mask — Qt silently ignores it (only a log
+            // warning) and the tall hit area comes back.
+            function contains(point: point): bool {
+                const p = buttonArea.mapToItem(iconContainer, point.x, point.y);
+                return p.y >= 0 && p.y <= iconContainer.height;
+            }
+        }
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
         preventStealing: root.leftDragging
@@ -169,17 +195,20 @@ Item {
         }
     }
 
+    // Both gate on the vertical test only — a TapHandler already only fires
+    // inside its own cell, so the laggy x half of pointerOverIcon would just
+    // drop taps after a fast move.
     TapHandler {
         acceptedButtons: Qt.RightButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        enabled: !root.leftDragging
+        enabled: !root.leftDragging && root.pointerInIconHeight
         onTapped: root.rightClicked()
     }
 
     TapHandler {
         acceptedButtons: Qt.MiddleButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        enabled: !root.leftDragging
+        enabled: !root.leftDragging && root.pointerInIconHeight
         onTapped: root.middleClicked()
     }
 }

@@ -55,7 +55,18 @@ Item {
 
     readonly property real labelLiftPx: root.iconSize * Math.max(0, root.currentScale - 1)
     readonly property real pointerDeltaX: dockMouseX < -1000 ? 99999 : Math.abs(dockMouseX - iconCenterX)
-    readonly property bool pointerOverIcon: root.pointerDeltaX <= root.iconSize * 0.72
+    property point dockPointer: Qt.point(-99999, -99999)
+    // Pointer's y must be inside the drawn, scaled icon — not the tray
+    // padding. Factored out so right/middle-click TapHandlers can gate on
+    // this alone: the x half below uses the smoothed dockMouseX, which lags
+    // ~100ms and can drop a fast click past the cell.
+    readonly property bool pointerInIconHeight: {
+        iconContainer.scale; // re-evaluate while magnifying
+        const p = iconContainer.mapFromGlobal(root.dockPointer.x, root.dockPointer.y);
+        return p.y >= 0 && p.y <= iconContainer.height;
+    }
+    // x-band as before (gaps between icons are intentionally fine).
+    readonly property bool pointerOverIcon: root.pointerDeltaX <= root.iconSize * 0.72 && root.pointerInIconHeight
     readonly property bool showInstanceControls: root.multiWindow && root.pointerOverIcon
     readonly property bool showHoverLabel: root.pointerOverIcon
 
@@ -201,36 +212,40 @@ Item {
                 horizontalCenter: parent.horizontalCenter
             }
 
-            AppIcon {
-                anchors.fill: parent
-                iconSize: root.iconSize
-                appData: root.appData
-            }
-
-            Rectangle {
-                visible: root.multiWindow && !root.isDragSource
-                width: countLabel.implicitWidth + 8
-                height: 16
-                radius: 2
-                clip: true
-                color: Theme.accent
-                anchors {
-                    top: parent.top
-                    right: parent.right
-                    topMargin: -4
-                    rightMargin: -4
+            // Inside iconContainer, not on it: the pointerOverIcon /
+            // containmentMask y test must keep measuring along the dock's own axis.
+            DockUpright {
+                AppIcon {
+                    anchors.fill: parent
+                    iconSize: root.iconSize
+                    appData: root.appData
                 }
 
-                Text {
-                    id: countLabel
-                    anchors.centerIn: parent
-                    text: root.showInstanceControls
-                        ? `${root.instanceIndex + 1}/${root.windowCount}`
-                        : `${root.windowCount}`
-                    color: Theme.accentText
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 9
-                    font.weight: Font.Bold
+                Rectangle {
+                    visible: root.multiWindow && !root.isDragSource
+                    width: countLabel.implicitWidth + 8
+                    height: 16
+                    radius: 2
+                    clip: true
+                    color: Theme.accent
+                    anchors {
+                        top: parent.top
+                        right: parent.right
+                        topMargin: -4
+                        rightMargin: -4
+                    }
+
+                    Text {
+                        id: countLabel
+                        anchors.centerIn: parent
+                        text: root.showInstanceControls
+                            ? `${root.instanceIndex + 1}/${root.windowCount}`
+                            : `${root.windowCount}`
+                        color: Theme.accentText
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 9
+                        font.weight: Font.Bold
+                    }
                 }
             }
         }
@@ -271,6 +286,16 @@ Item {
     MouseArea {
         id: leftDragArea
         anchors.fill: parent
+        // Full cell width, but only the drawn icon's height is clickable.
+        containmentMask: QtObject {
+            // Typed signature required: an untyped contains() is not
+            // invokable as a mask — Qt silently ignores it (only a log
+            // warning) and the tall hit area comes back.
+            function contains(point: point): bool {
+                const p = leftDragArea.mapToItem(iconContainer, point.x, point.y);
+                return p.y >= 0 && p.y <= iconContainer.height;
+            }
+        }
         enabled: !root.dockDragActive || root.isDragSource
         preventStealing: root.isDragSource
         acceptedButtons: Qt.LeftButton
@@ -315,7 +340,9 @@ Item {
     TapHandler {
         acceptedButtons: Qt.RightButton
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        enabled: !root.dockDragActive
+        // Vertical test only — a TapHandler already only fires inside its own
+        // cell, so the laggy x half of pointerOverIcon would just drop taps.
+        enabled: !root.dockDragActive && root.pointerInIconHeight
         onTapped: root.contextMenuRequested(root.instanceIndex)
     }
 

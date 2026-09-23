@@ -22,13 +22,22 @@ PanelWindow {
         && (centeredTheme.wallpapers || []).length > 1
 
     anchors { top: true; bottom: true; left: true; right: true }
-    exclusiveZone: 0
+    // -1, not 0: exclusiveZone 0 only means "I don't reserve space myself" —
+    // Hyprland still shrinks an anchored-to-all-4-edges surface to avoid
+    // *other* surfaces' reserved zones (the bar's own exclusiveZone), which
+    // left a bar-height gap at the top where nothing here was drawn, so the
+    // bar showed through crisp and undimmed instead of covered by the scrim
+    // below. -1 means ignore other layers' reservations — same fix already
+    // used for EdgeDropOverlay.qml. (IdleScene was cited here before as a
+    // precedent for this working at exclusiveZone 0, but it never actually
+    // covers the bar either — it just sets the bar's own `visible: false`
+    // during idle, so this exact gap was never exercised there.)
+    exclusiveZone: -1
     visible: svc.visible
     color: "transparent"
     // Overlay, not Top: the bar is also a Top-layer surface and wins that
     // layer's stacking order, so a Top-layer scrim here left it floating
-    // undimmed above the rest of the dimmed desktop. Overlay sits above it,
-    // matching IdleScene's precedent for full-screen coverage.
+    // undimmed above the rest of the dimmed desktop. Overlay sits above it.
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell:command"
     WlrLayershell.keyboardFocus: svc.keyboardGrab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
