@@ -71,7 +71,10 @@ _validate_package_tree() {
   # Optional top-level files a package may ship but need not. preview.png is
   # consumed by _theme_preview_path() for the picker; the validator has to
   # allow it or `use <slug>` rejects any theme that ships one.
-  local -A optional_files=([preview.png]=1)
+  # Chromium writes Cached Theme.pak into the unpacked theme extension it
+  # loads (current/theme/applications/chromium). Rejecting it made every stage
+  # Chromium had seen permanently invalid, so _cleanup_stages never removed it.
+  local -A optional_files=([preview.png]=1 ["applications/chromium/Cached Theme.pak"]=1)
   local application
 
   for application in "${CLOUDYY_THEME_APPLICATION_FILES[@]}"; do
@@ -252,11 +255,10 @@ _theme_display_thumbnail() {
   printf '%s\n' "$thumb"
 }
 
-# Thumbnails a theme needs (its preview, then each wallpaper in order) are
-# generated concurrently — one background job per image, index-numbered
-# temp files so results can be reassembled in order afterward.
-# gen_thumb (thumb_cache.sh) locks per-thumbnail-file, so this stays safe
-# even when preview and wallpapers[0] are the same underlying image.
+# Thumbnails a theme needs (each wallpaper, in order) are generated
+# concurrently — one background job per image, index-numbered temp files so
+# results can be reassembled in order afterward. gen_thumb (thumb_cache.sh)
+# locks per-thumbnail-file, so concurrent callers can't race one another.
 _theme_display_thumbnails() {
   local tmp_dir="$1" i
   shift
@@ -276,7 +278,7 @@ _theme_display_thumbnails() {
 list_themes_json() {
   local current="${1:-}" themes_root theme slug preview preview_thumb lines=''
   local wallpapers_json wallpaper_thumbs_json tmp_dir
-  local -a wallpapers thumbs all_thumbs
+  local -a wallpapers thumbs
   themes_root="$(theme_repo_root)/themes"
   if [[ -d "$themes_root" && ! -L "$themes_root" ]]; then
     while IFS= read -r -d '' theme; do
@@ -290,11 +292,13 @@ list_themes_json() {
       # Thumbnails are a display-only convenience for the picker (see
       # _theme_display_thumbnail) — wallpapers itself stays the real paths,
       # since set-image/apply need the actual file, not a shrunk copy.
+      # The preview skips them: the cache is 256px square-cropped, which
+      # blurred and zoomed the picker's big 16:9 card. It decodes the real
+      # file instead, downscaled via the card's sourceSize.
       tmp_dir="$(mktemp -d)" || return 1
-      mapfile -t all_thumbs < <(_theme_display_thumbnails "$tmp_dir" "$preview" "${wallpapers[@]}")
+      mapfile -t thumbs < <(_theme_display_thumbnails "$tmp_dir" "${wallpapers[@]}")
       rm -rf -- "$tmp_dir"
-      preview_thumb="${all_thumbs[0]}"
-      thumbs=("${all_thumbs[@]:1}")
+      preview_thumb="$preview"
 
       wallpapers_json="$(printf '%s\n' "${wallpapers[@]}" | jq -R . | jq -s .)"
       wallpaper_thumbs_json="$(printf '%s\n' "${thumbs[@]}" | jq -R . | jq -s .)"
@@ -317,7 +321,20 @@ _stage_is_referenced() {
   return 1
 }
 
+# Every adapter and reload re-checks the active stage (~30 per apply). A
+# stage's content is fixed once promoted and the whole run holds theme.lock,
+# so one full check per stage per process is enough; repeating it (python
+# asset validator + identify per wallpaper each time) was most of an apply.
+# Background integration jobs inherit the cache (see reconcile_integrations).
+declare -gA CLOUDYY_VALID_STAGES=()
+
 _stage_is_valid() {
+  [[ -n "${CLOUDYY_VALID_STAGES[$1]:-}" ]] && return 0
+  _stage_is_valid_uncached "$1" || return 1
+  CLOUDYY_VALID_STAGES[$1]=1
+}
+
+_stage_is_valid_uncached() {
   local stage="$1" slug entry base
   [[ -d "$stage" && ! -L "$stage" ]] || return 1
   for entry in theme theme.name wallpaper.index activation.json; do
@@ -330,13 +347,10 @@ _stage_is_valid() {
     *) return 1 ;;
     esac
   done < <(find -P "$stage" -mindepth 1 -maxdepth 1 -print0)
-  [[ "$(stat -c '%a' "$stage")" == '700' ]] || return 1
-  while IFS= read -r -d '' directory; do
-    [[ "$(stat -c '%a' "$directory")" == '700' ]] || return 1
-  done < <(find -P "$stage" -type d -print0)
-  while IFS= read -r -d '' file; do
-    [[ "$(stat -c '%a' "$file")" == '600' ]] || return 1
-  done < <(find -P "$stage" -type f -print0)
+  # One find per kind instead of a stat per entry: any directory not exactly
+  # 0700 or file not exactly 0600 (including $stage itself) fails the stage.
+  [[ -z "$(find -P "$stage" -type d ! -perm 700 -print -quit)" ]] || return 1
+  [[ -z "$(find -P "$stage" -type f ! -perm 600 -print -quit)" ]] || return 1
   slug="$(jq -r '.slug' "$stage/theme/theme.json" 2>/dev/null)" || return 1
   validate_theme_package "$stage/theme" "$slug" >/dev/null 2>&1 || return 1
   [[ -f "$stage/theme.name" && ! -L "$stage/theme.name" ]] || return 1

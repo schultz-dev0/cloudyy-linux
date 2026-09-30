@@ -45,7 +45,7 @@ class ZenLiveThemeInstallTests(unittest.TestCase):
             | {
                 "CLOUDYY_ZEN_INSTALL_ROOT": str(self.zen),
                 "HOME": str(self.home),
-                "XDG_CONFIG_HOME": str(self.config),
+                "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"),
             }
             | env,
             text=True,

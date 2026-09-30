@@ -68,8 +68,16 @@ Item {
                 Behavior on angle { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
             }
 
+            // Tilted cards otherwise get stair-stepped edges: clip is a
+            // stencil, which never antialiases. Rendering the card into a
+            // smoothed layer with a 1px transparent rim lets bilinear
+            // filtering feather the edge once the Rotation is applied.
+            layer.enabled: true
+            layer.smooth: true
+
             Rectangle {
                 anchors.fill: parent
+                anchors.margins: 1
                 radius: 3
                 color: Theme.background
                 border.width: card.isCenter ? 2 : 0

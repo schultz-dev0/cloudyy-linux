@@ -1,0 +1,24 @@
+{
+  "name": "Celestial Ice",
+  "slug": "celestial-ice",
+  "mode": "light",
+  "colors": {
+    "background": "#f4f9ff",
+    "surface": "#e8f3fe",
+    "surfaceRaised": "#d8e5f7",
+    "surfaceOverlay": "#aac3cf",
+    "text": "#2a3d45",
+    "textMuted": "#5b7282",
+    "accent": "#0f7a80",
+    "accentMuted": "#2f6fb0",
+    "accentAlt": "#6a5bb8",
+    "onAccent": "#f4f9ff",
+    "border": "#aac3cf",
+    "selection": "#d8e5f7",
+    "success": "#327a4b",
+    "warning": "#976008",
+    "error": "#bb3d56",
+    "info": "#22749c",
+    "shadow": "#f4f9ff"
+  }
+}

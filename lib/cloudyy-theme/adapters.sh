@@ -274,6 +274,69 @@ _install_gtk_import() {
   fi
 }
 
+# GTK3 does not import the theme from gtk.css: user CSS is read once at app
+# start and outranks the theme, so it would pin stale colors over the live
+# named-theme reload (_install_gtk3_named_themes). Strips the owned block an
+# earlier install wrote, and the legacy Matugen line, keeping everything else.
+_remove_gtk_import() {
+  local path="$1" begin='/* >>> cloudyy-theme import >>> */'
+  local end='/* <<< cloudyy-theme import <<< */' legacy_line temporary
+  _gtk_import_preflight "$path" || return $?
+  [[ -e "$path" ]] || return 0
+  legacy_line="$(_gtk_legacy_import_line 3)"
+  grep -Fqx -e "$begin" -e "$legacy_line" -- "$path" || return 0
+  if grep -Fqx -- "$legacy_line" "$path"; then
+    _backup_regular_file "$path" "${path}.cloudyy-legacy-backup" || return 1
+  fi
+  temporary="$(mktemp "${path}.cloudyy.XXXXXXXX")" || return 1
+  if ! awk -v begin="$begin" -v end="$end" -v legacy="$legacy_line" '
+      $0 == begin { skip = 1; next }
+      skip { if ($0 == end) skip = 0; next }
+      $0 != legacy
+    ' "$path" >"$temporary" || ! _atomic_replace_from "$path" "$temporary"; then
+    rm -f -- "$temporary" || true
+    return 1
+  fi
+  [[ "$(_gtk_legacy_import_shaped_count "$path")" -eq 0 ]] ||
+    theme_error "legacy Matugen GTK import was not removed (unrecognized variant): $path"
+}
+
+# GTK3 re-reads a *named* theme whenever the gtk-theme setting changes, but
+# never re-reads ~/.config/gtk-3.0/gtk.css. Two identical owned themes that
+# import the stable cloudyy-theme.css link let reload_gtk flip between them,
+# so running GTK3 apps (Thunar, …) recolor in place instead of needing a
+# restart. Both build on adw-gtk3, the GTK theme Cloudyy has always used.
+readonly -a CLOUDYY_GTK3_THEME_NAMES=(Cloudyy-a Cloudyy-b)
+
+_gtk3_named_theme_css() {
+  printf '%s/themes/%s/gtk-3.0/gtk.css\n' "${XDG_DATA_HOME:-$HOME/.local/share}" "$1"
+}
+
+_install_gtk3_named_themes() {
+  local link="$1" owner='/* Owned by cloudyy-theme: reload-gtk flips gtk-theme between Cloudyy-a/b. */'
+  local content name css temporary first_line
+  content="$owner"$'\n''@import url("file:///usr/share/themes/adw-gtk3/gtk-3.0/gtk.css");'$'\n'"@import url(\"file://$link\");"
+  for name in "${CLOUDYY_GTK3_THEME_NAMES[@]}"; do
+    css="$(_gtk3_named_theme_css "$name")"
+    if [[ -e "$css" || -L "$css" ]]; then
+      first_line=''
+      [[ -f "$css" && ! -L "$css" ]] && IFS= read -r first_line <"$css" || true
+      [[ "$first_line" == "$owner" ]] || {
+        theme_error "GTK theme path is not Cloudyy-owned: $css"
+        return 1
+      }
+      [[ "$(cat -- "$css")" == "$content" ]] && continue
+    fi
+    mkdir -p -- "$(dirname -- "$css")" || return 1
+    temporary="$(mktemp "${css}.cloudyy.XXXXXXXX")" || return 1
+    if ! printf '%s\n' "$content" >"$temporary" || ! chmod 0644 "$temporary" ||
+      ! mv -Tf -- "$temporary" "$css"; then
+      rm -f -- "$temporary" || true
+      return 1
+    fi
+  done
+}
+
 _rollback_gtk_link() {
   local target="$1" prior_state="$2" prior_target="$3" backup_preexisted="$4"
   [[ "$prior_state" != desired ]] || return 0
@@ -343,7 +406,10 @@ _adapter_gtk() {
     [[ "$created_directory" == true ]] && rmdir -- "$directory" 2>/dev/null || true
     return "$result"
   fi
-  if _install_gtk_import "$gtk_css" "$version"; then
+  if [[ "$version" == 3 ]]; then
+    _remove_gtk_import "$gtk_css" && _install_gtk3_named_themes "$target" && return 0
+    result=$?
+  elif _install_gtk_import "$gtk_css" "$version"; then
     return 0
   else
     result=$?

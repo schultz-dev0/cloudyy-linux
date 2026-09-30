@@ -42,10 +42,13 @@ PanelWindow {
     WlrLayershell.namespace: "quickshell:command"
     WlrLayershell.keyboardFocus: svc.keyboardGrab ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // Dims the real desktop behind the carousel, bar included.
+    // Dims the real desktop behind the carousel, bar included. Tinted with
+    // the theme's own background rather than black: the title/mode text
+    // below sits directly on this and uses Theme.text/accent, which a light
+    // theme makes dark — unreadable over a black scrim.
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.55)
+        color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.7)
     }
 
     MouseArea {
@@ -82,19 +85,19 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 items: svc.themes.map(t => ({ image: t.preview, label: t.name }))
                 currentIndex: svc.selectedIndex
-                // Square, not the previous ~16:9 box: preview.png is meant
-                // to be square (see themes/*/preview.png convention) — a
-                // wide box cropped a square source on the top/bottom for
-                // no reason. Same visual area as before (460x259), reshaped.
-                centerWidth: 345
-                centerHeight: 345
-                sideWidth: 285
-                sideHeight: 285
+                // 16:9 to match the average monitor — preview.png is a
+                // desktop screenshot (themes/*/preview.png), so a square box
+                // cropped its sides off.
+                centerWidth: 464
+                centerHeight: 261
+                sideWidth: 384
+                sideHeight: 216
                 // stepOffset is the real lever here — it's what pushes
                 // side cards further from center. The outer width/height
                 // above don't clip anything (only the per-card Rectangle
                 // does), so they don't visibly affect spacing on their own.
-                stepOffset: 190
+                // Scaled with card width from the square layout's 190.
+                stepOffset: 255
             }
 
             Column {

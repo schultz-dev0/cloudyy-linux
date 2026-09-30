@@ -176,7 +176,7 @@ STANDARD_INSTALL_OFFICIAL=(
   "tmux"
 
   # File manager
-  "nautilus" "tumbler"
+  "thunar" "thunar-archive-plugin" "tumbler"
   "gvfs" "gvfs-mtp" "gvfs-nfs" "gvfs-smb" "file-roller"
 
   # CLI toolkit

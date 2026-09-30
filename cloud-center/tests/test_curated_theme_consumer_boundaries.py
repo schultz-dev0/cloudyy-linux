@@ -46,7 +46,7 @@ class CuratedThemeConsumerBoundaryTests(unittest.TestCase):
                 ["lua", "-e", program],
                 env=os.environ | {
                     "HOME": str(root / "home"),
-                    "XDG_CONFIG_HOME": str(root / "config"),
+                    "XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str((root / "config").parent / "data"),
                     "CLOUDYY_TEST_COLORS_LUA": str(
                         ROOT / "install/assets/defaults/hypr/colors.lua"
                     ),
@@ -75,7 +75,7 @@ class CuratedThemeConsumerBoundaryTests(unittest.TestCase):
                 ["lua", "-e", program],
                 env=os.environ | {
                     "HOME": str(root / "home"),
-                    "XDG_CONFIG_HOME": str(root / "config"),
+                    "XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str((root / "config").parent / "data"),
                     "CLOUDYY_TEST_COLORS_LUA": str(
                         ROOT / "install/assets/defaults/hypr/colors.lua"
                     ),

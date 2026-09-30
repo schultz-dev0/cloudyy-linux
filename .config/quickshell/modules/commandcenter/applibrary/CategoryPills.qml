@@ -66,7 +66,10 @@ Item {
                         id: pillText
                         anchors.centerIn: parent
                         text: modelData
-                        color: isActive || isKeyboardFocused ? Theme.accent : Theme.textMuted
+                        // Active sits on the accentMuted fill, where accent
+                        // itself is ~1-3:1 in every theme; onAccent is 3-10:1.
+                        color: isActive ? Theme.accentText
+                            : isKeyboardFocused ? Theme.accent : Theme.textMuted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                     }

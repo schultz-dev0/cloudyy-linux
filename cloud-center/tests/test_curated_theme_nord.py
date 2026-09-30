@@ -431,7 +431,10 @@ for _, spec in pairs(theme.highlights) do
     assert(theme.palette[value] ~= nil)
   end
 end
-assert(highlight_count >= 30)
+-- UI groups only: syntax colors come from base46, one scheme per mode
+-- (.config/nvim/lua/autocmds.lua), not from the theme palette.
+assert(theme.highlights.Normal ~= nil)
+assert(highlight_count >= 15)
 """
         subprocess.run([lua, "-e", script, str(path)], check=True, capture_output=True, text=True)
 
@@ -564,7 +567,7 @@ assert(highlight_count >= 30)
             shutil.copytree(source, theme)
             environment = {
                 "HOME": str(root / "home"),
-                "XDG_CONFIG_HOME": str(root / "config"),
+                "XDG_CONFIG_HOME": str(root / "config"), "XDG_DATA_HOME": str((root / "config").parent / "data"),
                 "XDG_CACHE_HOME": str(root / "cache"),
                 "PATH": "/usr/bin:/bin",
             }

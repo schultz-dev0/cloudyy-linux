@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  --zen-primary-color: #0f7a80 !important;
+  --zen-colors-primary: #e8f3fe !important;
+  --zen-colors-secondary: #e8f3fe !important;
+  --zen-colors-tertiary: #d8e5f7 !important;
+  --zen-colors-border: #aac3cf !important;
+  --toolbarbutton-icon-fill: #0f7a80 !important;
+  --lwt-text-color: #2a3d45 !important;
+  --toolbar-field-color: #2a3d45 !important;
+  --tab-selected-textcolor: #2a3d45 !important;
+  --toolbar-field-focus-color: #2a3d45 !important;
+  --toolbar-color: #2a3d45 !important;
+  --newtab-text-primary-color: #2a3d45 !important;
+  --arrowpanel-color: #2a3d45 !important;
+  --arrowpanel-background: #e8f3fe !important;
+  --panel-text-color: #2a3d45 !important;
+  --panel-background-color: #e8f3fe !important;
+  --toolbar-field-text-color-focus: #2a3d45 !important;
+  --toolbar-field-background-color-focus: #f4f9ff !important;
+  --sidebar-text-color: #5b7282 !important;
+  --lwt-sidebar-text-color: #5b7282 !important;
+  --lwt-sidebar-background-color: #e8f3fe !important;
+  --toolbar-bgcolor: #e8f3fe !important;
+  --newtab-background-color: #f4f9ff !important;
+  --zen-themed-toolbar-bg: #e8f3fe !important;
+  --zen-main-browser-background: #f4f9ff !important;
+  --toolbox-bgcolor-inactive: #e8f3fe !important;
+}
+
+#TabsToolbar,
+hbox#titlebar,
+#zen-appcontent-navbar-container {
+  background-color: #e8f3fe !important;
+}
+
+.urlbar-background,
+#zen-workspaces-button,
+.sidebar-placesTree {
+  background-color: #f4f9ff !important;
+}

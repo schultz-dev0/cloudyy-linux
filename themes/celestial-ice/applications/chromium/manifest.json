@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Celestial Ice",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [232, 243, 254],
+      "background_tab_inactive": [232, 243, 254],
+      "background_tab_incognito": [232, 243, 254],
+      "background_tab_incognito_inactive": [232, 243, 254],
+      "bookmark_text": [42, 61, 69],
+      "button_background": [232, 243, 254],
+      "frame": [244, 249, 255],
+      "frame_inactive": [244, 249, 255],
+      "frame_incognito": [244, 249, 255],
+      "frame_incognito_inactive": [244, 249, 255],
+      "ntp_background": [244, 249, 255],
+      "ntp_header": [232, 243, 254],
+      "ntp_link": [15, 122, 128],
+      "ntp_text": [42, 61, 69],
+      "omnibox_background": [244, 249, 255],
+      "omnibox_text": [42, 61, 69],
+      "tab_background_text": [91, 114, 130],
+      "tab_background_text_inactive": [91, 114, 130],
+      "tab_background_text_incognito": [91, 114, 130],
+      "tab_background_text_incognito_inactive": [91, 114, 130],
+      "tab_text": [42, 61, 69],
+      "toolbar": [232, 243, 254],
+      "toolbar_button_icon": [91, 114, 130],
+      "toolbar_text": [42, 61, 69]
+    }
+  }
+}

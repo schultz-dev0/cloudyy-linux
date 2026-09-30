@@ -66,41 +66,23 @@ _reload_passive_consumer() {
   return "$CLOUDYY_ADAPTER_SKIP"
 }
 
-# GTK apps read gtk.css at startup and GTK4/libadwaita (Nautilus) does not
-# watch it, so the only live reload is to quit and relaunch the process.
-# Nautilus is Cloudyy's file manager — the one GTK window a user keeps open
-# while switching themes — so it gets a quit+relaunch dance (mirroring the
-# old Thunar one) so a theme switch re-reads gtk.css without a manual
-# restart. Skipped when Nautilus isn't installed or isn't running.
+# GTK3 apps re-read a named theme whenever gtk-theme changes (never gtk.css),
+# so flipping between the two owned Cloudyy themes recolors running GTK3 apps
+# — Thunar included — in place. See _install_gtk3_named_themes.
 reload_gtk() {
-  local theme="$1" attempt daemon_pid
+  local theme="$1" keys current next=Cloudyy-a
   _adapter_theme_is_active "$theme" || return 1
-  command -v nautilus >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
-  _process_running nautilus || return "$CLOUDYY_ADAPTER_SKIP"
-  # `nautilus -q` exits 255 even when the quit succeeds (it reaches for the
-  # Mutter service channel, which has no owner under Hyprland), so its exit
-  # status is not a reliable signal. Quit, then verify with the poll below.
-  nautilus -q >/dev/null 2>&1 || true
-  for ((attempt = 0; attempt < 20; attempt += 1)); do
-    _process_running nautilus || break
-    sleep 0.1
-  done
-  _process_running nautilus && return 1
-  (
-    [[ -z "${theme_lock_fd:-}" ]] || exec {theme_lock_fd}>&-
-    exec nautilus
-  ) >/dev/null 2>&1 &
-  daemon_pid=$!
-  for ((attempt = 0; attempt < 20; attempt += 1)); do
-    _process_running nautilus && return 0
-    kill -0 "$daemon_pid" >/dev/null 2>&1 || {
-      wait "$daemon_pid" 2>/dev/null || true
-      return 1
-    }
-    sleep 0.1
-  done
-  return 1
+  command -v gsettings >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
+  keys="$(gsettings list-keys org.gnome.desktop.interface 2>/dev/null)" ||
+    return "$CLOUDYY_ADAPTER_SKIP"
+  grep -Fxq gtk-theme <<<"$keys" || return "$CLOUDYY_ADAPTER_SKIP"
+  [[ -f "$(_gtk3_named_theme_css Cloudyy-a)" && -f "$(_gtk3_named_theme_css Cloudyy-b)" ]] ||
+    return "$CLOUDYY_ADAPTER_SKIP"
+  current="$(gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)" || return 1
+  [[ "$current" == "'Cloudyy-a'" ]] && next=Cloudyy-b
+  gsettings set org.gnome.desktop.interface gtk-theme "$next" >/dev/null 2>&1
 }
+
 reload_wlogout() { _reload_passive_consumer "$1"; }
 reload_starship() { _reload_passive_consumer "$1"; }
 # No reload_vesktop: it's been removed from this system.
@@ -264,6 +246,9 @@ reconcile_integrations() {
     fi
   done
 
+  # Validate once here so every backgrounded job inherits the result instead
+  # of each re-running the full stage check (_stage_is_valid's cache).
+  _stage_is_valid "$stage" || true
   _run_integration_batch "$stage" "$theme" "${non_reload[@]}" || failed=true
   _run_integration_batch "$stage" "$theme" "${reload[@]}" || failed=true
   [[ -z "${CLOUDYY_ACTIVATION_DRAFT:-}" ]] || rm -f -- "${CLOUDYY_ACTIVATION_DRAFT}.lock"

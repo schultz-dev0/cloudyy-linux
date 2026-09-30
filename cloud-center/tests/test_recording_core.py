@@ -588,16 +588,23 @@ class RecordingFileActionTests(unittest.TestCase):
             ["thunar", "/tmp/dir"], stdout=mock.ANY, stderr=mock.ANY,
         )
 
-    def test_reveal_action_prefers_nautilus_select(self):
+    def test_reveal_action_selects_the_file_over_filemanager1(self):
         with mock.patch.dict(recording_core.os.environ, {"FILE_MANAGER": ""}, clear=False), \
              mock.patch.object(
                  recording_core.shutil, "which",
-                 side_effect=lambda c: "/usr/bin/nautilus" if c == "nautilus" else "/usr/bin/gio" if c == "gio" else None,
+                 side_effect=lambda c: f"/usr/bin/{c}" if c in ("gdbus", "gio") else None,
              ), \
              mock.patch.object(recording_core.subprocess, "Popen") as popen:
-            recording_core.run_file_action("reveal", "/tmp/dir/a.png", edit_command="xdg-open")
+            recording_core.run_file_action("reveal", "/tmp/dir/a b.png", edit_command="xdg-open")
         popen.assert_called_once_with(
-            ["nautilus", "--select", "/tmp/dir/a.png"], stdout=mock.ANY, stderr=mock.ANY,
+            [
+                "gdbus", "call", "--session",
+                "--dest", "org.freedesktop.FileManager1",
+                "--object-path", "/org/freedesktop/FileManager1",
+                "--method", "org.freedesktop.FileManager1.ShowItems",
+                "['file:///tmp/dir/a%20b.png']", "",
+            ],
+            stdout=mock.ANY, stderr=mock.ANY,
         )
 
     def test_copy_action_screenshot_pipes_image_bytes_to_wl_copy(self):

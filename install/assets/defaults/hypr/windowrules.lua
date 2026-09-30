@@ -57,8 +57,16 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "nautilus",
-	match = { class = "^(.*Nautilus*.)$" },
+	name = "thunar-rename",
+	match = { class = "^(thunar)$", title = ".*Rename*." },
+	float = true,
+	size = "530 400",
+	center = true,
+})
+
+hl.window_rule({
+	name = "thunar",
+	match = { class = "^(thunar)$" },
 	float = true,
 	size = "1080 920",
 	center = true,

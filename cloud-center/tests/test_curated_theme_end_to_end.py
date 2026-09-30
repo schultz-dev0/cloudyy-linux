@@ -97,7 +97,7 @@ class CuratedThemeEndToEndTests(unittest.TestCase):
             environment = os.environ | {
                 "HOME": str(home),
                 "XDG_STATE_HOME": str(state),
-                "XDG_CONFIG_HOME": str(config),
+                "XDG_CONFIG_HOME": str(config), "XDG_DATA_HOME": str(config.parent / "data"),
                 "XDG_RUNTIME_DIR": str(runtime),
                 "ZDOTDIR": str(config / "zsh"),
                 "CLOUDYY_WALLPAPER_DIR": str(home / "Wallpapers"),
@@ -225,7 +225,7 @@ class CuratedThemeEndToEndTests(unittest.TestCase):
             sandbox_config.mkdir()
             sandbox_environment = environment | {
                 "XDG_STATE_HOME": str(sandbox_state),
-                "XDG_CONFIG_HOME": str(sandbox_config),
+                "XDG_CONFIG_HOME": str(sandbox_config), "XDG_DATA_HOME": str(sandbox_config.parent / "data"),
             }
             sandbox_metadata = sandbox_repo / "themes/nord/theme.json"
             valid_metadata = sandbox_metadata.read_bytes()

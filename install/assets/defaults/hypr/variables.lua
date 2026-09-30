@@ -4,7 +4,7 @@
 terminal = "kitty"
 browser = "zen-browser"
 mainMod = "SUPER"
-fileManager = "nautilus"
+fileManager = "thunar"
 
 hl.env("BROWSER", browser)
 hl.env("TERMINAL", terminal)

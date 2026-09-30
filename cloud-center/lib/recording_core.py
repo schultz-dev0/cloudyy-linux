@@ -417,9 +417,16 @@ def _reveal_argv(path: Path) -> list[str]:
     fm = (os.environ.get("FILE_MANAGER") or "").strip()
     if fm:
         return shlex.split(fm) + [parent]
-    # Distro default FM is Nautilus; --select highlights the file.
-    if shutil.which("nautilus"):
-        return ["nautilus", "--select", str(path)]
+    # The FileManager1 D-Bus interface opens the folder with the file selected;
+    # Thunar (the distro default) implements it, as do most file managers.
+    if shutil.which("gdbus"):
+        return [
+            "gdbus", "call", "--session",
+            "--dest", "org.freedesktop.FileManager1",
+            "--object-path", "/org/freedesktop/FileManager1",
+            "--method", "org.freedesktop.FileManager1.ShowItems",
+            f"['{path.as_uri()}']", "",
+        ]
     if shutil.which("gio"):
         return ["gio", "open", parent]
     return ["xdg-open", parent]

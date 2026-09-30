@@ -70,7 +70,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.environment = os.environ | {
             "HOME": str(self.home),
             "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"),
             "XDG_RUNTIME_DIR": str(self.runtime),
             "ZDOTDIR": str(self.zdotdir),
             "CLOUDYY_WALLPAPER_DIR": str(self.wallpaper_directory),
@@ -98,6 +98,9 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
 
     def tearDown(self):
         self.temporary_directory.cleanup()
+
+    def _named_theme_css(self, name: str) -> Path:
+        return self.config.parent / "data/themes" / name / "gtk-3.0/gtk.css"
 
     def _write_fake(self, name: str, body: str) -> Path:
         path = self.fake_bin / name
@@ -221,7 +224,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(lines[0], f"/* cloudyy-generation: {stage_name} */\n")
         self.assertEqual("".join(lines[1:]), (theme / "applications/zen.css").read_text())
 
-    def test_gtk_adapters_install_one_owned_import_and_preserve_existing_css(self):
+    def test_gtk_adapters_install_owned_imports_and_preserve_existing_css(self):
         self.prepare()
         self._create_consumer_roots()
         gtk3 = self.config / "gtk-3.0/gtk.css"
@@ -236,13 +239,15 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
 
         marker = "/* >>> cloudyy-theme import >>> */"
         import_line = '@import url("cloudyy-theme.css");'
+        content = gtk4.read_text()
+        self.assertEqual(content.count(marker), 1)
+        self.assertEqual(content.count(import_line), 1)
         for path in (gtk3, gtk4):
             with self.subTest(path=path):
-                content = path.read_text()
-                self.assertEqual(content.count(marker), 1)
-                self.assertEqual(content.count(import_line), 1)
                 self.assertEqual(path.read_bytes(), before[path])
-        self.assertTrue(gtk3.read_text().startswith("/* personal gtk3 */\nwindow"))
+        # GTK3 themes through the named Cloudyy-a/b themes instead (see the
+        # named-theme tests), so its gtk.css is left exactly as the user had it.
+        self.assertEqual(gtk3.read_text(), "/* personal gtk3 */\nwindow { padding: 1px; }\n")
 
     def test_gtk_adapter_removes_and_backs_up_real_legacy_matugen_import(self):
         theme = self.prepare()
@@ -257,14 +262,12 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
 
         content = gtk_css.read_text()
         self.assertNotIn('@import url("../matugen/generated/gtk-3.css");', content)
-        self.assertTrue(content.startswith("/* personal preamble */"))
-        self.assertEqual(content.count("/* >>> cloudyy-theme import >>> */"), 1)
-        self.assertEqual(content.count('@import url("cloudyy-theme.css");'), 1)
+        self.assertEqual(content, "/* personal preamble */\n")
         backup = Path(f"{gtk_css}.cloudyy-legacy-backup")
         self.assertTrue(backup.is_file())
         self.assertEqual(backup.read_text(), original)
 
-        # Idempotent rerun: the Cloudyy marker already present, nothing changes further.
+        # Idempotent rerun: nothing left to strip, nothing changes further.
         second = self.run_adapter("adapter_gtk3", str(theme))
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(gtk_css.read_text(), content)
@@ -313,12 +316,17 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
                     (directory / "cloudyy-theme.css").resolve(),
                     (theme / "applications" / payload).resolve(),
                 )
-                self.assertEqual(
-                    (directory / "gtk.css").read_text(),
-                    "/* >>> cloudyy-theme import >>> */\n"
-                    '@import url("cloudyy-theme.css");\n'
-                    "/* <<< cloudyy-theme import <<< */\n",
-                )
+                if version == "4.0":
+                    self.assertEqual(
+                        (directory / "gtk.css").read_text(),
+                        "/* >>> cloudyy-theme import >>> */\n"
+                        '@import url("cloudyy-theme.css");\n'
+                        "/* <<< cloudyy-theme import <<< */\n",
+                    )
+                else:
+                    self.assertFalse((directory / "gtk.css").exists())
+                    for name in ("Cloudyy-a", "Cloudyy-b"):
+                        self.assertTrue(self._named_theme_css(name).is_file())
 
     def test_gtk_adapter_rejects_ambiguous_import_without_creating_theme_link(self):
         self.prepare()
@@ -357,29 +365,34 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(gtk_css.read_text(), original)
         self.assertFalse((directory / "cloudyy-theme.css").exists())
 
-    def test_gtk_adapter_rolls_back_new_link_when_atomic_import_write_fails(self):
+    def test_gtk_adapter_rolls_back_new_link_when_its_final_write_fails(self):
         theme = self.prepare()
-        directory = self.config / "gtk-3.0"
-        directory.mkdir(parents=True)
-        gtk_css = directory / "gtk.css"
-        original = "/* personal */\n"
-        gtk_css.write_text(original)
-        program = (
-            "source lib/cloudyy-theme/common.sh; "
-            "source lib/cloudyy-theme/package.sh; "
-            "source lib/cloudyy-theme/adapters.sh; "
-            "_atomic_replace_from() { return 1; }; "
-            "adapter_gtk3 \"$1\""
-        )
+        for function, version, failing in (
+            ("adapter_gtk4", "4.0", "_atomic_replace_from"),
+            ("adapter_gtk3", "3.0", "_install_gtk3_named_themes"),
+        ):
+            with self.subTest(version=version):
+                directory = self.config / f"gtk-{version}"
+                directory.mkdir(parents=True)
+                gtk_css = directory / "gtk.css"
+                original = "/* personal */\n"
+                gtk_css.write_text(original)
+                program = (
+                    "source lib/cloudyy-theme/common.sh; "
+                    "source lib/cloudyy-theme/package.sh; "
+                    "source lib/cloudyy-theme/adapters.sh; "
+                    f"{failing}() {{ return 1; }}; "
+                    f"{function} \"$1\""
+                )
 
-        result = subprocess.run(
-            ["bash", "-c", program, "_", str(theme)], cwd=REPO_ROOT,
-            env=self.environment, text=True, capture_output=True, check=False,
-        )
+                result = subprocess.run(
+                    ["bash", "-c", program, "_", str(theme)], cwd=REPO_ROOT,
+                    env=self.environment, text=True, capture_output=True, check=False,
+                )
 
-        self.assertEqual(result.returncode, 1)
-        self.assertEqual(gtk_css.read_text(), original)
-        self.assertFalse((directory / "cloudyy-theme.css").exists())
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(gtk_css.read_text(), original)
+                self.assertFalse((directory / "cloudyy-theme.css").exists())
 
     def test_gtk_adapter_removes_fresh_directory_when_link_install_fails(self):
         theme = self.prepare()
@@ -1633,7 +1646,7 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(actions["mode-firefox"], {"status": "skip"})
         self.assertEqual(actions["mode-zen"], {"status": "skip"})
 
-    def test_reload_gtk_skips_without_nautilus(self):
+    def test_reload_gtk_skips_without_a_gtk_theme_setting(self):
         self.prepare()
 
         result = self.run_theme("reconcile")
@@ -1645,37 +1658,84 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         self.assertEqual(actions["reload-gtk"], {"status": "skip"})
         self.assertEqual(actions["reload-obsidian"], {"status": "skip"})
 
-    def test_reload_gtk_quits_and_relaunches_running_nautilus(self):
+    def test_gtk3_adapter_moves_owned_import_into_named_themes(self):
+        theme = self.prepare()
+        directory = self.config / "gtk-3.0"
+        directory.mkdir(parents=True)
+        gtk_css = directory / "gtk.css"
+        gtk_css.write_text(
+            "/* personal */\n"
+            "/* >>> cloudyy-theme import >>> */\n"
+            '@import url("cloudyy-theme.css");\n'
+            "/* <<< cloudyy-theme import <<< */\n"
+            "window { padding: 1px; }\n"
+        )
+
+        first = self.run_adapter("adapter_gtk3", str(theme))
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(gtk_css.read_text(), "/* personal */\nwindow { padding: 1px; }\n")
+        link = directory / "cloudyy-theme.css"
+        self.assertEqual(link.resolve(), (theme / "applications/gtk-3.css").resolve())
+        for name in ("Cloudyy-a", "Cloudyy-b"):
+            with self.subTest(name=name):
+                lines = self._named_theme_css(name).read_text().splitlines()
+                self.assertTrue(lines[0].startswith("/* Owned by cloudyy-theme"))
+                self.assertEqual(
+                    lines[1:],
+                    ['@import url("file:///usr/share/themes/adw-gtk3/gtk-3.0/gtk.css");',
+                     f'@import url("file://{link}");'],
+                )
+        snapshot = {name: self._named_theme_css(name).read_bytes() for name in ("Cloudyy-a", "Cloudyy-b")}
+
+        second = self.run_adapter("adapter_gtk3", str(theme))
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(gtk_css.read_text(), "/* personal */\nwindow { padding: 1px; }\n")
+        for name, content in snapshot.items():
+            self.assertEqual(self._named_theme_css(name).read_bytes(), content)
+
+    def test_gtk3_adapter_refuses_a_named_theme_it_does_not_own(self):
+        theme = self.prepare()
+        foreign = self._named_theme_css("Cloudyy-b")
+        foreign.parent.mkdir(parents=True)
+        foreign.write_text("/* someone else's theme */\n")
+
+        result = self.run_adapter("adapter_gtk3", str(theme))
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("not Cloudyy-owned", result.stderr)
+        self.assertEqual(foreign.read_text(), "/* someone else's theme */\n")
+        self.assertFalse((self.config / "gtk-3.0/cloudyy-theme.css").exists())
+
+    def test_reload_gtk_flips_gtk3_between_named_themes(self):
         self.prepare()
-        state_file = Path(self.temporary_directory.name) / "nautilus.running"
-        state_file.write_text("running\n", encoding="utf-8")
-        self.environment["CLOUDYY_NAUTILUS_STATE"] = str(state_file)
+        setting = Path(self.temporary_directory.name) / "gtk-theme"
+        setting.write_text("'adw-gtk3'\n", encoding="utf-8")
+        self.environment["CLOUDYY_GTK_THEME_SETTING"] = str(setting)
         self._write_fake(
-            "nautilus",
-            "if [[ \"${1:-}\" == \"-q\" ]]; then "
-            "printf 'nautilus -q\\n' >>\"$CLOUDYY_TEST_COMMAND_LOG\"; "
-            "rm -f \"$CLOUDYY_NAUTILUS_STATE\"; exit 0; fi\n"
-            "printf 'nautilus-relaunch\\n' >>\"$CLOUDYY_TEST_COMMAND_LOG\"; "
-            ": > \"$CLOUDYY_NAUTILUS_STATE\"; exit 0\n",
-        )
-        self._write_fake(
-            "pgrep",
-            "[[ \"$*\" == *awww-daemon* ]] && exit 0\n"
-            "[[ \"$*\" == *nautilus* ]] || exit 1\n"
-            "[[ -f \"$CLOUDYY_NAUTILUS_STATE\" ]] && exit 0\n"
-            "exit 1\n",
+            "gsettings",
+            "printf 'gsettings %s\\n' \"$*\" >>\"$CLOUDYY_TEST_COMMAND_LOG\"\n"
+            "case \"${1:-}\" in\n"
+            "list-schemas) printf 'org.gnome.desktop.interface\\n' ;;\n"
+            "list-keys) printf 'color-scheme\\ngtk-theme\\n' ;;\n"
+            "get) [[ \"$3\" == gtk-theme ]] && cat \"$CLOUDYY_GTK_THEME_SETTING\" ;;\n"
+            "set) [[ \"$3\" == gtk-theme ]] && printf \"'%s'\\n\" \"$4\" >\"$CLOUDYY_GTK_THEME_SETTING\" ;;\n"
+            "esac\n"
+            "exit 0",
         )
 
-        result = self.run_theme("reconcile")
+        seen = []
+        for _ in range(3):
+            result = self.run_theme("reconcile")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            actions = json.loads(
+                (self.state / "cloudyy/current/activation.json").read_text()
+            )["reconcile"]["actions"]
+            self.assertEqual(actions["reload-gtk"], {"status": "success"})
+            seen.append(setting.read_text().strip())
 
-        self.assertEqual(result.returncode, 0, result.stderr)
-        log = self.command_log.read_text()
-        self.assertIn("nautilus -q\n", log)
-        self.assertIn("nautilus-relaunch\n", log)
-        actions = json.loads(
-            (self.state / "cloudyy/current/activation.json").read_text()
-        )["reconcile"]["actions"]
-        self.assertEqual(actions["reload-gtk"], {"status": "success"})
+        # Each reconcile lands on the other name, so GTK3 re-reads the theme.
+        self.assertEqual(seen, ["'Cloudyy-a'", "'Cloudyy-b'", "'Cloudyy-a'"])
 
     def test_reconcile_records_exact_actions_and_attempts_reload_after_adapter_failure(self):
         self.prepare()

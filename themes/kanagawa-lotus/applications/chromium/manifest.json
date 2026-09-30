@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Kanagawa Lotus",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [237, 228, 222],
+      "background_tab_inactive": [237, 228, 222],
+      "background_tab_incognito": [237, 228, 222],
+      "background_tab_incognito_inactive": [237, 228, 222],
+      "bookmark_text": [84, 84, 100],
+      "button_background": [237, 228, 222],
+      "frame": [246, 241, 239],
+      "frame_inactive": [246, 241, 239],
+      "frame_incognito": [246, 241, 239],
+      "frame_incognito_inactive": [246, 241, 239],
+      "ntp_background": [246, 241, 239],
+      "ntp_header": [237, 228, 222],
+      "ntp_link": [90, 119, 133],
+      "ntp_text": [84, 84, 100],
+      "omnibox_background": [246, 241, 239],
+      "omnibox_text": [84, 84, 100],
+      "tab_background_text": [113, 110, 97],
+      "tab_background_text_inactive": [113, 110, 97],
+      "tab_background_text_incognito": [113, 110, 97],
+      "tab_background_text_incognito_inactive": [113, 110, 97],
+      "tab_text": [84, 84, 100],
+      "toolbar": [237, 228, 222],
+      "toolbar_button_icon": [113, 110, 97],
+      "toolbar_text": [84, 84, 100]
+    }
+  }
+}

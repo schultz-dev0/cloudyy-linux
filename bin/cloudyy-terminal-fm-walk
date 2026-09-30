@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Walk up the current directory in the file manager
-# Open Nautilus in the cwd of the focused terminal window.
+# Open Thunar in the cwd of the focused terminal window.
 # Bind to a Hyprland key for the reverse of cwd_walk.sh.
 
 set -euo pipefail
@@ -16,19 +16,19 @@ notify() {
 main() {
   command -v hyprctl &>/dev/null || { notify "hyprctl not found"; exit 1; }
   command -v jq &>/dev/null || { notify "jq not found"; exit 1; }
-  command -v nautilus &>/dev/null || { notify "nautilus not found"; exit 1; }
+  command -v thunar &>/dev/null || { notify "thunar not found"; exit 1; }
 
   local cwd
   if ! cwd=$(cwd_walk_resolve_focused); then
     cwd="$HOME"
   fi
 
-  # --new-window ensures Nautilus opens in the given dir even when already running as a daemon.
+  # Thunar opens a new window on the given dir even when already running.
   if command -v uwsm-app &>/dev/null; then
-    exec uwsm-app -- nautilus --new-window "$cwd"
+    exec uwsm-app -- thunar "$cwd"
   fi
 
-  exec nautilus --new-window "$cwd"
+  exec thunar "$cwd"
 }
 
 main "$@"

@@ -88,7 +88,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
         environment = os.environ | {
             "HOME": str(self.home),
             "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"),
             "XDG_RUNTIME_DIR": str(self.runtime),
             "ZDOTDIR": str(self.zdotdir),
             "CLOUDYY_WALLPAPER_DIR": str(self.wallpaper_directory),
@@ -195,7 +195,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
         safe_environment = {
             "HOME": str(self.home),
             "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"),
             "XDG_RUNTIME_DIR": str(self.runtime),
             "ZDOTDIR": str(self.zdotdir),
             "CLOUDYY_WALLPAPER_DIR": str(self.wallpaper_directory),
@@ -229,7 +229,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
         environment = os.environ | {
             "HOME": str(self.home),
             "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"),
             "XDG_RUNTIME_DIR": str(self.runtime),
             "ZDOTDIR": str(self.zdotdir),
             "CLOUDYY_WALLPAPER_DIR": str(self.wallpaper_directory),
@@ -946,7 +946,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
         (state_root / "theme.lock").symlink_to(sentinel)
         environment = {
             "HOME": str(self.home), "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config), "XDG_RUNTIME_DIR": str(bad_runtime),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"), "XDG_RUNTIME_DIR": str(bad_runtime),
         }
 
         fallback_result = self.run_theme_with_environment(environment, "prepare", "nord")
@@ -1084,7 +1084,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
         bad_runtime.write_text("not a directory\n", encoding="utf-8")
         environment = {
             "HOME": str(self.home), "XDG_STATE_HOME": str(self.state),
-            "XDG_CONFIG_HOME": str(self.config), "XDG_RUNTIME_DIR": str(bad_runtime),
+            "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"), "XDG_RUNTIME_DIR": str(bad_runtime),
         }
 
         prepare = self.run_theme_with_environment(environment, "prepare", "nord")
@@ -1118,6 +1118,21 @@ class CuratedThemeEngineTest(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
+
+    def test_cleanup_removes_stages_chromium_wrote_its_theme_cache_into(self):
+        # Chromium drops Cached Theme.pak into the unpacked theme extension it
+        # loads from the stage; that must not make the stage uncollectable.
+        self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)
+        first = (self.state / "cloudyy/current").resolve()
+        cache = first / "theme/applications/chromium/Cached Theme.pak"
+        cache.write_bytes(b"pak")
+        cache.chmod(0o600)
+
+        for slug in ("gruvbox", "everforest"):
+            result = self.run_theme("prepare", slug)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        self.assertFalse(first.exists())
 
     def test_promotion_cleanup_failure_preserves_exit_twelve(self):
         self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)
@@ -1165,7 +1180,7 @@ class CuratedThemeEngineTest(unittest.TestCase):
             time.sleep(0.1)
             reader = subprocess.Popen(
                 [str(THEME_COMMAND), "current"], cwd=REPO_ROOT,
-                env=os.environ | {"HOME": str(self.home), "XDG_STATE_HOME": str(self.state), "XDG_CONFIG_HOME": str(self.config), "XDG_RUNTIME_DIR": str(self.runtime)},
+                env=os.environ | {"HOME": str(self.home), "XDG_STATE_HOME": str(self.state), "XDG_CONFIG_HOME": str(self.config), "XDG_DATA_HOME": str(self.config.parent / "data"), "XDG_RUNTIME_DIR": str(self.runtime)},
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             )
             time.sleep(0.1)

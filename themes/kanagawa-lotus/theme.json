@@ -1,0 +1,24 @@
+{
+  "name": "Kanagawa Lotus",
+  "slug": "kanagawa-lotus",
+  "mode": "light",
+  "colors": {
+    "background": "#f6f1ef",
+    "surface": "#ede4de",
+    "surfaceRaised": "#e5d9d1",
+    "surfaceOverlay": "#c9bab1",
+    "text": "#545464",
+    "textMuted": "#716e61",
+    "accent": "#5a7785",
+    "accentMuted": "#4d699b",
+    "accentAlt": "#6f894e",
+    "onAccent": "#f6f1ef",
+    "border": "#c9bab1",
+    "selection": "#e5d9d1",
+    "success": "#6f894e",
+    "warning": "#cc6d00",
+    "error": "#c84053",
+    "info": "#4e8ca2",
+    "shadow": "#f6f1ef"
+  }
+}

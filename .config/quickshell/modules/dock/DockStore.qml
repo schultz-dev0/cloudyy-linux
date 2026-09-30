@@ -78,9 +78,9 @@ Singleton {
             icon: "kitty"
         },
         {
-            class: "org.gnome.Nautilus",
-            exec: "nautilus --new-window",
-            icon: "org.gnome.Nautilus"
+            class: "thunar",
+            exec: "thunar",
+            icon: "org.xfce.thunar"
         },
     ]
 
