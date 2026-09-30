@@ -28,7 +28,7 @@ return {
     LineNr = { fg = "nord3" },
     SignColumn = { bg = "nord0" },
     ColorColumn = { bg = "nord1" },
-    Visual = { bg = "nord2" },
+    Visual = { bg = "nord3" },
     Search = { fg = "nord0", bg = "nord13" },
     IncSearch = { fg = "nord0", bg = "nord8" },
     Pmenu = { fg = "nord4", bg = "nord1" },

@@ -25,7 +25,7 @@ return {
     LineNr = { fg = "gray" },
     SignColumn = { bg = "bg0" },
     ColorColumn = { bg = "bg1" },
-    Visual = { bg = "bg2" },
+    Visual = { bg = "bg3" },
     Search = { fg = "bg0", bg = "yellow" },
     IncSearch = { fg = "bg0", bg = "orange" },
     Pmenu = { fg = "fg1", bg = "bg1" },

@@ -24,7 +24,7 @@ return {
     LineNr = { fg = "highlightMed" },
     SignColumn = { bg = "base" },
     ColorColumn = { bg = "surface" },
-    Visual = { bg = "overlay" },
+    Visual = { bg = "highlightMed" },
     Search = { fg = "base", bg = "gold" },
     IncSearch = { fg = "base", bg = "love" },
     Pmenu = { fg = "text", bg = "surface" },
