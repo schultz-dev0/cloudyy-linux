@@ -45,18 +45,22 @@ ExecStart=-/usr/bin/agetty --autologin $TARGET_USER --noclear %I \$TERM
 EOF
 
 # 4. Global Hyprland Auto-start (Zsh)
+# Block is delimited by markers so re-running this script (e.g. after a repo
+# update) replaces a stale block instead of leaving it untouched forever.
 echo "Setting up global Zsh Hyprland auto-start..."
 ZPROFILE="/etc/zsh/zprofile"
 mkdir -p /etc/zsh
-if ! grep -qE "uwsm|Hyprland|hyprland" "$ZPROFILE" 2>/dev/null; then
-  cat <<'EOF' >>"$ZPROFILE"
+touch "$ZPROFILE"
+sed -i '/# >>> cloudyy hyprland autostart >>>/,/# <<< cloudyy hyprland autostart <<</d' "$ZPROFILE"
+cat <<'EOF' >>"$ZPROFILE"
 
+# >>> cloudyy hyprland autostart >>>
 # Auto-start Hyprland on TTY1 via UWSM
 if [ -z "$DISPLAY" ] && [ "${XDG_VTNR:-0}" -eq 1 ] && uwsm check may-start 2>/dev/null; then
   exec uwsm start hyprland-uwsm.desktop
 fi
+# <<< cloudyy hyprland autostart <<<
 EOF
-fi
 
 # 5. Mask NetworkManager Delay & Optimize Docker
 echo "Cutting Userspace delays..."
