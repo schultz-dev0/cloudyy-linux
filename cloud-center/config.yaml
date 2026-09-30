@@ -507,6 +507,23 @@ pages:
                   cd ~/cloudyy-linux/cloud-center &&
                   python3 -m lib.hypr_layout_persist apply input:numlock_by_default false
 
+          - type: toggle
+            properties:
+              title: Built-in Keyboard
+              description: Turn off to disable the laptop's internal keyboard (e.g. when using an external keyboard)
+              icon: 󰌌
+              key: input/keyboard_builtin_enabled
+              default: true
+            on_toggle:
+              enabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.keyboard_device_persist on
+              disabled:
+                command: >-
+                  cd ~/cloudyy-linux/cloud-center &&
+                  python3 -m lib.keyboard_device_persist off
+
       - type: section
         properties:
           title: Mouse
