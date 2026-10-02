@@ -52,13 +52,7 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
-        Rectangle {
-            anchors.fill: parent
-            radius: 0
-            color: Theme.glassShell
-            border.width: 1
-            border.color: Theme.glassPanelBorder
-        }
+        Panel { anchors.fill: parent; grain: true }
 
         QuickCalendar.CalendarContent {
             id: calendarContent
@@ -69,7 +63,6 @@ PanelWindow {
             onCloseNestedRequested: root.svc.close()
         }
 
-        GrainOverlay {}
     }
 
     IpcHandler {

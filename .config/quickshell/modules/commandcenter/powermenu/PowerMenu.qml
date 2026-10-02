@@ -1,22 +1,17 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../../.."
 import "../../spotlight" as QuickSpotlight
-import "../../systemmonitor" as QuickSystemMonitor
-import "../../battery" as QuickBattery
 import "../applibrary" as QuickAppLibrary
 
 PanelWindow {
     id: root
 
     readonly property var svc: PowerMenuService
-    readonly property var mon: QuickSystemMonitor.SystemMonitorService
-    readonly property var bat: QuickBattery.BatteryService
 
     readonly property int panelWidth: {
         const screens = Quickshell.screens;
@@ -25,8 +20,7 @@ PanelWindow {
     }
     readonly property int actionColumns: 5
     readonly property int actionRowHeight: 80
-    readonly property int statsHeight: 62
-    readonly property int panelContentHeight: 48 + 1 + statsHeight + 36 + actionRowHeight + 10
+    readonly property int panelContentHeight: profilePills.height + actionRowHeight + 18
 
     anchors { top: true; bottom: true; left: true; right: true }
     exclusiveZone: 0
@@ -46,7 +40,7 @@ PanelWindow {
         id: panel
         anchors.centerIn: parent
         width: root.panelWidth
-        height: root.panelContentHeight + 8 + 8 + Theme.frameArmLength + Theme.frameInset + 8
+        height: root.panelContentHeight + 8 + 8 + 8
         visible: svc.visible
 
         MouseArea {
@@ -54,48 +48,7 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
-        // Resin material — real theme-hue tint, not neutral glass. See
-        // Theme.qml's resin() comment for the keycap reasoning.
-        Rectangle {
-            id: panelShell
-            anchors.fill: parent
-            radius: 0
-            color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 0
-            clip: true
-
-            // Gloss — light catching the material's upper edge.
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: parent.height * 0.4
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.resinGloss }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            // Inner glow — a hint of structure beneath the material.
-            // Actually blurred, not just low-opacity, so it reads as soft
-            // light rather than a defined shape. Corner-anchored with the
-            // center pushed past the edge (clipped by panelShell) instead
-            // of a percentage-of-height position, so it never lands under
-            // a list row regardless of how many results are showing.
-            Rectangle {
-                width: parent.width * 0.3
-                height: width
-                radius: width / 2
-                anchors {
-                    left: parent.left
-                    bottom: parent.bottom
-                    leftMargin: -width * 0.5
-                    bottomMargin: -height * 0.5
-                }
-                color: Theme.resinGlow
-                opacity: 0.5
-                layer.enabled: true
-                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
-            }
-        }
+        Panel { anchors.fill: parent }
 
         FocusScope {
             id: keyNav
@@ -152,92 +105,6 @@ PanelWindow {
                 width: parent.width
                 spacing: 0
 
-                Item {
-                    width: parent.width
-                    height: 48
-
-                    Row {
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            verticalCenter: parent.verticalCenter
-                            leftMargin: 16
-                            rightMargin: 16
-                        }
-                        spacing: 10
-
-                        Text {
-                            text: "󰐥"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 18
-                            color: Theme.textMuted
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: "Power"
-                            color: Theme.text
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 15
-                            font.weight: Font.Medium
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    color: Theme.hairline
-                }
-
-                Flickable {
-                    id: statsFlick
-                    width: parent.width
-                    height: root.statsHeight
-                    contentWidth: statsRow.width
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-
-                    Row {
-                        id: statsRow
-                        height: parent.height
-                        spacing: 8
-                        leftPadding: 14
-                        rightPadding: 14
-
-                        PowerStatChip {
-                            icon: "󰍛"
-                            value: mon.cpuPercent + "%"
-                            label: "CPU"
-                            detail: mon.cpuTempC > 0 ? mon.cpuTempC + "°C" : mon.cpuAvgPercent + "% avg"
-                        }
-
-                        PowerStatChip {
-                            icon: "󰘚"
-                            value: mon.ramPercent + "%"
-                            label: "Memory"
-                            detail: mon.ramUsedGb.toFixed(1) + " / " + mon.ramTotalGb.toFixed(1) + " GB"
-                        }
-
-                        PowerStatChip {
-                            visible: mon.gpuAvailable
-                            icon: "󰢮"
-                            value: mon.gpuPercent + "%"
-                            label: "GPU"
-                            detail: mon.gpuTempC > 0 ? mon.gpuTempC + "°C" : (mon.gpuName || "").split(" ")[0]
-                        }
-
-                        PowerStatChip {
-                            visible: bat.available
-                            icon: bat.charging ? "󰂄" : "󰁹"
-                            value: Math.round(bat.percent) + "%"
-                            label: "Battery"
-                            detail: bat.rateEtaLabel
-                        }
-                    }
-                }
-
                 QuickAppLibrary.CategoryPills {
                     id: profilePills
                     width: parent.width
@@ -278,20 +145,6 @@ PanelWindow {
                 }
             }
         }
-
-        CornerFrame {
-            open: svc.visible
-            showTopRule: true
-            topRuleLabel: "POWER"
-        }
-
-        MarginRules {
-            topRight: Theme.name || "theme"
-            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
-            bottomRight: root.panelWidth + " × AUTO"
-        }
-
-        GrainOverlay {}
     }
 
     function stepProfile(delta) {
@@ -362,7 +215,6 @@ PanelWindow {
         }
         function onVisibleChanged() {
             if (svc.visible) {
-                mon.restartMonitor();
                 Qt.callLater(() => keyNav.forceActiveFocus());
             }
         }

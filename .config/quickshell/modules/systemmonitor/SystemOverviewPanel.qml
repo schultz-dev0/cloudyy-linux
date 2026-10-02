@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import "../.."
 import "../battery" as QuickBattery
+import "Disks.js" as Disks
 
 PanelWindow {
     id: panel
@@ -15,7 +16,6 @@ PanelWindow {
 
     // Larger layout for high-DPI / big monitors (34").
     readonly property int panelWidth: 560
-    readonly property int panelRadius: 0
     readonly property int padding: 20
     readonly property int topGap: 10
     readonly property int rightGap: 20
@@ -97,15 +97,12 @@ PanelWindow {
         p.running = true;
     }
 
-    Rectangle {
+    Panel {
         id: panelRect
         anchors.fill: parent
+        grain: true
         implicitWidth: panel.panelWidth
         implicitHeight: contentCol.implicitHeight + panel.padding * 2
-        radius: panel.panelRadius
-        color: Theme.glassShell
-        border.width: 1
-        border.color: Theme.glassPanelBorder
         focus: false
 
         Keys.onEscapePressed: svc.open = false
@@ -137,28 +134,36 @@ PanelWindow {
             }
             spacing: 10
 
-            // Header
+            // Shown only when the data has stopped — real state, not panel meta.
             RowLayout {
                 Layout.fillWidth: true
+                visible: svc.stale
+                spacing: 8
 
                 Text {
-                    text: "󰘚  System"
-                    color: Theme.text
+                    text: "stale · check binary"
+                    color: Theme.error
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: panel.titleFont
-                    font.weight: Font.Bold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.6
+                    font.pixelSize: panel.bodyFont
                     Layout.fillWidth: true
                 }
 
-                Text {
-                    text: svc.stale
-                        ? "stale · check binary"
-                        : (svc.daemonManaged ? "live · 2s" : "live · 2s")
-                    color: svc.stale ? Theme.error : Theme.textMuted
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: panel.bodyFont
+                Rectangle {
+                    implicitWidth: restartText.implicitWidth + 20
+                    implicitHeight: 26
+                    radius: 2
+                    color: "transparent"
+                    border.color: Theme.hairline
+                    border.width: 1
+                    Text {
+                        id: restartText
+                        anchors.centerIn: parent
+                        text: "󰑐 Restart"
+                        color: Theme.text
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: panel.bodyFont
+                    }
+                    MouseArea { anchors.fill: parent; onClicked: svc.ensureDaemon() }
                 }
             }
 
@@ -260,19 +265,13 @@ PanelWindow {
                                     font.letterSpacing: 0.6
                                     Layout.fillWidth: true
                                 }
-                                Text {
-                                    text: svc.disks.length + " mounts"
-                                    color: Theme.textMuted
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: panel.bodyFont
-                                }
                             }
 
                             Column {
                                 Layout.fillWidth: true
                                 spacing: 8
                                 Repeater {
-                                    model: svc.disks
+                                    model: Disks.unique(svc.disks)
                                     delegate: StorageRow {
                                         required property var modelData
                                         width: parent.width
@@ -335,64 +334,6 @@ PanelWindow {
                             }
                         }
 
-                        Rectangle { Layout.fillWidth: false; Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.hairline }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: 1
-                            implicitHeight: tempCol.implicitHeight
-
-                            ColumnLayout {
-                                id: tempCol
-                                anchors { left: parent.left; right: parent.right }
-                                spacing: 6
-
-                                Text {
-                                    text: "󰈸 Temps"
-                                    color: Theme.text
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: panel.labelFont
-                                    font.weight: Font.Bold
-                                    font.capitalization: Font.AllUppercase
-                                    font.letterSpacing: 0.6
-                                }
-
-                                Flow {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Repeater {
-                                        model: svc.sensors.slice(0, 6)
-                                        delegate: Rectangle {
-                                            required property var modelData
-                                            radius: 2
-                                            color: "transparent"
-                                            border.width: 1
-                                            border.color: Theme.hairline
-                                            implicitWidth: chipText.implicitWidth + 16
-                                            implicitHeight: 24
-                                            Text {
-                                                id: chipText
-                                                anchors.centerIn: parent
-                                                text: (modelData.label || "?") + " " + (modelData.temp_c || 0) + "°"
-                                                color: Theme.textMuted
-                                                font.family: "JetBrainsMono Nerd Font"
-                                                font.pixelSize: panel.bodyFont
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    visible: svc.fans.length > 0
-                                    text: svc.fans.length > 0
-                                        ? (svc.fans[0].label || "Fan") + " " + (svc.fans[0].rpm || 0) + " RPM"
-                                        : ""
-                                    color: Theme.textMuted
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: panel.bodyFont
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -424,30 +365,8 @@ PanelWindow {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 38
-                    radius: 2
-                    color: "transparent"
-                    border.color: Theme.hairline
-                    border.width: 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰑐 Refresh"
-                        color: Theme.text
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: panel.bodyFont
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: svc.ensureDaemon()
-                    }
-                }
             }
         }
 
-        GrainOverlay {}
     }
 }

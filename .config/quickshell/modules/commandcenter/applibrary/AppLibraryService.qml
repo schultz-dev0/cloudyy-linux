@@ -9,7 +9,6 @@ import Quickshell.Hyprland
 import "../../../overview/services"
 import "../../spotlight"
 import "../powermenu"
-import "../wallpapers"
 
 Singleton {
     id: svc
@@ -237,8 +236,6 @@ Singleton {
             SpotlightService.close();
         if (PowerMenuService.visible)
             PowerMenuService.close();
-        if (WallpaperPickerService.visible)
-            WallpaperPickerService.close();
     }
 
     function openInternal() {

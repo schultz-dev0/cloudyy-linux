@@ -1,0 +1,24 @@
+{
+  "name": "Miasma",
+  "slug": "miasma",
+  "mode": "dark",
+  "colors": {
+    "background": "#222222",
+    "surface": "#222222",
+    "surfaceRaised": "#242d1d",
+    "surfaceOverlay": "#1c1d16",
+    "text": "#c2c2b0",
+    "textMuted": "#8a8a7e",
+    "accent": "#5f875f",
+    "accentMuted": "#5f875f",
+    "accentAlt": "#d7c483",
+    "onAccent": "#1c1d16",
+    "border": "#1c1d16",
+    "selection": "#383838",
+    "success": "#5f875f",
+    "warning": "#b36d43",
+    "error": "#685742",
+    "info": "#c9a554",
+    "shadow": "#222222"
+  }
+}

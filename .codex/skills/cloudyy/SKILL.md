@@ -1,6 +1,6 @@
 ---
 name: cloudyy
-description: Use when writing or editing any code in ~/cloudyy-linux — QML/quickshell, bash scripts, Python (Cloud Center backend), or Lua (Hyprland config) — to match this distro's existing conventions.
+description: Use when writing or editing any code in ~/cloudyy-linux — QML/quickshell, bash scripts, Python (Cloud Center backend), or Lua (Hyprland config) — to match its existing conventions, and before any UI or visual change to follow the Cloudyy visual language (square, all-mono, no HUD chrome, numbered rules 1–9).
 ---
 
 # Cloudyy
@@ -15,7 +15,7 @@ Reference for working on the cloudyy-linux distro: coding conventions already es
 
 Detailed, file:line-cited conventions per language live in separate reference files — read the one relevant to what you're touching:
 
-- **QML / Quickshell** (`.config/quickshell/**`) → [qml-conventions.md](qml-conventions.md)
+- **QML / Quickshell** (`.config/quickshell/**`) → [qml-conventions.md](qml-conventions.md), including the **visual language** (read it before any UI change: panel material, rules 1–9, what is legacy)
 - **Bash** (`install/*.sh`, `cloudyy_scripts/**/*.sh`) → [bash-conventions.md](bash-conventions.md)
 - **Python** (`cloud-center/**`) → [python-conventions.md](python-conventions.md)
 - **Lua** (`.config/hypr/**`) → [lua-conventions.md](lua-conventions.md)

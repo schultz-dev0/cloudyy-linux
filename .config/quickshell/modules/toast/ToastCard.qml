@@ -4,7 +4,7 @@ import QtQuick
 import "../.."
 import "." as QuickToast
 
-Rectangle {
+Panel {
     id: root
 
     required property var toast   // {id, serial, data, expiresAt}
@@ -12,10 +12,6 @@ Rectangle {
 
     width: 320
     implicitHeight: contentCol.implicitHeight + 22
-    radius: 0
-    color: Theme.resin(Theme.resinFillAlpha)
-    border.width: 1
-    border.color: Theme.resinBorder
     antialiasing: true
 
     Column {
@@ -128,6 +124,4 @@ Rectangle {
             QuickToast.ToastQueueService.remove(root.toast.id);
         }
     }
-
-    GrainOverlay {}
 }

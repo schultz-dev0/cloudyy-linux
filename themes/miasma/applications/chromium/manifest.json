@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Miasma",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [50, 50, 50],
+      "background_tab_inactive": [50, 50, 50],
+      "background_tab_incognito": [50, 50, 50],
+      "background_tab_incognito_inactive": [50, 50, 50],
+      "bookmark_text": [194, 194, 176],
+      "button_background": [50, 50, 50],
+      "frame": [24, 24, 24],
+      "frame_inactive": [24, 24, 24],
+      "frame_incognito": [24, 24, 24],
+      "frame_incognito_inactive": [24, 24, 24],
+      "ntp_background": [24, 24, 24],
+      "ntp_header": [50, 50, 50],
+      "ntp_link": [95, 135, 95],
+      "ntp_text": [194, 194, 176],
+      "omnibox_background": [24, 24, 24],
+      "omnibox_text": [194, 194, 176],
+      "tab_background_text": [138, 138, 126],
+      "tab_background_text_inactive": [138, 138, 126],
+      "tab_background_text_incognito": [138, 138, 126],
+      "tab_background_text_incognito_inactive": [138, 138, 126],
+      "tab_text": [194, 194, 176],
+      "toolbar": [50, 50, 50],
+      "toolbar_button_icon": [138, 138, 126],
+      "toolbar_text": [194, 194, 176]
+    }
+  }
+}

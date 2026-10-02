@@ -1,0 +1,33 @@
+{
+  "name": "Cloudyy Melange",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "theme": {
+    "colors": {
+      "background_tab": [42, 37, 32],
+      "background_tab_inactive": [42, 37, 32],
+      "background_tab_incognito": [42, 37, 32],
+      "background_tab_incognito_inactive": [42, 37, 32],
+      "bookmark_text": [236, 225, 215],
+      "button_background": [53, 47, 42],
+      "frame": [42, 37, 32],
+      "frame_inactive": [42, 37, 32],
+      "frame_incognito": [42, 37, 32],
+      "frame_incognito_inactive": [42, 37, 32],
+      "ntp_background": [42, 37, 32],
+      "ntp_header": [53, 47, 42],
+      "ntp_link": [153, 213, 157],
+      "ntp_text": [236, 225, 215],
+      "omnibox_background": [42, 37, 32],
+      "omnibox_text": [236, 225, 215],
+      "tab_background_text": [163, 141, 120],
+      "tab_background_text_inactive": [163, 141, 120],
+      "tab_background_text_incognito": [163, 141, 120],
+      "tab_background_text_incognito_inactive": [163, 141, 120],
+      "tab_text": [236, 225, 215],
+      "toolbar": [53, 47, 42],
+      "toolbar_button_icon": [163, 141, 120],
+      "toolbar_text": [236, 225, 215]
+    }
+  }
+}

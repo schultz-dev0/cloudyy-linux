@@ -7,7 +7,6 @@ import Quickshell.Io
 import "../spotlight"
 import "../commandcenter/applibrary"
 import "../commandcenter/powermenu"
-import "../commandcenter/wallpapers"
 
 Singleton {
     id: svc
@@ -68,8 +67,6 @@ Singleton {
             AppLibraryService.close();
         if (PowerMenuService.visible)
             PowerMenuService.close();
-        if (WallpaperPickerService.visible)
-            WallpaperPickerService.close();
     }
 
     function showPanel() {

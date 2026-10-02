@@ -11,7 +11,6 @@ import "../calculator/backend" as CalcBackend
 import "../currency/backend" as CurrencyBackend
 import "../time/backend" as TimeBackend
 import "../commandcenter/applibrary"
-import "../commandcenter/wallpapers"
 import "../themepicker"
 
 PanelWindow {
@@ -37,6 +36,7 @@ PanelWindow {
 
     readonly property var categories: [
         { sigil: ">", cat: "apps", label: "apps" },
+        { sigil: "/", cat: "commands", label: "commands" },
         { sigil: ";", cat: "clipboard", label: "clipboard" },
         { sigil: ":", cat: "emoji", label: "emoji" },
         { sigil: "!", cat: "calculator", label: "calc" },
@@ -85,6 +85,30 @@ PanelWindow {
         svc.close();
     }
 
+    // One mapping for every repeater: service result → SpotlightRow data.
+    function rowData(r) {
+        if (r.type === "command")
+            return {
+                type: "command",
+                name: r.label,
+                icon: r.icon,
+                isActive: r.isActive === true,
+                navigable: r.navigable === true,
+                state: r.state || "",
+                context: r.context || ""
+            };
+        const secondary = ["ollama_model", "package", "package_action", "ollama_action", "clipboard_entry", "emoji"];
+        if (secondary.indexOf(r.type) >= 0)
+            return {
+                type: "command",
+                name: r.label || r.name,
+                icon: r.icon || (r.type === "package" ? "󰏖" : "󰚩"),
+                // Confirm rows name their target; nothing else needs a right slot.
+                context: (r.action || "").indexOf("confirm") === 0 ? (r.name || "") : ""
+            };
+        return r;
+    }
+
     function activateIndex(idx) {
         if (idx < 0)
             return;
@@ -97,10 +121,23 @@ PanelWindow {
     }
 
     function selectionTop(index) {
-        let y = 0;
-        if (bodyCol.isBrowseMode && svc.browseStack.length > 0)
-            y += bodyCol.breadcrumbHeight;
-        return y + index * bodyCol.rowHeight;
+        return index * bodyCol.rowHeight;
+    }
+
+    function categoryLabel(cat) {
+        const c = categories.find(x => x.cat === cat);
+        return c ? c.label : cat;
+    }
+
+    // Rule 3: where you are lives in the empty field — category, else submenu path.
+    readonly property string contextPlaceholder: {
+        if (svc.activeCategory !== "")
+            return categoryLabel(svc.activeCategory);
+        if (svc.mode === "command" && svc.browseStack.length > 0) {
+            const path = svc.browseStack.map(id => svc.entryById(id)?.label || "").join(" › ");
+            return svc.inGeneratedList && svc.listLabel !== "" ? path + " › " + svc.listLabel : path;
+        }
+        return "";
     }
 
     function activeFlickable() {
@@ -186,12 +223,19 @@ PanelWindow {
             : null;
         const withoutInline = svc.results.filter(r =>
             r.type !== "time" && r.type !== "calculator" && r.type !== "currency");
+        // Only prepend what the active category keeps. Prepending a row that
+        // applyCategoryFilter() then strips re-fires onResultsChanged → this,
+        // forever (RangeError: Maximum call stack size exceeded).
+        const cat = svc.activeCategory;
+        const keeps = t => cat === ""
+            || (cat === "calculator" && (t === "time" || t === "calculator"))
+            || (cat === "currency" && t === "currency");
         const next = [];
-        if (currencyEntry)
+        if (currencyEntry && keeps("currency"))
             next.push(currencyEntry);
-        if (timeEntry)
+        if (timeEntry && keeps("time"))
             next.push(timeEntry);
-        if (calcEntry)
+        if (calcEntry && keeps("calculator"))
             next.push(calcEntry);
 
         if (next.length === 0) {
@@ -354,8 +398,7 @@ PanelWindow {
     Item {
         id: contentPanel
         width: svc.overlayWidth
-        implicitHeight: searchBar.height + catBar.height + bodyCol.listBodyHeight
-            + Theme.frameArmLength + Theme.frameInset + 8
+        implicitHeight: searchBar.height + catBar.height + bodyCol.listBodyHeight + 8
         opacity: svc.closing ? 0 : 1
 
         Behavior on opacity {
@@ -378,61 +421,7 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
-        // Resin material — real theme-hue tint, not neutral glass. See
-        // Theme.qml's resin() comment for the keycap reasoning.
-        Rectangle {
-            id: panelShell
-            anchors.fill: parent
-            radius: 0
-            color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 0
-            clip: true
-
-            // Gloss — light catching the material's upper edge.
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: parent.height * 0.4
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.resinGloss }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            // Inner glow — a hint of structure beneath the material.
-            // Corner-anchored with the center pushed past the edge (clipped
-            // by panelShell) so it never lands under a list row regardless
-            // of how many results are showing.
-            //
-            // Three stacked translucent discs rather than one disc +
-            // MultiEffect blur — the blur FBO regenerated every time the
-            // overlay was shown, on the same frames as the open animation.
-            // Plain rounded rects cost nothing there.
-            Item {
-                width: parent.width * 0.3
-                height: width
-                anchors {
-                    left: parent.left
-                    bottom: parent.bottom
-                    leftMargin: -width * 0.5
-                    bottomMargin: -height * 0.5
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.12
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 0.68; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.16
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 0.4; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.22
-                }
-            }
-        }
+        Panel { anchors.fill: parent }
 
         Column {
             id: bodyCol
@@ -456,11 +445,22 @@ PanelWindow {
                     font.family: "JetBrainsMono Nerd Font"
                 }
 
+                // Active category stays visible while typing — the filter still applies.
+                Text {
+                    id: categoryPrefix
+                    anchors { left: searchIcon.right; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                    visible: svc.activeCategory !== "" && searchInput.text.length > 0
+                    text: root.categoryLabel(svc.activeCategory) + " ›"
+                    color: Theme.textMuted
+                    font.pixelSize: 15
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
                 TextInput {
                     id: searchInput
                     anchors {
-                        left: searchIcon.right
-                        leftMargin: 10
+                        left: categoryPrefix.visible ? categoryPrefix.right : searchIcon.right
+                        leftMargin: categoryPrefix.visible ? 8 : 10
                         right: parent.right
                         rightMargin: 16
                         verticalCenter: parent.verticalCenter
@@ -510,6 +510,16 @@ PanelWindow {
                         }
                 }
 
+                Text {
+                    anchors { left: searchInput.left; right: searchInput.right; verticalCenter: parent.verticalCenter }
+                    visible: searchInput.text.length === 0 && text !== ""
+                    text: root.contextPlaceholder
+                    color: Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.75)
+                    font.pixelSize: 15
+                    font.family: "JetBrainsMono Nerd Font"
+                    elide: Text.ElideLeft
+                }
+
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
@@ -523,7 +533,7 @@ PanelWindow {
                 id: catBar
                 width: parent.width
                 height: visible ? 34 : 0
-                visible: svc.mode === "spotlight"
+                visible: svc.mode === "spotlight" && svc.query.length === 0
 
                 Row {
                     anchors {
@@ -585,8 +595,7 @@ PanelWindow {
                 }
             }
 
-            readonly property int rowHeight: 46
-            readonly property int breadcrumbHeight: 36
+            readonly property int rowHeight: 38
             readonly property int listCapHeight: {
                 if (root.screenHeight > 0)
                     return Math.max(0, Math.round(root.screenHeight * 0.75) - searchBar.height);
@@ -646,22 +655,7 @@ PanelWindow {
                         delegate: SpotlightRow {
                             required property var modelData
                             required property int index
-                            resultData: modelData.type === "command"
-                                ? {
-                                    type: "command",
-                                    name: modelData.label,
-                                    subtitle: modelData.subtitle,
-                                    icon: modelData.icon,
-                                    isActive: modelData.isActive === true
-                                }
-                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action" || modelData.type === "clipboard_entry" || modelData.type === "emoji"
-                                    ? {
-                                        type: "command",
-                                        name: modelData.label || modelData.name,
-                                        subtitle: modelData.subtitle || "",
-                                        icon: modelData.icon || (modelData.type === "package" ? "󰏖" : "󰚩")
-                                    }
-                                    : modelData)
+                            resultData: root.rowData(modelData)
                             isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
                             rowWidth: svc.overlayWidth
                             onActivated: root.activateIndex(index)
@@ -706,37 +700,12 @@ PanelWindow {
                     id: browseCol
                     width: parent.width
 
-                    Text {
-                        visible: svc.browseStack.length > 0
-                        text: "  " + (SpotlightService.entryById(svc.currentParentId())?.label || "")
-                        color: Theme.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
-                        topPadding: 8
-                        leftPadding: 8
-                    }
-
                     Repeater {
                         model: svc.results
                         delegate: SpotlightRow {
                             required property var modelData
                             required property int index
-                            resultData: modelData.type === "command"
-                                ? {
-                                    type: "command",
-                                    name: modelData.label,
-                                    subtitle: modelData.subtitle,
-                                    icon: modelData.icon,
-                                    isActive: modelData.isActive === true
-                                }
-                                : (modelData.type === "ollama_model" || modelData.type === "package" || modelData.type === "package_action" || modelData.type === "ollama_action"
-                                    ? {
-                                        type: "command",
-                                        name: modelData.label || modelData.name,
-                                        subtitle: modelData.subtitle || "",
-                                        icon: modelData.icon || (modelData.type === "package" ? "󰏖" : "󰚩")
-                                    }
-                                    : modelData)
+                            resultData: root.rowData(modelData)
                             isSelected: svc.selectedIndex >= 0 && index === svc.selectedIndex
                             rowWidth: svc.overlayWidth
                             onActivated: root.activateIndex(index)
@@ -746,21 +715,6 @@ PanelWindow {
                 }
             }
         }
-
-        CornerFrame {
-            open: svc.visible && !svc.closing
-            duration: Perf.msHalf(140)
-            showTopRule: true
-            topRuleLabel: "SPOTLIGHT"
-        }
-
-        MarginRules {
-            topRight: Theme.name || "theme"
-            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
-            bottomRight: svc.overlayWidth + " × AUTO"
-        }
-
-        GrainOverlay {}
     }
 
     IpcHandler {
@@ -779,9 +733,6 @@ PanelWindow {
         }
         function apps() {
             AppLibraryService.open();
-        }
-        function wallpaper() {
-            WallpaperPickerService.open();
         }
         function theme() {
             ThemePickerService.open();

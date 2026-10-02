@@ -47,10 +47,6 @@
           "command": "uwsm-app -- cloudyy-slider-osd"
         },
         {
-          "label": "󰸉",
-          "command": "qs ipc call spotlight wallpaper"
-        },
-        {
           "label": "",
           "command": "hyprpicker"
         },

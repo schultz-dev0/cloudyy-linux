@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 // modules/dock/Dock.qml
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -1641,21 +1640,6 @@ PanelWindow {
                     GradientStop { position: 0.0; color: Theme.resinGloss }
                     GradientStop { position: 1.0; color: "transparent" }
                 }
-            }
-
-            // Inner glow — a hint of structure beneath the material.
-            // Actually blurred, not just low-opacity, so it reads as soft
-            // light rather than a defined shape.
-            Rectangle {
-                width: parent.height * 1.4
-                height: width
-                radius: width / 2
-                x: parent.width * 0.06
-                y: (parent.height - height) / 2
-                color: Theme.resinGlow
-                opacity: 0.4
-                layer.enabled: true
-                layer.effect: MultiEffect { blurEnabled: true; blur: 1.0; blurMax: 80 }
             }
         }
 

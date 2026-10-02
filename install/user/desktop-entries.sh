@@ -96,6 +96,25 @@ EOF
 chmod 0644 "${TARGET_DIR}/Cloud-center.desktop"
 log_write "Created: Cloud-center.desktop"
 
+# Dependency-pulled launchers nobody opens (avahi browsers, v4l test tools,
+# jshell, gps tools…). A same-id NoDisplay override in the user dir hides
+# them from every launcher; apps-catalog.py already skips NoDisplay=true.
+readonly HIDDEN_DESKTOP_IDS=(
+  avahi-discover bssh bvnc
+  qv4l2 qvidcap
+  lstopo
+  jshell-java-openjdk jshell-java17-openjdk jshell-java21-openjdk
+  xgps xgpsspeed
+  uuctl
+)
+
+for id in "${HIDDEN_DESKTOP_IDS[@]}"; do
+  [[ -f "/usr/share/applications/${id}.desktop" ]] || continue
+  printf '[Desktop Entry]\nType=Application\nName=%s\nNoDisplay=true\n' "$id" >"${TARGET_DIR}/${id}.desktop"
+  chmod 0644 "${TARGET_DIR}/${id}.desktop"
+  log_write "Hidden: ${id}.desktop"
+done
+
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "${HOME}/.local/share/applications" >/dev/null 2>&1 || true
 fi

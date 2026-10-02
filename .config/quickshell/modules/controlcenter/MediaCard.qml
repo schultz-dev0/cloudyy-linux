@@ -93,14 +93,6 @@ Rectangle {
                     font.pixelSize: 10
                     elide: Text.ElideRight
                 }
-
-                Text {
-                    text: root.playerName
-                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.6)
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 8
-                    visible: root.playerName !== ""
-                }
             }
         }
 

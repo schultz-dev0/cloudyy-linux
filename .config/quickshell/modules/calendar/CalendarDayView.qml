@@ -15,7 +15,7 @@ Item {
 
     readonly property var _events: CalendarService.eventsForDate(selectedDate)
 
-    implicitHeight: dayHeader.implicitHeight + (root._events.length > 0 ? eventList.implicitHeight : emptyState.implicitHeight) + 32
+    implicitHeight: dayHeader.implicitHeight + (root._events.length > 0 ? eventList.implicitHeight : 0) + 32
 
     function focusInitial() {
         const firstEvent = eventRepeater.itemAt(0);
@@ -81,41 +81,6 @@ Item {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.addEventRequested(root.selectedDate)
-            }
-        }
-    }
-
-    // ── Empty state ───────────────────────────────────────────────────────────
-    Item {
-        id: emptyState
-        anchors {
-            top: dayHeader.bottom
-            left: parent.left
-            right: parent.right
-            topMargin: 8
-        }
-        visible: root._events.length === 0
-        implicitHeight: 56
-
-        ColumnLayout {
-            anchors.centerIn: parent
-            spacing: 4
-
-            Text {
-                text: "󰃰"
-                color: Theme.islandOnSurfaceVariant
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 22
-                renderType: Text.NativeRendering
-                Layout.alignment: Qt.AlignHCenter
-            }
-            Text {
-                text: "No events"
-                color: Theme.islandOnSurfaceVariant
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 11
-                renderType: Text.NativeRendering
-                Layout.alignment: Qt.AlignHCenter
             }
         }
     }

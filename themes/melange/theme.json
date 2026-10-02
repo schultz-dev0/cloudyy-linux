@@ -1,0 +1,24 @@
+{
+  "name": "Melange",
+  "slug": "melange",
+  "mode": "dark",
+  "colors": {
+    "background": "#2A2520",
+    "surface": "#352F2A",
+    "surfaceRaised": "#4D453E",
+    "surfaceOverlay": "#4D453E",
+    "text": "#ECE1D7",
+    "textMuted": "#A38D78",
+    "accent": "#99D59D",
+    "accentMuted": "#78997A",
+    "accentAlt": "#E49B5D",
+    "onAccent": "#2A2520",
+    "border": "#4D453E",
+    "selection": "#4D453E",
+    "success": "#99D59D",
+    "warning": "#EBC06D",
+    "error": "#F17C64",
+    "info": "#CE9BCB",
+    "shadow": "#2A2520"
+  }
+}

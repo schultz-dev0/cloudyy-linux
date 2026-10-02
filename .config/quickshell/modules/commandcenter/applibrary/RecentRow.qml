@@ -15,24 +15,13 @@ Item {
     readonly property int iconCellWidth: 72
     readonly property int cellSpacing: 4
     readonly property int rowHeight: 88
-    height: apps.length > 0 ? label.height + 6 + rowHeight : 0
+    height: apps.length > 0 ? rowHeight : 0
     visible: apps.length > 0
-
-    Text {
-        id: label
-        anchors.left: parent.left
-        text: "RECENT"
-        color: Theme.textMuted
-        font.family: "JetBrainsMono Nerd Font"
-        font.pixelSize: 10
-        font.letterSpacing: 1
-    }
 
     Flickable {
         id: flick
         anchors {
-            top: label.bottom
-            topMargin: 6
+            top: parent.top
             left: parent.left
             right: parent.right
         }

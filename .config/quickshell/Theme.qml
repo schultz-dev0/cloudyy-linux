@@ -168,6 +168,11 @@ QtObject {
         ? withAlpha(border, 0.38)
         : Qt.rgba(1, 1, 1, 0.22)
 
+    // Panel rim (Panel.qml) — the 1px edge of the glass, all round. New token
+    // rather than reusing glassPanelBorder: Theme.qml is symlinked into
+    // cloud-center/, which keeps its own meanings for the old tokens.
+    readonly property color panelRim: isLightTheme ? withAlpha(border, 0.38) : Qt.rgba(1, 1, 1, 0.14)
+
     // Flat instrument-panel divider — thin low-contrast rule used to separate
     // groups instead of boxing every tile in its own bordered card.
     readonly property color hairline: withAlpha(border, 0.4)

@@ -34,10 +34,10 @@ PanelWindow {
             const sh = screens.length > 0 ? screens[0].height : 1080;
             return Math.min(480, Math.round(sh * 0.45));
         }
-        let h = panelPaddingV * 2 + 40 + 8 + 36 + 8 + gridViewportHeight + 14;
+        let h = panelPaddingV * 2 + 40 + 8 + pills.height + 8 + gridViewportHeight + 14;
         if (svc.recentEntries.length > 0)
             h += recentRow.height + 6;
-        h += 8 + Theme.frameArmLength + Theme.frameInset + 8;
+        h += 8;
         return h;
     }
 
@@ -67,61 +67,7 @@ PanelWindow {
             onClicked: mouse.accepted = true
         }
 
-        // Resin material — real theme-hue tint, not neutral glass. See
-        // Theme.qml's resin() comment for the keycap reasoning.
-        Rectangle {
-            id: panelShell
-            anchors.fill: parent
-            radius: 0
-            color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 0
-            clip: true
-
-            // Gloss — light catching the material's upper edge.
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: parent.height * 0.4
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.resinGloss }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-
-            // Inner glow — a hint of structure beneath the material.
-            // Corner-anchored with the center pushed past the edge (clipped
-            // by panelShell) so it never lands under a list row regardless
-            // of how many results are showing.
-            //
-            // Three stacked translucent discs rather than one disc +
-            // MultiEffect blur — the blur FBO regenerated every time the
-            // overlay was shown, on the same frames as the open animation.
-            // Plain rounded rects cost nothing there.
-            Item {
-                width: parent.width * 0.3
-                height: width
-                anchors {
-                    left: parent.left
-                    bottom: parent.bottom
-                    leftMargin: -width * 0.5
-                    bottomMargin: -height * 0.5
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.12
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 0.68; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.16
-                }
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 0.4; height: width; radius: width / 2
-                    color: Theme.resinGlow; opacity: 0.22
-                }
-            }
-        }
+        Panel { anchors.fill: parent }
 
         Column {
             anchors.fill: parent
@@ -458,20 +404,6 @@ PanelWindow {
                 }
             }
         }
-
-        CornerFrame {
-            open: svc.visible
-            showTopRule: true
-            topRuleLabel: "APPS"
-        }
-
-        MarginRules {
-            topRight: Theme.name || "theme"
-            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
-            bottomRight: root.panelWidth + " × AUTO"
-        }
-
-        GrainOverlay {}
     }
 
     function syncCategoryFocus(label) {

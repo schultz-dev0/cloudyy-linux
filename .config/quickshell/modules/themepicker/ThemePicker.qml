@@ -172,18 +172,6 @@ PanelWindow {
         }
     }
 
-    CornerFrame {
-        open: svc.visible
-        showTopRule: true
-        topRuleLabel: "THEME"
-    }
-
-    MarginRules {
-        topRight: Theme.name || "theme"
-        bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
-        bottomRight: "VIEW × AUTO"
-    }
-
     Connections {
         target: svc
         function onRequestFocus() {

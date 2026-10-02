@@ -21,11 +21,8 @@ PanelWindow {
     readonly property int panelMaxHeight: 900
     readonly property int topGap: 10
     readonly property int rightGap: 20
-    readonly property int panelRadius: 0
     readonly property int sectionRadius: 0
     readonly property int panelPadding: 18
-    readonly property int notifChromeClearance: Theme.frameArmLength + Theme.frameInset
-    readonly property int emptyNotifHeight: 36
     readonly property int notifPanelMaxVisible: 3
     property var visibleNotifications: []
 
@@ -130,7 +127,6 @@ PanelWindow {
         panel._warmed = true;
         QuickNotifPanel.NotifPanelService.markAllRead();
         panel.refreshVisibleNotifications();
-        panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm");
 
         // Defer tile/slider refresh so open animation isn't blocked on subprocess I/O.
         Qt.callLater(() => {
@@ -138,18 +134,9 @@ PanelWindow {
                 return;
             if (panel.sliderController)
                 panel.sliderController.refreshAll();
-            wifibtTile.refresh();
+            wifiTile.refresh();
+            btTile.refresh();
         });
-    }
-
-    // ── Clock ─────────────────────────────────────────────────────────────────
-    property string clockText: ""
-    Timer {
-        interval: 60000
-        repeat: true
-        running: panel.open
-        triggeredOnStart: true
-        onTriggered: panel.clockText = Qt.formatDateTime(new Date(), "ddd dd MMM · hh:mm")
     }
 
     // ── One-shot launcher ─────────────────────────────────────────────────────
@@ -249,13 +236,10 @@ PanelWindow {
     // Shared hero panel fill (Theme.resin* tokens). Neutral surface-toned
     // glass as of 2026-08-27 — was an accent-hue tint; see Theme.qml's
     // resin() comment.
-    Rectangle {
+    Panel {
         id: panelShell
         anchors.fill: parent
-        radius: panel.panelRadius
-        color: Theme.resin(Theme.resinFillAlpha)
-        border.width: 0
-        clip: true
+        grain: true
 
         // 0.004 during the one-shot pre-warm blip: sub-perceptual but still
         // painted, which forces glyph/node build off the first-open path.
@@ -267,52 +251,6 @@ PanelWindow {
             NumberAnimation { duration: panel.openFadeMs; easing.type: Easing.OutQuad }
         }
 
-        // Gloss — light catching the material's upper edge.
-        Rectangle {
-            anchors { top: parent.top; left: parent.left; right: parent.right }
-            height: parent.height * 0.4
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Theme.resinGloss }
-                GradientStop { position: 1.0; color: "transparent" }
-            }
-        }
-
-        // Inner glow — a hint of structure beneath the material, like the
-        // switch under a keycap, not the desktop behind it. Corner-anchored
-        // with the center pushed past the edge (clipped by panelShell) so it
-        // never lands under a text row regardless of how much content the
-        // panel holds.
-        //
-        // Three stacked translucent discs rather than one disc + MultiEffect
-        // blur — the blur FBO was regenerated on the first render after each
-        // map, landing on the same frames as the open animation. Plain
-        // rounded rects cost nothing there. ponytail: 4th disc if banding shows.
-        Item {
-            width: parent.width * 0.4
-            height: width
-            anchors {
-                left: parent.left
-                bottom: parent.bottom
-                leftMargin: -width * 0.5
-                bottomMargin: -height * 0.5
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width; height: width; radius: width / 2
-                color: Theme.resinGlow; opacity: 0.12
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width * 0.68; height: width; radius: width / 2
-                color: Theme.resinGlow; opacity: 0.16
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width * 0.4; height: width; radius: width / 2
-                color: Theme.resinGlow; opacity: 0.22
-            }
-        }
-
         ColumnLayout {
             id: contentColumn
             anchors {
@@ -321,78 +259,18 @@ PanelWindow {
             }
             spacing: 12
 
-            // ── Header ───────────────────────────────────────────────────────
+            // ── Toggles ───────────────────────────────────────────────────────
             RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 6
-
-                Text {
-                    text: "Control Center"
-                    color: Theme.text
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 16
-                    font.weight: Font.Bold
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: panel.clockText
-                    color: Theme.textMuted
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                }
-            }
-
-            // ── Tile grid ─────────────────────────────────────────────────────
-            //
-            // Layout (macOS-style, two RowLayout sections):
-            //
-            //   Row 1: [ WiFi + Bluetooth (tall) ]  [ Do Not Disturb ]
-            //   Row 2: [ Night Light             ]
-            //
-            // Using explicit RowLayout / ColumnLayout instead of GridLayout rowSpan.
-            ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 6
 
-                // ── First section: tall combined tile beside two stacked tiles ──
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    WifiBluetoothTile {
-                        id: wifibtTile
-                    }
-
-                    DndTile {
-                        id: dndTile
-                        Layout.fillWidth: true
-                        dnd: panel.dnd
-                        onDndToggle: panel.dndToggle()
-                    }
+                WifiTile { id: wifiTile }
+                BluetoothTile { id: btTile }
+                DndTile {
+                    dnd: panel.dnd
+                    onDndToggle: panel.dndToggle()
                 }
-
-                // ── Second section: night light ────────────────────────────────
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    NightLightTile {
-                        id: nlTile
-                        Layout.fillWidth: true
-                        sliderController: panel.sliderController
-                    }
-                }
-
-                // ── Third section: system overview tile ───────────────────────
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    SystemTile {
-                        Layout.fillWidth: true
-                    }
-                }
+                NightLightTile { sliderController: panel.sliderController }
             }
 
             Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
@@ -407,16 +285,6 @@ PanelWindow {
                     id: displayCol
                     anchors { left: parent.left; right: parent.right }
                     spacing: 6
-
-                    Text {
-                        text: "Display"
-                        color: Theme.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        font.capitalization: Font.AllUppercase
-                        font.letterSpacing: 0.6
-                    }
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -479,16 +347,6 @@ PanelWindow {
                     id: nlCol
                     anchors { left: parent.left; right: parent.right }
                     spacing: 6
-
-                    Text {
-                        text: "Night Light"
-                        color: Theme.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        font.capitalization: Font.AllUppercase
-                        font.letterSpacing: 0.6
-                    }
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -553,16 +411,6 @@ PanelWindow {
                     anchors { left: parent.left; right: parent.right }
                     spacing: 6
 
-                    Text {
-                        text: "Sound"
-                        color: Theme.textMuted
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
-                        font.weight: Font.Medium
-                        font.capitalization: Font.AllUppercase
-                        font.letterSpacing: 0.6
-                    }
-
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 10
@@ -615,10 +463,11 @@ PanelWindow {
 
             // ── Calendar mini strip ───────────────────────────────────────────
             CalendarMiniSection {
+                id: calendarStrip
                 Layout.fillWidth: true
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.hairline; visible: calendarStrip.hasEvents }
 
             // ── Media card ────────────────────────────────────────────────────
             MediaCard {
@@ -651,14 +500,29 @@ PanelWindow {
                 readonly property int shownCount: Math.min(displayCount, maxVisible)
                 readonly property bool suppressLayoutAnim: panel.suppressLayoutAnim
 
+                // itemAt() isn't notifiable, so a binding on it froze at the 64px
+                // fallback when the card was created after the panel measured
+                // itself — the old GRAIN spacer below used to hide the clip.
+                // Track the front card through the Repeater's own signals.
+                property Item frontCard: null
+
+                visible: displayCount > 0
                 implicitHeight: displayCount === 0
-                    ? panel.emptyNotifHeight
-                    : (notifRepeater.itemAt(0) ? notifRepeater.itemAt(0).height : 64)
+                    ? 0
+                    : (frontCard ? frontCard.height : 64)
                       + Math.max(0, shownCount - 1) * peekHeight
 
                 Repeater {
                     id: notifRepeater
                     model: panel.visibleNotifications
+                    onItemAdded: (index, item) => {
+                        if (index === 0)
+                            notifStack.frontCard = item;
+                    }
+                    onItemRemoved: (index, item) => {
+                        if (notifStack.frontCard === item)
+                            notifStack.frontCard = notifRepeater.count > 0 ? notifRepeater.itemAt(0) : null;
+                    }
 
                     delegate: Item {
                         id: cardWrapper
@@ -744,37 +608,7 @@ PanelWindow {
                         }
                     }
                 }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible:          notifStack.displayCount === 0
-                    text:             "No notifications"
-                    color:            Qt.rgba(Theme.textMuted.r, Theme.textMuted.g, Theme.textMuted.b, 0.4)
-                    font.family:      "JetBrainsMono Nerd Font"
-                    font.pixelSize:   13
-                }
-            }
-
-            // Empty row so GRAIN / size flags sit on resin, not on the card.
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: panel.notifChromeClearance + 8
             }
         }
-
-        CornerFrame {
-            open: panel.open
-            duration: panel.openFadeMs
-            showTopRule: true
-            topRuleLabel: "CONTROL"
-        }
-
-        MarginRules {
-            topRight: Theme.name || "theme"
-            bottomLeft: "GRAIN " + Number(Theme.grainOpacity).toFixed(2)
-            bottomRight: panel.panelWidth + " × AUTO"
-        }
-
-        GrainOverlay {}
     }
 }

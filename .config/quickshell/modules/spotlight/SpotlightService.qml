@@ -9,7 +9,6 @@ import Quickshell.Hyprland
 import "../../overview/services"
 import "../commandcenter/applibrary"
 import "../commandcenter/powermenu"
-import "../commandcenter/wallpapers"
 
 Singleton {
     id: svc
@@ -33,7 +32,7 @@ Singleton {
     // Spotlight-only category filter bar. Sigil typed as the first character
     // of an empty query switches category, same as clicking its pill.
     readonly property var categorySigils: ({
-            ">": "apps", ";": "clipboard", ":": "emoji", "!": "calculator", "$": "currency", "?": "web"
+            ">": "apps", "/": "commands", ";": "clipboard", ":": "emoji", "!": "calculator", "$": "currency", "?": "web"
         })
     property string activeCategory: ""
     property var clipboardRows: []
@@ -48,6 +47,11 @@ Singleton {
     property var results: []
     property int selectedIndex: 0
     property var browseStack: []
+    // Rows that open a generated list (no browseStack push): they drill down
+    // (›, rule 2) and the open list names itself in the search field (rule 3).
+    readonly property var listActionTypes: ["keybinds", "ollama_models", "ollama_models_list", "packages_list"]
+    property string listLabel: ""
+    readonly property bool inGeneratedList: showingKeybinds || ollamaListMode !== "" || packagesListMode !== ""
     property var registry: []
     property var keybindRows: []
     property bool showingKeybinds: false
@@ -182,8 +186,8 @@ Singleton {
     function keybindResults() {
         return keybindRows.map(k => ({
                 type: "keybind",
-                label: k.combo,
-                subtitle: k.description || (k.dispatcher + " " + k.arg).trim(),
+                label: k.description || (k.dispatcher + " " + k.arg).trim(),
+                combo: k.combo,
                 dispatcher: k.dispatcher,
                 arg: k.arg,
                 icon: "󱊨"
@@ -206,126 +210,60 @@ Singleton {
         return map[secs] || `${secs}s`;
     }
 
+    // Rule 2: labels are bare; live state goes to the row's right slot.
     function displayLabel(entry) {
         const id = entry.id || "";
         const cs = cycleState || {};
-
         if (id === "cycle.toggle")
             return cs.cycle_enabled ? "Disable Wallpaper Cycling" : "Enable Wallpaper Cycling";
-        if (id === "cycle.interval") {
-            const lbl = cycleIntervalLabel(cs.cycle_interval || 1800);
-            return `Cycle Interval — ${lbl}`;
-        }
-        if (id === "cycle.order") {
-            const order = cs.cycle_order === "sequential" ? "Sequential" : "Random";
-            return `Cycle Order — ${order}`;
-        }
-        if (id.indexOf("cycle.interval.") === 0) {
-            const secs = Number(id.split(".").pop());
-            const cur = Number(cs.cycle_interval || 0);
-            return entry.label + (secs === cur ? " (current)" : "");
-        }
-        if (id === "cycle.order.random" && cs.cycle_order === "random")
-            return entry.label + " (current)";
-        if (id === "cycle.order.sequential" && cs.cycle_order === "sequential")
-            return entry.label + " (current)";
-        if (id === "power" && powerProfile) {
-            const names = { "performance": "Performance", "balanced": "Balanced", "power-saver": "Power Saver" };
-            return entry.label + ` — ${names[powerProfile] || powerProfile}`;
-        }
-        if (id === "ai.service" && ollamaServiceStatus) {
-            const names = { "running": "Running", "stopped": "Stopped" };
-            return entry.label + ` — ${names[ollamaServiceStatus] || ollamaServiceStatus}`;
-        }
-        if (id === "ai.chat" && openWebuiStatus) {
-            const names = { "running": "Running", "stopped": "Stopped" };
-            return entry.label + ` — Open WebUI ${names[openWebuiStatus] || openWebuiStatus}`;
-        }
-
         return entry.label;
     }
 
-    function commandRootSubtitle(entry, action) {
-        const type = action.type || "";
-        if (type === "applibrary")
-            return "App library";
-        if (type === "powermenu")
-            return "Menu";
-        if (type === "wallpapers")
-            return "Wallpapers";
-        if (type === "keybinds")
-            return "Keybinds";
-        if (type === "ollama_models")
-            return "Ollama models";
-        if (type === "ollama_models_list")
-            return action.op === "delete" ? "Delete model" : (action.op === "stop" ? "Stop model" : "Model info");
-        if (type === "ollama_pull")
-            return "Pull model";
-        if (type === "ollama_service")
-            return "Ollama service";
-        if (type === "open_webui_service")
-            return "Open WebUI";
-        if (type === "packages_list")
-            return action.filter === "explicit" ? "Remove package" : "Package info";
-        if (type === "cycle")
-            return "Wallpaper cycle";
-        if (type === "power_profile")
-            return "Power profile";
-        if (type === "external") {
-            const cmd = action.command || [];
-            if (cmd.includes("gtk-launch"))
-                return "Launch app";
-            if (cmd.includes("xdg-open"))
-                return "Open link";
-            if (cmd.some(p => `${p}`.includes("cloud-center")))
-                return "Cloud Center";
-            return "Open";
+    function entryState(entry) {
+        const id = entry.id || "";
+        const cs = cycleState || {};
+        if (id === "cycle.interval")
+            return cycleIntervalLabel(cs.cycle_interval || 1800);
+        if (id === "cycle.order")
+            return cs.cycle_order === "sequential" ? "Sequential" : "Random";
+        if (id.indexOf("cycle.interval.") === 0)
+            return Number(id.split(".").pop()) === Number(cs.cycle_interval || 0) ? "Current" : "";
+        if (id === "cycle.order.random")
+            return cs.cycle_order === "random" ? "Current" : "";
+        if (id === "cycle.order.sequential")
+            return cs.cycle_order === "sequential" ? "Current" : "";
+        if (id === "power" && powerProfile) {
+            const names = { "performance": "Performance", "balanced": "Balanced", "power-saver": "Power Saver" };
+            return names[powerProfile] || powerProfile;
         }
-        if (type === "exec")
-            return "Run command";
-        if (type === "script") {
-            const path = action.path || "";
-            if (path === "_theme_next")
-                return "Next wallpaper";
-            if (path === "_updater")
-                return "System update";
-            if (path === "_system_info")
-                return "System info";
-            return "Run script";
-        }
-        return "Command";
+        if (id === "ai.service" && ollamaServiceStatus)
+            return ollamaServiceStatus === "running" ? "Running" : "Stopped";
+        if (id === "ai.chat" && openWebuiStatus)
+            return "Open WebUI " + (openWebuiStatus === "running" ? "Running" : "Stopped");
+        return "";
     }
 
     function commandResult(entry) {
         const hasChildren = childrenOf(entry.id).length > 0;
         const action = entry.action || {};
         const navigable = action.type === "navigate"
+            || listActionTypes.indexOf(action.type) >= 0
             || (hasChildren && action.type !== "exec" && action.type !== "applibrary" && action.type !== "apps" && action.type !== "powermenu");
         const parent = entry.parent ? entryById(entry.parent) : null;
         const profileKey = profileForEntryId(entry.id);
         const isActive = profileKey.length > 0 && powerProfile === profileKey;
-        let subtitle = navigable
-            ? "Menu"
-            : (parent ? parent.label : commandRootSubtitle(entry, action));
-        if (isActive)
-            subtitle = "Active";
-        else if (idIsCycleLeaf(entry.id))
-            subtitle = "Wallpaper cycle";
-        let icon = entry.icon || "󰧭";
         return {
             type: "command",
             id: entry.id,
             label: displayLabel(entry),
-            icon: icon,
-            subtitle: subtitle,
+            icon: entry.icon || "󰧭",
+            // Location only for search hits — while browsing you already know (rule 2).
+            context: query.trim().length > 0 && parent ? parent.label : "",
+            state: isActive ? "Active" : entryState(entry),
             entry: entry,
             navigable: navigable,
             isActive: isActive
         };
-    }
-
-    function idIsCycleLeaf(id) {
-        return id.indexOf("cycle.") === 0 && id !== "cycle.interval" && id !== "cycle.order";
     }
 
     function normalizeText(text) {
@@ -506,6 +444,8 @@ Singleton {
         let filtered = results;
         if (activeCategory === "apps")
             filtered = results.filter(r => r.type === "app");
+        else if (activeCategory === "commands")
+            filtered = results.filter(r => r.type === "command" && r.entry);
         else if (activeCategory === "calculator")
             filtered = results.filter(r => r.type === "calculator" || r.type === "time");
         else if (activeCategory === "currency")
@@ -601,8 +541,6 @@ Singleton {
             AppLibraryService.close();
         if (PowerMenuService.visible)
             PowerMenuService.close();
-        if (WallpaperPickerService.visible)
-            WallpaperPickerService.close();
     }
 
     function loadCommandsRegistry() {
@@ -611,10 +549,6 @@ Singleton {
     }
 
     function openMode(m) {
-        if (m === "wallpaper") {
-            WallpaperPickerService.open();
-            return;
-        }
         closeSubPanels();
         mode = m;
         browseStack = [];
@@ -1016,10 +950,8 @@ Singleton {
             browseInto(entry.id);
             return;
         }
-        if (action.type === "wallpapers") {
-            WallpaperPickerService.openFromCommandCenter(mode, browseStack);
-            return;
-        }
+        if (listActionTypes.indexOf(action.type) >= 0)
+            listLabel = displayLabel(entry);
         if (action.type === "keybinds") {
             showingKeybinds = true;
             keybindRows = [];
@@ -1274,9 +1206,13 @@ Singleton {
         stdout: SplitParser {
             onRead: line => {
                 const v = line.trim();
+                // The root "Power" row shows this as live state (rule 2), and it
+                // was built before this async read returned — rebuild on change
+                // anywhere, not just inside the Power submenu.
+                const changed = v.length > 0 && v !== svc.powerProfile;
                 if (v.length > 0)
                     svc.powerProfile = v;
-                if (svc.visible && svc.isInPowerMenu())
+                if (svc.visible && (changed || svc.isInPowerMenu()))
                     svc.reloadCommandResults();
             }
         }

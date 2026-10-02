@@ -12,7 +12,6 @@ import "modules/sliders" as QuickSliders
 import "modules/spotlight" as QuickSpotlight
 import "modules/commandcenter/applibrary" as QuickAppLibrary
 import "modules/commandcenter/powermenu" as QuickPowerMenu
-import "modules/commandcenter/wallpapers" as QuickWallpapers
 import "modules/themepicker" as QuickThemePicker
 import "modules/systemmonitor" as QuickSystemMonitor
 import "modules/mpris" as QuickMpris
@@ -542,8 +541,6 @@ ShellRoot {
     QuickAppLibrary.AppLibrary {}
 
     QuickPowerMenu.PowerMenu {}
-
-    QuickWallpapers.WallpaperPicker {}
 
     QuickThemePicker.ThemePicker {}
 

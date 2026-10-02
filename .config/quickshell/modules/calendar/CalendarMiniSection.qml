@@ -8,45 +8,20 @@ import "../.."
 Rectangle {
     id: root
 
-    implicitHeight: innerCol.implicitHeight + 16
+    implicitHeight: hasEvents ? innerCol.implicitHeight + 16 : 0
     radius: 0
     color: "transparent"
     border.width: 0
 
     readonly property var _upcoming: CalendarService.upcomingEvents(3)
+    // Rule 9: no events, no strip. The date lives in the bar (rule 8).
+    readonly property bool hasEvents: _upcoming.length > 0
+    visible: hasEvents
 
     ColumnLayout {
         id: innerCol
         anchors { fill: parent; margins: 8 }
         spacing: 8
-
-        // ── Today header ──────────────────────────────────────────────────────
-        RowLayout {
-            Layout.fillWidth: true
-
-            Text {
-                text: "󰃭"
-                color: Theme.accent
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 14
-            }
-
-            Text {
-                text: Qt.formatDate(new Date(), "dddd d MMMM")
-                color: Theme.text
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 13
-                font.weight: Font.Medium
-                Layout.fillWidth: true
-            }
-
-            Text {
-                text: Qt.formatDate(new Date(), "yyyy")
-                color: Theme.textMuted
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 11
-            }
-        }
 
         // ── Upcoming events ───────────────────────────────────────────────────
         Repeater {
@@ -84,16 +59,6 @@ Rectangle {
                     font.pixelSize: 10
                 }
             }
-        }
-
-        // ── Empty state ───────────────────────────────────────────────────────
-        Text {
-            visible: root._upcoming.length === 0
-            text: "No upcoming events"
-            color: Theme.textMuted
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 11
-            Layout.alignment: Qt.AlignHCenter
         }
     }
 }

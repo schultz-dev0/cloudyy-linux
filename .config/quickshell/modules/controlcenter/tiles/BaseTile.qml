@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
-// modules/controlcenter/tiles/BaseTile.qml
+// modules/controlcenter/tiles/BaseTile.qml — compact toggle cell: icon,
+// LED (state lives here, never in the fill), short nameplate label.
 import QtQuick
 import QtQuick.Layouts
 import "../../.."
@@ -8,87 +9,57 @@ import "../../.."
 Rectangle {
     id: root
 
-    property string icon:       ""
-    property string label:      ""
-    property string statusText: ""
-    property bool   active:     false
+    property string icon:    ""
+    property string label:   ""
+    property bool   active:  false
+    property bool   iconDim: false
 
     signal clicked()
     signal rightClicked()
 
-    implicitHeight: 68
-    implicitWidth: 170
+    Layout.fillWidth: true
+    implicitHeight: 64
     radius: 2
     color: hover.containsMouse ? Theme.hairline : "transparent"
-    border.width: 0
     Behavior on color { ColorAnimation { duration: 90 } }
 
-    ColumnLayout {
-        anchors { fill: parent; margins: 10 }
-        spacing: 2
+    Rectangle {
+        anchors { top: parent.top; right: parent.right; margins: 8 }
+        width: 7; height: 7
+        color: root.active ? Theme.accent : "transparent"
+        border.width: 1
+        border.color: Theme.accent
+    }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
+    Column {
+        anchors.centerIn: parent
+        spacing: 6
 
-            Text {
-                text:        root.icon
-                color:       Theme.text
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 18
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // LED indicator — state lives here, not in the tile's fill, so
-            // the label stays legible in both states instead of flashing
-            // the whole card a solid color.
-            Rectangle {
-                width: 7
-                height: 7
-                radius: 0
-                color: root.active ? Theme.accent : "transparent"
-                border.width: 1
-                border.color: Theme.accent
-            }
-        }
-
-        Item {
-            Layout.fillHeight: root.implicitHeight >= 142
-            Layout.preferredHeight: 0
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: root.icon
+            color: root.iconDim ? Theme.textMuted : Theme.text
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 18
         }
 
         Text {
-            text:           root.label
-            color:          Theme.text
-            font.family:    "JetBrainsMono Nerd Font"
-            font.pixelSize: 10
-            font.weight:    Font.Bold
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: root.label
+            color: Theme.textMuted
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 8
+            font.weight: Font.Bold
             font.capitalization: Font.AllUppercase
             font.letterSpacing: 0.6
-            Layout.fillWidth: true
-            elide:          Text.ElideRight
-        }
-
-        Text {
-            text:           root.statusText
-            color:          Theme.textMuted
-            font.family:    "JetBrainsMono Nerd Font"
-            font.pixelSize: 9
-            visible:        root.statusText !== ""
         }
     }
 
     MouseArea {
         id: hover
-        anchors.fill:    parent
-        hoverEnabled:    true
+        anchors.fill: parent
+        hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: mouse => {
-            if (mouse.button === Qt.RightButton)
-                root.rightClicked()
-            else
-                root.clicked()
-        }
+        onClicked: mouse => mouse.button === Qt.RightButton ? root.rightClicked() : root.clicked()
     }
 }

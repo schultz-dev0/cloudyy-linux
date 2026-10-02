@@ -7,7 +7,6 @@ import Quickshell.Io
 import "../../../overview/services"
 import "../../spotlight"
 import "../applibrary"
-import "../wallpapers"
 
 Singleton {
     id: svc
@@ -124,8 +123,6 @@ Singleton {
             SpotlightService.close();
         if (AppLibraryService.visible)
             AppLibraryService.close();
-        if (WallpaperPickerService.visible)
-            WallpaperPickerService.close();
     }
 
     function openInternal() {
