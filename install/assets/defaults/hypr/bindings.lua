@@ -49,6 +49,33 @@ hl.bind("Super_R", hl.dsp.exec_cmd("quickshell ipc call overview release"), {
 })
 hl.bind(mainMod .. "+ CTRL + S", hl.dsp.exec_cmd("stochos"), { desc = "Open stochos for mouseless navigation" })
 
+-- ── Dock keyboard summon ──────────────────────────────────────────────────────
+-- Tap = navigate the dock (hjkl/arrows, Enter new window, Space jump, Esc close).
+-- Hold = peek while held. The dock times press->release to tell them apart.
+hl.bind(mainMod .. " + SHIFT + D", hl.dsp.exec_cmd("quickshell ipc call dock press"), {
+	desc = "Dock: tap to navigate, hold to peek",
+})
+-- Release: Super is always part of the chord, so end on D released while the chord is
+-- held, or on Super released (covers Super/Shift coming up before D). Never bind a bare
+-- "D" release: it swallows plain d keystrokes system-wide. The dock ignores releases
+-- with no matching press, so the extra Super-release call is harmless.
+hl.bind(mainMod .. " + SHIFT + D", hl.dsp.exec_cmd("quickshell ipc call dock release"), {
+	desc = "Dock: release (tap vs hold)",
+	release = true,
+})
+hl.bind("Super_L", hl.dsp.exec_cmd("quickshell ipc call dock release"), {
+	desc = "Dock: release when Super lifts first",
+	release = true,
+	transparent = true,
+	ignore_mods = true,
+})
+hl.bind("Super_R", hl.dsp.exec_cmd("quickshell ipc call dock release"), {
+	desc = "Dock: release when Super lifts first",
+	release = true,
+	transparent = true,
+	ignore_mods = true,
+})
+
 -- ── Spotlight / Command Center (Quickshell) ───────────────────────────────────
 
 hl.bind(mainMod .. " + Space", hl.dsp.exec_cmd("qs ipc call spotlight command"), { desc = "Command Center" })

@@ -112,7 +112,7 @@ Panel { anchors.fill: parent; grain: true }   // grain only per rule 5
 
 ### Shape, type, controls
 
-- **Radius:** panels 0; anything inside (tiles, pills, cells, focus boxes) 0-2px. Exceptions: the dock's rounded pill tray and the island's square-top/round-bottom shape (edge-attached, not floating) and existing bar pills.
+- **Radius:** panels 0; anything inside (tiles, pills, cells, focus boxes) 0-2px. Exceptions: the island's square-top/round-bottom shape (edge-attached, not floating) and existing bar pills. The dock is a flush, square status rail (`modules/dock`: `DockSegment.qml`, sizes and name rules in `DockLayout.js`): icon + lowercase name + one LED per window, selected = inverted accent block, no magnify, no rotation.
 - **Font:** `"JetBrainsMono Nerd Font"` for everything. No second family.
 - **Nameplate labels:** `font.capitalization: Font.AllUppercase`, `font.letterSpacing: 0.6`.
 - **Rows (Spotlight / Command Center):** 38px, 28px icon slot (20px glyph), 13px label, 11px muted right slot, `›` muted at 0.6.

@@ -30,6 +30,4 @@ QtObject {
     function opacityMs(normal) {
         return lightweight ? 60 : normal;
     }
-
-    readonly property int dockFrameMs: lightweight ? 32 : 16
 }

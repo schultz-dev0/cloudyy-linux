@@ -67,7 +67,6 @@ ShellRoot {
         return [screens[0]];
     }
 
-    readonly property var barScreens: targetScreens(barOnAllScreens)
     readonly property var dockScreens: {
         const _fm = Hyprland.focusedMonitor; // register as dep so binding re-evaluates on monitor focus change
         return root.targetScreens(root.dockOnAllScreens);
@@ -477,13 +476,15 @@ ShellRoot {
 
     Variants {
         id: barVariants
-        model: root.barScreens
+        // Off: one stable [null] entry so focus changes re-point the existing Bar
+        // at the new screen instead of destroying and rebuilding it.
+        model: root.barOnAllScreens ? Quickshell.screens : [null]
 
         Bar {
             required property var modelData
-            assignedScreen: modelData
+            assignedScreen: modelData ?? root.islandScreen
             visible: QuickIdle.IdleService.state !== "scene"
-            ipcEnabled: root.barIpcEnabled(modelData)
+            ipcEnabled: root.barIpcEnabled(assignedScreen)
             onNotifToggle: root.notifOpen = !root.notifOpen
         }
     }
@@ -513,13 +514,13 @@ ShellRoot {
 
     Variants {
         id: dockVariants
-        model: root.dockScreens
+        model: root.dockOnAllScreens ? Quickshell.screens : [null]
 
         QuickDock.Dock {
             required property var modelData
-            assignedScreen: modelData
+            assignedScreen: modelData ?? root.islandScreen
             visible: QuickIdle.IdleService.state !== "scene"
-            ipcEnabled: root.dockIpcEnabled(modelData)
+            ipcEnabled: root.dockIpcEnabled(assignedScreen)
         }
     }
 

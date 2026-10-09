@@ -12,8 +12,8 @@ import "../../ShellEdges.js" as ShellEdges
 import "../../overview/services"
 import "../../overview/services/AppIdentity.js" as AppIdentity
 import "DockVisibilityPolicy.js" as DockVisibilityPolicy
-import "fit" as DockFit
-import "../commandcenter/applibrary" as AppLibrary
+import "DockKeyboard.js" as DockKeyboard
+import "DockLayout.js" as DockLayout
 import "../spotlight"
 import "../idle" as QuickIdle
 
@@ -41,11 +41,9 @@ PanelWindow {
     screen: resolvedScreen
     visible: QuickIdle.IdleService.state !== "scene"
 
-    // Screen edge (ShellLayout). The dock is always laid out as a bottom dock;
-    // edgeFrame below turns it onto `edge`.
+    // Screen edge (ShellLayout). Content is laid out natively for the edge; there is no rotation.
     readonly property string edge: ShellLayout.dockEdge
     readonly property bool vertical: ShellEdges.isVertical(edge)
-    readonly property var edgeTransform: ShellEdges.dockFrame(edge)
 
     // Space the bar reserves at the start/end of this edge — its thickness plus
     // the gap Hyprland counts twice (exclusive zone + margin), as in `reserved`.
@@ -53,31 +51,35 @@ PanelWindow {
         (ShellEdges.isVertical(ShellLayout.barEdge) ? BarStyleService.verticalBarWidth : BarStyleService.barHeight)
             + BarStyleService.topGap * 2)
 
-    DockFit.DockFitMetrics {
-        id: fitMetrics
-        // Length along the dock's edge that the bar leaves free.
-        screenWidth: Number((dock.vertical ? dock.resolvedScreen?.height : dock.resolvedScreen?.width) ?? 0)
-            - dock.barInsets.start - dock.barInsets.end
-        // Side docks: smaller icons, tighter gaps, more room at the ends.
-        baseIconSize: dock.vertical ? 40 : 48
-        baseIconSpacing: dock.vertical ? 12 : 25
-        edgeMargin: dock.vertical ? 24 : 12
-        appCount: dock.mergedApps.length
-        folderCount: dock.openFolderEntries.length
+    // ── Rail geometry ──────────────────────────────────────────────────────
+    // One glyph advance of the mono font: widths are chars × charW, so layout is
+    // plain arithmetic (DockLayout.js), with no text measuring.
+    FontMetrics {
+        id: railFont
+        font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: 12
     }
-
-    // ── Tunables ───────────────────────────────────────────────────────────
-    readonly property real iconSize: fitMetrics.iconSize
-    readonly property real maxScale: 1.7
-    readonly property real spread: 1
-    readonly property int frameMs: Perf.dockFrameMs
-    readonly property int triggerHeight: 0
-    readonly property real pillHeight: iconSize + paddingV * 2
-    readonly property int dockBodyHeight: 110
-    readonly property real iconSpacing: fitMetrics.iconSpacing
-    readonly property real paddingH: fitMetrics.paddingH
-    readonly property real paddingV: fitMetrics.paddingV
-    readonly property int bottomGap: 1
+    readonly property real charW: railFont.advanceWidth("0")
+    // Length along the edge that the bar leaves free, minus the edge margins.
+    readonly property real availableLength: Number((dock.vertical ? dock.resolvedScreen?.height : dock.resolvedScreen?.width) ?? 0)
+        - dock.barInsets.start - dock.barInsets.end - 24
+    readonly property var railEntries: {
+        const out = [];
+        for (let i = 0; i < dock.mergedApps.length; i++) {
+            const a = dock.mergedApps[i];
+            out.push({ name: dock.nameForApp(a), leds: DockLayout.ledCount(a.windowCount, a.isRunning) });
+        }
+        for (let i = 0; i < dock.openFolderEntries.length; i++) {
+            const n = (dock.openFolderEntries[i].addresses ?? []).length;
+            out.push({ name: dock.openFolderEntries[i].label, leds: DockLayout.ledCount(n, n > 0) });
+        }
+        return out;
+    }
+    // Names are full length while the rail fits, then cut (6 chars; 10 on side edges).
+    readonly property int nameCap: dock.vertical ? DockLayout.NAME_CAP_SIDE
+        : DockLayout.pickNameCap(dock.railEntries, dock.availableLength, dock.charW)
+    readonly property real railLength: DockLayout.railLength(dock.railEntries, dock.nameCap, dock.charW, dock.vertical)
+    readonly property real railThickness: dock.vertical ? DockLayout.sideThickness(dock.charW) : DockLayout.STRIP
     readonly property int activationHeight: 2 // reduce from 16 for a more macos feel, on macos you really gotta drag your cursor all the way down to bring the dock up. 2 not 1: Hyprland's cursor hotspot_padding keeps the pointer 1px off every screen edge, so a 1px strip is unreachable on the top/left edges.
     // Reveal intent: dwell on the 1px strip + a few hyprctl cursorpos checks
     // confirming the pointer stays on this monitor's dock edge (event-driven
@@ -99,27 +101,22 @@ PanelWindow {
     readonly property int revealRearmMax: 1
     readonly property int occupancyHideDelayMs: 180
 
-    // ── Drag / interaction ─────────────────────────────────────────────────
-    property int dragSourceIndex: -1
-    property int dragHoverVisualIndex: -1
-    property string dragSourceClass: ""
-    property string dragSourceGroupKey: ""
-    property bool dragStoreCommitPending: false
-    property bool interactionBlock: false
-    property var dragGhostAppData: null
-    property real dragGhostTargetCenterX: 0
-    property real dragGhostTargetCenterY: 0
-    property real dragGhostVisualCenterX: 0
-    property real dragGhostVisualCenterY: 0
-    property real dragGhostLiftScale: 1
+    // ── Keyboard summon state ──────────────────────────────────────────────
+    // glanceHeld: key physically down, dock shown for the peek. keyboardMode:
+    // tapped, the dock owns the keyboard.
+    property bool glanceHeld: false
+    property bool keyboardMode: false
+    property bool holdElapsed: false
+    property bool pressIgnored: false
+    // Shift only counts as "move the app" once it was pressed inside the mode (or a key
+    // arrived with Shift up). A Shift still held from the summon chord must not reorder.
+    property bool shiftHonored: false
+    readonly property bool keyboardHold: glanceHeld || keyboardMode
+    // Forces the dock visible (syncDockVisibility's first branch).
+    readonly property bool uiBlocked: keyboardHold
 
     readonly property var effectivePinnedApps: DockStore.loaded ? DockStore.pinnedApps : DockStore.defaultPinnedApps
     readonly property bool hasOpenFolders: openFolderEntries.length > 0
-    readonly property real rightClusterStartX: iconsRow.width + iconSpacing + 1 + iconSpacing
-    readonly property real appBrowserCenterX: (hasOpenFolders
-        ? rightClusterStartX + openFolderEntries.length * (iconSize + iconSpacing) + iconSpacing + 1 + iconSpacing
-        : iconsRow.width + iconSpacing + 1 + iconSpacing)
-        + iconSize / 2
 
     property var dynamicFolderEntries: []
     property string dynamicFolderEntriesSignature: ""
@@ -129,12 +126,6 @@ PanelWindow {
 
     // ── State ──────────────────────────────────────────────────────────────
     property bool dockVisible: false
-    property real dockMouseXRaw: -9999
-    // Raw pointer (global coords) from the tray-wide hover handlers below. Icons
-    // use it for the vertical half of their hit test — a HoverHandler on the icon
-    // itself never sees hover, dockMagnifyHover sits above the icons.
-    property point dockPointerGlobal: Qt.point(-99999, -99999)
-    property real dockMouseXSmooth: -9999
     property bool revealIntentArmed: false
     property int revealSampleHits: 0
     property int revealSampleMisses: 0
@@ -153,13 +144,8 @@ PanelWindow {
     property int revealRearmCount: 0
     property bool previousWorkspaceEmpty: false
     property bool occupancyHidePending: false
-    readonly property bool dockBodyHovered: dockMagnifyPointer.hovered || dockInteractPointer.hovered
+    readonly property bool dockBodyHovered: dockInteractPointer.hovered
     readonly property bool dockHovered: triggerZone.containsMouse || dockBodyHovered
-    readonly property bool animationActive: dockVisible || dockHovered || interactionBlock
-        || dragSourceIndex >= 0 || revealIntentArmed || postRevealGrace
-    readonly property bool dockIdle: !dockVisible && !dockHovered && !interactionBlock && dragSourceIndex < 0
-        && !revealIntentArmed && !postRevealGrace
-    readonly property real dockMouseXEffective: interactionBlock ? -9999 : dockMouseXSmooth
     readonly property bool anyFullscreen: {
         return HyprlandData.windowList.some(w => (w.fullscreen ?? 0) > 0);
     }
@@ -213,8 +199,8 @@ PanelWindow {
         previousWorkspaceEmpty = currentWorkspaceEmpty;
         syncDockVisibility();
     }
-    onInteractionBlockChanged: {
-        if (interactionBlock) {
+    onUiBlockedChanged: {
+        if (uiBlocked) {
             if (occupancyHideTimer.running)
                 occupancyHideTimer.stop();
         } else if (occupancyHidePending && !currentWorkspaceEmpty && !anyFullscreen) {
@@ -222,19 +208,12 @@ PanelWindow {
         }
         syncDockVisibility();
     }
+    // The Top-layer dock is drawn under a fullscreen window (checked by screenshot),
+    // so keyboard mode must end here: it would hold the keyboard on an invisible dock.
     onAnyFullscreenChanged: {
-        if (anyFullscreen) {
-            occupancyHideTimer.stop();
-            occupancyHidePending = false;
-            dock.cancelRevealIntent();
-            dock.postRevealGrace = false;
-            postRevealGraceTimer.stop();
-            hideTimer.stop();
-            dockMouseXRaw = -9999;
-            dockVisible = false;
-        } else {
-            syncDockVisibility();
-        }
+        if (anyFullscreen && keyboardMode)
+            exitKeyboardMode();
+        syncDockVisibility();
     }
 
     // On an edge shared with another monitor the pointer can't push against
@@ -261,7 +240,6 @@ PanelWindow {
         if (!dockVisible) {
             dock.postRevealGrace = false;
             postRevealGraceTimer.stop();
-            dock.dismissMagnify();
         } else {
             dock.cancelRevealIntent();
             dock.refreshOpenFolders();
@@ -368,7 +346,7 @@ PanelWindow {
     function armRevealIntent() {
         if (dock.dockVisible || dock.revealIntentArmed || dock.anyFullscreen)
             return;
-        if (dock.currentWorkspaceEmpty || dock.interactionBlock)
+        if (dock.currentWorkspaceEmpty || dock.uiBlocked)
             return;
         if (dock.revealNeedsStripExit)
             return;
@@ -491,14 +469,10 @@ PanelWindow {
         dock.postRevealGrace = true;
         postRevealGraceTimer.restart();
         dock.dockVisible = true;
-        Qt.callLater(() => {
-            if (dockMagnifyPointer.hovered)
-                dockMagnifyPointer.updateMouseX();
-        });
     }
 
     function syncDockVisibility() {
-        if (interactionBlock || ShellLayout.movingWhich === "dock") {
+        if (uiBlocked || ShellLayout.movingWhich === "dock") {
             dock.cancelRevealIntent();
             dock.postRevealGrace = false;
             postRevealGraceTimer.stop();
@@ -513,7 +487,6 @@ PanelWindow {
             dock.postRevealGrace = false;
             postRevealGraceTimer.stop();
             hideTimer.stop();
-            dockMouseXRaw = -9999;
             dockVisible = false;
             return;
         }
@@ -526,15 +499,13 @@ PanelWindow {
             postRevealGraceTimer.stop();
             hideTimer.stop();
             dockVisible = true;
-            if (!dockMagnifyPointer.hovered && !dockBodyHover.hovered)
-                dismissMagnify();
             return;
         }
 
         // The first mapped window owns this short edge transition. Inherited
         // hover from the launch click must not replace it with the normal hide delay.
         if (occupancyHidePending) {
-            if (!occupancyHideTimer.running && !interactionBlock)
+            if (!occupancyHideTimer.running && !uiBlocked)
                 occupancyHideTimer.restart();
             return;
         }
@@ -552,10 +523,6 @@ PanelWindow {
         if (dockVisible) {
             if (dockHovered || dock.postRevealGrace) {
                 hideTimer.stop();
-                Qt.callLater(() => {
-                    if (dockMagnifyPointer.hovered)
-                        dockMagnifyPointer.updateMouseX();
-                });
                 return;
             }
             hideTimer.restart();
@@ -567,10 +534,6 @@ PanelWindow {
             dock.cancelRevealIntent();
             hideTimer.stop();
             dockVisible = true;
-            Qt.callLater(() => {
-                if (dockMagnifyPointer.hovered)
-                    dockMagnifyPointer.updateMouseX();
-            });
             return;
         }
 
@@ -589,7 +552,7 @@ PanelWindow {
         const action = DockVisibilityPolicy.occupancyTransition(
             dock.previousWorkspaceEmpty,
             dock.currentWorkspaceEmpty,
-            dock.interactionBlock
+            dock.uiBlocked
         );
         dock.occupancyHidePending = DockVisibilityPolicy.nextPending(
             dock.occupancyHidePending, action);
@@ -603,7 +566,7 @@ PanelWindow {
 
     function commitOccupancyHide() {
         if (!DockVisibilityPolicy.shouldCommitOccupancyHide(
-                dock.currentWorkspaceEmpty, dock.interactionBlock, dock.anyFullscreen)) {
+                dock.currentWorkspaceEmpty, dock.uiBlocked, dock.anyFullscreen)) {
             if (dock.currentWorkspaceEmpty || dock.anyFullscreen)
                 dock.occupancyHidePending = false;
             return;
@@ -616,14 +579,6 @@ PanelWindow {
         dock.revealRearmCount = 0;
         dock.dockVisible = false;
         dock.occupancyHidePending = false;
-    }
-
-    function iconSlotCenterX(index) {
-        return index * (iconSize + iconSpacing) + iconSize / 2;
-    }
-
-    function openFolderSlotCenterX(index) {
-        return rightClusterStartX + index * (iconSize + iconSpacing) + iconSize / 2;
     }
 
     function openFolderStructureSignature(list) {
@@ -851,11 +806,6 @@ PanelWindow {
         return sig;
     }
 
-    function dismissMagnify() {
-        dock.dockMouseXRaw = -9999;
-        dock.dockMouseXSmooth = -9999;
-    }
-
     function windowMatchScore(window, pinnedClass) {
         const pCls = `${pinnedClass ?? ""}`.toLowerCase().trim();
         if (!pCls) return 0;
@@ -974,7 +924,8 @@ PanelWindow {
     }
 
     function activateDockEntry(appData, instanceIndex) {
-        dock.dismissMagnify();
+        if (dock.keyboardMode)
+            dock.exitKeyboardMode();
         if (!appData?.isRunning) {
             dock.launchApp(appData);
             return;
@@ -1045,13 +996,11 @@ PanelWindow {
                 cur.identityKey = next.identityKey;
                 cur.label = next.label;
             }
-            dock.syncDragIndicesAfterRebuild();
             return;
         }
 
         dock.mergedAppsSignature = sig;
         dock.mergedApps = result;
-        dock.syncDragIndicesAfterRebuild();
     }
 
     function classKey(className) {
@@ -1080,225 +1029,6 @@ PanelWindow {
             }
         }
         return dock.visualIndexForClass(className);
-    }
-
-    function syncDragIndicesAfterRebuild() {
-        if (dock.dragSourceIndex < 0)
-            return;
-
-        const srcIdx = dock.visualIndexForGroupKey(dock.dragSourceGroupKey, dock.dragSourceClass);
-        if (srcIdx < 0) {
-            dock.abortIconDrag();
-            return;
-        }
-
-        dock.dragSourceIndex = srcIdx;
-        dock.dragGhostAppData = dock.mergedApps[srcIdx] ?? dock.dragGhostAppData;
-
-        if (dock.dragHoverVisualIndex < 0 || dock.dragHoverVisualIndex >= dock.mergedApps.length)
-            dock.dragHoverVisualIndex = srcIdx;
-    }
-
-    function iconSlotWidth() {
-        return dock.iconSize + dock.iconSpacing;
-    }
-
-    function visualIndexAtRowX(rowLocalX) {
-        const slot = dock.iconSlotWidth();
-        const n = dock.mergedApps.length;
-        if (n <= 0)
-            return 0;
-        let i = Math.floor((rowLocalX + slot * 0.5) / slot);
-        if (i < 0)
-            i = 0;
-        if (i >= n)
-            i = n - 1;
-        return i;
-    }
-
-    function dragShiftTargetForIndex(visualIndex) {
-        if (dock.dragSourceIndex < 0)
-            return 0;
-
-        const src = dock.dragSourceIndex;
-        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
-        if (visualIndex === src || dst === src)
-            return 0;
-
-        // Part icons by the natural inter-icon gap — not a full slot (avoids overlap).
-        const gap = dock.iconSpacing;
-        if (dst > src) {
-            if (visualIndex > src && visualIndex <= dst)
-                return -gap;
-        } else if (dst < src) {
-            if (visualIndex >= dst && visualIndex < src)
-                return gap;
-        }
-        return 0;
-    }
-
-    function clampDragGhostCenterX(cx) {
-        const half = dock.iconSize * dock.maxScale * 0.5 + 4;
-        const w = dockBody.width;
-        if (w <= half * 2)
-            return w * 0.5;
-        return Math.max(half, Math.min(w - half, cx));
-    }
-
-    function clampDragGhostCenterY(cy) {
-        const half = (dock.iconSize * dock.maxScale + 6) * 0.5;
-        const h = dockBody.height;
-        if (h <= half * 2)
-            return h * 0.5;
-        return Math.max(half + 2, Math.min(h - half - 2, cy));
-    }
-
-    function setDragGhostTargetFromBodyPoint(bodyX, bodyY) {
-        dock.dragGhostTargetCenterX = dock.clampDragGhostCenterX(bodyX);
-        dock.dragGhostTargetCenterY = dock.clampDragGhostCenterY(bodyY);
-    }
-
-    function beginIconDrag(visualIndex, ghostCenterBodyX, ghostCenterBodyY) {
-        if (dock.dragStoreCommitPending)
-            return;
-
-        const entry = dock.mergedApps[visualIndex] ?? null;
-        dock.dragGhostAppData = entry;
-        dock.dragSourceClass = entry?.class ?? "";
-        dock.dragSourceGroupKey = `${entry?.groupKey ?? ""}`.trim();
-        const cx = dock.clampDragGhostCenterX(ghostCenterBodyX);
-        const cy = dock.clampDragGhostCenterY(ghostCenterBodyY);
-        dock.dragGhostTargetCenterX = cx;
-        dock.dragGhostTargetCenterY = cy;
-        dock.dragGhostVisualCenterX = cx;
-        dock.dragGhostVisualCenterY = cy;
-        dock.dragGhostLiftScale = 1.12;
-        dock.dragSourceIndex = visualIndex;
-        dock.dragHoverVisualIndex = visualIndex;
-        dock.interactionBlock = true;
-        dock.syncDockVisibility();
-    }
-
-    function updateDragHoverFromRowX(rowLocalX) {
-        const slot = dock.iconSlotWidth();
-        const n = dock.mergedApps.length;
-        if (n <= 0) {
-            dock.dragHoverVisualIndex = 0;
-            return;
-        }
-
-        let idx = dock.dragHoverVisualIndex;
-        if (idx < 0 || idx >= n)
-            idx = dock.visualIndexAtRowX(rowLocalX);
-
-        const margin = slot * 0.18;
-        const leftBound = idx * slot - margin;
-        const rightBound = idx * slot + slot - margin;
-
-        if (rowLocalX > rightBound && idx < n - 1)
-            idx++;
-        else if (rowLocalX < leftBound && idx > 0)
-            idx--;
-
-        dock.dragHoverVisualIndex = idx;
-    }
-
-    function endDragSession() {
-        dock.dragSourceIndex = -1;
-        dock.dragHoverVisualIndex = -1;
-        dock.dragSourceClass = "";
-        dock.dragSourceGroupKey = "";
-        dock.interactionBlock = false;
-        dock.clearDragGhost();
-        dock.syncDockVisibility();
-    }
-
-    function buildDragCommitSnapshot() {
-        if (dock.dragSourceIndex < 0)
-            return null;
-
-        const src = dock.dragSourceIndex;
-        const dst = dock.dragHoverVisualIndex >= 0 ? dock.dragHoverVisualIndex : src;
-        const list = dock.mergedApps;
-        if (src >= list.length)
-            return null;
-
-        const srcEntry = list[src];
-        return {
-            srcClass: srcEntry.class,
-            srcIdentity: srcEntry.identity,
-            srcIdentityKey: srcEntry.identityKey,
-            srcPinned: !!srcEntry.isPinned,
-            dst: Math.min(dst, Math.max(0, list.length - 1)),
-            exec: dock.execForPinnedApp(srcEntry),
-            icon: dock.iconForApp(srcEntry),
-            pinnedCountAtDrop: DockStore.pinnedApps.length
-        };
-    }
-
-    function applyDragCommit(snapshot) {
-        if (!snapshot)
-            return;
-
-        const dstClamped = snapshot.dst;
-        const pinnedCount = snapshot.pinnedCountAtDrop;
-
-        if (snapshot.srcPinned) {
-            const srcIdx = DockStore.pinnedApps.findIndex(
-                a => AppIdentity.pinKey(a) === snapshot.srcIdentityKey);
-            if (srcIdx < 0)
-                return;
-            if (dstClamped < pinnedCount) {
-                if (srcIdx !== dstClamped)
-                    DockStore.movePinned(srcIdx, dstClamped);
-            } else {
-                if (pinnedCount > 0 && srcIdx !== pinnedCount - 1)
-                    DockStore.movePinned(srcIdx, pinnedCount - 1);
-            }
-        } else {
-            const insertAt = Math.min(dstClamped, pinnedCount);
-            const pin = Object.assign({}, snapshot.srcIdentity || {}, {
-                class: snapshot.srcClass,
-                exec: snapshot.exec,
-                icon: snapshot.icon
-            });
-            DockStore.pinEntry(pin, insertAt);
-        }
-    }
-
-    function finalizeIconDrag() {
-        if (dock.dragSourceIndex < 0)
-            return;
-
-        const snapshot = dock.buildDragCommitSnapshot();
-        dock.endDragSession();
-        if (!snapshot)
-            return;
-
-        dock.dragStoreCommitPending = true;
-        Qt.callLater(() => {
-            dock.applyDragCommit(snapshot);
-            dock.dragStoreCommitPending = false;
-        });
-    }
-
-    function abortIconDragFromIcon() {
-        dock.endDragSession();
-    }
-
-    function updateDragFromBodyPoint(bodyX, bodyY) {
-        dock.setDragGhostTargetFromBodyPoint(bodyX, bodyY);
-        const lp = dockBody.mapToItem(iconsRow, bodyX, bodyY);
-        dock.updateDragHoverFromRowX(lp.x);
-    }
-
-    function clearDragGhost() {
-        dock.dragGhostAppData = null;
-        dock.dragGhostLiftScale = 1;
-    }
-
-    function abortIconDrag() {
-        dock.endDragSession();
     }
 
     function togglePinAtIndex(visualIndex, instanceIndex) {
@@ -1333,7 +1063,8 @@ PanelWindow {
     }
 
     function focusOpenFolderAt(index) {
-        dock.dismissMagnify();
+        if (dock.keyboardMode)
+            dock.exitKeyboardMode();
         if (index < 0 || index >= dock.openFolderEntries.length)
             return;
 
@@ -1378,11 +1109,6 @@ PanelWindow {
         return slash >= 0 ? t.slice(slash + 1) : t;
     }
 
-    function openAppLibrary() {
-        dock.dismissMagnify();
-        AppLibrary.AppLibraryService.open();
-    }
-
     function refreshOpenFolders() {
         openDirsProc.running = false;
         openDirsProc.running = true;
@@ -1410,25 +1136,10 @@ PanelWindow {
     }
 
     // ── Dimensions ────────────────────────────────────────────────────────
-    readonly property int dockFullHeight: dockBodyHeight + bottomGap + triggerHeight
-    // Extra window height above the pill for magnify + instance labels
-    readonly property int visualOverflowPx: Math.ceil(iconSize * (maxScale - 1)) + 44
-    // Side edges: the upright hover label (≤220px, DockHoverLabel) runs into the screen.
-    readonly property int overflowPx: vertical
-        ? Math.max(visualOverflowPx, Math.ceil(iconSize * (maxScale - 1)) + 16 + 220 + 8)
-        : visualOverflowPx
-    // Pill + magnify lift only excludes the instance-label band above icons.
-    readonly property int magnifyHoverHeight: pillHeight + Math.ceil(iconSize * (maxScale - 1))
-    // Nudge the hit band a few px below the peak magnify tip so the label
-    // band / near-miss cursor above icons doesn't keep the dock "hot".
-    readonly property int interactTrimPx: 10
-    readonly property int magnifyInteractHeight: Math.max(pillHeight, magnifyHoverHeight - interactTrimPx)
-    // Bottom activation strip + dock body hover up to (trimmed) magnify top.
-    readonly property int interactBandHeight: activationHeight + bottomGap + magnifyInteractHeight
-    readonly property real dockWidth: fitMetrics.dockWidth
-    readonly property int visibleDockHeight: dockVisible
-        ? dockFullHeight + activationHeight + overflowPx
-        : revealStripPx
+    // The window is exactly the rail while shown, and just the reveal strip while hidden.
+    readonly property real interactBandHeight: dock.railThickness
+    readonly property real dockWidth: dock.railLength
+    readonly property int visibleDockHeight: dockVisible ? railThickness : revealStripPx
 
     // ── Window ────────────────────────────────────────────────────────────
     anchors {
@@ -1442,20 +1153,16 @@ PanelWindow {
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell:dock"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: dock.keyboardMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     color: "transparent"
-    // Window stays tall for tooltip paint; only this band accepts input.
-    // Label overflow above magnified icons stays click-through.
+    // Only the rail band accepts input.
     mask: Region {
         item: dockInteractZone
     }
 
-    // Hover / input footprint ends at the (trimmed) magnify tip — not the
-    // visual-overflow band used for hover labels above icons.
     Item {
         id: dockInteractZone
-        // Window-level on purpose: a mask Region whose item sits inside the
-        // rotated edgeFrame yields an empty input region.
+        // Window-level on purpose, separate from the sliding rail.
         // Plain x/y, not anchors: switching edge swaps which axis is
         // anchored (e.g. bottom+horizontalCenter -> left+verticalCenter),
         // and Qt's anchor system latches the cross-axis size from before the
@@ -1504,12 +1211,253 @@ PanelWindow {
         ShellLayout.updateMove(origin.x + p.x, origin.y + p.y, scr.width, scr.height);
     }
 
-    function launchApp(app) {
+    function launchApp(app, newInstance) {
         const identity = Object.assign({}, app?.identity || HyprlandData.primaryIdentityForApp(app), {
             exec: app?.identity?.exec || dock.execForPinnedApp(app),
             icon: app?.identity?.icon || dock.iconForApp(app)
         });
-        HyprDispatch.activateIdentity(identity, { app: app });
+        HyprDispatch.activateIdentity(identity, { app: app, newInstance: newInstance === true });
+    }
+
+    // ── Rail content helpers ───────────────────────────────────────────────
+    // Short display name: group label, identity label, desktop entry name, window
+    // class. Never a window title.
+    function nameForApp(app) {
+        const groupLabel = `${app?.groupLabel ?? ""}`.trim();
+        if (groupLabel.length)
+            return groupLabel;
+        const identityLabel = `${app?.label ?? app?.identity?.label ?? ""}`.trim();
+        if (identityLabel.length)
+            return identityLabel;
+        const entry = HyprlandData.desktopEntryForClass(app?.class);
+        const desktopName = `${entry?.name ?? entry?.Name ?? ""}`.trim();
+        if (desktopName.length)
+            return desktopName;
+        return `${app?.class ?? ""}`.trim();
+    }
+
+    // Index in mergedApps of the app that owns the focused window, or -1.
+    function focusedEntryIndex() {
+        const w = dock.focusedWindow();
+        if (!w)
+            return -1;
+        return dock.visualIndexForGroupKey(HyprlandData.appGroupKey(w), w.class);
+    }
+    readonly property int focusedIndex: focusedEntryIndex()
+
+    // Long-press a slot to move the dock to another edge (ShellLayout drag).
+    function moveBegin() {
+        ShellLayout.beginMove("dock", dock.screen);
+    }
+    function moveDrag(area, mouse) {
+        dock.trackMove(area, mouse);
+    }
+    function moveEnd() {
+        if (ShellLayout.movingWhich === "dock")
+            ShellLayout.endMove();
+    }
+    function moveCancel() {
+        if (ShellLayout.movingWhich === "dock")
+            ShellLayout.cancelMove();
+    }
+
+    // ── Keyboard summon ────────────────────────────────────────────────────
+    // Hyprland binds Super+Shift+D press -> keyPress(), release -> keyRelease().
+    // Released before holdTimer fires = tap (keyboard mode); after = hold (glance only).
+    Timer {
+        id: holdTimer
+        interval: 350 // ponytail: press/release are separate `qs ipc` launches, a stall past this reads a tap as a hold; tune live
+        onTriggered: dock.holdElapsed = true
+    }
+
+    function keyPress() {
+        if (dock.keyboardMode) {
+            // Second press while navigating dismisses; swallow its release.
+            dock.exitKeyboardMode();
+            dock.pressIgnored = true;
+            return;
+        }
+        // Over a fullscreen window the Top-layer dock isn't drawn: don't grab the keyboard for it.
+        if (dock.anyFullscreen)
+            return;
+        dock.pressIgnored = false;
+        // Two exclusive-keyboard layers would fight; Spotlight yields.
+        if (SpotlightService.visible)
+            SpotlightService.close();
+        dock.holdElapsed = false;
+        dock.glanceHeld = true;
+        holdTimer.restart();
+    }
+
+    function keyRelease() {
+        if (dock.pressIgnored) {
+            dock.pressIgnored = false;
+            return;
+        }
+        if (!dock.glanceHeld)
+            return;
+        holdTimer.stop();
+        // keyboardMode before glanceHeld = false, so uiBlocked never drops in between.
+        if (!dock.holdElapsed)
+            dock.enterKeyboardMode();
+        dock.glanceHeld = false;
+    }
+
+    // ── Keyboard selection ─────────────────────────────────────────────────
+    property int selectedIndex: -1
+    // Navigation order: pinned/running apps, then open-folder shortcuts.
+    readonly property int entryCount: mergedApps.length + openFolderEntries.length
+
+    onEntryCountChanged: {
+        if (dock.keyboardMode)
+            dock.selectedIndex = DockKeyboard.clampIndex(dock.selectedIndex, dock.entryCount);
+    }
+
+    function focusedWindow() {
+        let focused = null;
+        let best = 999999;
+        const list = HyprlandData.windowList ?? [];
+        for (let i = 0; i < list.length; i++) {
+            const history = list[i]?.focusHistoryID ?? 999999;
+            if (history < best) {
+                best = history;
+                focused = list[i];
+            }
+        }
+        return focused;
+    }
+
+    function focusedAppIndex() {
+        const i = dock.focusedEntryIndex();
+        return i >= 0 ? i : 0;
+    }
+
+    // Failsafe: the mode holds an Exclusive keyboard grab, and clicking elsewhere
+    // doesn't release it, so walking away would leave the keyboard dead until Esc.
+    Timer {
+        id: keyboardIdleTimer
+        interval: 10000
+        onTriggered: dock.exitKeyboardMode()
+    }
+
+    function enterKeyboardMode() {
+        dock.shiftHonored = false;
+        dock.selectedIndex = DockKeyboard.clampIndex(dock.focusedAppIndex(), dock.entryCount);
+        dock.keyboardMode = true;
+        keyCatcher.forceActiveFocus();
+        keyboardIdleTimer.restart();
+    }
+
+    function exitKeyboardMode() {
+        keyboardIdleTimer.stop();
+        dock.keyboardMode = false;
+        dock.selectedIndex = -1;
+    }
+
+    // Another surface taking the screen/keyboard ends the mode rather than fighting it.
+    Connections {
+        target: SpotlightService
+        function onVisibleChanged() {
+            if (SpotlightService.visible && dock.keyboardMode)
+                dock.exitKeyboardMode();
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onOverviewOpenChanged() {
+            if (GlobalStates.overviewOpen && dock.keyboardMode)
+                dock.exitKeyboardMode();
+        }
+    }
+
+    function activateSelected(newWindow) {
+        const i = dock.selectedIndex;
+        if (i < 0 || i >= dock.entryCount)
+            return;
+        if (i >= dock.mergedApps.length) {
+            // Folder shortcut: "new window" has no meaning, both keys open it.
+            dock.exitKeyboardMode();
+            dock.focusOpenFolderAt(i - dock.mergedApps.length);
+            return;
+        }
+        const app = dock.mergedApps[i];
+        if (newWindow) {
+            dock.exitKeyboardMode();
+            dock.launchApp(app, true);
+            return;
+        }
+        const gk = `${app.groupKey ?? ""}`.trim();
+        const wins = app.isRunning && gk.length ? HyprlandData.windowsForGroupKey(gk) : [];
+        // Exit first: Hyprland ignores window focus while this layer holds the keyboard.
+        // Space always closes the dock, so keys typed right after a jump reach the app.
+        dock.exitKeyboardMode();
+        if (wins.length < 2) {
+            // Not running: launches. One window: focuses it.
+            dock.activateDockEntry(app);
+            return;
+        }
+        // Several windows: the most recent one that isn't the one you're already on.
+        // Summon again and Space to bounce back (ponytail: no in-mode cycling, deeper
+        // windows via the overview).
+        const f = dock.focusedWindow();
+        const onFirst = !!f && HyprDispatch.normalizeAddress(wins[0].address)
+            === HyprDispatch.normalizeAddress(f.address);
+        HyprDispatch.focusWindow(wins[DockKeyboard.cycleTarget(wins.length, onFirst, 0)]);
+    }
+
+    function handleKey(key, text, shift) {
+        const action = DockKeyboard.actionForKey(key, text, shift);
+        if (action === "close") {
+            dock.exitKeyboardMode();
+            return;
+        }
+        if (dock.entryCount === 0)
+            return;
+        if (action === "prev" || action === "next") {
+            dock.selectedIndex = DockKeyboard.moveIndex(dock.selectedIndex, dock.entryCount, action === "next" ? 1 : -1);
+        } else if (action === "moveprev" || action === "movenext") {
+            dock.moveSelectedPinned(action === "movenext" ? 1 : -1);
+        } else if (action === "new") {
+            dock.activateSelected(true);
+        } else if (action === "jump") {
+            dock.activateSelected(false);
+        }
+    }
+
+    // Shift+h/l: move the selected PINNED app one slot in the pinned list. The
+    // selection follows the app (it can land more than one visual slot away
+    // when a pinned terminal yields several entries). Unpinned apps and folders
+    // don't move.
+    function moveSelectedPinned(delta) {
+        const i = dock.selectedIndex;
+        if (i < 0 || i >= dock.mergedApps.length)
+            return;
+        const e = dock.mergedApps[i];
+        if (!e.isPinned)
+            return;
+        const pinIdx = DockStore.pinnedApps.findIndex(a => AppIdentity.pinKey(a) === e.identityKey);
+        const dest = pinIdx + delta;
+        if (pinIdx < 0 || dest < 0 || dest >= DockStore.pinnedApps.length)
+            return;
+        DockStore.movePinned(pinIdx, dest);
+        const ni = dock.mergedApps.findIndex(x => x.identityKey === e.identityKey);
+        if (ni >= 0)
+            dock.selectedIndex = ni;
+    }
+
+    Item {
+        id: keyCatcher
+        focus: dock.keyboardMode
+        // Swallow everything while the dock owns the keyboard.
+        Keys.onPressed: event => {
+            keyboardIdleTimer.restart();
+            const shiftDown = (event.modifiers & Qt.ShiftModifier) !== 0;
+            if (!shiftDown || event.key === Qt.Key_Shift)
+                dock.shiftHonored = true;
+            dock.handleKey(event.key, event.text, shiftDown && dock.shiftHonored);
+            event.accepted = true;
+        }
     }
 
     Component.onCompleted: {
@@ -1530,19 +1478,6 @@ PanelWindow {
             ShellLayout.cancelMove();
     }
 
-    // Overview's full-screen Overlay can steal the mouse release during a dock drag.
-    Connections {
-        target: GlobalStates
-        function onOverviewOpenChanged() {
-            if (dock.dragSourceIndex < 0 && !dock.interactionBlock)
-                return;
-            if (GlobalStates.overviewOpen)
-                dock.abortIconDrag();
-            else if (dock.interactionBlock)
-                dock.abortIconDrag();
-        }
-    }
-
     Connections {
         target: ShellLayout
         function onMovingWhichChanged() {
@@ -1550,66 +1485,23 @@ PanelWindow {
         }
     }
 
-    // Everything visual is laid out as a bottom dock; edgeFrame/edgeScale turn
-    // it onto `edge` (ShellEdges.dockFrame). Input mask / trigger items stay
-    // outside both. Within one Item, Qt applies that item's own scale/
-    // rotation PROPERTIES first (innermost), then its `transform` list — so
-    // putting scale (list) and rotation (property) on the same item does
-    // rotate-then-scale, not the scale-then-rotate ShellEdges.dockFrame
-    // expects. Nesting instead — scale's transform list on the inner
-    // edgeScale, rotation's property on the outer edgeFrame — makes the
-    // parent-child order do scale-then-rotate explicitly, independent of
-    // per-item list-vs-property ordering.
+    // ── Rail ───────────────────────────────────────────────────────────────
+    // One layout for every edge: a row on top/bottom, a column on left/right
+    // (no rotation). It slides off its own edge when hidden. The input mask and
+    // trigger items stay outside, at window level.
     Item {
-        id: edgeFrame
-        anchors.centerIn: parent
-        width: dock.dockWidth
-        height: dock.visibleDockHeight
-        rotation: dock.edgeTransform.rotation
-
-    Item {
-        id: edgeScale
+        id: dockSlide
         anchors.fill: parent
-        transform: [
-            Scale {
-                origin.x: edgeScale.width / 2
-                origin.y: edgeScale.height / 2
-                xScale: dock.edgeTransform.xScale
-                yScale: dock.edgeTransform.yScale
-            }
-        ]
-
-    // ── Dock body (fixed to frame bottom; overflow grows above, not under) ──
-    Item {
-        id: dockChrome
-        anchors {
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
-        }
-        anchors.bottomMargin: dock.activationHeight
-        width: parent.width
-        height: dock.dockFullHeight + dock.overflowPx
-        clip: false
-
-        Item {
-            id: dockFoot
-            anchors.bottom: parent.bottom
-            width: parent.width
-            height: dock.dockFullHeight
-            clip: false
-
-        Item {
-            id: dockBody
-            width: dock.dockWidth
-            height: dock.dockBodyHeight
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: dock.bottomGap
-            clip: false
 
         transform: Translate {
-            id: dockBodySlide
-            y: dock.dockVisible ? 0 : dock.dockFullHeight
+            x: dock.dockVisible ? 0 : (dock.edge === "left" ? -dock.railThickness : dock.edge === "right" ? dock.railThickness : 0)
+            y: dock.dockVisible ? 0 : (dock.edge === "top" ? -dock.railThickness : dock.edge === "bottom" ? dock.railThickness : 0)
+            Behavior on x {
+                NumberAnimation {
+                    duration: dock.dockVisible ? Perf.ms(dock.showAnimMs) : Perf.ms(dock.hideAnimMs)
+                    easing.type: dock.dockVisible ? Easing.OutCubic : Easing.InCubic
+                }
+            }
             Behavior on y {
                 NumberAnimation {
                     duration: dock.dockVisible ? Perf.ms(dock.showAnimMs) : Perf.ms(dock.hideAnimMs)
@@ -1618,323 +1510,74 @@ PanelWindow {
             }
         }
 
-        // Pill background — Resin material, independent of the bar's own
-        // solid/transparent toggle. See Theme.qml's resin() comment.
-        Rectangle {
-            id: dockPill
-            width: parent.width
-            height: dock.pillHeight
-            anchors.bottom: parent.bottom
-            radius: dock.paddingV + dock.iconSize * 0.22
-            color: Theme.resin(Theme.resinFillAlpha)
-            border.width: 1
-            border.color: Theme.resinBorder
-            clip: true
+        Panel {
+            id: rail
+            width: dock.vertical ? dock.railThickness : dock.railLength
+            height: dock.vertical ? dock.railLength : dock.railThickness
+            // Plain x/y, not anchors (see dockInteractZone): an edge change swaps the anchored axis.
+            x: dock.edge === "left" ? 0 : dock.edge === "right" ? parent.width - width : (parent.width - width) / 2
+            y: dock.edge === "top" ? 0 : dock.edge === "bottom" ? parent.height - height : (parent.height - height) / 2
 
-            // Gloss — light catching the material's upper edge.
-            Rectangle {
-                anchors { top: parent.top; left: parent.left; right: parent.right }
-                height: parent.height * 0.45
-                radius: dockPill.radius
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.resinGloss }
-                    GradientStop { position: 1.0; color: "transparent" }
-                }
-            }
-        }
-
-        // Long-press empty tray space to drag the dock to another screen edge.
-        // Under the icons (z: -1): icon presses keep going to the icons.
-        MouseArea {
-            id: dockBackground
-            anchors.fill: dockPill
-            z: -1
-            pressAndHoldInterval: 400
-            onPressAndHold: ShellLayout.beginMove("dock", dock.screen)
-            onPositionChanged: mouse => dock.trackMove(dockBackground, mouse)
-            onReleased: if (ShellLayout.movingWhich === "dock") ShellLayout.endMove()
-            onCanceled: if (ShellLayout.movingWhich === "dock") ShellLayout.cancelMove()
-        }
-
-        // Icon row (search button pinned left + app icons)
-        Row {
-            anchors {
-                bottom: parent.bottom
-                // Icon cells keep 6px under the icon for the running dot
-                // (DockIcon iconContainer bottomMargin); drop the row by that
-                // much so icons sit centred across the tray, dot in the padding.
-                bottomMargin: Math.max(0, dock.paddingV - 6)
-                horizontalCenter: parent.horizontalCenter
-            }
-            spacing: dock.iconSpacing
-
-            DockDockButton {
-                iconSize: dock.iconSize
-                maxScale: dock.maxScale
-                spread: dock.spread
-                frameMs: dock.frameMs
-                dockMouseX: dock.dockMouseXEffective
-                dockPointer: dock.dockPointerGlobal
-                btnCenterX: -(dock.iconSpacing + dock.iconSize / 2)
-                animationActive: dock.animationActive
-                glyph: "󰍉"
-                hoverLabel: "Search"
-                onClicked: {
-                    dock.dismissMagnify();
-                    SpotlightService.toggle();
-                }
-            }
-
-            Row {
-                id: iconsRow
-                spacing: dock.iconSpacing
+            Grid {
+                x: 1
+                y: 1
+                // One row on top/bottom (bound well above any real count), one column on the sides.
+                columns: dock.vertical ? 1 : 256
+                spacing: 0
 
                 Repeater {
                     model: dock.mergedApps
-                    DockIcon {
-                        id: dockIconRoot
+
+                    DockSegment {
                         required property var modelData
                         required property int index
-                        dockBodyRef: dockBody
-                        iconsRowRef: iconsRow
-                        visualIndex: index
                         appData: modelData
-                        iconSize: dock.iconSize
-                        maxScale: dock.maxScale
-                        spread: dock.spread
-                        frameMs: dock.frameMs
-                        dockMouseX: dock.dockMouseXEffective
-                        dockPointer: dock.dockPointerGlobal
-                        iconCenterX: dock.iconSlotCenterX(index)
-                        animationActive: dock.animationActive
-                        dockIdle: dock.dockIdle
-                        dockDragActive: dock.dragSourceIndex >= 0
-                        isDragSource: dock.dragSourceIndex >= 0
-                            && (`${modelData.groupKey ?? ""}`.trim().length
-                                ? `${modelData.groupKey ?? ""}`.trim().toLowerCase()
-                                    === dock.dragSourceGroupKey.toLowerCase()
-                                : dock.classKey(modelData.class) === dock.classKey(dock.dragSourceClass))
-                        dragShiftTargetX: dock.dragShiftTargetForIndex(index)
-                        onClicked: dock.activateDockEntry(modelData, dockIconRoot.instanceIndex)
-                        onContextMenuRequested: instanceIndex => dock.togglePinAtIndex(index, instanceIndex)
-                        onDragReorderStarted: (vi, bx, by) => dock.beginIconDrag(vi, bx, by)
-                        onDragReorderMoved: (bx, by) => dock.updateDragFromBodyPoint(bx, by)
-                        onDragReorderEnded: dock.finalizeIconDrag()
-                        onDragReorderCanceled: dock.abortIconDragFromIcon()
+                        name: dock.nameForApp(modelData)
+                        ledCount: DockLayout.ledCount(modelData.windowCount, modelData.isRunning)
+                        focused: index === dock.focusedIndex
+                        closed: !modelData.isRunning
+                        selected: dock.keyboardMode && dock.selectedIndex === index
+                        vertical: dock.vertical
+                        isFirst: index === 0
+                        maxChars: dock.nameCap
+                        charW: dock.charW
+                        thickness: dock.railThickness - 2
+                        onClicked: dock.activateDockEntry(modelData)
+                        onRightClicked: dock.togglePinAtIndex(index, 0)
+                        onMoveStarted: dock.moveBegin()
+                        onMoveDragged: (area, mouse) => dock.moveDrag(area, mouse)
+                        onMoveEnded: dock.moveEnd()
+                        onMoveCanceled: dock.moveCancel()
                     }
                 }
-            }
-
-            DockDivider { iconSize: dock.iconSize; maxScale: dock.maxScale }
-
-            Row {
-                id: openFoldersRow
-                spacing: dock.iconSpacing
-                visible: dock.hasOpenFolders
 
                 Repeater {
                     model: dock.openFolderEntries
-                    DockDockButton {
+
+                    DockSegment {
                         required property var modelData
                         required property int index
-                        iconSize: dock.iconSize
-                        maxScale: dock.maxScale
-                        spread: dock.spread
-                        frameMs: dock.frameMs
-                        dockMouseX: dock.dockMouseXEffective
-                        dockPointer: dock.dockPointerGlobal
-                        btnCenterX: dock.openFolderSlotCenterX(index)
-                        animationActive: dock.animationActive
+                        readonly property int windowCount: (modelData.addresses ?? []).length
                         imageSource: dock.folderImageSource
-                        hoverLabel: dock.pathLabel(modelData.path)
+                        name: modelData.label
+                        ledCount: DockLayout.ledCount(windowCount, windowCount > 0)
+                        closed: windowCount === 0
+                        selected: dock.keyboardMode && dock.selectedIndex === dock.mergedApps.length + index
+                        vertical: dock.vertical
+                        groupStart: index === 0
+                        isFirst: dock.mergedApps.length === 0 && index === 0
+                        maxChars: dock.nameCap
+                        charW: dock.charW
+                        thickness: dock.railThickness - 2
                         onClicked: dock.focusOpenFolderAt(index)
                         onRightClicked: dock.toggleFolderPinAt(index)
+                        onMoveStarted: dock.moveBegin()
+                        onMoveDragged: (area, mouse) => dock.moveDrag(area, mouse)
+                        onMoveEnded: dock.moveEnd()
+                        onMoveCanceled: dock.moveCancel()
                     }
                 }
             }
-
-            DockDivider {
-                iconSize: dock.iconSize
-                maxScale: dock.maxScale
-                visible: dock.hasOpenFolders
-            }
-
-            DockDockButton {
-                iconSize: dock.iconSize
-                maxScale: dock.maxScale
-                spread: dock.spread
-                frameMs: dock.frameMs
-                dockMouseX: dock.dockMouseXEffective
-                dockPointer: dock.dockPointerGlobal
-                btnCenterX: dock.appBrowserCenterX
-                animationActive: dock.animationActive
-                glyph: "󰀻"
-                hoverLabel: "Apps"
-                onClicked: dock.openAppLibrary()
-            }
-        }
-
-        Item {
-            id: dragGhostLayer
-            z: 5000
-            visible: dock.dragSourceIndex >= 0 && dock.dragGhostAppData !== null
-            width: dock.iconSize
-            height: dock.iconSize * dock.maxScale + 6
-            x: dock.dragGhostVisualCenterX - width / 2
-            y: dock.dragGhostVisualCenterY - height / 2
-            scale: dock.dragGhostLiftScale
-            transformOrigin: Item.Bottom
-
-            Behavior on scale {
-                NumberAnimation {
-                    duration: 160
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            // Upright on every edge, same as icons: DockUpright inside, the
-            // ghost's own position/scale outside.
-            Item {
-                id: ghostImgHolder
-                anchors {
-                    bottom: parent.bottom
-                    bottomMargin: 6
-                    horizontalCenter: parent.horizontalCenter
-                }
-                width: dock.iconSize
-                height: dock.iconSize
-                scale: dock.maxScale * 0.92
-                transformOrigin: Item.Bottom
-
-                DockUpright {
-                    Image {
-                        id: ghostImg
-                        property int sourceIndex: 0
-                        property var ghostSources: dock.dragGhostAppData
-                            ? HyprlandData.iconSourcesForAppData(dock.dragGhostAppData)
-                            : [HyprlandData.genericIconSource]
-
-                        anchors.fill: parent
-                        onGhostSourcesChanged: sourceIndex = 0
-                        source: ghostSources[sourceIndex] ?? HyprlandData.genericIconSource
-                        sourceSize: Qt.size(dock.iconSize * 2, dock.iconSize * 2)
-                        smooth: true
-                        onStatusChanged: {
-                            if (status === Image.Error && ghostImg.sourceIndex < ghostSources.length - 1)
-                                Qt.callLater(() => {
-                                    ghostImg.sourceIndex++;
-                                });
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                visible: dock.dragGhostAppData && dock.dragGhostAppData.isRunning
-                width: 4
-                height: 4
-                radius: 2
-                color: Theme.accent
-                anchors {
-                    bottom: parent.bottom
-                    horizontalCenter: parent.horizontalCenter
-                }
-            }
-        }
-
-        Timer {
-            id: dragGhostLerpTimer
-            interval: dock.frameMs
-            running: dock.dragSourceIndex >= 0
-            repeat: true
-            onTriggered: {
-                const dt = dock.frameMs / 1000.0;
-                const k = 1 - Math.exp(-24 * dt);
-                dock.dragGhostVisualCenterX += (dock.dragGhostTargetCenterX - dock.dragGhostVisualCenterX) * k;
-                dock.dragGhostVisualCenterY += (dock.dragGhostTargetCenterY - dock.dragGhostVisualCenterY) * k;
-            }
-        }
-
-        // Covers magnified icon pixels only (trimmed), not the label overflow band above.
-        Item {
-            id: dockMagnifyHover
-            anchors {
-                horizontalCenter: parent.horizontalCenter
-                bottom: parent.bottom
-            }
-            width: parent.width
-            height: dock.magnifyInteractHeight
-
-            HoverHandler {
-                id: dockMagnifyPointer
-
-                function updateMouseX() {
-                    dock.dockPointerGlobal = dockMagnifyHover.mapToGlobal(point.position.x, point.position.y);
-                    dock.dockMouseXRaw = dockMagnifyHover.mapToItem(iconsRow, point.position.x, point.position.y).x;
-                }
-
-                onHoveredChanged: {
-                    dock.syncDockVisibility();
-                    if (!hovered && !dockBodyHover.hovered)
-                        dock.dockPointerGlobal = Qt.point(-99999, -99999);
-                    if (hovered)
-                        updateMouseX();
-                    else if (dock.currentWorkspaceEmpty && !dockBodyHover.hovered)
-                        dock.dismissMagnify();
-                }
-                onPointChanged: {
-                    if (hovered)
-                        updateMouseX();
-                }
-            }
-        }
-
-        // HoverHandler tracks pointer inside dockBody without competing with
-        // child MouseAreas for hover events — fixes hide timer firing on icon hover.
-        HoverHandler {
-            id: dockBodyHover
-            function updateMouseX() {
-                dock.dockPointerGlobal = dockBody.mapToGlobal(point.position.x, point.position.y);
-                dock.dockMouseXRaw = dockBody.mapToItem(iconsRow, point.position.x, point.position.y).x;
-            }
-            onHoveredChanged: {
-                dock.syncDockVisibility();
-                if (!hovered && !dockMagnifyPointer.hovered)
-                    dock.dockPointerGlobal = Qt.point(-99999, -99999);
-                if (!hovered && dock.currentWorkspaceEmpty && !dockMagnifyPointer.hovered)
-                    dock.dismissMagnify();
-            }
-            onPointChanged: {
-                if (hovered)
-                    updateMouseX();
-            }
-        }
-
-        }
-
-        }
-
-    }
-    }
-    }
-
-    Timer {
-        id: dockMouseSmoothTimer
-        interval: dock.frameMs
-        running: dock.animationActive
-        repeat: true
-        onTriggered: {
-            const raw = dock.dockMouseXRaw;
-            const smooth = dock.dockMouseXSmooth;
-            const rate = dock.dockVisible ? 0.35 : 0.28;
-            if (raw < -1000) {
-                if (smooth < -1000)
-                    return;
-                const next = smooth + (-9999 - smooth) * rate;
-                dock.dockMouseXSmooth = Math.abs(next + 9999) < 2 ? -9999 : next;
-                return;
-            }
-            dock.dockMouseXSmooth = smooth < -1000 ? raw : smooth + (raw - smooth) * rate;
         }
     }
 
@@ -1956,6 +1599,7 @@ PanelWindow {
         x: dock.edge === "left" ? 0 : dock.edge === "right" ? parent.width - width : (parent.width - width) / 2
         y: dock.edge === "top" ? 0 : dock.edge === "bottom" ? parent.height - height : (parent.height - height) / 2
         hoverEnabled: true
+        acceptedButtons: Qt.NoButton
         onContainsMouseChanged: dock.syncDockVisibility()
     }
 
@@ -2102,6 +1746,12 @@ PanelWindow {
             }
             function hide() {
                 dock.dockVisible = false;
+            }
+            function press() {
+                dock.keyPress();
+            }
+            function release() {
+                dock.keyRelease();
             }
         }
     }

@@ -72,21 +72,6 @@ function barInsets(dockEdge, barEdge, barReserved) {
     return { start: atStart ? barReserved : 0, end: atStart ? 0 : barReserved };
 }
 
-// Transform that turns the bottom-laid-out dock onto `edge`, applied
-// scale-then-rotate about the frame centre (Dock.qml nests the two: scale on
-// the inner item, rotation on the outer). Mirrors keep icon order
-// left->right / top->bottom and keep magnify and labels growing into the
-// screen.
-function dockFrame(edge) {
-    if (edge === "top")
-        return { xScale: 1, yScale: -1, rotation: 0 };
-    if (edge === "left")
-        return { xScale: 1, yScale: 1, rotation: 90 };
-    if (edge === "right")
-        return { xScale: -1, yScale: 1, rotation: -90 };
-    return { xScale: 1, yScale: 1, rotation: 0 };
-}
-
 // True if another monitor's rectangle abuts this monitor's `edge` line and
 // overlaps it (a positive-length shared border, not just a touching corner).
 // A dock there gets a wider reveal strip — the pointer can't push against a
@@ -107,23 +92,6 @@ function edgeIsShared(edge, g, others) {
     });
 }
 
-// Undoes dockFrame for content that must stay upright (icons, labels).
-// top and right are their own inverse; left needs the opposite rotation.
-function glyphFrame(edge) {
-    return edge === "left" ? { xScale: 1, yScale: 1, rotation: -90 } : dockFrame(edge);
-}
-
-// A frame applied to a vector in screen coords (y down, positive rotation is
-// clockwise). `+ 0` turns -0 into 0.
-function applyFrame(f, x, y) {
-    const sx = x * f.xScale;
-    const sy = y * f.yScale;
-    const r = f.rotation * Math.PI / 180;
-    return {
-        x: Math.round(sx * Math.cos(r) - sy * Math.sin(r)) + 0,
-        y: Math.round(sx * Math.sin(r) + sy * Math.cos(r)) + 0
-    };
-}
 
 // Top-left of a layer surface on its screen. `stretch`: anchored along the
 // whole edge (bar); otherwise centred on the edge (dock). `gap` is the margin

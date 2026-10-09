@@ -58,20 +58,6 @@ assert.deepStrictEqual(E.barInsets("top", "right", 36), { start: 0, end: 36 });
 assert.deepStrictEqual(E.barInsets("bottom", "top", 28), { start: 0, end: 0 }); // parallel: length untouched
 assert.deepStrictEqual(E.barInsets("left", "right", 36), { start: 0, end: 0 });
 
-// dockFrame: the dock's "down" (towards its edge) and "right" (icon order) per edge,
-// and glyphFrame nested inside dockFrame leaves content upright.
-const down = { bottom: [0, 1], top: [0, -1], left: [-1, 0], right: [1, 0] };
-const order = { bottom: [1, 0], top: [1, 0], left: [0, 1], right: [0, 1] };
-for (const edge of ["top", "bottom", "left", "right"]) {
-    const f = E.dockFrame(edge);
-    assert.deepStrictEqual(E.applyFrame(f, 0, 1), { x: down[edge][0], y: down[edge][1] }, edge + " down");
-    assert.deepStrictEqual(E.applyFrame(f, 1, 0), { x: order[edge][0], y: order[edge][1] }, edge + " order");
-    for (const [vx, vy] of [[1, 0], [0, 1]]) {
-        const inner = E.applyFrame(E.glyphFrame(edge), vx, vy);
-        assert.deepStrictEqual(E.applyFrame(f, inner.x, inner.y), { x: vx, y: vy }, edge + " upright");
-    }
-}
-
 // surfaceOrigin: bar stretches along its edge (with gap), dock is centred on its edge
 assert.deepStrictEqual(E.surfaceOrigin("top", true, 1000, 500, 1000, 30, 5), { x: 0, y: 5 });
 assert.deepStrictEqual(E.surfaceOrigin("bottom", true, 1000, 500, 1000, 30, 5), { x: 0, y: 465 });
