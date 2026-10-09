@@ -86,7 +86,39 @@ reload_gtk() {
 reload_wlogout() { _reload_passive_consumer "$1"; }
 reload_starship() { _reload_passive_consumer "$1"; }
 # No reload_vesktop: it's been removed from this system.
-reload_obsidian() { _reload_passive_consumer "$1"; }
+
+# Obsidian never notices that the symlinked snippet's target changed, and an
+# external edit of appearance.json is ignored too. Disabling and re-enabling
+# the snippet through the Obsidian CLI reapplies it, but only from Obsidian's
+# in-memory csscache, so one CLI eval refreshes that from disk and toggles it.
+# Needs "cli": true in ~/.config/obsidian/obsidian.json.
+_obsidian_running() {
+  _process_running obsidian || pgrep -f '/obsidian/app\.asar' >/dev/null 2>&1
+}
+
+_obsidian_reload_snippet() {
+  local vault="$1" out
+  out="$(obsidian "vault=$vault" eval code='(async()=>{const c=app.customCss;const p=app.vault.configDir+"/snippets/cloudyy-theme.css";c.csscache.set(p,await app.vault.adapter.read(p));c.setCssEnabledStatus("cloudyy-theme",false);c.setCssEnabledStatus("cloudyy-theme",true);return "reloaded:"+c.enabledSnippets.has("cloudyy-theme")})()' 2>&1)" || return 1
+  grep -Fq 'reloaded:true' <<<"$out"
+}
+
+reload_obsidian() {
+  local theme="$1" obsidian appearance found=false failed=false
+  _adapter_theme_is_active "$theme" || return 1
+  _obsidian_running || return "$CLOUDYY_ADAPTER_SKIP"
+  command -v obsidian >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
+  command -v jq >/dev/null 2>&1 || return "$CLOUDYY_ADAPTER_SKIP"
+  while IFS= read -r -d '' obsidian; do
+    appearance="$obsidian/appearance.json"
+    [[ -f "$appearance" && ! -L "$appearance" ]] || continue
+    jq -e '(.enabledCssSnippets // []) | index("cloudyy-theme") != null' "$appearance" >/dev/null 2>&1 ||
+      continue
+    found=true
+    _obsidian_reload_snippet "$(basename -- "$(dirname -- "$obsidian")")" || failed=true
+  done < <(find -P "$HOME" -mindepth 2 -maxdepth 5 -type d -name .obsidian -print0 2>/dev/null)
+  [[ "$failed" == false ]] || return 1
+  [[ "$found" == true ]] || return "$CLOUDYY_ADAPTER_SKIP"
+}
 
 _zen_reload_prerequisites_succeeded() {
   [[ -n "${CLOUDYY_ACTIVATION_DRAFT:-}" ]] || return 1

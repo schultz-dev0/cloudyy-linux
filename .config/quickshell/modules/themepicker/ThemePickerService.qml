@@ -28,6 +28,11 @@ Singleton {
     // (opening) or leave the user's current navigation alone (background
     // refresh while browsing).
     property bool _resetSelectionOnLoad: true
+    // True once the user has moved the selection since open(). The opening
+    // load's reply arrives a second or more later (list --json decodes
+    // thumbnails); without this it snapped the selection back to the active
+    // theme even though the user had already navigated away from it.
+    property bool _navigatedSinceOpen: false
 
     signal requestFocus()
 
@@ -56,6 +61,7 @@ Singleton {
         // for the one tick before loadThemes' async reply arrived and
         // snapped it back — visible as the deck jumping/sliding on open.
         selectedWallpaperIndex = 0;
+        _navigatedSinceOpen = false;
         loadThemes();
         requestFocus();
     }
@@ -191,6 +197,7 @@ Singleton {
     function moveThemeFocus(delta) {
         if (themes.length === 0)
             return;
+        _navigatedSinceOpen = true;
         selectedIndex = (selectedIndex + delta + themes.length) % themes.length;
         selectedWallpaperIndex = 0;
     }
@@ -206,6 +213,7 @@ Singleton {
         const count = (entry.wallpapers || []).length;
         if (count === 0)
             return;
+        _navigatedSinceOpen = true;
         selectedWallpaperIndex = (selectedWallpaperIndex + delta + count) % count;
     }
 
@@ -234,7 +242,7 @@ Singleton {
                         svc.themes = nextThemes;
                     if (svc.themes.length === 0) {
                         svc.selectedIndex = -1;
-                    } else if (svc._resetSelectionOnLoad) {
+                    } else if (svc._resetSelectionOnLoad && !svc._navigatedSinceOpen) {
                         svc.selectedIndex = Math.max(0, svc.themes.findIndex(t => t.slug === svc.currentSlug));
                     } else {
                         // Background refresh: keep browsing where the user left
