@@ -70,6 +70,14 @@ class TestLuaMonitorRules(unittest.TestCase):
         line = layout.build_monitor_line({"name": "DP-2", "enabled": False})
         self.assertEqual(line, 'hl.monitor({ output = "DP-2", disabled = true })')
 
+    def test_writes_explicit_vrr_off_override(self):
+        layout = load_layout_module()
+        self.assertIsNotNone(layout, "lib.ccd.monitor_layout must exist")
+        line = layout.build_monitor_line({
+            "name": "eDP-1", "mode": "1920x1200@60Hz", "enabled": True,
+        })
+        self.assertIn("vrr = 0", line)
+
     def test_parses_advanced_fields_from_existing_rule(self):
         layout = load_layout_module()
         self.assertIsNotNone(layout, "lib.ccd.monitor_layout must exist")

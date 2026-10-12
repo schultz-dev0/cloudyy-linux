@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
 from pathlib import Path
+import json
 import tempfile
 
 import lib.monitor_editor as me
@@ -12,6 +13,7 @@ def make_monitor(**overrides):
         name="DP-1", description="Test Monitor", make="Test", model="T1",
         width=2560, height=1440, refresh_rate=144.0, x=0, y=0, scale=1.0,
         transform=0, disabled=False, mirror_of="none", focused=True,
+        vrr_active=False,
         available_modes=["2560x1440@144.00Hz"], assigned_workspaces=["1", "2"],
     )
     fields.update(overrides)
@@ -19,6 +21,20 @@ def make_monitor(**overrides):
 
 
 class TestListMonitors(unittest.TestCase):
+    def test_fetches_live_vrr_state_from_hyprland(self):
+        payload = [{
+            "name": "DP-1", "description": "Test Monitor", "make": "Test", "model": "T1",
+            "width": 2560, "height": 1440, "refreshRate": 144.0, "x": 0, "y": 0,
+            "scale": 1.0, "transform": 0, "disabled": False, "mirrorOf": "none",
+            "focused": True, "vrr": True, "availableModes": ["2560x1440@144.00Hz"],
+        }]
+        result = mock.Mock(stdout=json.dumps(payload))
+        with mock.patch.object(me.subprocess, "run", return_value=result), \
+             mock.patch.object(me, "_fetch_modes_from_monitors_all", return_value={}), \
+             mock.patch.object(me, "_parse_conf", return_value=({}, {})):
+            monitor_data, _migrations = me._fetch_monitors()
+        self.assertTrue(monitor_data[0].vrr_active)
+
     def test_returns_monitors_as_plain_dicts_and_transforms(self):
         with mock.patch.object(me, "_fetch_monitors", return_value=([make_monitor()], [])):
             result = monitors.list_monitors({})
@@ -34,7 +50,7 @@ class TestListMonitors(unittest.TestCase):
         if builder is None:
             return
         drafts = builder(
-            [make_monitor()],
+            [make_monitor(vrr_active=True)],
             {"DP-1": (
                 'hl.monitor({ output = "DP-1", mode = "2560x1440@144", '
                 'position = "0x0", scale = 1, bitdepth = 10, cm = "wide", '
@@ -47,6 +63,7 @@ class TestListMonitors(unittest.TestCase):
         self.assertEqual(drafts[0]["bitdepth"], 10)
         self.assertEqual(drafts[0]["cm"], "wide")
         self.assertEqual(drafts[0]["vrr"], 2)
+        self.assertTrue(drafts[0]["vrr_active"])
         self.assertEqual(drafts[0]["icc"], "/profiles/dp1.icc")
 
     def test_advanced_fields_have_safe_defaults_without_persisted_rule(self):
@@ -61,6 +78,7 @@ class TestListMonitors(unittest.TestCase):
         self.assertEqual(draft["sdrbrightness"], 1.0)
         self.assertEqual(draft["sdrsaturation"], 1.0)
         self.assertEqual(draft["vrr"], 0)
+        self.assertFalse(draft["vrr_active"])
         self.assertEqual(draft["icc"], "")
 
 
@@ -265,6 +283,7 @@ class TestMonitorSessionTransactions(unittest.TestCase):
         self.assertTrue(kept["ok"])
         self.assertTrue(FakeTimer.instances[-1].cancelled)
         self.assertIn('position = "1920x0"', self.config.read_text(encoding="utf-8"))
+        self.assertIn("vrr = 2", self.config.read_text(encoding="utf-8"))
         self.assertEqual(activated, [True])
 
     def test_timeout_restores_live_snapshot_without_writing_config(self):

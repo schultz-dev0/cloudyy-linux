@@ -63,6 +63,16 @@ Flickable {
         monPage.statusMessage = "";
     }
 
+    function vrrDescription() {
+        if (!monPage.selected) return "Variable refresh behavior for this output";
+        const requested = Number(monPage.selected.vrr ?? 0);
+        if (monPage.selected.vrr_active)
+            return requested === 0 ? "Active via another setting; apply Off to override it" : "Active on this output";
+        if (requested > 0)
+            return monPage.vrrLabels[requested] + " requested; output reports inactive";
+        return "Disabled on this output";
+    }
+
     function openSession() {
         S.Backend.request("open_monitor_session", {}, function(result) {
             if (!result || !result.ok) {
@@ -534,7 +544,7 @@ Flickable {
             RowBase {
                 visible: monPage.advancedOpen
                 width: parent.width
-                item: ({ icon: "󰖺", title: "Adaptive Sync / VRR", description: "Variable refresh behavior for this output" })
+                item: ({ icon: "󰖺", title: "Adaptive Sync / VRR", description: monPage.vrrDescription() })
                 StyledCombo {
                     width: 195
                     values: monPage.vrrValues

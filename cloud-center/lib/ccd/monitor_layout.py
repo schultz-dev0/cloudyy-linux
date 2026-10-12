@@ -118,8 +118,7 @@ def build_monitor_line(draft: dict[str, Any]) -> str:
         if value != default:
             fields.append(f"{key} = {_number(value)}")
     vrr = int(draft.get("vrr", 0) or 0)
-    if vrr:
-        fields.append(f"vrr = {vrr}")
+    fields.append(f"vrr = {vrr}")
     icc = str(draft.get("icc", "") or "")
     if icc:
         fields.append(f"icc = {_lua_quote(icc)}")

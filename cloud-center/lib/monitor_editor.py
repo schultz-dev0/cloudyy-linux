@@ -66,6 +66,7 @@ class MonitorInfo:
     disabled:        bool
     mirror_of:       str
     focused:         bool
+    vrr_active:      bool = False
     available_modes: list[str] = field(default_factory=list)
     assigned_workspaces: list[str] = field(default_factory=list)
 
@@ -298,6 +299,7 @@ def _fetch_monitors() -> tuple[list[MonitorInfo], list[tuple[str, int, int, int,
             disabled      = m.get("disabled", False),
             mirror_of     = m.get("mirrorOf", "") or "",
             focused       = m.get("focused", False),
+            vrr_active    = bool(m.get("vrr", False)),
             available_modes = modes,
             assigned_workspaces = config_workspaces.get(name, []),
         ))
