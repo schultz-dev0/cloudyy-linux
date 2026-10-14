@@ -35,6 +35,7 @@ Singleton {
     property var recentEntries: []
     property bool catalogLoaded: false
     property bool catalogLoading: false
+    property bool catalogRefreshPending: false
     property bool returnToCommandCenter: false
     property string commandCenterReturnMode: "command"
     property var commandCenterReturnBrowseStack: []
@@ -430,7 +431,27 @@ Singleton {
         refreshFilteredApps();
     }
 
+    function refreshCatalog() {
+        if (catalogProc.running) {
+            catalogRefreshPending = true;
+            return;
+        }
+        catalogRefreshPending = false;
+        catalogLoading = true;
+        catalogProc.running = true;
+    }
+
+    Process {
+        id: catalogWatchProc
+        running: false
+        command: ["python3", svc.catalogScript, "watch"]
+        stdout: SplitParser {
+            onRead: line => svc.refreshCatalog()
+        }
+    }
+
     function loadCatalog() {
+        catalogWatchProc.running = true;
         if (catalogLoading)
             return;
         catalogLoading = true;
@@ -484,8 +505,7 @@ Singleton {
                 const rows = svc.parseCatalogText(cacheCatalogCollector.text);
                 if (rows.length > 0)
                     svc.applyCatalogRows(rows);
-                catalogProc.running = false;
-                catalogProc.running = true;
+                svc.refreshCatalog();
             }
         }
     }
@@ -493,12 +513,14 @@ Singleton {
     Process {
         id: catalogProc
         running: false
-        command: ["python3", svc.catalogScript, "list"]
+        command: ["python3", svc.catalogScript, "list", "--force"]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 console.warn("applibrary: catalog script failed", exitCode, exitStatus);
                 svc.catalogLoading = false;
             }
+            if (svc.catalogRefreshPending)
+                Qt.callLater(() => svc.refreshCatalog());
         }
         stdout: StdioCollector {
             id: catalogCollector

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -14,12 +16,17 @@ sys.path.insert(0, str(SERVICES_DIR))
 from icon_resolve import INDEX_VERSION, get_icon_theme, read_desktop, resolve_app_icon, wmclass_from_fields  # noqa: E402
 
 MAP_FILE = SCRIPT_DIR / "category-map.json"
-CATALOG_VERSION = "desktop-entry-v2"
+CATALOG_VERSION = "desktop-entry-v3"
 HOME = Path.home()
 CACHE_DIR = HOME / ".config/cloud-center/settings/quickshell"
 CACHE_FILE = CACHE_DIR / "app_catalog.json"
 STAMP_FILE = CACHE_DIR / "app_catalog.stamp"
-DESKTOP_DIRS = (HOME / ".local/share/applications", Path("/usr/share/applications"))
+DESKTOP_DIRS = tuple(dict.fromkeys(
+    Path(folder) / "applications" for folder in
+    [os.environ.get("XDG_DATA_HOME", str(HOME / ".local/share")),
+     *os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")]
+    if folder
+))
 EXEC_FIELD_RE = re.compile(r" %[a-zA-Z]")
 
 
@@ -40,24 +47,23 @@ def map_categories(raw: str, cat_map: dict[str, str]) -> list[str]:
 
 
 def desktop_stamp() -> str:
-    count = 0
-    newest = 0
+    digest = hashlib.sha256()
     for folder in DESKTOP_DIRS:
         if not folder.is_dir():
             continue
         try:
-            entries = list(folder.glob("*.desktop"))
+            entries = sorted(folder.rglob("*.desktop"))
         except OSError:
             continue
         for path in entries:
-            count += 1
             try:
-                newest = max(newest, int(path.stat().st_mtime))
+                stat = path.stat()
+                digest.update(f"{path}:{stat.st_mtime_ns}:{stat.st_size}".encode())
             except OSError:
                 pass
     map_mtime = int(MAP_FILE.stat().st_mtime) if MAP_FILE.is_file() else 0
     theme = get_icon_theme()
-    return f"{CATALOG_VERSION}:{INDEX_VERSION}:{count}:{newest}:{map_mtime}:{theme}"
+    return f"{CATALOG_VERSION}:{INDEX_VERSION}:{digest.hexdigest()}:{map_mtime}:{theme}"
 
 
 def build_catalog() -> list[dict]:
@@ -71,11 +77,11 @@ def build_catalog() -> list[dict]:
         if not folder.is_dir():
             continue
         try:
-            desktops = sorted(folder.glob("*.desktop"))
+            desktops = sorted(folder.rglob("*.desktop"))
         except OSError:
             continue
         for path in desktops:
-            app_id = path.stem
+            app_id = str(path.relative_to(folder).with_suffix("")).replace("/", "-")
             if app_id in seen_ids:
                 continue
             seen_ids.add(app_id)
@@ -151,6 +157,11 @@ def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "list"
     force = "--force" in sys.argv
 
+    if cmd == "watch":
+        from watch_paths import watch_paths
+        watch_paths([*DESKTOP_DIRS, MAP_FILE], recursive=True)
+        return 0
+
     if cmd == "list":
         apps = load_catalog(force=force)
         json.dump(apps, sys.stdout, separators=(",", ":"))
@@ -163,7 +174,7 @@ def main() -> int:
         sys.stdout.write("\n")
         return 0
 
-    print("usage: apps-catalog.py {list|categories} [--force]", file=sys.stderr)
+    print("usage: apps-catalog.py {list|categories|watch} [--force]", file=sys.stderr)
     return 1
 
 

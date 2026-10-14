@@ -19,6 +19,8 @@ Singleton {
     readonly property string searchScript: Qt.resolvedUrl("search.sh").toString().replace("file://", "")
     // Command Center data + helper scripts live in modules/commandcenter/
     readonly property string commandsJson: Qt.resolvedUrl("../commandcenter/commands.json").toString().replace("file://", "")
+    readonly property string ccRoot: homeDir + "/cloudyy-linux/cloud-center"
+    readonly property string watchScript: Qt.resolvedUrl("../../overview/services/watch_paths.py").toString().replace("file://", "")
     readonly property string hyprbindsScript: Qt.resolvedUrl("../commandcenter/scripts/hyprbinds.sh").toString().replace("file://", "")
     readonly property string cycleCtlScript: Qt.resolvedUrl("../commandcenter/scripts/cycle-ctl.sh").toString().replace("file://", "")
     readonly property string ollamaModelsScript: Qt.resolvedUrl("../commandcenter/scripts/ollama-models.sh").toString().replace("file://", "")
@@ -53,6 +55,11 @@ Singleton {
     property string listLabel: ""
     readonly property bool inGeneratedList: showingKeybinds || ollamaListMode !== "" || packagesListMode !== ""
     property var registry: []
+    property var settingsRegistry: []
+    property var entryIndex: ({})
+    property var childIndex: ({})
+    property var searchIndex: ({})
+    property bool settingsRefreshPending: false
     property var keybindRows: []
     property bool showingKeybinds: false
     property bool registryLoaded: false
@@ -140,12 +147,43 @@ Singleton {
     }
 
     function entryById(id) {
-        for (let i = 0; i < registry.length; i++) {
-            if (registry[i].id === id)
-                return registry[i];
-        }
-        return null;
+        return entryIndex[id] || null;
     }
+
+    function rebuildSearchIndex() {
+        const entries = registry.concat(settingsRegistry);
+        const byId = {};
+        const children = {};
+        for (const entry of entries) {
+            byId[entry.id] = entry;
+            if (entry.page)
+                continue;
+            const parent = entry.parent ?? "";
+            if (!children[parent])
+                children[parent] = [];
+            children[parent].push(entry);
+        }
+        entryIndex = byId;
+        childIndex = children;
+        const prepared = {};
+        for (const entry of entries) {
+            const haystack = entryHaystack(entry);
+            prepared[entry.id] = {
+                label: normalizeText(entry.label),
+                collapsedLabel: collapseText(entry.label),
+                tokens: tokensOf(entry.label),
+                keywords: (entry.keywords || []).map(k => normalizeText(k)),
+                haystack: haystack,
+                collapsedHaystack: collapseText(haystack)
+            };
+        }
+        searchIndex = prepared;
+        if (visible)
+            refreshDisplay();
+    }
+
+    onRegistryChanged: rebuildSearchIndex()
+    onSettingsRegistryChanged: rebuildSearchIndex()
 
     function stripJsonComments(text) {
         return `${text ?? ""}`
@@ -158,14 +196,7 @@ Singleton {
     }
 
     function childrenOf(parentId) {
-        const out = [];
-        for (let i = 0; i < registry.length; i++) {
-            const e = registry[i];
-            const p = e.parent ?? null;
-            if (p === parentId)
-                out.push(e);
-        }
-        return out;
+        return childIndex[parentId ?? ""] || [];
     }
 
     function currentParentId() {
@@ -258,7 +289,7 @@ Singleton {
             label: displayLabel(entry),
             icon: entry.icon || "󰧭",
             // Location only for search hits — while browsing you already know (rule 2).
-            context: query.trim().length > 0 && parent ? parent.label : "",
+            context: entry.context || (query.trim().length > 0 && parent ? parent.label : ""),
             state: isActive ? "Active" : entryState(entry),
             entry: entry,
             navigable: navigable,
@@ -284,7 +315,11 @@ Singleton {
         for (let i = 0; i < keys.length; i++)
             parts.push(keys[i]);
         let parentId = entry.parent;
+        const visited = {};
         while (parentId) {
+            if (visited[parentId])
+                break;
+            visited[parentId] = true;
             const parent = entryById(parentId);
             if (!parent)
                 break;
@@ -300,20 +335,21 @@ Singleton {
         if (action.type === "navigate" && !hasChildren)
             return 0;
 
-        const labelNorm = normalizeText(entry.label);
-        const haystack = entryHaystack(entry);
-        const labelTokens = tokensOf(entry.label);
+        const prepared = searchIndex[entry.id];
+        const labelNorm = prepared.label;
+        const haystack = prepared.haystack;
+        const labelTokens = prepared.tokens;
         const collapsedNeedle = collapseText(needle);
         let score = 0;
 
         if (labelNorm === needle)
             score = Math.max(score, 100);
-        if (collapseText(labelNorm) === collapsedNeedle)
+        if (prepared.collapsedLabel === collapsedNeedle)
             score = Math.max(score, 98);
 
-        const keywords = entry.keywords || [];
+        const keywords = prepared.keywords;
         for (let i = 0; i < keywords.length; i++) {
-            const kwNorm = normalizeText(keywords[i]);
+            const kwNorm = keywords[i];
             if (kwNorm === needle)
                 score = Math.max(score, 96);
             if (collapseText(kwNorm) === collapsedNeedle)
@@ -332,7 +368,7 @@ Singleton {
             score = Math.max(score, 86);
         if (haystack.includes(needle))
             score = Math.max(score, 78);
-        if (collapseText(haystack).includes(collapsedNeedle))
+        if (prepared.collapsedHaystack.includes(collapsedNeedle))
             score = Math.max(score, 76);
 
         if (queryTokens.length > 0) {
@@ -366,14 +402,39 @@ Singleton {
             return [];
         const queryTokens = tokensOf(needle);
         const scored = [];
-        for (let i = 0; i < registry.length; i++) {
-            const entry = registry[i];
+        const entries = registry.concat(settingsRegistry);
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
             const score = scoreCommandEntry(entry, needle, queryTokens);
             if (score > 0)
                 scored.push({ score: score, item: commandResult(entry) });
         }
         scored.sort((a, b) => b.score - a.score);
         return scored.map(s => s.item);
+    }
+
+    function matchApps(q) {
+        const needle = normalizeText(q);
+        const tokens = tokensOf(needle);
+        return AppLibraryService.catalog.filter(app => {
+            const hay = normalizeText([app.name, app.genericName, app.comment, app.id, app.exec].join(" "));
+            return tokens.every(token => hay.includes(token));
+        }).sort((a, b) => {
+            const rank = app => normalizeText(app.name) === needle ? 2 : normalizeText(app.name).startsWith(needle) ? 1 : 0;
+            return rank(b) - rank(a);
+        }).slice(0, 8).map(app => {
+            const identity = HyprlandData.primaryIdentityForApp(app);
+            return Object.assign({}, app, { type: "app", identity: identity,
+                isRunning: HyprlandData.isIdentityRunning(identity) });
+        });
+    }
+
+    Connections {
+        target: AppLibraryService
+        function onCatalogChanged() {
+            if (svc.visible && svc.query.trim().length > 0)
+                svc.refreshDisplay();
+        }
     }
 
     function cancelAsyncSearch() {
@@ -427,7 +488,7 @@ Singleton {
         const apps = extras.filter(r => r.type === "app");
         const files = extras.filter(r => r.type === "file");
         if (mode === "spotlight")
-            results = calc.concat(apps).concat(files).concat(commands);
+            results = calc.concat(apps).concat(commands).concat(files);
         else
             results = calc.concat(commands).concat(apps).concat(files);
         applyCategoryFilter();
@@ -752,15 +813,12 @@ Singleton {
         searchProc.activeEpoch = epoch;
         searchProc.activeQuery = q;
         lastCommandHits = matchCommands(q);
-        searchExtras = [];
+        searchExtras = (activeCategory === "" || activeCategory === "apps") ? matchApps(q) : [];
         applySearchResults(lastCommandHits, searchExtras);
         selectedIndex = results.length > 0 ? 0 : -1;
 
-        if (mode === "spotlight" || mode === "command") {
-            searchProc.running = false;
-            searchProc.command = ["bash", searchScript, q];
-            searchProc.running = true;
-        }
+        if ((mode === "spotlight" || mode === "command") && activeCategory === "" && q.length >= 3)
+            debounce.restart();
     }
 
     function appendSearchResult(result) {
@@ -1459,28 +1517,64 @@ Singleton {
         }
     }
 
+    FileView {
+        id: registryFile
+        path: svc.commandsJson
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                const data = svc.parseCommandsRegistry(text());
+                if (Array.isArray(data))
+                    svc.registry = data;
+            } catch (e) {
+                console.warn("spotlight: failed to parse commands.json", e);
+            }
+            svc.registryLoaded = true;
+            if (svc.visible)
+                svc.refreshDisplay();
+        }
+    }
+
+    function loadSettingsCatalog() {
+        if (settingsProc.running) {
+            settingsRefreshPending = true;
+            return;
+        }
+        settingsRefreshPending = false;
+        settingsProc.running = true;
+    }
+
     Process {
-        id: registryProc
+        id: settingsWatchProc
         running: true
-        command: ["cat", svc.commandsJson]
+        command: ["python3", svc.watchScript, svc.ccRoot + "/config.yaml",
+            svc.ccRoot + "/lib/ccd/page_metadata.py"]
+        stdout: SplitParser {
+            onRead: line => svc.loadSettingsCatalog()
+        }
+    }
+
+    Process {
+        id: settingsProc
+        command: ["python3", svc.ccRoot + "/scripts/search-catalog.py"]
         stdout: StdioCollector {
-            id: registryCollector
             onStreamFinished: {
                 try {
-                    const data = parseCommandsRegistry(registryCollector.text);
-                    if (Array.isArray(data))
-                        svc.registry = data;
+                    const rows = JSON.parse(text);
+                    svc.settingsRegistry = rows.map(row => Object.assign({}, row, {
+                        parent: null, action: { type: "exec", command: ["_cloud_center", "--page=" + row.page] }
+                    }));
                 } catch (e) {
-                    console.warn("spotlight: failed to parse commands.json", e);
-                }
-                svc.registryLoaded = true;
-                if (svc.visible) {
-                    if (svc.query.trim().length > 0)
-                        svc.runSearch();
-                    else if (svc.mode === "command")
-                        svc.refreshDisplay();
+                    console.warn("spotlight: invalid settings catalog", e);
                 }
             }
+        }
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0)
+                console.warn("spotlight: settings catalog failed", exitCode);
+            if (svc.settingsRefreshPending)
+                Qt.callLater(() => svc.loadSettingsCatalog());
         }
     }
 
@@ -1543,7 +1637,10 @@ Singleton {
         id: debounce
         interval: svc.debounceMs
         repeat: false
-        onTriggered: svc.runSearch()
+        onTriggered: {
+            searchProc.command = ["bash", svc.searchScript, svc.query.trim()];
+            searchProc.running = true;
+        }
     }
 
     onQueryChanged: {
@@ -1572,6 +1669,6 @@ Singleton {
         if (query.trim().length === 0)
             refreshDisplay();
         else
-            debounce.restart();
+            runSearch();
     }
 }

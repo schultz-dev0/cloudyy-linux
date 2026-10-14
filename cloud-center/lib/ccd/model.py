@@ -21,6 +21,7 @@ import yaml
 
 import lib.utility as utility
 from lib.ccd import protocol
+from lib.ccd.page_metadata import NATIVE_PAGES
 
 try:
     from PIL import Image as _PILImage
@@ -40,23 +41,6 @@ THUMB_SIZE = 256  # long edge; the grid only ever displays these at ~264px
 ACTIVE_SHELL_TAB = "quickshell"
 
 WALLPAPER_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-
-# ── Native pages ──────────────────────────────────────────────────────────────
-# Pages still implemented by the GTK app. Shown in the sidebar; opening one
-# deep-links into the legacy app until its port lands (spec Phases 2-5).
-
-NATIVE_PAGES: list[dict] = [
-    {"id": "__cursor__",  "title": "Cursor",          "icon": "\U000f037d", "flag": "--page=cursor"},     # 󰍽 mouse
-    {"id": "__mon__",     "title": "Monitors",        "icon": "\U000f0379", "flag": "--monitors"},        # 󰍹 monitor
-    {"id": "__bt__",      "title": "Bluetooth",       "icon": "\U000f00af", "flag": "--bluetooth"},       # 󰂯 bluetooth
-    {"id": "__wifi__",    "title": "Wi-Fi",           "icon": "\U000f0928", "flag": "--wifi"},            # 󰤨 wifi
-    {"id": "__audio__",   "title": "Audio",           "icon": "\U000f04c3", "flag": "--audio"},           # 󰓃 speaker
-    {"id": "__recording__", "title": "Recording",     "icon": "\U000f0100", "flag": "--page=recording"},   # 󰀀 camera
-    {"id": "__region__",  "title": "Region & Time",   "icon": "\U000f034e", "flag": "--region"},          # 󰍎 map marker
-    {"id": "__hkbm__",    "title": "Keybind Manager", "icon": "\U000f030c", "flag": "--keybinds"},        # 󰌌 keyboard
-    {"id": "__rules__",   "title": "Rules & Startup", "icon": "\U000f0493", "flag": "--page=__rules__"},  # 󰒓 cog
-    {"id": "__battery__", "title": "Battery",         "icon": "\U000f0079", "flag": "--page=battery"},    # 󰁹 battery
-]
 
 # Sidebar structure (mirrors the GTK sidebar). Home is pinned separately.
 CATEGORIES: list[tuple[str, list[str]]] = [

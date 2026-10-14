@@ -448,7 +448,7 @@ PanelWindow {
                 // Active category stays visible while typing — the filter still applies.
                 Text {
                     id: categoryPrefix
-                    anchors { left: searchIcon.right; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                    anchors { left: searchIcon.right; leftMargin: 10; baseline: searchInput.baseline }
                     visible: svc.activeCategory !== "" && searchInput.text.length > 0
                     text: root.categoryLabel(svc.activeCategory) + " ›"
                     color: Theme.textMuted
@@ -465,13 +465,9 @@ PanelWindow {
                         rightMargin: 16
                         verticalCenter: parent.verticalCenter
                     }
-                    height: 22
                     color: Theme.text
                     font.pixelSize: 15
                     font.family: "JetBrainsMono Nerd Font"
-                    verticalAlignment: TextInput.AlignVCenter
-                    topPadding: Math.round((height - font.pixelSize) / 2)
-                    bottomPadding: topPadding
                     selectByMouse: true
                         onTextChanged: {
                             if (svc.mode === "spotlight" && svc.query === ""
