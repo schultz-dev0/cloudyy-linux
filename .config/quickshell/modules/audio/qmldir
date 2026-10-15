@@ -1,0 +1,2 @@
+module QuickAudio
+AudioOutputMenu 1.0 AudioOutputMenu.qml

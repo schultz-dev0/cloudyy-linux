@@ -18,6 +18,7 @@ import "modules/recording" as QuickRecording
 import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "modules/notifpanel" as QuickNotifPanel
+import "modules/audio" as QuickAudio
 import "Readout.js" as Readout
 import "ShellEdges.js" as ShellEdges
 
@@ -798,7 +799,7 @@ PanelWindow {
             onClicked: bar.launch(["bash", "-c", "uwsm-app -- cloudyy-center --wifi"])
         }
 
-        // Volume
+        // Volume and output switching
         Pill {
             id: volPill
             property string lbl: "󰕾"
@@ -827,6 +828,7 @@ PanelWindow {
             }
             onScrollUp: bar.launch(["bash", "-lc", "cloudyy-slider-volume up"])
             onScrollDown: bar.launch(["bash", "-lc", "cloudyy-slider-volume down"])
+            onClicked: audioOutputMenu.toggle()
         }
 
         // Notification Bell
@@ -889,6 +891,13 @@ PanelWindow {
             bg: Qt.rgba(0, 0, 0, 0)
             onClicked: bar.launch(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell", "ipc", "call", "powermenu", "open"])
         }
+    }
+
+    QuickAudio.AudioOutputMenu {
+        id: audioOutputMenu
+        anchorItem: volPill
+        onOutputChanged: volProc.running = true
+        onSettingsRequested: bar.launch(["uwsm-app", "--", "cloudyy-center", "--audio"])
     }
 
     QuickBattery.BatteryTooltip {

@@ -82,6 +82,7 @@ Singleton {
     readonly property int topMargin: 80
     readonly property int rowHeight: 46
     readonly property int debounceMs: 200
+    readonly property int appFileDelayMs: 650
     readonly property int maxFileResults: 10
 
     property int searchEpoch: 0
@@ -439,6 +440,7 @@ Singleton {
 
     function cancelAsyncSearch() {
         debounce.stop();
+        fileResultFlush.stop();
         searchEpoch++;
         searchProc.running = false;
         searchExtras = [];
@@ -831,7 +833,8 @@ Singleton {
             result.isRunning = HyprlandData.isIdentityRunning(result.identity);
         }
         searchExtras = searchExtras.concat([result]);
-        applySearchResults(lastCommandHits, searchExtras);
+        if (!fileResultFlush.running)
+            fileResultFlush.start();
     }
 
     function activateIndex(idx) {
@@ -1580,6 +1583,7 @@ Singleton {
 
     Process {
         id: searchProc
+        objectName: "spotlightFileSearch"
         running: false
         property int activeEpoch: 0
         property string activeQuery: ""
@@ -1634,8 +1638,15 @@ Singleton {
     }
 
     Timer {
+        id: fileResultFlush
+        interval: 16
+        onTriggered: svc.applySearchResults(svc.lastCommandHits, svc.searchExtras)
+    }
+
+    Timer {
         id: debounce
-        interval: svc.debounceMs
+        // Let quick app launches finish without a whole-home traversal.
+        interval: svc.searchExtras.some(row => row.type === "app") ? svc.appFileDelayMs : svc.debounceMs
         repeat: false
         onTriggered: {
             searchProc.command = ["bash", svc.searchScript, svc.query.trim()];

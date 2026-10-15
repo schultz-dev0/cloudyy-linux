@@ -63,12 +63,14 @@ Item {
         width: 28; height: 28
         anchors { left: parent.left; leftMargin: 14; verticalCenter: parent.verticalCenter }
 
-        AppIcon {
+        Loader {
             anchors.fill: parent
-            visible: root.type === "app"
-            iconSize: 28
-            iconName: root.resultData.icon ?? "application-x-executable"
-            iconPath: root.resultData.iconPath ?? ""
+            active: root.type === "app"
+            sourceComponent: AppIcon {
+                iconSize: 28
+                iconName: root.resultData.icon ?? "application-x-executable"
+                iconPath: root.resultData.iconPath ?? ""
+            }
         }
 
         Text {

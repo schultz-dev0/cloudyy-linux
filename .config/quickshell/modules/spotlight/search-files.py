@@ -15,7 +15,8 @@ def search(query: str) -> None:
     limit = max(1, int(os.environ.get("MAX_FILE_RESULTS", "10")))
     # Keep developer dependency/build trees out of interactive traversal.
     excludes = ("node_modules", ".git", "__pycache__", ".venv", "venv", ".cache")
-    base = ["fd", "--hidden", "--no-ignore-vcs", "--ignore-case", "--fixed-strings", "--print0",
+    # fd otherwise fans out across this host's CPUs for every keystroke.
+    base = ["fd", "--threads", "4", "--hidden", "--no-ignore-vcs", "--ignore-case", "--fixed-strings", "--print0",
             "--max-results", str(limit)]
     for name in excludes:
         base.extend(["--exclude", name])
@@ -47,4 +48,5 @@ def search(query: str) -> None:
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1]:
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    os.nice(10)
     search(sys.argv[1])
