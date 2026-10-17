@@ -4,6 +4,16 @@
 -- ── Application-specific rules ───────────────────────────────────────────────
 
 hl.window_rule({
+	name = "satty",
+	match = { class = "^(com\\.gabm\\.satty)$" },
+	float = true,
+	center = true,
+	size = "70% 80%",
+	opaque = true,
+	opacity = "1.0 override 1.0 override",
+})
+
+hl.window_rule({
 	name = "zen-browser",
 	match = { class = "^(zen)$" },
 	size = "1920 1080",

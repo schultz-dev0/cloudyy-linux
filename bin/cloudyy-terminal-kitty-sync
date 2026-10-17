@@ -2,6 +2,10 @@
 # cloudyy:summary=Sync kitty terminal state
 # cloudyy:hidden=true
 
+# Without a socket, `kitty @` falls back to a TTY escape and waits 10s for a
+# reply that tmux/zellij or a non-kitty terminal never sends.
+[[ -n "${KITTY_LISTEN_ON:-}" ]] || exit 0
+
 # File to store persistent kitty states
 STATE_DIR="${HOME}/.config/cloud-center/settings/terminal"
 OPACITY_FILE="${STATE_DIR}/opacity"

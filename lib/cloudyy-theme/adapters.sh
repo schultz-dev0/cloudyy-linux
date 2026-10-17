@@ -312,10 +312,24 @@ _gtk3_named_theme_css() {
   printf '%s/themes/%s/gtk-3.0/gtk.css\n' "${XDG_DATA_HOME:-$HOME/.local/share}" "$1"
 }
 
+# adw-gtk3 lives in /usr/share on Arch and /run/current-system/sw/share on NixOS.
+_adw_gtk3_css() {
+  local dir rest="${XDG_DATA_DIRS:-}:"
+  for dir in /usr/share /run/current-system/sw/share; do
+    [[ -f "$dir/themes/adw-gtk3/gtk-3.0/gtk.css" ]] && { printf '%s\n' "$dir/themes/adw-gtk3/gtk-3.0/gtk.css"; return; }
+  done
+  while [[ -n "$rest" ]]; do
+    dir="${rest%%:*}" rest="${rest#*:}"
+    [[ -n "$dir" && -f "$dir/themes/adw-gtk3/gtk-3.0/gtk.css" ]] && { printf '%s\n' "$dir/themes/adw-gtk3/gtk-3.0/gtk.css"; return; }
+  done
+  printf '%s\n' /usr/share/themes/adw-gtk3/gtk-3.0/gtk.css
+}
+
 _install_gtk3_named_themes() {
   local link="$1" owner='/* Owned by cloudyy-theme: reload-gtk flips gtk-theme between Cloudyy-a/b. */'
-  local content name css temporary first_line
-  content="$owner"$'\n''@import url("file:///usr/share/themes/adw-gtk3/gtk-3.0/gtk.css");'$'\n'"@import url(\"file://$link\");"
+  local content name css temporary first_line base
+  base="$(_adw_gtk3_css)"
+  content="$owner"$'\n'"@import url(\"file://$base\");"$'\n'"@import url(\"file://$link\");"
   for name in "${CLOUDYY_GTK3_THEME_NAMES[@]}"; do
     css="$(_gtk3_named_theme_css "$name")"
     if [[ -e "$css" || -L "$css" ]]; then
@@ -488,6 +502,8 @@ _update_starship_assignment() {
   local legacy='export STARSHIP_CONFIG="$HOME/.config/matugen/generated/starship.toml"'
   local desired='export STARSHIP_CONFIG="${XDG_STATE_HOME:-$HOME/.local/state}/cloudyy/current/theme/applications/starship.toml"'
   [[ -e "$path" || -L "$path" ]] || return "$CLOUDYY_ADAPTER_SKIP"
+  # NixOS: Home Manager owns this file and already exports the stable path.
+  [[ -L "$path" && "$(readlink -f -- "$path")" == /nix/store/* ]] && return "$CLOUDYY_ADAPTER_SKIP"
   [[ -f "$path" && ! -L "$path" ]] || return 1
   count="$(grep -Ec '^[[:space:]]*export[[:space:]]+STARSHIP_CONFIG=' "$path" || true)"
   [[ "$count" -le 1 ]] || { theme_error "ambiguous STARSHIP_CONFIG assignments: $path"; return 1; }

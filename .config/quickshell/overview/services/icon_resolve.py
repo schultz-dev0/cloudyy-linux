@@ -10,14 +10,19 @@ import os
 import re
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
 
 HOME = Path.home()
 FIELD_RE = re.compile(r"^([A-Za-z0-9-]+)=(.*)$")
 SECTION_RE = re.compile(r"^\[([^\]]+)\]$")
-DESKTOP_DIRS = (HOME / ".local/share/applications", Path("/usr/share/applications"))
-INDEX_VERSION = "gtk-v3"
+DATA_DIRS = tuple(dict.fromkeys([
+    Path(os.environ.get("XDG_DATA_HOME") or HOME / ".local/share"),
+    *(Path(p) for p in (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":") if p),
+]))
+DESKTOP_DIRS = tuple(path / "applications" for path in DATA_DIRS)
+INDEX_VERSION = "gtk-v4"
 STANDARD_APP_DIRS = (
     "scalable/apps",
     "512x512/apps",
@@ -146,17 +151,13 @@ def get_icon_theme() -> str:
 def theme_search_roots() -> list[Path]:
     theme = get_icon_theme()
     names = [theme, "hicolor", "cloudyy-apps", "Fluent-green", "Fluent", "Adwaita", "Papirus-Dark", "Papirus"]
-    roots = [
-        HOME / ".local/share/icons",
-        HOME / ".icons",
-        Path("/usr/share/icons"),
-        HOME / ".local/share/pixmaps",
-        Path("/usr/share/pixmaps"),
-    ]
+    icon_roots = [DATA_DIRS[0] / "icons", HOME / ".icons"]
+    icon_roots.extend(path / "icons" for path in DATA_DIRS[1:])
+    roots = icon_roots + [path / "pixmaps" for path in DATA_DIRS]
     dirs: list[Path] = []
     seen: set[Path] = set()
     for name in names:
-        for root in roots[:3]:
+        for root in icon_roots:
             path = root / name
             if path.is_dir() and path not in seen:
                 seen.add(path)
@@ -190,6 +191,19 @@ def _gtk_lookup(name: str, size: int = 48) -> str:
     return ""
 
 
+@lru_cache(maxsize=256)
+def _casefold_icon_names(folder: Path, _signature: tuple[int, int, int]) -> dict[str, list[str]]:
+    # Missing icons used to stat every file, for every lookup and application.
+    # Cache names only; verify the few matching candidates when using the index.
+    names: dict[str, list[str]] = {}
+    with os.scandir(folder) as entries:
+        for entry in entries:
+            stem, ext = os.path.splitext(entry.name)
+            if ext.lower() in {".svg", ".png", ".xpm", ".ico"}:
+                names.setdefault(stem.lower(), []).append(entry.name)
+    return names
+
+
 def _match_icon_file(folder: Path, stem: str) -> str:
     if not folder.is_dir():
         return ""
@@ -202,13 +216,12 @@ def _match_icon_file(folder: Path, stem: str) -> str:
         if lower.is_file():
             return str(lower)
     try:
-        for entry in folder.iterdir():
-            if not entry.is_file():
-                continue
-            if entry.stem.lower() != stem_lower:
-                continue
-            if entry.suffix.lower() in {".svg", ".png", ".xpm", ".ico"}:
-                return str(entry)
+        info = folder.stat()
+        signature = (info.st_dev, info.st_ino, info.st_mtime_ns)
+        for name in _casefold_icon_names(folder, signature).get(stem_lower, []):
+            candidate = folder / name
+            if candidate.is_file():
+                return str(candidate)
     except OSError:
         pass
     return ""

@@ -4,6 +4,8 @@
 set -euo pipefail
 
 session_id="${XDG_SESSION_ID:-}"
+# systemd user services (the shell's power menu) do not inherit XDG_SESSION_ID.
+[[ -n "$session_id" ]] || session_id="$(loginctl show-user "$UID" -p Display --value 2>/dev/null || true)"
 if [[ -z "$session_id" ]]; then
   printf 'cloudyy-logout: XDG_SESSION_ID is not set\n' >&2
   exit 1

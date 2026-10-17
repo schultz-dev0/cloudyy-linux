@@ -25,6 +25,9 @@ Singleton {
     // in place so it never emits — its only job is to stop the same name being
     // re-spawned every time runtimeCache/pathByName change and wake every AppIcon.
     property var attemptedNames: ({})
+    property var pendingLookups: []
+    property int activeLookups: 0
+    readonly property int maxConcurrentLookups: 2
 
     function normalizeName(icon) {
         const raw = `${icon ?? ""}`.trim();
@@ -183,6 +186,18 @@ Singleton {
         // buildIndexProc rebuilding pathByName is the recovery path, restart is the fallback.
         attemptedNames[key] = true;
 
+        pendingLookups.push(key);
+        startPendingLookups();
+    }
+
+    function startPendingLookups() {
+        while (activeLookups < maxConcurrentLookups && pendingLookups.length > 0)
+            startLookup(pendingLookups.shift());
+    }
+
+    function startLookup(key) {
+        activeLookups++;
+
         const proc = lookupProto.createObject(resolver, {
             command: ["python3", resolveScript, "lookup", key]
         });
@@ -196,6 +211,8 @@ Singleton {
                 runtimeCache = next;
             }
             proc.destroy();
+            activeLookups--;
+            startPendingLookups();
         });
         proc.running = true;
     }

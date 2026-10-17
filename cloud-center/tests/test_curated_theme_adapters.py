@@ -1737,6 +1737,22 @@ class CuratedThemeAdaptersTest(unittest.TestCase):
         # Each reconcile lands on the other name, so GTK3 re-reads the theme.
         self.assertEqual(seen, ["'Cloudyy-a'", "'Cloudyy-b'", "'Cloudyy-a'"])
 
+    def test_reconcile_reloads_nix_wrapped_desktop_processes(self):
+        self.prepare()
+        self._create_consumer_roots()
+        self._write_fake(
+            "pgrep",
+            r'''[[ "$2" == '\.Hyprland-wrapp' || "$2" == '\.quickshell-wra' || "$2" == '\.kitty-wrapped' ]]''',
+        )
+
+        result = self.run_theme("reconcile")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.command_log.read_text()
+        self.assertIn("hyprctl reload", calls)
+        self.assertIn("ipc call theme reload", calls)
+        self.assertIn(r"pkill -SIGUSR1 -x kitty|\.kitty-wrapped", calls)
+
     def test_reconcile_records_exact_actions_and_attempts_reload_after_adapter_failure(self):
         self.prepare()
         self._create_consumer_roots()

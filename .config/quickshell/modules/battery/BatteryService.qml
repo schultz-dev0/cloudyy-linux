@@ -104,7 +104,7 @@ Singleton {
 
     readonly property string barLabel: {
         if (full)
-            return "󰁹 Full";
+            return "󰁹 100%";
         if (charging)
             return "󰂄 " + Math.round(percent) + "%";
         const icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂"];

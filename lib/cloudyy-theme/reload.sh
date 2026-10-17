@@ -3,9 +3,12 @@
 # Consumer reload actions and whole-operation integration orchestration.
 
 _process_running() {
-  local process
+  local process wrapped
   for process in "$@"; do
     pgrep -x "$process" >/dev/null 2>&1 && return 0
+    # Nix wrappers change comm; Linux truncates that name to 15 bytes.
+    wrapped=".${process}-wrapped"
+    pgrep -x "\\.${wrapped:1:14}" >/dev/null 2>&1 && return 0
   done
   return 1
 }
@@ -36,7 +39,7 @@ reload_kitty() {
     return 0
   fi
   command -v pkill >/dev/null 2>&1 || return 1
-  pkill -SIGUSR1 -x kitty >/dev/null 2>&1
+  pkill -SIGUSR1 -x 'kitty|\.kitty-wrapped' >/dev/null 2>&1
 }
 
 reload_nvim() {
@@ -135,6 +138,8 @@ _zen_bridge_installed() {
     theme_error 'Zen live-theme bridge state could not be verified'
     return 1
   }
+  # NixOS bakes the bridge into the Zen wrapper (flake.nix); nothing to compare under /opt.
+  [[ -f /etc/cloudyy/nixos.json ]] && return 0
   installed_pref="$install_root/defaults/pref/cloudyy-autoconfig.js"
   installed_config="$install_root/cloudyy.cfg"
   asset_pref="$repo_root/install/assets/zen/cloudyy-autoconfig.js"

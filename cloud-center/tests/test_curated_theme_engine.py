@@ -355,6 +355,17 @@ class CuratedThemeEngineTest(unittest.TestCase):
         )
         self.assertFalse(self.wallpaper_log.exists())
 
+    def test_running_wallpaper_backend_is_reused_when_process_name_is_wrapped(self):
+        self.install_fake_wallpaper_backend()
+        (self.fake_bin / "pgrep").write_text("#!/usr/bin/env bash\nexit 1\n")
+
+        result = self.run_theme("use", "nord")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.wallpaper_log.read_text().splitlines()
+        self.assertTrue(any(line.startswith("img ") for line in calls))
+        self.assertNotIn("daemon", calls)
+
     def test_reconcile_preserves_a_valid_saved_wallpaper_override(self):
         self.install_fake_wallpaper_backend()
         self.assertEqual(self.run_theme("prepare", "nord").returncode, 0)

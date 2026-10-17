@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # cloudyy:summary=Take a screenshot or screen recording
-# cloudyy:args=[--screenshot|--screenshot-save|--record]
+# cloudyy:args=[--screenshot|--screenshot-save|--edit|--record]
 # cloudyy:examples=cloudyy screenshot capture --screenshot
 # Screenshot + screen recording for the Dynamic Island preview flow.
 #   --screenshot       frozen region capture → island drag/upload (temp PNG in /tmp)
@@ -13,10 +13,11 @@ readonly CC_ROOT="${HOME}/cloudyy-linux/cloud-center"
 
 usage() {
     cat <<'EOF'
-Usage: capture.sh [--screenshot | --screenshot-save | --record]
+Usage: cloudyy-screenshot-capture [--screenshot | --screenshot-save | --edit | --record]
 
   --screenshot, -s        Region screenshot (frozen) → temp island preview (default)
   --screenshot-save       Region screenshot (frozen) → saved file → persistent island preview
+  --edit                  Edit the most recent screenshot in Satty
   --record, -r            Island target picker → record; run again to stop → island preview
 EOF
 }
@@ -28,13 +29,33 @@ qs_ipc() {
     qs -p "$main" ipc call "$@" 2>/dev/null
 }
 
+copy_image() {
+    if ! wl-copy --type image/png <"$1"; then
+        echo "screenshot: failed to copy PNG to clipboard" >&2
+        notify-send "Screenshot" "Could not copy the image to the clipboard" -u normal -t 3000 2>/dev/null || true
+    fi
+}
+
+cmd_edit() {
+    local image
+    image="$(cat "$SCREENSHOT_PATH_FILE" 2>/dev/null)"
+    if [[ -z "$image" || ! -f "$image" ]]; then
+        notify-send "Screenshot" "Latest screenshot unavailable. Take a screenshot first." -u normal -t 3000 2>/dev/null || true
+        return 1
+    fi
+    # Copy actual PNG data and save edits back to the capture for the shelf.
+    satty -f "$image" -o "$image" \
+        --copy-command "wl-copy --type image/png" \
+        --action-on-enter save-to-clipboard --save-after-copy --early-exit
+}
+
 # ── Screenshot ────────────────────────────────────────────────────────────────
 
 cmd_screenshot() {
     local temp_file="/tmp/screenshot-popup-$(date +%s%N).png"
     local fname="${temp_file##*/}"
 
-    if ! hyprcap shot region -z -w -o /tmp -f "$fname" -c -N; then
+    if ! hyprcap shot region -z -w -o /tmp -f "$fname" -N; then
         exit 0
     fi
 
@@ -42,6 +63,7 @@ cmd_screenshot() {
         exit 0
     fi
 
+    copy_image "$temp_file"
     printf '%s' "$temp_file" >"$SCREENSHOT_PATH_FILE"
 
     if ! qs_ipc screenshot showLatest; then
@@ -71,6 +93,7 @@ cmd_screenshot_save() {
     out_file="${out_dir%/}/$fname"
     [[ -f "$out_file" ]] || exit 0
 
+    copy_image "$out_file"
     printf '%s' "$out_file" >"$SCREENSHOT_PATH_FILE"
 
     if ! qs_ipc screenshot showSaved; then
@@ -96,6 +119,7 @@ main() {
     case "${1:---screenshot}" in
         --screenshot | -s) cmd_screenshot ;;
         --screenshot-save) cmd_screenshot_save ;;
+        --edit) cmd_edit ;;
         --record | -r) cmd_record ;;
         -h | --help) usage ;;
         *)

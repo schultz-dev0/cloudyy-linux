@@ -56,5 +56,6 @@ if [[ "$IS_XWAYLAND" == "true" ]]; then
   command -v xdotool &>/dev/null || die "xdotool is not installed (required for XWayland windows like Obsidian/Firefox)"
   xdotool key "${XDOTOOL_MODS}+${KEY}"
 else
-  hyprctl dispatch sendshortcut "${HYPR_MODS}, ${KEY^^}, address:${ACTIVE_ADDRESS}"
+  # Lua-config Hyprland (0.55+) dropped the legacy "sendshortcut a, b, c" string form.
+  hyprctl dispatch "hl.dsp.send_shortcut({ mods = \"${HYPR_MODS}\", key = \"${KEY^^}\", window = \"address:${ACTIVE_ADDRESS}\" })"
 fi

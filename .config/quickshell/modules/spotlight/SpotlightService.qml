@@ -607,8 +607,7 @@ Singleton {
     }
 
     function loadCommandsRegistry() {
-        registryProc.running = false;
-        registryProc.running = true;
+        registryFile.reload();
     }
 
     function openMode(m) {

@@ -137,7 +137,7 @@ list)
   if [[ "${1:-}" == '--json' ]]; then
     shift
     require_no_arguments "$@"
-    list_themes_json "$(with_read_lock current_theme_slug 2>/dev/null || true)"
+    list_themes_json "$(current_theme_slug_display)"
   else
     require_no_arguments "$@"
     list_themes

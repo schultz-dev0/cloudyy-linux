@@ -15,6 +15,14 @@ case "${1:-}" in
   ;;
 esac
 
+# TTY-launched sessions also need to pass their display and runtime paths to
+# user services. Import only known session variables, never the whole environment.
+session_vars=()
+for name in WAYLAND_DISPLAY DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP PATH GI_TYPELIB_PATH QML_IMPORT_PATH GSETTINGS_SCHEMA_DIR; do
+  [[ -v "$name" ]] && session_vars+=("$name")
+done
+systemctl --user import-environment "${session_vars[@]}"
+
 # Restore the saved wallpaper behind the lock without reloading applications.
 cloudyy-wallpaper-restore &
 wallpaper_pid=$!
@@ -24,7 +32,11 @@ wait "$wallpaper_pid" 2>/dev/null || true
 
 systemctl --user start hypridle.service
 if ! systemctl --user start hyprpolkitagent.service 2>/dev/null; then
-  /usr/lib/hyprpolkitagent/hyprpolkitagent &
+  if command -v hyprpolkitagent >/dev/null 2>&1; then
+    hyprpolkitagent &
+  else
+    /usr/lib/hyprpolkitagent/hyprpolkitagent &
+  fi
 fi
 wl-paste --type text --watch cliphist store &
 wl-paste --type image --watch cliphist store &

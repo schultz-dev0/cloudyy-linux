@@ -277,9 +277,18 @@ _theme_display_thumbnails() {
 
 list_themes_json() {
   local current="${1:-}" themes_root theme slug preview preview_thumb lines=''
-  local wallpapers_json wallpaper_thumbs_json tmp_dir
+  local wallpapers_json wallpaper_thumbs_json tmp_dir out cache
   local -a wallpapers thumbs
   themes_root="$(theme_repo_root)/themes"
+  # The picker calls this on every open and every 2s while open. Building the list spawns
+  # ~10 processes per wallpaper (~0.3s here, ~1.8s on the laptop), so memoize it and only
+  # redo the work when something under themes/ is newer than the cached result.
+  # ponytail: invalidated by mtime only; add a thumbnail-exists check if cache pruning bites.
+  cache="${XDG_CACHE_HOME:-$HOME/.cache}/cloudyy/theme-list.json"
+  if [[ -f "$cache" && -d "$themes_root" &&
+    -z "$(find -P "$themes_root" -newer "$cache" -print -quit 2>/dev/null)" ]]; then
+    jq --arg current "$current" '.current = $current' "$cache" 2>/dev/null && return 0
+  fi
   if [[ -d "$themes_root" && ! -L "$themes_root" ]]; then
     while IFS= read -r -d '' theme; do
       slug="${theme##*/}"
@@ -307,7 +316,14 @@ list_themes_json() {
         '{slug, name, mode, colors, preview: $preview, wallpapers: $wallpapers, wallpaperThumbnails: $wallpaperThumbnails}' "$theme/theme.json" 2>/dev/null)"$'\n'
     done < <(find -P "$themes_root" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
   fi
-  printf '%s' "$lines" | jq -s --arg current "$current" '{current: $current, themes: .}'
+  out="$(printf '%s' "$lines" | jq -s --arg current "$current" '{current: $current, themes: .}')" || return 1
+  printf '%s\n' "$out"
+  # Only memoize when every thumbnail really came from the cache (no full-size fallbacks).
+  if printf '%s' "$out" | jq -e --arg d "${HOME}/.cache/rofi_thumbs/" \
+    '[.themes[].wallpaperThumbnails[] | startswith($d)] | all' >/dev/null 2>&1; then
+    mkdir -p -- "$(dirname -- "$cache")" 2>/dev/null &&
+      printf '%s\n' "$out" >"$cache.tmp.$$" 2>/dev/null && mv -f -- "$cache.tmp.$$" "$cache" || rm -f -- "$cache.tmp.$$"
+  fi
 }
 
 _stage_is_referenced() {
@@ -529,6 +545,14 @@ prepare_theme() {
     return "$CLOUDYY_THEME_EXIT_STAGING"
   fi
   promote_stage "$stage"
+}
+
+# Display-only variant for the picker, which polls it: skips the full stage validation
+# (find perms + asset validator) that current_theme_slug/active_stage pay for on every call.
+current_theme_slug_display() {
+  local stage
+  stage="$(_theme_pointer_stage "$(theme_state_root)/current" 2>/dev/null)" || return 0
+  cat -- "$stage/theme.name" 2>/dev/null || true
 }
 
 current_theme_slug() {

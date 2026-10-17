@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# cloudyy:summary=Right-edge touchpad slide changes volume (ASUS-style)
+# cloudyy:hidden=true
+"""Grab the touchpad, re-emit everything through uinput, and turn a one-finger
+slide that starts in the right edge strip into volume steps. The whole gesture
+is swallowed so the pointer does not move. Stopping the service releases the grab.
+"""
+import os
+import select
+import subprocess
+import sys
+
+import evdev
+from evdev import UInput, ecodes as e
+
+EDGE = float(os.environ.get("CLOUDYY_EDGE_FRACTION", "0.08"))  # right 8% of the pad
+STEPS = int(os.environ.get("CLOUDYY_EDGE_STEPS", "50"))  # full-height slide = this many %
+PAMIXER = os.environ.get("CLOUDYY_PAMIXER", "pamixer")
+
+
+def find_touchpad():
+    for path in evdev.list_devices():
+        dev = evdev.InputDevice(path)
+        caps = dev.capabilities()
+        if "touchpad" in dev.name.lower() and e.EV_ABS in caps and \
+                e.ABS_MT_POSITION_X in dict(caps[e.EV_ABS]):
+            return dev
+        dev.close()
+    return None
+
+
+def main():
+    dev = find_touchpad()
+    if dev is None:
+        print("no touchpad found", file=sys.stderr)
+        return 0
+    xi = dev.absinfo(e.ABS_MT_POSITION_X)
+    yi = dev.absinfo(e.ABS_MT_POSITION_Y)
+    zone_x = xi.min + (xi.max - xi.min) * (1 - EDGE)
+    step_px = max(1, (yi.max - yi.min) // STEPS)
+
+    ui = UInput.from_device(dev, name="cloudyy touchpad passthrough")
+    dev.grab()
+    slot, active, swallowing, ref_y = 0, set(), False, None
+    frame, xs, ys, new_touches = [], {}, {}, []
+
+    def volume(direction):
+        subprocess.Popen([PAMIXER, "-i" if direction > 0 else "-d", "1"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    try:
+        for ev in dev.read_loop():
+            if ev.type == e.EV_SYN and ev.code == e.SYN_REPORT:
+                before = len(active) - len([s for s in new_touches if s in active])
+                if swallowing:
+                    if ys.get(swallowing_slot) is not None and ref_y is not None:
+                        while abs(ys[swallowing_slot] - ref_y) >= step_px:
+                            up = ys[swallowing_slot] < ref_y  # finger moves up the pad
+                            volume(1 if up else -1)
+                            ref_y += -step_px if up else step_px
+                    if not active:
+                        swallowing = False
+                elif (len(new_touches) == 1 and before == 0 and len(active) == 1
+                      and xs.get(new_touches[0], 0) >= zone_x):
+                    swallowing, swallowing_slot = True, new_touches[0]
+                    ref_y = ys.get(swallowing_slot)
+                else:
+                    for fe in frame:
+                        ui.write_event(fe)
+                    ui.syn()
+                frame, new_touches = [], []
+                xs, ys = ({s: v for s, v in xs.items() if s in active},
+                          {s: v for s, v in ys.items() if s in active})
+                continue
+            frame.append(ev)
+            if ev.type != e.EV_ABS:
+                continue
+            if ev.code == e.ABS_MT_SLOT:
+                slot = ev.value
+            elif ev.code == e.ABS_MT_TRACKING_ID:
+                if ev.value == -1:
+                    active.discard(slot)
+                else:
+                    active.add(slot)
+                    new_touches.append(slot)
+            elif ev.code == e.ABS_MT_POSITION_X:
+                xs[slot] = ev.value
+            elif ev.code == e.ABS_MT_POSITION_Y:
+                ys[slot] = ev.value
+    finally:
+        try:
+            dev.ungrab()
+        except OSError:
+            pass
+        ui.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

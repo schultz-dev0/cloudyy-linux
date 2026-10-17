@@ -86,6 +86,7 @@ hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("qs ipc call calendar toggle")
 -- ── Utilities ─────────────────────────────────────────────────────────────────
 
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot-save"), { desc = "Screenshot region, save, shelf preview" })
+hl.bind(mainMod .. " + apostrophe", hl.dsp.exec_cmd("cloudyy-screenshot-capture --edit"), { desc = "Edit latest screenshot" })
 hl.bind("Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --screenshot"), { desc = "Screenshot popup (shelf)" })
 hl.bind("ALT + Print", hl.dsp.exec_cmd("cloudyy-screenshot-capture --record"), { desc = "Screen record (shelf)" })
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("hyprpicker -a || pkill hyprpicker"), { desc = "Colour picker" })
@@ -263,6 +264,12 @@ hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exec_cmd("cloudyy-clipboard-extract-te
 hl.define_submap("cloudyy-idle", function()
 	hl.bind("catchall", hl.dsp.exec_cmd("cloudyy-idle dismiss"))
 end)
+
+-- ── Laptop: keyboard backlight + touchpad gestures ───────────────────────────
+-- Harmless on machines without asus::kbd_backlight (brightnessctl just errors).
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd("brightnessctl -d asus::kbd_backlight set +1"), { locked = true, repeating = true, desc = "Keyboard backlight up" })
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd("brightnessctl -d asus::kbd_backlight set 1-"), { locked = true, repeating = true, desc = "Keyboard backlight down" })
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
 -- --- Cloud Center Additions (managed by Cloud Center) ---
 -- --- End Cloud Center Additions ---

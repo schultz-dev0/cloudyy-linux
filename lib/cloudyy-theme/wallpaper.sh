@@ -104,13 +104,13 @@ _select_wallpaper_backend() {
 
 _ensure_wallpaper_daemon() {
   local attempt
-  pgrep -x "${CLOUDYY_WALLPAPER_DAEMON[0]}" >/dev/null 2>&1 && return 0
+  "${CLOUDYY_WALLPAPER_CLIENT[@]}" query >/dev/null 2>&1 && return 0
   (
     [[ -z "${theme_lock_fd:-}" ]] || exec {theme_lock_fd}>&-
     exec "${CLOUDYY_WALLPAPER_DAEMON[@]}"
   ) >/dev/null 2>&1 &
   for ((attempt = 0; attempt < 50; attempt += 1)); do
-    pgrep -x "${CLOUDYY_WALLPAPER_DAEMON[0]}" >/dev/null 2>&1 && return 0
+    "${CLOUDYY_WALLPAPER_CLIENT[@]}" query >/dev/null 2>&1 && return 0
     sleep 0.1
   done
   return 1
