@@ -8,6 +8,11 @@
 
 set -euo pipefail
 
+if [[ -e /etc/NIXOS ]]; then
+  script_dir="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+  exec bash "$script_dir/../lib/cloudyy-nixos/update.sh" "$@"
+fi
+
 # --- CONFIGURATION ---
 readonly AUR_HELPER="${AUR_HELPER:-yay}"
 readonly REPO_DIRS=(

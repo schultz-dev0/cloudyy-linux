@@ -1,0 +1,299 @@
+# Cloudyy Plymouth theme — LUKS unlock + held splash through to session.
+# Layout: wordmark whenever not prompting; password pill only while prompting;
+# wordmark + progress bar after unlock.
+# Wrong passphrase: stay on pill UI with shake + error border (no fake "loading").
+#
+# IMPORTANT: Plymouth script comments are "#" only.
+#
+# Callback contract (verified against plymouth source, ply-boot-splash.c):
+#   - SetBootProgressFunction fires on a ~30 Hz heartbeat, INCLUDING while a
+#     passphrase prompt is open. It must never mutate prompt state or hide the
+#     pill — it only refines the bar width after success.
+#   - SetRootMountedFunction fires exactly once at switch_root (the mkinitcpio
+#     plymouth hook runs `plymouth update-root-fs --new-root-dir`), which can
+#     only happen after the passphrase was accepted. That is the single
+#     "unlock succeeded" signal.
+#
+# Locked palette (do not change without updating cloud-center contract test):
+#   bg     #112533
+#   field  #1a3548
+#   border #2a4a63
+#   muted  #8fa3b5
+#   text   #e6eef4
+# Brand token kept for contract: CLOUDYY
+
+# #112533
+bg_r = 0.0667;
+bg_g = 0.1451;
+bg_b = 0.2000;
+
+Window.SetBackgroundTopColor(bg_r, bg_g, bg_b);
+Window.SetBackgroundBottomColor(bg_r, bg_g, bg_b);
+
+wordmark_image = Image("wordmark.png");
+wordmark_sprite = Sprite(wordmark_image);
+wordmark_sprite.SetOpacity(0);
+
+pill_image = Image("pill.png");
+pill_error_image = Image("pill_error.png");
+pill_sprite = Sprite(pill_image);
+pill_sprite.SetOpacity(0);
+
+bullet_image = Image("bullet.png");
+bullet_gap = bullet_image.GetWidth() + 8;
+bullet_pad = 24;
+max_bullets = 20;
+bullet_sprites = null;
+
+progress_box_image = Image("progress_box.png");
+progress_box_sprite = Sprite(progress_box_image);
+progress_box_sprite.SetOpacity(0);
+
+progress_bar_original = Image("progress_bar.png");
+progress_bar_sprite = Sprite();
+progress_bar_sprite.SetOpacity(0);
+
+laid_out = 0;
+password_shown = 0;
+unlock_succeeded = 0;
+in_password = 0;
+fail_frames = 0;
+shake_frames = 0;
+pill_x = 0;
+pill_y = 0;
+fake_progress_active = 0;
+animation_frame = 0;
+max_progress = 0.0;
+fake_progress_limit = 0.7;
+fake_progress_duration = 12.0;
+
+fun layout() {
+    screen_width = Window.GetWidth();
+    screen_height = Window.GetHeight();
+    if (screen_width < 64 || screen_height < 64) {
+        return;
+    }
+
+    Window.SetBackgroundTopColor(bg_r, bg_g, bg_b);
+    Window.SetBackgroundBottomColor(bg_r, bg_g, bg_b);
+
+    wordmark_x = Window.GetX() + screen_width / 2 - wordmark_image.GetWidth() / 2;
+    wordmark_y = Window.GetY() + screen_height / 2 - wordmark_image.GetHeight() / 2;
+    wordmark_sprite.SetX(wordmark_x);
+    wordmark_sprite.SetY(wordmark_y);
+    wordmark_sprite.SetZ(5);
+
+    pill_x = Window.GetX() + screen_width / 2 - pill_image.GetWidth() / 2;
+    pill_y = Window.GetY() + screen_height / 2 - pill_image.GetHeight() / 2;
+    pill_sprite.SetY(pill_y);
+    pill_sprite.SetZ(10);
+    # X set in refresh when shaking
+
+    progress_box_x = Window.GetX() + screen_width / 2 - progress_box_image.GetWidth() / 2;
+    progress_box_y = pill_y + pill_image.GetHeight() + 40;
+    progress_box_sprite.SetX(progress_box_x);
+    progress_box_sprite.SetY(progress_box_y);
+    progress_box_sprite.SetZ(0);
+
+    progress_bar_x = Window.GetX() + screen_width / 2 - progress_bar_original.GetWidth() / 2;
+    progress_bar_y = progress_box_y + (progress_box_image.GetHeight() - progress_bar_original.GetHeight()) / 2;
+    progress_bar_sprite.SetX(progress_bar_x);
+    progress_bar_sprite.SetY(progress_bar_y);
+    progress_bar_sprite.SetZ(1);
+
+    laid_out = 1;
+}
+
+fun hide_password() {
+    pill_sprite.SetOpacity(0);
+    for (i = 0; bullet_sprites[i]; i++) {
+        bullet_sprites[i].SetOpacity(0);
+    }
+}
+
+fun show_password() {
+    pill_sprite.SetOpacity(1);
+}
+
+fun hide_progress() {
+    progress_box_sprite.SetOpacity(0);
+    progress_bar_sprite.SetOpacity(0);
+    fake_progress_active = 0;
+}
+
+fun show_progress() {
+    progress_box_sprite.SetOpacity(1);
+    progress_bar_sprite.SetOpacity(1);
+}
+
+fun start_fake_progress() {
+    fake_progress_active = 1;
+    animation_frame = 0;
+    max_progress = 0.0;
+    update_progress_bar(0.02);
+}
+
+fun update_progress_bar(progress) {
+    if (progress > max_progress) {
+        max_progress = progress;
+    } else {
+        progress = max_progress;
+    }
+
+    width = Math.Int(progress_bar_original.GetWidth() * progress);
+    if (width < 1) {
+        width = 1;
+    }
+    progress_bar_sprite.SetImage(progress_bar_original.Scale(width, progress_bar_original.GetHeight()));
+}
+
+fun render_bullets(count) {
+    bullet_sprites = null;
+
+    if (count > max_bullets) {
+        count = max_bullets;
+    }
+
+    bullet_y = pill_y + pill_image.GetHeight() / 2 - bullet_image.GetHeight() / 2;
+    start_x = pill_x + bullet_pad;
+
+    for (i = 0; i < count; i++) {
+        bullet_sprites[i] = Sprite(bullet_image);
+        bullet_sprites[i].SetX(start_x + i * bullet_gap);
+        bullet_sprites[i].SetY(bullet_y);
+        bullet_sprites[i].SetZ(20);
+        bullet_sprites[i].SetOpacity(1);
+    }
+}
+
+fun trigger_password_fail() {
+    # Wrong passphrase: cryptsetup failed and plymouth re-prompted.
+    shake_frames = 24;
+    fail_frames = 90;
+    pill_sprite.SetImage(pill_error_image);
+    hide_progress();
+    unlock_succeeded = 0;
+}
+
+fun clear_password_fail() {
+    if (fail_frames <= 0 && shake_frames <= 0) {
+        return;
+    }
+    shake_frames = 0;
+    fail_frames = 0;
+    pill_sprite.SetImage(pill_image);
+    pill_sprite.SetX(pill_x);
+}
+
+fun refresh_callback() {
+    layout();
+
+    # Wordmark visibility is enforced here every frame: display_normal may
+    # never fire before the first prompt, and the idle splash must never look
+    # like an empty gap. Idempotent per-frame opacity is cheap and keeps a
+    # single source of truth for mode.
+    if (in_password == 1) {
+        wordmark_sprite.SetOpacity(0);
+    } else {
+        wordmark_sprite.SetOpacity(1);
+    }
+
+    shake_x = 0;
+    if (shake_frames > 0) {
+        # Alternate ±8px for a short shake (no modulo op in this dialect).
+        if (shake_frames - Math.Int(shake_frames / 2) * 2 == 0) {
+            shake_x = 8;
+        } else {
+            shake_x = -8;
+        }
+        shake_frames--;
+        if (shake_frames == 0) {
+            shake_x = 0;
+        }
+    }
+    pill_sprite.SetX(pill_x + shake_x);
+
+    if (fail_frames > 0) {
+        fail_frames--;
+        if (fail_frames == 0) {
+            pill_sprite.SetImage(pill_image);
+            pill_sprite.SetX(pill_x);
+        }
+    }
+
+    if (fake_progress_active == 1) {
+        animation_frame++;
+        elapsed = animation_frame / 50.0;
+        time_ratio = elapsed / fake_progress_duration;
+        if (time_ratio > 1.0) {
+            time_ratio = 1.0;
+        }
+        eased = 1 - ((1 - time_ratio) * (1 - time_ratio));
+        update_progress_bar(eased * fake_progress_limit);
+    }
+}
+
+fun display_normal_callback() {
+    layout();
+    hide_password();
+    in_password = 0;
+
+    # Progress is intentionally NOT touched here: wrong passwords also pass
+    # through normal while cryptsetup runs. Only root_mounted_callback may
+    # declare success.
+}
+
+fun display_password_callback(prompt, bullet_count) {
+    # Re-prompt after leaving password UI (cryptsetup rejected the passphrase).
+    # Do not treat per-keystroke bullet updates as failures.
+    if (in_password == 0 && password_shown == 1 && unlock_succeeded == 0) {
+        trigger_password_fail();
+    } else if (fail_frames <= 0) {
+        pill_sprite.SetImage(pill_image);
+    }
+
+    password_shown = 1;
+    in_password = 1;
+    unlock_succeeded = 0;
+    layout();
+    hide_progress();
+    show_password();
+    render_bullets(bullet_count);
+}
+
+fun root_mounted_callback() {
+    # switch_root reached: the passphrase was accepted. The only success
+    # signal in this theme.
+    if (password_shown == 0) {
+        return;
+    }
+    unlock_succeeded = 1;
+    in_password = 0;
+    clear_password_fail();
+    hide_password();
+    show_progress();
+    if (fake_progress_active == 0) {
+        start_fake_progress();
+    }
+}
+
+fun progress_callback(duration, progress) {
+    # ~30 Hz heartbeat from plymouthd — it keeps firing during passphrase
+    # entry, so it must never mutate prompt state (that hid the pill after
+    # every keystroke). After success it may only refine real bar width past
+    # the fake-progress ceiling; refresh_callback drives the fake fill.
+    if (unlock_succeeded == 0 || fake_progress_active == 1) {
+        return;
+    }
+    if (progress > fake_progress_limit) {
+        update_progress_bar(progress);
+    }
+}
+
+layout();
+
+Plymouth.SetRefreshFunction(refresh_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetBootProgressFunction(progress_callback);
+Plymouth.SetRootMountedFunction(root_mounted_callback);
