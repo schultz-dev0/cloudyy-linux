@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# cloudyy:summary=Get/set the active Cloudyy UI + kitty monospace font
+# cloudyy:args={get|current|set <family>|list}
+
+set -euo pipefail
+
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+STATE_DIR="$STATE_HOME/cloudyy/current"
+STATE_FILE="$STATE_DIR/font.json"
+KITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf"
+DEFAULT_FAMILY="JetBrainsMono Nerd Font"
+
+usage() {
+  cat <<'EOF'
+Usage: cloudyy-font <command> [arguments]
+
+  get | current     Print the active font family
+  set <family>      Activate a font family (state + kitty + live reload)
+  list              Print curated families, one per line (installed only)
+EOF
+}
+
+notify() {
+  notify-send "Font" "$1" -u "${2:-normal}" -t 2500 2>/dev/null || true
+}
+
+ensure_state() {
+  mkdir -p -- "$STATE_DIR"
+  if [[ ! -f "$STATE_FILE" ]]; then
+    printf '{"family":"%s"}\n' "$DEFAULT_FAMILY" >"$STATE_FILE"
+  fi
+}
+
+read_family() {
+  ensure_state
+  local family
+  family="$(python3 - "$STATE_FILE" "$DEFAULT_FAMILY" <<'PY'
+import json, sys
+path, default = sys.argv[1], sys.argv[2]
+try:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    family = data.get("family") if isinstance(data, dict) else None
+    print(family if isinstance(family, str) and family.strip() else default)
+except Exception:
+    print(default)
+PY
+)"
+  printf '%s\n' "$family"
+}
+
+font_installed() {
+  local family="$1"
+  fc-list -q "$family" family 2>/dev/null
+}
+
+write_family() {
+  local family="$1"
+  ensure_state
+  local tmp
+  tmp="$(mktemp "$STATE_DIR/font.json.XXXXXX")"
+  printf '{"family":%s}\n' "$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$family")" >"$tmp"
+  mv -f -- "$tmp" "$STATE_FILE"
+}
+
+update_kitty() {
+  local family="$1"
+  [[ -f "$KITTY_CONF" ]] || return 0
+  if rg -q '^[[:space:]]*font_family[[:space:]]' "$KITTY_CONF"; then
+    # Keep spacing style loosely; replace the value only.
+    python3 - "$KITTY_CONF" "$family" <<'PY'
+import pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+family = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+new, n = re.subn(
+    r'(?m)^([ \t]*font_family[ \t]+).*$',
+    r'\1' + family,
+    text,
+    count=1,
+)
+if n:
+    path.write_text(new, encoding="utf-8")
+PY
+  else
+    printf '\nfont_family %s\n' "$family" >>"$KITTY_CONF"
+  fi
+
+  # Live instances: kitty has no set-font-family; reload conf after the write.
+  # listen_on unix:/tmp/kitty becomes /tmp/kitty-<pid> when the base path is taken.
+  local -A seen=()
+  local to sock
+  for to in ${KITTY_LISTEN_ON:+"$KITTY_LISTEN_ON"} \
+            /tmp/kitty \
+            /tmp/kitty-* \
+            "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/kitty*; do
+    case "$to" in
+      unix:*) ;;
+      /*)
+        [[ -S "$to" ]] || continue
+        to="unix:$to"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+    [[ -z "${seen[$to]:-}" ]] || continue
+    seen[$to]=1
+    kitty @ --to "$to" load-config 2>/dev/null || true
+  done
+}
+
+curated_fonts() {
+  # label|family — Berkeley stays listed; set refuses if missing.
+  cat <<'EOF'
+JetBrains Mono|JetBrainsMono Nerd Font
+Fira Code|FiraCode Nerd Font
+Cascadia Mono|CaskaydiaCove Nerd Font
+Monocraft|Monocraft
+Berkeley Mono|Berkeley Mono
+EOF
+}
+
+cmd_list() {
+  local line label family
+  while IFS='|' read -r label family; do
+    [[ -n "$family" ]] || continue
+    if font_installed "$family"; then
+      printf '%s\t%s\n' "$label" "$family"
+    fi
+  done < <(curated_fonts)
+}
+
+cmd_set() {
+  local family="${1:-}"
+  [[ -n "$family" ]] || {
+    usage >&2
+    exit 2
+  }
+  if ! font_installed "$family"; then
+    notify "Font not installed: $family" critical
+    printf 'font not installed: %s\n' "$family" >&2
+    exit 1
+  fi
+  write_family "$family"
+  update_kitty "$family"
+  # Theme.qml FileView watches font.json; qs reload is a belt-and-suspenders nudge.
+  qs -c "$HOME/.config/quickshell" ipc call theme reload 2>/dev/null || true
+  notify "Active font: $family"
+}
+
+main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    get|current)
+      shift || true
+      [[ "$#" -eq 0 ]] || { usage >&2; exit 2; }
+      read_family
+      ;;
+    set)
+      shift || true
+      cmd_set "${1:-}"
+      ;;
+    list)
+      shift || true
+      [[ "$#" -eq 0 ]] || { usage >&2; exit 2; }
+      cmd_list
+      ;;
+    -h|--help|help|"")
+      usage
+      [[ -n "$cmd" ]]
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"

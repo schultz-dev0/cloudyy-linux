@@ -1,0 +1,27 @@
+:root {
+  --online-indicator: #327a4b;
+  --dnd-indicator: #bb3d56;
+  --idle-indicator: #976008;
+  --streaming-indicator: #22749c;
+  --accent-1: #6a5bb8;
+  --accent-2: #0f7a80;
+  --accent-3: #0f7a80;
+  --accent-4: #d8e5f7;
+  --accent-5: #2f6fb0;
+  --accent-new: #2f6fb0;
+  --mention: #e8f3fe;
+  --mention-hover: #d8e5f7;
+  --text-0: #f4f9ff;
+  --text-1: #2a3d45;
+  --text-2: #2a3d45;
+  --text-3: #5b7282;
+  --text-4: #5b7282;
+  --text-5: #aac3cf;
+  --bg-1: #aac3cf;
+  --bg-2: #d8e5f7;
+  --bg-3: #e8f3fe;
+  --bg-4: #f4f9ff;
+  --hover: #d8e5f7;
+  --active: #d8e5f7;
+  --message-hover: #d8e5f7;
+}

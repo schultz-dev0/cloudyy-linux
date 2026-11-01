@@ -1,0 +1,27 @@
+:root {
+  --online-indicator: #b0b0b0;
+  --dnd-indicator: #ffffff;
+  --idle-indicator: #d6d6d6;
+  --streaming-indicator: #8a8a8a;
+  --accent-1: #c9c9c9;
+  --accent-2: #ffffff;
+  --accent-3: #ffffff;
+  --accent-4: #1a1a1a;
+  --accent-5: #9a9a9a;
+  --accent-new: #9a9a9a;
+  --mention: #0d0d0d;
+  --mention-hover: #1a1a1a;
+  --text-0: #050505;
+  --text-1: #f2f2f2;
+  --text-2: #f2f2f2;
+  --text-3: #888888;
+  --text-4: #888888;
+  --text-5: #2a2a2a;
+  --bg-1: #2a2a2a;
+  --bg-2: #1a1a1a;
+  --bg-3: #0d0d0d;
+  --bg-4: #050505;
+  --hover: #1a1a1a;
+  --active: #1a1a1a;
+  --message-hover: #1a1a1a;
+}
