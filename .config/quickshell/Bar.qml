@@ -19,6 +19,7 @@ import "modules/calendar" as QuickCalendar
 import "modules/idle" as QuickIdle
 import "modules/notifpanel" as QuickNotifPanel
 import "modules/audio" as QuickAudio
+import "modules/tray" as QuickTray
 import "Readout.js" as Readout
 import "ShellEdges.js" as ShellEdges
 
@@ -771,6 +772,15 @@ PanelWindow {
             fg: bar.barFgMuted
             bg: Qt.rgba(0,0,0,0)
             hoverable: false
+        }
+
+        // System tray drawer
+        QuickTray.TrayDrawer {
+            window: bar
+            vertical: bar.vertical
+            cross: bar.vertical ? bar.thickness - bar.pillPadV * 2 : bar.barHeight - bar.pillPadV * 2
+            fg: bar.barFgStrong
+            fgMuted: bar.barFgMuted
         }
 
         // Network
