@@ -7,6 +7,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.SystemTray
 import "../.."
+import "../../overview/services"
 
 Item {
     id: root
@@ -28,6 +29,103 @@ Item {
 
     visible: count > 0
     onCountChanged: if (count === 0) open = false
+
+    // ── Tray item -> window ──────────────────────────────────────────────
+    // Tray items don't expose a window or pid, so match by name: the item's
+    // id / title / tooltip tokens against each window's class ("trcc" ->
+    // "trcc-linux", "openrgb" -> "org.openrgb.OpenRGB").
+    function norm(s) {
+        return `${s ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+    }
+
+    function nameTokens(item) {
+        const tokens = [];
+        const sources = [item.id, item.title, item.tooltipTitle];
+        for (const src of sources) {
+            const raw = `${src ?? ""}`;
+            if (!raw.length)
+                continue;
+            for (const part of [raw].concat(raw.split(/[_.\s]+/))) {
+                const t = norm(part);
+                if (t.length >= 3 && tokens.indexOf(t) < 0)
+                    tokens.push(t);
+            }
+        }
+        return tokens;
+    }
+
+    function windowFor(item) {
+        const tokens = nameTokens(item);
+        if (!tokens.length)
+            return null;
+        const windows = (HyprlandData.windowList || []).filter(w => w.mapped !== false);
+        let best = null;
+        let bestScore = 0;
+        for (const w of windows) {
+            const cls = norm(w.class || w.initialClass);
+            if (!cls.length)
+                continue;
+            let score = 0;
+            for (const t of tokens) {
+                if (cls === t)
+                    score = Math.max(score, 3);
+                else if (cls.indexOf(t) >= 0 || (cls.length >= 4 && t.indexOf(cls) >= 0))
+                    score = Math.max(score, 2);
+            }
+            // Ties go to the most recently focused window.
+            if (score > bestScore || (score === bestScore && score > 0 && best
+                    && (w.focusHistoryID ?? 9999) < (best.focusHistoryID ?? 9999))) {
+                best = w;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    function showMenu(item, x, y) {
+        if (item.hasMenu)
+            item.display(root.window, x, y);
+    }
+
+    // Left click: jump to the app's window if it has one (switches workspace,
+    // including special ones). Otherwise ask the app to open itself, then
+    // follow its new window, or fall back to its menu if nothing appeared.
+    function activateItem(item, x, y) {
+        const win = windowFor(item);
+        if (win) {
+            HyprDispatch.focusWindow(win);
+            return;
+        }
+        if (item.onlyMenu) {
+            showMenu(item, x, y);
+            return;
+        }
+        pending.item = item;
+        pending.x = x;
+        pending.y = y;
+        item.activate();
+        HyprlandData.updateAll();
+        pending.restart();
+    }
+
+    Timer {
+        id: pending
+        property var item: null
+        property real x: 0
+        property real y: 0
+        interval: 900
+        onTriggered: {
+            const item = pending.item;
+            pending.item = null;
+            if (!item)
+                return;
+            const win = root.windowFor(item);
+            if (win)
+                HyprDispatch.focusWindow(win);
+            else
+                root.showMenu(item, x, y);
+        }
+    }
 
     Behavior on drawerLen {
         NumberAnimation {
@@ -84,11 +182,10 @@ Item {
                             const p = mapToItem(null, width / 2, height);
                             if (mouse.button === Qt.MiddleButton)
                                 item.secondaryActivate();
-                            else if (mouse.button === Qt.RightButton || item.onlyMenu) {
-                                if (item.hasMenu)
-                                    item.display(root.window, p.x, p.y);
-                            } else
-                                item.activate();
+                            else if (mouse.button === Qt.RightButton)
+                                root.showMenu(item, p.x, p.y);
+                            else
+                                root.activateItem(item, p.x, p.y);
                         }
                         onWheel: wheel => cell.modelData.scroll(wheel.angleDelta.y, false)
                     }
